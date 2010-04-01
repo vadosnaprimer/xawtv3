@@ -54,6 +54,7 @@ webcam_writer(void *arg)
 	sprintf(tmpfilename,"%s.$$$",web->filename);
 	switch (fmt->fmtid) {
 	case VIDEO_MJPEG:
+	case VIDEO_JPEG:
 	    if (-1 == (fd = open(tmpfilename,O_CREAT|O_WRONLY,0666))) {
 		fprintf(stderr,"open(%s): %s\n",tmpfilename,
 			strerror(errno));

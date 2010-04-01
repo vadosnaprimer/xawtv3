@@ -178,7 +178,7 @@ static const struct ng_format_list qt_vformats[] = {
     },{
 	name:  "jpeg",
 	ext:   "mov",
-	fmtid: VIDEO_MJPEG,
+	fmtid: VIDEO_JPEG,
 	priv:  &qt_jpeg,
     },{
 	name:  "mjpa",
@@ -201,11 +201,27 @@ static const struct qt_audio_priv qt_mono8 = {
     codec:     QUICKTIME_RAW,
     libencode: 0,
 };
+static const struct qt_audio_priv qt_mono16 = {
+    codec:	QUICKTIME_TWOS,
+    libencode:	0,
+};
+static const struct qt_audio_priv qt_stereo = {
+    codec:	QUICKTIME_TWOS,
+    libencode:	0,
+};
 static const struct ng_format_list qt_aformats[] = {
     {
 	name:  "mono8",
 	fmtid: AUDIO_U8_MONO,
 	priv:  &qt_mono8,
+    },{
+        name:  "mono16",
+	fmtid: AUDIO_S16_BE_MONO,
+	priv:  &qt_mono16,
+    },{
+        name:  "stereo",
+	fmtid: AUDIO_S16_BE_STEREO,
+	priv:  &qt_stereo,
     },{
 	/* EOF */
     }

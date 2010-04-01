@@ -262,11 +262,12 @@ void do_capture(int from, int to)
     /* off */
     switch (from) {
     case CAPTURE_GRABDISPLAY:
-	if (grabber->grab_stop)
-	    grabber->grab_stop();
+	if (f_drv & CAN_CAPTURE)
+	    drv->stopvideo(h_drv);
 	break;
     case CAPTURE_OVERLAY:
-	grabber->grab_overlay(0,0,0,0,0,NULL,0);
+	if (f_drv & CAN_CAPTURE)
+	    drv->overlay(h_drv,NULL,0,0,NULL,0);
 	if (matrox)
 	    gfx_scaler_off();
 	break;
@@ -300,8 +301,8 @@ void do_capture(int from, int to)
 	    dx += (fb_var.xres-24-buf.fmt.width)/2;
 	    dy += (fb_var.yres-16-buf.fmt.height)/2;
 	}
-	if (grabber->grab_start)
-	    grabber->grab_start(-1,2);
+	if (f_drv & CAN_CAPTURE)
+	    drv->startvideo(h_drv,-1,2);
 	buf.data = fb_mem +
 	    dy * fb_fix.line_length +
 	    dx * ((fb_var.bits_per_pixel+7)/8);
@@ -324,30 +325,32 @@ void do_capture(int from, int to)
 	    dx = 24;
 	    dy = 16;
 	}
-	if (matrox && grabber->grab_offscreen) {
-	    int width,height,starty,pitch;
+	if (matrox) {
+	    struct ng_video_fmt off;
+	    int starty;
 #if 1
 	    /* FIXME: need some kind of size negotiation */
 	    /* hardcoded: PAL, half height (want no interleace) */
-	    width  = 768;
-	    height = 288;
+	    off.width  = 768;
+	    off.height = 288;
 	    starty = fb_var.yres;
 #else
 	    /* settings for debugging */
-	    width  = 320;
-	    height = 240;
+	    off.width  = 320;
+	    off.height = 240;
 	    starty = fb_var.yres-height;
 #endif
-	    if (width*2 > fb_fix.line_length)
-		width = fb_fix.line_length/2;
-	    pitch = fb_fix.line_length;
-	    grabber->grab_offscreen(starty,width,height,VIDEO_YUV422);
-	    gfx_scaler_on(starty*pitch,pitch,width,height,
+	    off.bytesperline = fb_fix.line_length;
+	    if (off.width*2 > off.bytesperline)
+		off.width = off.bytesperline/2;
+	    off.fmtid = VIDEO_YUV422;
+	    drv->overlay(h_drv,&off,0,starty,NULL,0);
+	    gfx_scaler_on(starty*off.bytesperline,off.bytesperline,
+			  off.width,off.height,
 			  dx,dx+buf.fmt.width,
 			  dy,dy+buf.fmt.height);
 	} else {
-	    grabber->grab_overlay(dx, dy, buf.fmt.width, buf.fmt.height,
-				  buf.fmt.fmtid, NULL, 0);
+	    drv->overlay(h_drv,&buf.fmt,dx,dy,NULL,0);
 	}
 	break;
     }
@@ -407,12 +410,20 @@ do_fullscreen(void)
 static void
 grabber_init(void)
 {
-    grabber_open(device,
-		 fb_var.xres_virtual,
-		 fb_var.yres_virtual,
-		 fb_fix.smem_start,
-		 x11_native_format,
-		 fb_fix.line_length);
+    struct ng_video_fmt screen;
+
+    memset(&screen,0,sizeof(screen));
+    screen.fmtid        = x11_native_format,
+    screen.width        = fb_var.xres_virtual;
+    screen.height       = fb_var.yres_virtual;
+    screen.bytesperline = fb_fix.line_length;
+    drv = ng_grabber_open(device,NULL,0,&h_drv);
+    if (NULL == drv) {
+	fprintf(stderr,"no grabber device available\n");
+	exit(1);
+    }
+    f_drv = drv->capabilities(h_drv);
+    a_drv = drv->list_attrs(h_drv);
 }
 
 void
@@ -572,7 +583,7 @@ main(int argc, char *argv[])
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
     } else {
-	if (grabber->grab_tune && 0 != (freq = grabber->grab_tune(-1,-1))) {
+	if ((f_drv & CAN_TUNE) && 0 != (freq = drv->getfreq(h_drv))) {
 	    for (i = 0; i < chancount; i++)
 		if (chanlist[i].freq == freq*1000/16) {
 		    do_va_cmd(2,"setchannel",chanlist[i].name);
@@ -630,7 +641,7 @@ main(int argc, char *argv[])
 		FD_SET(lirc,&set);
 	    if (cur_capture == CAPTURE_GRABDISPLAY) {
 		fps++;
-		ng_grabber_capture(&buf);
+		ng_grabber_capture(&buf,0);
 		tv.tv_sec  = 0;
 		tv.tv_usec = 0;
 		rc = select(MAX(0,lirc)+1,&set,NULL,NULL,&tv);
@@ -713,7 +724,7 @@ main(int argc, char *argv[])
     }
     do_va_cmd(2,"capture","off");
     audio_off();
-    grabber->grab_close();
+    drv->close(h_drv);
     fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
     /* parent will clean up */
     exit(0);

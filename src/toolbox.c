@@ -25,7 +25,7 @@
 #include <X11/Xaw/Viewport.h>
 
 #include "config.h"
-#include "grab.h"
+#include "grab-ng.h"
 #include "toolbox.h"
 #include "wmhooks.h"
 

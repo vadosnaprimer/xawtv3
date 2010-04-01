@@ -1,4 +1,18 @@
 
+3.30 => 3.31 [non-public release]
+=================================
+
+  * Got a few pointers for malloc debuggers (http://www.dmalloc.com,
+    http://freshmeat.net/projects/njamd/,
+    http://www.cbmamiga.demon.co.uk/mpatrol).  Thanks to all, I'll
+    have a look next time I need one...
+  * started rewriting the driver interfaces (new attribute handling,
+    switch over to grab-ng.h structs + interfaces).  v4l and Xvideo
+    are ported and passed brief testing, v4l2 + bsd are temporarely
+    broken.
+  * some jpeg/mjpeg compression fiddeling.
+
+
 3.29 => 3.30
 ============
 

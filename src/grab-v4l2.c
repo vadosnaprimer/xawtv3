@@ -28,8 +28,9 @@
 
 #include "grab-ng.h"
 
-#ifndef __linux__
-struct GRABBER grab_v4l2 = {};
+/* #ifndef __linux__ */
+#if 1
+struct ng_driver v4l2_driver;
 #else /* __linux__ */
 
 #include <asm/types.h>		/* XXX glibc */

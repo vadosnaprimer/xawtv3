@@ -387,14 +387,16 @@ x11_create_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
 int        x11_native_format;
 int        swidth,sheight;                         /* screen  */
 
+/* window  */
 static Widget    video,video_parent;
-static int       wx, wy, wwidth,wheight,wmap;      /* window  */
+static int       wx, wy, wmap;
+static struct ng_video_fmt wfmt;
 
-static set_overlay           overlay_cb;
 static XtIntervalId          overlay_refresh;
 static int                   did_refresh, oc_count;
 static int                   visibility = VisibilityFullyObscured;
-static int                   conf = 1, move = 1, overlay_on = 0;
+static int                   conf = 1, move = 1;
+static int                   overlay_on = 0, overlay_enabled = 0;
 static struct OVERLAY_CLIP   oc[32];
 
 /* ------------------------------------------------------------------------ */
@@ -469,13 +471,13 @@ get_clips(void)
     dpy = DISPLAY(video);
 
     if (wx<0)
-	add_clip(0, 0, (uint)(-wx), wheight);
+	add_clip(0, 0, (uint)(-wx), wfmt.height);
     if (wy<0)
-	add_clip(0, 0, wwidth, (uint)(-wy));
-    if ((wx+wwidth) > swidth)
-	add_clip(swidth-wx, 0, wwidth, wheight);
-    if ((wy+wheight) > sheight)
-	add_clip(0, sheight-wy, wwidth, wheight);
+	add_clip(0, 0, wfmt.width, (uint)(-wy));
+    if ((wx+wfmt.width) > swidth)
+	add_clip(swidth-wx, 0, wfmt.width, wfmt.height);
+    if ((wy+wfmt.height) > sheight)
+	add_clip(0, sheight-wy, wfmt.width, wfmt.height);
     
     root=DefaultRootWindow(dpy);
     me = WINDOW(video);
@@ -502,13 +504,14 @@ get_clips(void)
 	y1=wts.y-wy;
 	x2=x1+wts.width+2*wts.border_width;
 	y2=y1+wts.height+2*wts.border_width;
-	if ((x2 < 0) || (x1 > (int)wwidth) || (y2 < 0) || (y1 > (int)wheight))
+	if ((x2 < 0) || (x1 > (int)wfmt.width) ||
+	    (y2 < 0) || (y1 > (int)wfmt.height))
 	    continue;
 	
-	if (x1<0)      	     x1=0;
-	if (y1<0)            y1=0;
-	if (x2>(int)wwidth)  x2=wwidth;
-	if (y2>(int)wheight) y2=wheight;
+	if (x1<0)      	         x1=0;
+	if (y1<0)                y1=0;
+	if (x2>(int)wfmt.width)  x2=wfmt.width;
+	if (y2>(int)wfmt.height) y2=wfmt.height;
 	add_clip(x1, y1, x2, y2);
     }
     XFree((char *) children);
@@ -555,12 +558,12 @@ refresh_timer(XtPointer clientData, XtIntervalId *id)
 static void
 configure_overlay(void)
 {
-    if (!overlay_cb)
+    if (!overlay_enabled)
 	return;
 
     if (have_xv) {
-	if (wwidth && wheight)
-	    xv_video(XtWindow(video),wwidth,wheight,1);
+	if (wfmt.width && wfmt.height)
+	    xv_video(XtWindow(video),wfmt.width,wfmt.height,1);
 	return;
     }
 
@@ -576,8 +579,8 @@ configure_overlay(void)
 	    fprintf(stderr," %s\n",conf ? "yes" : "no");
 	if (conf) {
 	    overlay_on = 1;
-	    overlay_cb(wx,wy,wwidth,wheight,
-		       x11_native_format,oc,oc_count);
+	    if (f_drv & CAN_OVERLAY)
+		drv->overlay(h_drv,&wfmt,wx,wy,oc,oc_count);
 	    if (overlay_refresh)
 		DEL_TIMER(overlay_refresh);
 	    overlay_refresh = ADD_TIMER(refresh_timer);
@@ -588,7 +591,8 @@ configure_overlay(void)
 	    fprintf(stderr," off\n");
 	if (conf && overlay_on) {
 	    overlay_on = 0;
-	    overlay_cb(0,0,0,0,0,NULL,0);
+	    if (f_drv & CAN_OVERLAY)
+		drv->overlay(h_drv,NULL,0,0,NULL,0);
 	    if (overlay_refresh)
 		DEL_TIMER(overlay_refresh);
 	    overlay_refresh = ADD_TIMER(refresh_timer);
@@ -604,13 +608,13 @@ video_new_size()
 
     XtVaGetValues(video_parent, XtNx, &x, XtNy, &y,
 		  XtNwidth, &w, XtNheight, &h, NULL);
-    wx      = x; if (wx > 32768)      wx      -= 65536;
-    wy      = y; if (wy > 32768)      wy      -= 65536;
-    wwidth  = w; if (wwidth > 32768)  wwidth  -= 65536;
-    wheight = h; if (wheight > 32768) wheight -= 65536;
+    wx          = x; if (wx > 32768)          wx          -= 65536;
+    wy          = y; if (wy > 32768)          wy          -= 65536;
+    wfmt.width  = w; if (wfmt.width > 32768)  wfmt.width  -= 65536;
+    wfmt.height = h; if (wfmt.height > 32768) wfmt.height -= 65536;
     if (debug > 1)
 	fprintf(stderr,"video: shell: size %dx%d+%d+%d\n",
-		wwidth,wheight,wx,wy);
+		wfmt.width,wfmt.height,wx,wy);
 
     conf = 1;
     move = 1;
@@ -720,24 +724,24 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 }
 
 void
-video_overlay(set_overlay cb)
+video_overlay(int state)
 {
-    if (cb) {
-	overlay_cb = cb;
+    if (state) {
 	conf = 1;
 	configure_overlay();
     } else {
-	if (overlay_cb) {
+	if (1 == overlay_enabled) {
 	    if (have_xv) {
 		xv_video(XtWindow(video),0,0,0);
 	    } else {
 		overlay_on = 0;
-		overlay_cb(0,0,0,0,0,NULL,0);
+		if (f_drv & CAN_OVERLAY)
+		    drv->overlay(h_drv,NULL,0,0,NULL,0);
 		overlay_refresh = ADD_TIMER(refresh_timer);
 	    }
 	}
-	overlay_cb = NULL;
     }
+    overlay_enabled = state;
 }
 
 Widget

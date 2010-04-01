@@ -22,7 +22,8 @@
 # include <X11/extensions/Xvlib.h>
 #endif
 
-#include "grab.h"
+#include "grab-ng.h"
+#include "commands.h"    /* FIXME: global *drv vars */
 #include "xv.h"
 
 #ifndef HAVE_LIBXV
@@ -43,12 +44,12 @@ void xv_video(Window win, int width, int height, int on) {}
 extern Display    *dpy;
 int               have_xv;
 int               have_xv_scale;
-int               vi_adaptor = -1, vi_port = -1;
 int               im_adaptor = -1, im_port = -1;
+
+const struct ng_driver xv_driver;
 
 static int              ver, rel, req, ev, err;
 static int              adaptors;
-static int              encodings;
 static int              attributes;
 static int              formats;
 static unsigned int     im_format;
@@ -57,34 +58,8 @@ static XvEncodingInfo       *ei;
 static XvAttribute          *at;
 static XvImageFormatValues  *fo;
 
-static Atom xv_encoding   = None;
-static Atom xv_color      = None;
-static Atom xv_hue        = None;
-static Atom xv_saturation = None;
-static Atom xv_brightness = None;
-static Atom xv_contrast   = None;
-static Atom xv_freq       = None;
-static Atom xv_mute       = None;
-static Atom xv_volume     = None;
-static Atom xv_colorkey   = None;
-
-static struct STRTAB *norms;
-static struct STRTAB *inputs;
-static int my_norm=-1, my_input=-1, my_enc=-1;
-
-static struct ENC_MAP {
-    int norm;
-    int input;
-    int encoding;
-} *enc_map;
-
-static struct GRABBER xv = {
-    "Xvideo",
-    0,
-};
-
 static int
-xv_overlay(int x, int y, int width, int height, int format,
+xv_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	   struct OVERLAY_CLIP *oc, int count)
 {
     if (debug)
@@ -94,154 +69,198 @@ xv_overlay(int x, int y, int width, int height, int format,
 
 /* ********************************************************************* */
 
-static struct XVATTR {
-    int    id;
-    Atom  *attr;
-    int    isint;
-} xvattr[] = {
-    { GRAB_ATTR_VOLUME,    &xv_volume,     1 },
-    { GRAB_ATTR_MUTE,      &xv_mute,       0 },
-#if 0
-    { GRAB_ATTR_MODE,      &xv,            0 },
-#endif
-    { GRAB_ATTR_COLOR,     &xv_color,      1 },
-    { GRAB_ATTR_BRIGHT,    &xv_brightness, 1 },
-    { GRAB_ATTR_HUE,       &xv_hue,        1 },
-    { GRAB_ATTR_CONTRAST,  &xv_contrast,   1 },
+struct ENC_MAP {
+    int norm;
+    int input;
+    int encoding;
 };
 
-#define NUM_ATTR (sizeof(xvattr)/sizeof(struct XVATTR))
-
-/* map: 0 - 65536  =>  -1000 - 1000 */
-static int me_to_xv(int val) {
-    val = val * 2000 / 65536 - 1000;
-    if (val < -1000)  val = -1000;
-    if (val >  1000)  val =  1000;
-    return val;
-}
-
-/* map: 0 - 65536  <=  -1000 - 1000 */
-static int xv_to_me(int val) {
-    val = (val+1000) * 65536 / 2000;
-    if (val < 0)      val = 0;
-    if (val > 65535)  val = 65535;
-    return val;
-}
-
-static int
-xv_hasattr(int id)
-{
-    int i;
-
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == xvattr[i].id && *(xvattr[i].attr) != None)
-	    break;
-    if (i == NUM_ATTR)
-	return 0;
-    return 1;
-}
-
-static int
-xv_getattr(int id)
-{
-    int i,val;
+struct xv_handle {
+    /* port */
+    int                  vi_adaptor;
+    XvPortID             vi_port;
+    GC                   vi_gc;
     
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == xvattr[i].id && *(xvattr[i].attr) != None)
-	    break;
-    if (i == NUM_ATTR)
-	return -1;
-    if (debug)
-	fprintf(stderr,"Xv: getattr %d\n",i);
+    /* attributes */
+    int                  nattr;
+    struct ng_attribute  *attr;
+    Atom xv_encoding;
+    Atom xv_freq;
+    Atom xv_colorkey;
 
-    XvGetPortAttribute(dpy,vi_port,*(xvattr[i].attr),&val);
-    switch (id) {
-    case GRAB_ATTR_MUTE:
-	return val;
-    default:
-	return xv_to_me(val);
-    }
-}
+    /* encoding */
+    struct ENC_MAP       *enc_map;
+    int                  norm, input, enc;
+    int                  encodings;
+};
 
-static int
-xv_setattr(int id, int val)
-{
-    int i,xv;
-    
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == xvattr[i].id && *(xvattr[i].attr) != None)
-	    break;
-    if (i == NUM_ATTR)
-	return -1;
+static const struct XVATTR {
+    int   id;
+    int   type;
+    char  *atom;
+    char  *name;
+} xvattr[] = {
+    { ATTR_ID_COLOR,    ATTR_TYPE_INTEGER, "XV_COLOR"       "color"    },
+    { ATTR_ID_HUE,      ATTR_TYPE_INTEGER, "XV_HUE",        "hue"      },
+    { ATTR_ID_BRIGHT,   ATTR_TYPE_INTEGER, "XV_BRIGHTNESS", "bright"   },
+    { ATTR_ID_CONTRAST, ATTR_TYPE_INTEGER, "XV_CONTRAST",   "contrast" },
+    { ATTR_ID_MUTE,     ATTR_TYPE_BOOL,    "XV_MUTE",       "mute"     },
+    { ATTR_ID_VOLUME,   ATTR_TYPE_INTEGER, "XV_VOLUME",     "volume"   },
+    { -1,               -1,                "XV_COLORKEY",   NULL       },
+    { -1,               -1,                "XV_FREQ",       NULL       },
+    { -1,               -1,                "XV_ENCODING",   NULL       },
+    {}
+};
 
-    switch (id) {
-    case GRAB_ATTR_MUTE:
-	xv = val;
-	break;
-    default:
-	xv = me_to_xv(val);
-	break;
-    }
-    XvSetPortAttribute(dpy,vi_port,*(xvattr[i].attr),xv);
-    return 0;
-}
-
-/* ********************************************************************* */
-
-static int
-xv_input(int input, int norm)
+static void
+xv_add_attr(struct xv_handle *h, int id, int type, char *name,
+	    int defval, struct STRTAB *choices, XvAttribute *at)
 {
     int i;
     
-    if (-1 != norm)
-	my_norm  = norm;
-    if (-1 != input)
-	my_input = input;
-    for (i = 0; i < encodings; i++) {
-	if (enc_map[i].norm  == my_norm &&
-	    enc_map[i].input == my_input) {
-	    my_enc = i;
-	    XvSetPortAttribute(dpy,vi_port,xv_encoding,enc_map[i].encoding);
-	    return 0;
+    h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
+    memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
+    if (at) {
+	h->attr[h->nattr].priv    = at;
+	for (i = 0; xvattr[i].atom != NULL; i++)
+	    if (0 == strcmp(xvattr[i].atom,at->name))
+		break;
+	if (NULL == xvattr[i].name)
+	    /* ignore this one*/
+	    return;
+	if (NULL != xvattr[i].atom) {
+	    h->attr[h->nattr].id      = xvattr[i].id;
+	    h->attr[h->nattr].type    = xvattr[i].type;
+	    h->attr[h->nattr].name    = xvattr[i].name;
+	    h->attr[h->nattr].priv    = at;
+	} else {
+	    /* unknown */
+	    return;
 	}
     }
-    return 0;
+
+    if (id)
+	h->attr[h->nattr].id      = id;
+    if (type)
+	h->attr[h->nattr].type    = type;
+    if (name)
+	h->attr[h->nattr].name    = name;
+    if (defval)
+	h->attr[h->nattr].defval  = defval;
+    if (choices)
+	h->attr[h->nattr].choices = choices;
+
+    h->nattr++;
+}
+
+static int xv_read_attr(void *handle, struct ng_attribute *attr)
+{
+    struct xv_handle *h  = handle;
+    XvAttribute      *at = attr->priv;
+    Atom atom;
+    int range, value = 0;
+
+    if (NULL != at) {
+	atom = XInternAtom(dpy, at->name, False);
+	XvGetPortAttribute(dpy, h->vi_port,atom,&value);
+	if (ATTR_TYPE_INTEGER == attr->type) {
+	    range = at->max_value - at->min_value;
+	    value = (value + at->min_value) * 65536 / range ;
+	    if (value < 0)      value = 0;
+	    if (value > 65535)  value = 65535;
+	}
+	if (debug)
+	    fprintf(stderr,"xv: get %s: %d\n",at->name,value);
+	
+    } else if (attr->id == ATTR_ID_NORM) {
+	value = h->norm;
+	
+    } else if (attr->id == ATTR_ID_INPUT) {
+	value = h->input;
+
+    }
+    return value;
+}
+
+static void xv_write_attr(void *handle, struct ng_attribute *attr, int value)
+{
+    struct xv_handle *h  = handle;
+    XvAttribute      *at = attr->priv;
+    Atom atom;
+    int range,i;
+
+    if (NULL != at) {
+	atom = XInternAtom(dpy, at->name, False);
+	if (ATTR_TYPE_INTEGER == attr->type) {
+	    range = at->max_value - at->min_value;
+	    value = value * range / 65536 + at->min_value;
+	    if (value < at->min_value)  value = at->min_value;
+	    if (value > at->max_value)  value = at->max_value;
+	}
+	XvSetPortAttribute(dpy, h->vi_port,atom,value);
+	if (debug)
+	    fprintf(stderr,"xv: set %s: %d\n",at->name,value);
+
+    } else if (attr->id == ATTR_ID_NORM || attr->id == ATTR_ID_INPUT) {
+	if (attr->id == ATTR_ID_NORM)
+	    h->norm  = value;
+	if (attr->id == ATTR_ID_INPUT)
+	    h->input = value;
+	for (i = 0; i < h->encodings; i++) {
+	    if (h->enc_map[i].norm  == h->norm &&
+		h->enc_map[i].input == h->input) {
+		h->enc = i;
+		XvSetPortAttribute(dpy,h->vi_port,h->xv_encoding,h->enc);
+		break;
+	    }
+	}
+    }
 }
 
 static unsigned long
-xv_tune(unsigned long freq, int sat)
+xv_getfreq(void *handle)
 {
-    int f;
+    struct xv_handle *h = handle;
+    unsigned int freq;
 
-    if (-1 == freq) {
-	if (debug)
-	    fprintf(stderr,"Xv: tune getfreq\n");
-	XvGetPortAttribute(dpy,vi_port,xv_freq,&f);
-	return f;
-    }
-    XvSetPortAttribute(dpy,vi_port,xv_freq,freq);
+    XvGetPortAttribute(dpy,h->vi_port,h->xv_freq,&freq);
+    return freq;
+}
+
+static void
+xv_setfreq(void *handle, unsigned long freq)
+{
+    struct xv_handle *h = handle;
+
+    XvSetPortAttribute(dpy,h->vi_port,h->xv_freq,freq);
+}
+
+static int
+xv_tuned(void *handle)
+{
+    /* don't know ... */
     return 0;
 }
 
 void
 xv_video(Window win, int width, int height, int on)
 {
-    static GC gc;
+    struct xv_handle *h = h_drv; /* FIXME */
     
     if (debug)
 	fprintf(stderr,"Xv: video: win=0x%lx, size=%dx%d, %s\n",
 		win, width, height, on ? "on" : "off");
     if (on) {
-	int w = width, h = height;
-	if (-1 != my_enc) {
-	    w = ei[my_enc].width;
-	    h = ei[my_enc].height;
+	int ww = width, hh = height;
+	if (-1 != h->enc) {
+	    ww = ei[h->enc].width;
+	    hh = ei[h->enc].height;
 	}
-	if (!gc)
-	    gc = XCreateGC(dpy, win, 0, NULL);
-	XvPutVideo(dpy,vi_port,win,gc,0,0,w,h,0,0,width,height);
+	if (NULL == h->vi_gc)
+	    h->vi_gc = XCreateGC(dpy, win, 0, NULL);
+	XvPutVideo(dpy,h->vi_port,win,h->vi_gc,0,0,ww,hh,0,0,width,height);
     } else {
-	XvStopVideo(dpy,vi_port,win);
+	XvStopVideo(dpy,h->vi_port,win);
     }
 }
 
@@ -264,6 +283,25 @@ xv_strlist_add(struct STRTAB **tab, char *str)
     (*tab)[i+1].nr  = -1;
     (*tab)[i+1].str = NULL;
     return i;
+}
+
+static int xv_close(void *handle) { return 0; }
+
+static int xv_flags(void *handle)
+{
+    struct xv_handle *h = handle;
+    int ret = 0;
+
+    ret |= CAN_OVERLAY;
+    if (h->xv_freq != None)
+	ret |= CAN_TUNE;
+    return ret;
+}
+
+static struct ng_attribute* xv_attrs(void *handle)
+{
+    struct xv_handle *h  = handle;
+    return h->attr;
 }
 
 /* ********************************************************************* */
@@ -312,8 +350,11 @@ xv_destroy_ximage(Display *dpy, XvImage * xvimage, void *shm)
 
 void xv_init(int xvideo, int hwscale, int port)
 {
+    struct xv_handle *handle;
+    struct STRTAB *norms  = NULL;
+    struct STRTAB *inputs = NULL;
     char *h;
-    int i;
+    int i, vi_port = -1, vi_adaptor = -1;
     
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
 	if (debug)
@@ -367,35 +408,33 @@ void xv_init(int xvideo, int hwscale, int port)
 	    fprintf(stderr,"Xv: no usable video port found\n");
     } else {
 	fprintf(stderr,"Xv: using port %d for video\n",vi_port);
-	have_xv = 1;
-	xv.grab_overlay = xv_overlay;
-	grabber = &xv;
-	
+	handle = malloc(sizeof(struct xv_handle));
+	memset(handle,0,sizeof(struct xv_handle));
+	handle->vi_port     = vi_port;
+	handle->vi_adaptor  = vi_adaptor;
+	handle->xv_encoding = None;
+	handle->xv_freq     = None;
+	handle->xv_colorkey = None;
+	handle->enc         = -1;
+	handle->norm        = -1;
+	handle->input       = -1;
+
 	/* query encoding list */
-	if (Success != XvQueryEncodings(dpy, vi_port, &encodings, &ei)) {
+	if (Success != XvQueryEncodings(dpy, vi_port,
+					&handle->encodings, &ei)) {
 	    fprintf(stderr,"Oops: XvQueryEncodings failed\n");
 	    exit(1);
 	}
-	enc_map = malloc(sizeof(*enc_map)*encodings);
-	for (i = 0; i < encodings; i++) {
-#if 1
+	handle->enc_map = malloc(sizeof(struct ENC_MAP)*handle->encodings);
+	for (i = 0; i < handle->encodings; i++) {
 	    if (NULL != (h = strrchr(ei[i].name,'-'))) {
 		*(h++) = 0;
-		enc_map[i].input = xv_strlist_add(&inputs,h);
+		handle->enc_map[i].input = xv_strlist_add(&inputs,h);
 	    }
-	    enc_map[i].norm = xv_strlist_add(&norms,ei[i].name);
-	    enc_map[i].encoding = ei[i].encoding_id;
-#else
-	    if (2 == sscanf(ei[i].name,"%31[^-]-%31s",norm,input)) {
-                enc_map[i].norm     = xv_strlist_add(&norms,norm);
-                enc_map[i].input    = xv_strlist_add(&inputs,input);
-                enc_map[i].encoding = ei[i].encoding_id;
-	    }
-#endif
+	    handle->enc_map[i].norm = xv_strlist_add(&norms,ei[i].name);
+	    handle->enc_map[i].encoding = ei[i].encoding_id;
 	}
-	xv.norms = norms;
-	xv.inputs = inputs;
-	
+
 	/* build atoms */
 	at = XvQueryPortAttributes(dpy,vi_port,&attributes);
 	for (i = 0; i < attributes; i++) {
@@ -405,38 +444,22 @@ void xv_init(int xvideo, int hwscale, int port)
 			(at[i].flags & XvGettable) ? " get" : "",
 			(at[i].flags & XvSettable) ? " set" : "",
 			at[i].min_value,at[i].max_value);
-	    if (0 == strcmp("XV_ENCODING",at[i].name))
-		xv_encoding   = XInternAtom(dpy, "XV_ENCODING", False);
-	    if (0 == strcmp("XV_COLOR",at[i].name))
-		xv_color      = XInternAtom(dpy, "XV_COLOR", False);
-	    if (0 == strcmp("XV_HUE",at[i].name))
-		xv_hue        = XInternAtom(dpy, "XV_HUE", False);
-	    if (0 == strcmp("XV_SATURATION",at[i].name))
-		xv_saturation = XInternAtom(dpy, "XV_SATURATION", False);
-	    if (0 == strcmp("XV_BRIGHTNESS",at[i].name))
-		xv_brightness = XInternAtom(dpy, "XV_BRIGHTNESS", False);
-	    if (0 == strcmp("XV_CONTRAST",at[i].name))
-		xv_contrast   = XInternAtom(dpy, "XV_CONTRAST", False);
-	    if (0 == strcmp("XV_FREQ",at[i].name))
-		xv_freq       = XInternAtom(dpy, "XV_FREQ", False);
-	    if (0 == strcmp("XV_MUTE",at[i].name))
-		xv_mute       = XInternAtom(dpy, "XV_MUTE", False);
-	    if (0 == strcmp("XV_VOLUME",at[i].name))
-		xv_volume     = XInternAtom(dpy, "XV_VOLUME", False);
-	    if (0 == strcmp("XV_COLORKEY",at[i].name))
-		xv_colorkey   = XInternAtom(dpy, "XV_COLORKEY", False);
+            if (0 == strcmp("XV_ENCODING",at[i].name))
+                handle->xv_encoding = XInternAtom(dpy, "XV_ENCODING", False);
+            if (0 == strcmp("XV_FREQ",at[i].name))
+                handle->xv_freq     = XInternAtom(dpy, "XV_FREQ", False);
+#if 0
+            if (0 == strcmp("XV_COLORKEY",at[i].name))
+                handle->xv_colorkey = XInternAtom(dpy, "XV_COLORKEY", False);
+#endif
+	    xv_add_attr(handle, 0, 0, NULL, 0, NULL, at+i);
 	}
-	
-	/* set hooks */
-	xv.grab_hasattr = xv_hasattr;
-	xv.grab_getattr = xv_getattr;
-	xv.grab_setattr = xv_setattr;
-	
-	if (xv_encoding != None) {
-	    xv.grab_input = xv_input;
-	}
-	if (xv_freq != None) {
-	    xv.grab_tune = xv_tune;
+
+	if (handle->xv_encoding != None) {
+	    xv_add_attr(handle, ATTR_ID_NORM, ATTR_TYPE_CHOICE, "norm",
+			0, norms, NULL);
+	    xv_add_attr(handle, ATTR_ID_INPUT, ATTR_TYPE_CHOICE, "input",
+			0, inputs, NULL);
 	}
 #if 0
 	if (xv_colorkey != None) {
@@ -444,6 +467,11 @@ void xv_init(int xvideo, int hwscale, int port)
 	    fprintf(stderr,"Xv: colorkey: %x\n",xv.colorkey);
 	}
 #endif
+	have_xv = 1;
+	drv   = &xv_driver;
+	h_drv = handle;
+	f_drv = xv_flags(h_drv);
+	a_drv = xv_attrs(h_drv);
     }
 
     /* *** image scaler port *** */
@@ -475,5 +503,23 @@ void xv_init(int xvideo, int hwscale, int port)
 	}
     }
 }
+
+/* ********************************************************************* */
+
+const struct ng_driver xv_driver = {
+    name:          "Xvideo",
+    close:         xv_close,
+
+    capabilities:  xv_flags,
+    list_attrs:    xv_attrs,
+    read_attr:     xv_read_attr,
+    write_attr:    xv_write_attr,
+
+    overlay:       xv_overlay,
+
+    getfreq:       xv_getfreq,
+    setfreq:       xv_setfreq,
+    is_tuned:      xv_tuned,
+};
 
 #endif

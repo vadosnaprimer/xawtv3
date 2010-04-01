@@ -125,8 +125,8 @@ static int rwidth,rheight;
 unsigned char **mjpg_ptrs[3];
 unsigned char **mjpg_run[3];
 
-void
-mjpg_yuv_init(int width, int height)
+static void
+mjpg_yuv_init(int width, int height, int format)
 {
     if (debug > 1)
 	fprintf(stderr,"mjpg_yuv_init\n");
@@ -150,21 +150,46 @@ mjpg_yuv_init(int width, int height)
 
     mjpg_cinfo.raw_data_in = TRUE;
     jpeg_set_colorspace(&mjpg_cinfo,JCS_YCbCr);
-    mjpg_cinfo.comp_info[0].h_samp_factor = 2;
-    mjpg_cinfo.comp_info[0].v_samp_factor = 2;
-    mjpg_cinfo.comp_info[1].h_samp_factor = 1;
-    mjpg_cinfo.comp_info[1].v_samp_factor = 1;
-    mjpg_cinfo.comp_info[2].h_samp_factor = 1;
-    mjpg_cinfo.comp_info[2].v_samp_factor = 1;
 
-    mjpg_ptrs[0] = malloc(height*sizeof(char*));
-    mjpg_ptrs[1] = malloc(height*sizeof(char*)/2);
-    mjpg_ptrs[2] = malloc(height*sizeof(char*)/2);
+
+    if (format == 420) {
+	mjpg_cinfo.comp_info[0].h_samp_factor = 2;
+	mjpg_cinfo.comp_info[0].v_samp_factor = 2;
+	mjpg_ptrs[0] = malloc(height*sizeof(char*));
+	
+	mjpg_cinfo.comp_info[1].h_samp_factor = 1;
+	mjpg_cinfo.comp_info[1].v_samp_factor = 1;
+	mjpg_ptrs[1] = malloc(height*sizeof(char*)/2);
+	
+	mjpg_cinfo.comp_info[2].h_samp_factor = 1;
+	mjpg_cinfo.comp_info[2].v_samp_factor = 1;
+	mjpg_ptrs[2] = malloc(height*sizeof(char*)/2);
+    }
+    if (format == 422) {
+	mjpg_cinfo.comp_info[0].h_samp_factor = 2;
+	mjpg_cinfo.comp_info[0].v_samp_factor = 1;
+	mjpg_ptrs[0] = malloc(height*sizeof(char*));
+	
+	mjpg_cinfo.comp_info[1].h_samp_factor = 1;
+	mjpg_cinfo.comp_info[1].v_samp_factor = 1;
+	mjpg_ptrs[1] = malloc(height*sizeof(char*));
+	
+	mjpg_cinfo.comp_info[2].h_samp_factor = 1;
+	mjpg_cinfo.comp_info[2].v_samp_factor = 1;
+	mjpg_ptrs[2] = malloc(height*sizeof(char*));
+    }
+
     jpeg_suppress_tables(&mjpg_cinfo, TRUE);
 }
 
+void
+mjpg_420_init(int width, int height)
+{
+    mjpg_yuv_init(width, height, 420);
+}
+
 static int
-mjpg_yuv_compress(void)
+mjpg_420_compress(void)
 {
     int y;
 
@@ -172,9 +197,7 @@ mjpg_yuv_compress(void)
     mjpg_run[1] = mjpg_ptrs[1];
     mjpg_run[2] = mjpg_ptrs[2];
     
-//    mjpg_cinfo.write_JFIF_header = FALSE;
     jpeg_start_compress(&mjpg_cinfo, mjpg_tables);
-//    jpeg_write_marker(&mjpg_cinfo, JPEG_APP0, "AVI1\0\0\0\0", 8);
     for (y = 0; y < mjpg_cinfo.image_height; y += 2*DCTSIZE) {
 	jpeg_write_raw_data(&mjpg_cinfo, mjpg_run,2*DCTSIZE);
 	mjpg_run[0] += 2*DCTSIZE;
@@ -182,19 +205,18 @@ mjpg_yuv_compress(void)
 	mjpg_run[2] += DCTSIZE;
     }
     jpeg_finish_compress(&(mjpg_cinfo));
-//    mjpg_tables = FALSE;
     
     return mjpg_bufused;
 }
 
 int
-mjpg_yuv422_compress(unsigned char *d, unsigned char *s, int p)
+mjpg_422_420_compress(unsigned char *d, unsigned char *s, int p)
 {
     unsigned char *line;
     int i;
 
     if (debug > 1)
-	fprintf(stderr,"mjpg_yuv422_compress\n");
+	fprintf(stderr,"mjpg_422_420_compress\n");
 
     mjpg_buffer  = d;
     mjpg_bufsize = 3*mjpg_cinfo.image_width*mjpg_cinfo.image_height;
@@ -211,17 +233,17 @@ mjpg_yuv422_compress(unsigned char *d, unsigned char *s, int p)
     for (i = 0; i < mjpg_cinfo.image_height; i+=2, line += rwidth)
 	mjpg_ptrs[2][i/2] = line;
 
-    return mjpg_yuv_compress();
+    return mjpg_420_compress();
 }
 
 int
-mjpg_yuv420_compress(unsigned char *d, unsigned char *s, int p)
+mjpg_420_420_compress(unsigned char *d, unsigned char *s, int p)
 {
     unsigned char *line;
     int i;
 
     if (debug > 1)
-	fprintf(stderr,"mjpg_yuv420_compress\n");
+	fprintf(stderr,"mjpg_420_420_compress\n");
 
     mjpg_buffer  = d;
     mjpg_bufsize = 3*mjpg_cinfo.image_width*mjpg_cinfo.image_height;
@@ -238,5 +260,64 @@ mjpg_yuv420_compress(unsigned char *d, unsigned char *s, int p)
     for (i = 0; i < mjpg_cinfo.image_height; i+=2, line += rwidth/2)
 	mjpg_ptrs[2][i/2] = line;
 
-    return mjpg_yuv_compress();
+    return mjpg_420_compress();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void
+mjpg_422_init(int width, int height)
+{
+    mjpg_yuv_init(width, height, 422);
+}
+
+static int
+mjpg_422_compress(void)
+{
+    int y;
+
+    mjpg_run[0] = mjpg_ptrs[0];
+    mjpg_run[1] = mjpg_ptrs[1];
+    mjpg_run[2] = mjpg_ptrs[2];
+    
+    mjpg_cinfo.write_JFIF_header = FALSE;
+    jpeg_start_compress(&mjpg_cinfo, mjpg_tables);
+    jpeg_write_marker(&mjpg_cinfo, JPEG_APP0, "AVI1\0\0\0\0", 8);
+    for (y = 0; y < mjpg_cinfo.image_height; y += DCTSIZE) {
+	jpeg_write_raw_data(&mjpg_cinfo, mjpg_run, DCTSIZE);
+	mjpg_run[0] += DCTSIZE;
+	mjpg_run[1] += DCTSIZE;
+	mjpg_run[2] += DCTSIZE;
+    }
+    jpeg_finish_compress(&(mjpg_cinfo));
+//    mjpg_tables = FALSE;
+    
+    return mjpg_bufused;
+}
+
+int
+mjpg_422_422_compress(unsigned char *d, unsigned char *s, int p)
+{
+    unsigned char *line;
+    int i;
+
+    if (debug > 1)
+	fprintf(stderr,"mjpg_422_422_compress\n");
+
+    mjpg_buffer  = d;
+    mjpg_bufsize = 3*mjpg_cinfo.image_width*mjpg_cinfo.image_height;
+
+    line = s;
+    for (i = 0; i < mjpg_cinfo.image_height; i++, line += rwidth)
+	mjpg_ptrs[0][i] = line;
+
+    line = s + rwidth*rheight;
+    for (i = 0; i < mjpg_cinfo.image_height; i++, line += rwidth/2)
+	mjpg_ptrs[1][i] = line;
+
+    line = s + rwidth*rheight*3/2;
+    for (i = 0; i < mjpg_cinfo.image_height; i++, line += rwidth/2)
+	mjpg_ptrs[2][i] = line;
+
+    return mjpg_422_compress();
 }

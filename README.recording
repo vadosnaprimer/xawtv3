@@ -12,6 +12,9 @@ all mixer controls at 0 (i.e. muted) by default.
 record from have a red background color.  With the right mouse botton
 you'll get a menu where you can change the settings.
 
+Note on stereo:  xanim seems not be able to playback stereo sound
+correctly.
+
 
 Video
 =====
@@ -33,12 +36,13 @@ If you see messages about a full fifo it is very likely that your hard
 disk is too slow, especially it you try to record uncompressed video.
 
 bttv 0.7.x allows you to use more than just two video buffers, you can
-configure the number at insmod time.  Using more buffers (say 4-8)
-should help to reduce the number of dropped frames.
+configure the number at insmod time (gbuffers option).  Using more
+buffers (say 4-8) should help to reduce the number of dropped frames.
 
 If you want to record quicktime movies install the quicktime4linux
-libraries (http://heroinewarrior.com/quicktime.html), then (re-)build
-xawtv.  The configure script should find the library automatically.
+libraries (http://heroines.sourceforge.net/quicktime.php3), then
+(re-)build xawtv.  The configure script should find the library
+automatically.
 
 
 Known problems (and workarounds)
@@ -87,7 +91,9 @@ The display says how much media data streamer/xawtv tried to put into
 the fifos.  Any data which get lost due to fifo overruns will *not* be
 taken into accout here, i.e. if you see "fifo full" error messages
 your movie will have bad syncronisation even if the display looks
-fine.  Fix: try recording compressed video or buy a faster hard disk.
+fine.  Possible fixes:  Try using more buffers.  Try recording
+compressed video.  Try tuning the hard disk using hdparm.  Buy a
+faster hard disk.  Buy a faster computer.
 
   Gerd
 

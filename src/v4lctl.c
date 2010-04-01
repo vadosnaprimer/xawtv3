@@ -19,10 +19,10 @@
 # include <X11/extensions/Xvlib.h>
 #endif
 
+#include "grab-ng.h"
 #include "channel.h"
 #include "frequencies.h"
 #include "commands.h"
-#include "grab.h"
 #include "xv.h"
 
 int debug = 0;
@@ -36,7 +36,9 @@ Display *dpy;
 static void
 grabber_init(void)
 {
-    grabber_open(device,0,0,0,0,0);
+    ng_grabber_open(device,NULL,0,NULL);
+    f_drv = drv->capabilities(h_drv);
+    a_drv = drv->list_attrs(h_drv);
 }
 
 void
@@ -81,7 +83,7 @@ int main(int argc, char *argv[])
 	dpy = XOpenDisplay(NULL);
     if (dpy)
 	xv_init(1,0,0);
-    if (NULL == grabber)
+    if (NULL == drv)
 	grabber_init();
     read_config();
 
@@ -91,8 +93,7 @@ int main(int argc, char *argv[])
     audio_init();
 
     do_command(argc-optind,argv+optind);
-    if (grabber->grab_close)
-	grabber->grab_close();
+    drv->close(h_drv);
     if (dpy)
 	XCloseDisplay(dpy);
     return 0;

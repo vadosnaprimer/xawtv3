@@ -3,7 +3,7 @@
  *   tries to ask the X-Server if $DISPLAY is set,
  *   otherwise it checks /dev/fb0
  *
- *  (c) 1998,99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *  (c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>
  *
  *  Security checks by okir@caldera.de
  */
@@ -331,6 +331,10 @@ displayinfo_v4l(int fd, struct DISPLAYINFO *d)
 
     if (-1 == ioctl(fd,VIDIOCSFBUF,&fbuf)) {
 	fprintf(stderr,"%s: ioctl VIDIOCSFBUF: %s\n",video,strerror(errno));
+	if (EPERM == errno  &&  0 != geteuid())
+	    fprintf(stderr,
+		    "v4l-conf: You should install me suid root, I need\n"
+		    "          root priviliges for the VIDIOCSFBUF ioctl.\n");
 	exit(1);
     }
     return 0;

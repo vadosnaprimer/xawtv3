@@ -29,9 +29,8 @@ void (*display_message)(char *message);
 void (*vtx_message)(int argc, char **argv);
 
 /* for updating GUI elements / whatever */
-void (*norm_notify)(void);
-void (*input_notify)(void);
-void (*attr_notify)(int id);
+void (*attr_notify)(struct ng_attribute *attr, int val);
+void (*volume_notify)(void);
 void (*freqtab_notify)(void);
 void (*setfreqtab_notify)(void);
 void (*setstation_notify)(void);
@@ -53,6 +52,14 @@ int do_overlay;
 char *snapbase = "snap";
 
 struct ng_video_fmt x11_fmt;
+int cur_attrs[ATTR_ID_MAX];
+
+/* current hardware driver */
+const struct ng_driver    *drv;
+void                      *h_drv;
+struct ng_attribute       *a_drv;
+int                        f_drv;
+
 
 /* ----------------------------------------------------------------------- */
 
@@ -60,10 +67,7 @@ static int setfreqtab_handler(char *name, int argc, char **argv);
 static int setstation_handler(char *name, int argc, char **argv);
 static int setchannel_handler(char *name, int argc, char **argv);
 
-static int norm_handler(char *name, int argc, char **argv);
-static int input_handler(char *name, int argc, char **argv);
 static int capture_handler(char *name, int argc, char **argv);
-
 static int volume_handler(char *name, int argc, char **argv);
 static int attr_handler(char *name, int argc, char **argv);
 static int dattr_handler(char *name, int argc, char **argv);
@@ -88,15 +92,16 @@ static struct COMMANDS {
     { "setchannel", 0, setchannel_handler },
     { "setfreqtab", 1, setfreqtab_handler },
 
-    { "setnorm",    1, norm_handler       },
-    { "setinput",   1, input_handler      },
     { "capture",    1, capture_handler    },
 
-    { "volume",     0, volume_handler     },
+    { "setnorm",    1, attr_handler       },
+    { "setinput",   1, attr_handler       },
     { "color",      0, attr_handler       },
     { "hue",        0, attr_handler       },
     { "bright",     0, attr_handler       },
     { "contrast",   0, attr_handler       },
+    { "mute",       0, volume_handler     },
+    { "volume",     0, volume_handler     },
     { "attr",       0, dattr_handler      },
 
     { "snap",       0, snap_handler       },
@@ -116,54 +121,14 @@ static struct COMMANDS {
     { NULL, 0, NULL }
 };
 
-static struct PICT_ATTR {
-    int    id;
-    char  *name;
-    int   *val;
-} pict_attr [] = {
-    { GRAB_ATTR_COLOR,    "color",    &cur_color },
-    { GRAB_ATTR_BRIGHT,   "bright",   &cur_bright },
-    { GRAB_ATTR_HUE,      "hue",      &cur_hue },
-    { GRAB_ATTR_CONTRAST, "contrast", &cur_contrast }
-};
-
-#define NUM_ATTR (sizeof(pict_attr)/sizeof(struct PICT_ATTR))
-
+#if 0
+/* FIXME */
 static int cur_dattr = 0;
 static char *dattr[] = { "volume", "bright", "contrast", "color", "hue" };
 #define NUM_DATTR (sizeof(dattr)/sizeof(char*))
+#endif
 
 static int keypad_state = -1;
-
-/*------------------------------------------------------------------------*/
-
-void
-missing_feature(int id)
-{
-    static int displayed = 0;
-    char message[128];
-
-    /* seeing the same message twice is annonying ... */
-    if (displayed & id)
-	return;
-    displayed |= id;
-
-    switch (id) {
-    case MISSING_CAPTURE:
-	sprintf(message,"Grabbing is not supported by \"%s\".",
-		grabber->name);
-	break;
-    default:
-	strcpy(message,"Oops, you should'nt see this message.");
-	break;
-    }
-#if 0
-    tell_user(app_shell,"Notice",message);
-#else
-    if (display_message)
-	display_message(message);
-#endif
-}
 
 /* ----------------------------------------------------------------------- */
 
@@ -257,7 +222,7 @@ set_capture(int capture)
 	
 	if (capture == CAPTURE_OVERLAY) {
 	    /* can we do overlay ?? */
-	    if (NULL == grabber->grab_overlay)
+	    if (!(f_drv & CAN_OVERLAY))
 		capture = CAPTURE_GRABDISPLAY;
 	    if (!do_overlay)
 		capture = CAPTURE_GRABDISPLAY;
@@ -274,51 +239,38 @@ set_capture(int capture)
 }
 
 static void
-set_norm(int j)
+set_attr(struct ng_attribute *attr, int val)
 {
-    int cap = cur_capture;
-
-    if (cap != CAPTURE_OFF)
-	set_capture(CAPTURE_OFF);
-
-    cur_norm = j;
-    if (grabber->grab_input)
-	grabber->grab_input(-1,cur_norm);
-    if (norm_notify)
-	norm_notify();
-
-    if (cap != CAPTURE_OFF)
-	set_capture(cap);
-}
-
-static void
-set_input(int j)
-{
-    cur_input = j;
-    if (grabber->grab_input)
-	grabber->grab_input(cur_input,-1);
-    if (input_notify)
-	input_notify();
-}
-
-static void
-set_attr(int id, int val)
-{
-    int i;
-
-    if (!grabber->grab_hasattr(id))
+    if (NULL == attr)
 	return;
 
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == pict_attr[i].id)
-	    break;	
-    if (i == NUM_ATTR)
-	return;
-
-    *(pict_attr[i].val) = val;
-    grabber->grab_setattr(id,val);
+    drv->write_attr(h_drv,attr,val);
+    cur_attrs[attr->id] = val;
     if (attr_notify)
-	attr_notify(id);
+	attr_notify(attr,val);
+}
+
+static void
+set_volume(void)
+{
+    struct ng_attribute *attr;
+    int vol;
+    
+    if (have_mixer) {
+	/* sound card */
+	vol = cur_volume * 100 / 65536;
+	mixer_set_volume(vol);
+	cur_mute ? mixer_mute() : mixer_unmute();
+    } else {
+	/* v4l */
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_VOLUME)))
+	    drv->write_attr(h_drv,attr,cur_volume);
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
+	    drv->write_attr(h_drv,attr,cur_mute);
+    }
+
+    if (volume_notify)
+	volume_notify();
 }
 
 static void
@@ -338,29 +290,10 @@ set_freqtab(int j)
 }
 
 static void
-set_volume(void)
-{
-    int vol;
-    
-    if (have_mixer) {
-	/* sound card */
-	vol = cur_volume * 100 / 65536;
-	mixer_set_volume(vol);
-	cur_mute ? mixer_mute() : mixer_unmute();
-    } else {
-	/* v4l */
-	grabber->grab_setattr(GRAB_ATTR_VOLUME,cur_volume);
-	grabber->grab_setattr(GRAB_ATTR_MUTE,  cur_mute);
-    }
-
-    if (attr_notify)
-	attr_notify(GRAB_ATTR_VOLUME);
-}
-
-static void
 set_title(void)
 {
     static char  title[256];
+    const char *norm;
 
     keypad_state = -1;
     if (update_title) {
@@ -370,9 +303,9 @@ set_title(void)
 	    sprintf(title,"channel %s",chanlist[cur_channel].name);
 	    if (cur_fine != 0)
 		sprintf(title+strlen(title)," (%d)",cur_fine);
+	    norm = ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),cur_norm);
 	    sprintf(title+strlen(title)," (%s/%s)",
-		    (-1 != cur_norm) ? grabber->norms[cur_norm].str : "???",
-		    chanlists[chantab].name);
+		    norm ? norm : "???", chanlists[chantab].name);
 	} else {
 	    sprintf(title,"???");
 	}
@@ -434,86 +367,87 @@ static int update_int(int old, char *new)
 void
 attr_init()
 {
-    if (grabber->grab_hasattr(GRAB_ATTR_COLOR)) {
-	cur_color = grabber->grab_getattr(GRAB_ATTR_COLOR);
+    struct ng_attribute *attr;
+    int val;
+
+    for (attr = a_drv; attr->name != NULL; attr++) {
+	if (attr->id == ATTR_ID_VOLUME ||
+	    attr->id == ATTR_ID_MUTE)
+	    continue;
+	val = drv->read_attr(h_drv,attr);
 	if (attr_notify)
-	    attr_notify(GRAB_ATTR_COLOR);
-    }
-    if (grabber->grab_hasattr(GRAB_ATTR_BRIGHT)) {
-	cur_bright = grabber->grab_getattr(GRAB_ATTR_BRIGHT);
-	if (attr_notify)
-	    attr_notify(GRAB_ATTR_BRIGHT);
-    }
-    if (grabber->grab_hasattr(GRAB_ATTR_HUE)) {
-	cur_hue = grabber->grab_getattr(GRAB_ATTR_HUE);
-	if (attr_notify)
-	    attr_notify(GRAB_ATTR_HUE);
-    }
-    if (grabber->grab_hasattr(GRAB_ATTR_CONTRAST)) {
-	cur_contrast = grabber->grab_getattr(GRAB_ATTR_CONTRAST);
-	if (attr_notify)
-	    attr_notify(GRAB_ATTR_CONTRAST);
+	    attr_notify(attr,val);
     }
 }
 
 void
 audio_init()
 {
+    struct ng_attribute *attr;
+
     if (have_mixer) {
 	cur_volume = mixer_get_volume() * 65535/100;
 	cur_mute   = 0;
     } else {
-	if (grabber->grab_hasattr(GRAB_ATTR_VOLUME))
-	    cur_volume = grabber->grab_getattr(GRAB_ATTR_VOLUME);
-	if (grabber->grab_hasattr(GRAB_ATTR_MUTE))
-	    cur_mute = grabber->grab_getattr(GRAB_ATTR_MUTE);
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_VOLUME)))
+	    cur_volume = drv->read_attr(h_drv,attr);
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
+	    cur_mute = drv->read_attr(h_drv,attr);
     }
+    if (volume_notify)
+	volume_notify();
 }
 
 void
 audio_on()
 {
-    if (grabber->grab_hasattr(GRAB_ATTR_MUTE))
-	grabber->grab_setattr(GRAB_ATTR_MUTE,0);
-    if (attr_notify)
-	attr_notify(GRAB_ATTR_VOLUME);
+    struct ng_attribute *attr;
+
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
+	drv->write_attr(h_drv,attr,0);
 }
 
 void
 audio_off()
 {
-    if (grabber->grab_hasattr(GRAB_ATTR_MUTE))
-	grabber->grab_setattr(GRAB_ATTR_MUTE,1);
+    struct ng_attribute *attr;
+
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
+	drv->write_attr(h_drv,attr,1);
 }
 
 void
 set_defaults()
 {
+    struct ng_attribute *attr;
+
     /* image parameters */
-    set_attr(GRAB_ATTR_COLOR,   defaults.color);
-    set_attr(GRAB_ATTR_BRIGHT,  defaults.bright);
-    set_attr(GRAB_ATTR_HUE,     defaults.hue);
-    set_attr(GRAB_ATTR_CONTRAST,defaults.contrast);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_COLOR)))
+	set_attr(attr,defaults.color);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_BRIGHT)))
+	set_attr(attr,defaults.bright);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_HUE)))
+	set_attr(attr,defaults.hue);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_CONTRAST)))
+	set_attr(attr,defaults.contrast);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_INPUT)))
+	set_attr(attr,defaults.input);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)))
+	set_attr(attr,defaults.norm);
     set_capture(defaults.capture);
-    
-    /* input source */
-    if (cur_input   != defaults.input)
-	set_input(defaults.input);
-    if (cur_norm    != defaults.norm)
-	set_norm(defaults.norm);
-    
-    /* station */
+
     cur_channel  = defaults.channel;
     cur_fine     = defaults.fine;
     cur_freq     = defaults.freq;
-    if (grabber->grab_tune)
-	grabber->grab_tune(defaults.freq,defaults.sat);
+    if (f_drv & CAN_TUNE)
+	drv->setfreq(h_drv,defaults.freq);
 }
 
 /* ----------------------------------------------------------------------- */
 
 static int setstation_handler(char *name, int argc, char **argv)
 {
+    struct ng_attribute *attr,*mute;
     int i;
 
     if (0 == argc) {
@@ -550,32 +484,43 @@ static int setstation_handler(char *name, int argc, char **argv)
     last_sender = cur_sender;
     cur_sender = i;
 
+    mute = ng_attr_byid(a_drv,ATTR_ID_MUTE);
     if (!cur_mute) {
 	if (have_mixer)
 	    mixer_mute();
-	else
-	    grabber->grab_setattr(GRAB_ATTR_MUTE,1);
+	else if (mute)
+	    drv->write_attr(h_drv,mute,1);
     }
 
     /* image parameters */
-    set_attr(GRAB_ATTR_COLOR,   channels[i]->color);
-    set_attr(GRAB_ATTR_BRIGHT,  channels[i]->bright);
-    set_attr(GRAB_ATTR_HUE,     channels[i]->hue);
-    set_attr(GRAB_ATTR_CONTRAST,channels[i]->contrast);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_COLOR)))
+	set_attr(attr,channels[i]->color);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_BRIGHT)))
+	set_attr(attr,channels[i]->bright);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_HUE)))
+	set_attr(attr,channels[i]->hue);
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_CONTRAST)))
+	set_attr(attr,channels[i]->contrast);
     set_capture(channels[i]->capture);
     
-    /* input source */
-    if (cur_input   != channels[i]->input)
-	set_input(channels[i]->input);
-    if (cur_norm    != channels[i]->norm)
-	set_norm(channels[i]->norm);
+    /* input / norm */
+    if (cur_input != channels[i]->input) {
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_INPUT)))
+	    drv->write_attr(h_drv,attr,channels[i]->input);
+	cur_input = channels[i]->input;
+    }
+    if (cur_norm != channels[i]->norm) {
+	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)))
+	    drv->write_attr(h_drv,attr,channels[i]->norm);
+	cur_norm = channels[i]->norm;
+    }
     
     /* station */
     cur_channel  = channels[i]->channel;
     cur_fine     = channels[i]->fine;
     cur_freq     = channels[i]->freq;
-    if (grabber->grab_tune)
-	grabber->grab_tune(channels[i]->freq,channels[i]->sat);
+    if (f_drv & CAN_TUNE)
+	drv->setfreq(h_drv,channels[i]->freq);
     
     set_title();
     if (setstation_notify)
@@ -585,14 +530,15 @@ static int setstation_handler(char *name, int argc, char **argv)
 	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
-	else
-	    grabber->grab_setattr(GRAB_ATTR_MUTE,0);
+	else if (mute)
+	    drv->write_attr(h_drv,mute,0);
     }
     return 0;
 }
 
 static int setchannel_handler(char *name, int argc, char **argv)
 {
+    struct ng_attribute *mute;
     int c,i;
     
     if (0 == argc) {
@@ -628,7 +574,6 @@ static int setchannel_handler(char *name, int argc, char **argv)
 	    }
 	}
     }
-
     
     if (channel_switch_hook)
 	channel_switch_hook();
@@ -636,16 +581,17 @@ static int setchannel_handler(char *name, int argc, char **argv)
     cur_sender  = -1;
     cur_freq = get_freq(cur_channel)+cur_fine;
 
+    mute = ng_attr_byid(a_drv,ATTR_ID_MUTE);
     if (!cur_mute) {
 	if (have_mixer)
 	    mixer_mute();
-	else
-	    grabber->grab_setattr(GRAB_ATTR_MUTE,1);
+	else if (mute)
+	    drv->write_attr(h_drv,mute,1);
     }
 
-    set_capture(defaults.capture);    
-    if (grabber->grab_tune)
-	grabber->grab_tune(cur_freq,-1);
+    set_capture(defaults.capture);
+    if (f_drv & CAN_TUNE)
+	drv->setfreq(h_drv,cur_freq);
 
     set_title();
     if (setstation_notify)
@@ -655,8 +601,8 @@ static int setchannel_handler(char *name, int argc, char **argv)
 	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
-	else
-	    grabber->grab_setattr(GRAB_ATTR_MUTE,0);
+	else if (mute)
+	    drv->write_attr(h_drv,mute,0);
     }
     return 0;
 }
@@ -683,36 +629,6 @@ static int setfreqtab_handler(char *name, int argc, char **argv)
 	set_freqtab(i);
     else
 	print_choices("freqtab",argv[0],chanlist_names);
-    return 0;
-}
-
-static int norm_handler(char *name, int argc, char **argv)
-{
-    int i;
-
-    i = str_to_int(argv[0],grabber->norms);
-    if (i != -1)
-	set_norm(i);
-    else
-	print_choices("norm",argv[0],grabber->norms);
-    return 0;
-}
-
-static int input_handler(char *name, int argc, char **argv)
-{
-    int i;
-
-    if (0 == strcmp(argv[0],"next")) {
-	i = cur_input+1;
-	if (grabber->inputs[i].str == NULL)
-	    i = 0;
-    } else {
-	i = str_to_int(argv[0],grabber->inputs);
-    }
-    if (i != -1)
-	set_input(i);
-    else
-	print_choices("input",argv[0],grabber->inputs);
     return 0;
 }
 
@@ -764,21 +680,41 @@ static int volume_handler(char *name, int argc, char **argv)
 
 static int attr_handler(char *name, int argc, char **argv)
 {
-    int i;
-    
-    for (i = 0; i < NUM_ATTR; i++)
-	if (0 == strcasecmp(pict_attr[i].name,name))
-	    break;	
-    if (i == NUM_ATTR)
+    struct ng_attribute *attr;
+    int val;
+
+    if (0 == strcasecmp(name,"setnorm")) {
+	attr = ng_attr_byname(a_drv,"norm");
+	if (argc > 0) {
+	    val = ng_attr_getint(attr, argv[0]);
+	    set_attr(attr,val);
+	}
+	return 0;
+    }
+
+    if (0 == strcasecmp(name,"setinput")) {
+	attr = ng_attr_byname(a_drv,"input");
+	if (argc > 0) {
+	    val = ng_attr_getint(attr, argv[0]);
+	    set_attr(attr,val);
+	}
+	return 0;
+    }
+
+    attr = ng_attr_byname(a_drv,name);
+    if (NULL == attr)
 	return -1;
-    if (argc > 0)
-	set_attr(pict_attr[i].id,update_int(*(pict_attr[i].val),argv[0]));
-    set_msg_int(name,*(pict_attr[i].val));
+    if (argc > 0) {
+	val = update_int(cur_attrs[attr->id],argv[0]);
+	set_attr(attr,val);
+    }
+    set_msg_int(name,cur_attrs[attr->id]);
     return 0;
 }
 
 static int dattr_handler(char *name, int argc, char **argv)
 {
+#if 0
     int i;
     
     if (argc > 0 && 0 == strcasecmp(argv[0],"next")) {
@@ -799,6 +735,9 @@ static int dattr_handler(char *name, int argc, char **argv)
 	return volume_handler("volume",argc,argv);
     else
 	return attr_handler(dattr[cur_dattr],argc,argv);
+#else
+    return 0;
+#endif
 }
 
 /* ----------------------------------------------------------------------- */
@@ -813,9 +752,7 @@ static int snap_handler(char *hname, int argc, char **argv)
     struct ng_video_fmt fmt;
     struct ng_video_buf *buf = NULL;
 
-    if (!grabber->grab_setparams ||
-	!grabber->grab_capture) {
-	missing_feature(MISSING_CAPTURE);
+    if (!(f_drv & CAN_CAPTURE)) {
 	fprintf(stderr,"grabbing: not supported\n");
 	return -1;
     }
@@ -860,7 +797,7 @@ static int snap_handler(char *hname, int argc, char **argv)
 	filename = argv[2];
     
     if (0 != ng_grabber_setparams(&fmt,0,1) ||
-	NULL == (buf = ng_grabber_capture(NULL))) {
+	NULL == (buf = ng_grabber_capture(NULL,1))) {
 	if (display_message)
 	    display_message("grabbing failed");
 	ret = -1;
@@ -927,7 +864,7 @@ static int webcam_handler(char *hname, int argc, char **argv)
     fmt = x11_fmt;
     fmt.fmtid = VIDEO_RGB24;
     ng_grabber_setparams(&fmt,0,0);
-    buf = ng_grabber_capture(NULL);
+    buf = ng_grabber_capture(NULL,1);
     ng_release_video_buf(buf);
     if (capture_rel_hook)
 	capture_rel_hook();

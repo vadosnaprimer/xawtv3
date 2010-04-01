@@ -278,31 +278,38 @@ xfree_vm_init()
 void
 grabber_init()
 {
-    int sw,sh;
+    struct ng_video_fmt screen;
     void *base = NULL;
-    int  width = 0, depth = 0;
 #ifdef HAVE_LIBXXF86DGA
     int bar,fred;
 
     if (have_dga) {
 	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
-			  &width,&bar,&fred);
+			  &screen.bytesperline,&bar,&fred);
     }
 #endif
     if (!do_overlay) {
-	sw = sh = depth = 0;
 	fprintf(stderr,"x11: remote display (overlay disabled)\n");
+	drv = ng_grabber_open(args.device, NULL, base, &h_drv);
     } else {
-	sw = XtScreen(app_shell)->width;
-	sh = XtScreen(app_shell)->height;
-	depth = ng_vfmt_to_depth[x11_native_format];
-	width *= (depth+7)/8;
+	memset(&screen,0,sizeof(screen));
+	screen.width  = XtScreen(app_shell)->width;
+	screen.height = XtScreen(app_shell)->height;
+	screen.fmtid  = x11_native_format;
 	fprintf(stderr,"x11: %dx%d, %d bit/pixel, %d byte/scanline%s%s\n",
-		sw,sh,depth,width,
-		have_dga ? ", DGA" : "",
-		have_vm ? ", VidMode" : "");
+		screen.width,screen.height,
+		ng_vfmt_to_depth[screen.fmtid],
+		screen.bytesperline,
+		have_dga ? ", DGA"     : "",
+		have_vm  ? ", VidMode" : "");
+	drv = ng_grabber_open(args.device, &screen, base, &h_drv);
     }
-    grabber_open(args.device,sw,sh,base,x11_native_format,width);
+    if (NULL == drv) {
+	fprintf(stderr,"no video grabber device available\n");
+	exit(1);
+    }
+    f_drv = drv->capabilities(h_drv);
+    a_drv = drv->list_attrs(h_drv);
 }
 
 void
@@ -425,12 +432,11 @@ int
 x11_ctrl_alt_backspace(Display *dpy)
 {
     audio_off();
-    video_overlay(NULL);
+    video_overlay(0);
     video_close();
     if (have_mixer)
 	mixer_close();
-    if (grabber->grab_close)
-	grabber->grab_close();
+    drv->close(h_drv);
     fprintf(stderr,"xawtv: game over\n");
     exit(0);
 }

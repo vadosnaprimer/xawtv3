@@ -4,9 +4,8 @@ extern void (*display_message)(char *message);
 extern void (*vtx_message)(int argc, char **argv);
 
 /* for updating GUI elements / whatever */
-extern void (*norm_notify)(void);
-extern void (*input_notify)(void);
-extern void (*attr_notify)(int id);
+extern void (*attr_notify)(struct ng_attribute *attr, int val);
+extern void (*volume_notify)(void);
 extern void (*freqtab_notify)(void);
 extern void (*setfreqtab_notify)(void);
 extern void (*setstation_notify)(void);
@@ -27,13 +26,14 @@ extern void (*movie_hook)(int argc, char **argv);
 extern int do_overlay;
 extern char *snapbase;
 extern struct ng_video_fmt x11_fmt;
+extern int cur_attrs[ATTR_ID_MAX];
+
+extern const struct ng_driver     *drv;
+extern void                       *h_drv;
+extern struct ng_attribute        *a_drv;
+extern int                         f_drv;
 
 /*------------------------------------------------------------------------*/
-
-#define MISSING_CAPTURE  1
-#define MISSING_JPEG     2
-
-void missing_feature(int id);
 
 void attr_init(void);
 void audio_init(void);

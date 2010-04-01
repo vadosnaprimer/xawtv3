@@ -314,10 +314,15 @@ main(int argc, char **argv)
 	fprintf(stderr,"%s / video: %s / audio: %s\n",writer->name,
 		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
 
-    fd = grabber_open(v4l_device,0,0,0,0,0);
-    if (grabber->grab_setparams == NULL ||
-	grabber->grab_capture   == NULL) {
-	fprintf(stderr,"%s: capture not supported\n",grabber->name);
+    drv = ng_grabber_open(v4l_device,NULL,0,&h_drv);
+    if (NULL == drv) {
+	fprintf(stderr,"no grabber device available\n");
+	exit(1);
+    }
+    f_drv = drv->capabilities(h_drv);
+    a_drv = drv->list_attrs(h_drv);
+    if (!(f_drv & CAN_CAPTURE)) {
+	fprintf(stderr,"%s: capture not supported\n",drv->name);
 	exit(1);
     }
     audio_on();
@@ -337,7 +342,7 @@ main(int argc, char **argv)
     if (NULL == movie_state) {
 	fprintf(stderr,"movie writer initialisation failed\n");
 	audio_off();
-	grabber->grab_close();
+	drv->close(h_drv);
 	exit(1);
     }
 
@@ -358,7 +363,7 @@ main(int argc, char **argv)
 
     /* done */
     audio_off();
-    grabber->grab_close();
+    drv->close(h_drv);
     close(fd);
     return 0;
 }

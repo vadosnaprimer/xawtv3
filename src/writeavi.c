@@ -484,6 +484,7 @@ avi_video(void *handle, struct ng_video_buf *buf)
 	}
 	break;
     case VIDEO_MJPEG:
+    case VIDEO_JPEG:
 	if (-1 == write(h->fd,buf->data,size)) {
 	    fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
 	    return -1;
@@ -596,6 +597,11 @@ static const struct ng_format_list avi_vformats[] = {
 	name:  "mjpeg",
 	ext:   "avi",
 	fmtid: VIDEO_MJPEG,
+	priv:  &avi_mjpeg,
+    },{
+	name:  "jpeg",
+	ext:   "avi",
+	fmtid: VIDEO_JPEG,
 	priv:  &avi_mjpeg,
     },{
 	/* EOF */

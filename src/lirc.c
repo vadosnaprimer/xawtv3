@@ -9,8 +9,9 @@
 #ifdef HAVE_LIBLIRC_CLIENT
 # include <lirc/lirc_client.h>
 #endif
-#include "lirc.h"
+#include "grab-ng.h"
 #include "commands.h"
+#include "lirc.h"
 
 /*-----------------------------------------------------------------------*/
 

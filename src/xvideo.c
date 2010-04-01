@@ -1,7 +1,8 @@
 #include "config.h"
 #ifndef HAVE_LIBXV
 #include "stdio.h"
-int main(){puts("Compiled without Xvideo extention support, sorry.");exit(0);}
+int main(void)
+{puts("Compiled without Xvideo extention support, sorry.");exit(0);}
 #else
 
 /*

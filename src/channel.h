@@ -16,7 +16,6 @@ struct CHANNEL {
     int   capture;
     int   input;
     int   norm;
-    int   sat;
 
     int   color;
     int   bright;
@@ -43,8 +42,7 @@ extern int fs_width,fs_height,fs_xoff,fs_yoff;
 extern int pix_width,pix_height,pix_cols;
 extern int last_sender, cur_sender;
 extern int cur_channel, cur_fine, cur_norm, cur_input;
-extern int cur_color, cur_bright, cur_hue, cur_contrast, cur_capture;
-extern int cur_movie, cur_mute, cur_volume, cur_freq;
+extern int cur_capture, cur_movie, cur_mute, cur_volume, cur_freq;
 
 int  lookup_channel(char *channel);
 int  get_freq(int i);

@@ -39,6 +39,7 @@
 
 #include "grab-ng.h"
 #include "channel.h"
+#include "commands.h"
 #include "frequencies.h"
 #include "sound.h"
 #include "parseconfig.h"
@@ -51,7 +52,6 @@ struct CHANNEL defaults = {
     cname:    "none",
     capture:  CAPTURE_OVERLAY,
     audio:    -1,
-    sat:      -1,
     color:    32768,
     bright:   32768,
     hue:      32768,
@@ -66,8 +66,7 @@ int             have_mixer  = 0;
 int last_sender = -1, cur_sender = -1, cur_channel = -1, cur_fine = 0;
 int cur_norm = -1, cur_input = -1, cur_freq;
 
-int cur_color,cur_bright,cur_hue,cur_contrast,cur_capture;
-int cur_movie, cur_mute = 0, cur_volume = 65535;
+int cur_capture, cur_movie, cur_mute = 0, cur_volume = 65535;
 int have_config;
 int jpeg_quality = 75;
 int mjpeg_quality = 75;
@@ -283,6 +282,7 @@ calc_frequencies()
 static void
 init_channel(char *name, struct CHANNEL *c)
 {
+    struct ng_attribute *attr;
     char *val; int n,i;
 
     if (NULL != (val = cfg_get_str(name,"capture"))) {
@@ -291,24 +291,24 @@ init_channel(char *name, struct CHANNEL *c)
 	else
 	    fprintf(stderr,"config: invalid value for capture: %s\n",val);
     }
-    if (NULL != grabber->inputs &&
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_INPUT)) &&
 	(NULL != (val = cfg_get_str(name,"input")) ||
 	 NULL != (val = cfg_get_str(name,"source")))) { /* obsolete */
-	if (-1 != (i = str_to_int(val,grabber->inputs)))
+	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->input = i;
 	else
 	    fprintf(stderr,"config: invalid value for input: %s\n",val);
     }
-    if (NULL != grabber->norms &&
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)) &&
 	NULL != (val = cfg_get_str(name,"norm"))) {
-	if (-1 != (i = str_to_int(val,grabber->norms)))
+	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->norm = i;
 	else
 	    fprintf(stderr,"config: invalid value for norm: %s\n",val);
     }
-    if (NULL != grabber->audio_modes &&
+    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE)) &&
 	NULL != (val = cfg_get_str(name,"audio"))) {
-	if (-1 != (i = str_to_int(val,grabber->audio_modes)))
+	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->audio = i;
 	else
 	    fprintf(stderr,"config: invalid value for audio: %s\n",val);
@@ -320,8 +320,6 @@ init_channel(char *name, struct CHANNEL *c)
 	c->freq   = (int)(atof(val)*16);
     if (-1 != (n = cfg_get_int(name,"fine")))
 	c->fine = n;
-    if (-1 != (n = cfg_get_int(name,"sat")))
-	c->sat = n;
 
     if (NULL != (val = cfg_get_str(name,"key")))
 	c->key   = strdup(val);
@@ -527,23 +525,23 @@ save_config()
 
     /* write defaults */
     fprintf(fp,"[defaults]\n");
-    fprintf(fp,"norm = %s\n",int_to_str(cur_norm,grabber->norms));
-    fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
+    fprintf(fp,"norm = %s\n",
+	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),cur_norm));
     fprintf(fp,"input = %s\n",
-	    int_to_str(cur_input,grabber->inputs));
-    if (cur_color != 32768)
-	fprintf(fp,"color = %d\n",cur_color);
-    if (cur_bright != 32768)
-	fprintf(fp,"bright = %d\n",cur_bright);
-    if (cur_hue != 32768)
-	fprintf(fp,"hue = %d\n",cur_hue);
-    if (cur_contrast != 32768)
-	fprintf(fp,"contrast = %d\n",cur_contrast);
+	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),cur_input));
+    fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
+    if (cur_attrs[ATTR_ID_COLOR] != 32768)
+	fprintf(fp,"color = %d\n",cur_attrs[ATTR_ID_COLOR]);
+    if (cur_attrs[ATTR_ID_BRIGHT] != 32768)
+	fprintf(fp,"bright = %d\n",cur_attrs[ATTR_ID_BRIGHT]);
+    if (cur_attrs[ATTR_ID_HUE] != 32768)
+	fprintf(fp,"hue = %d\n",cur_attrs[ATTR_ID_HUE]);
+    if (cur_attrs[ATTR_ID_CONTRAST] != 32768)
+	fprintf(fp,"contrast = %d\n",cur_attrs[ATTR_ID_CONTRAST]);
     fprintf(fp,"\n");
 
     /* write channels */
     for (i = 0; i < count; i++) {
-
 	fprintf(fp,"[%s]\n",channels[i]->name);
 	if (0 != strcmp(channels[i]->cname,"none")) {
 	    fprintf(fp,"channel = %s\n",chanlist[channels[i]->channel].name);
@@ -552,29 +550,28 @@ save_config()
 	} else {
 	    fprintf(fp,"freq = %.2f\n",(float)(channels[i]->freq)/16);
 	}
-	if (-1 != channels[i]->sat)
-	    fprintf(fp,"sat = %+d\n", channels[i]->sat);
+	
 	if (cur_norm != channels[i]->norm)
 	    fprintf(fp,"norm = %s\n",
-		    int_to_str(cur_norm,grabber->norms));
+		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
+				   channels[i]->norm));
+	if (channels[i]->input != cur_input)
+	    fprintf(fp,"input = %s\n",
+		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),
+				   channels[i]->input));
 	if (channels[i]->key != NULL)
 	    fprintf(fp,"key = %s\n",channels[i]->key);
-#if 0
 	if (channels[i]->capture != cur_capture)
 	    fprintf(fp,"capture = %s\n",
 		    int_to_str(channels[i]->capture,captab));
-#endif
-	if (channels[i]->input != cur_input)
-	    fprintf(fp,"input = %s\n",
-		    int_to_str(channels[i]->input,grabber->inputs));
 	  
-	if (cur_color != channels[i]->color)
+	if (cur_attrs[ATTR_ID_COLOR] != channels[i]->color)
 	    fprintf(fp,"color = %d\n",channels[i]->color);
-	if (cur_bright != channels[i]->bright)
+	if (cur_attrs[ATTR_ID_BRIGHT] != channels[i]->bright)
 	    fprintf(fp,"bright = %d\n",channels[i]->bright);
-	if (cur_hue != channels[i]->hue)
+	if (cur_attrs[ATTR_ID_HUE] != channels[i]->hue)
 	    fprintf(fp,"hue = %d\n",channels[i]->hue);
-	if (cur_contrast != channels[i]->contrast)
+	if (cur_attrs[ATTR_ID_CONTRAST] != channels[i]->contrast)
 	    fprintf(fp,"contrast = %d\n",channels[i]->contrast);
 
 	fprintf(fp,"\n");

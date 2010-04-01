@@ -323,7 +323,7 @@ files_video(void *handle, struct ng_video_buf *buf)
     case VIDEO_GRAY:
 	rc = write_pgm(h->file, buf);
 	break;
-    case VIDEO_MJPEG:
+    case VIDEO_JPEG:
 	if (NULL == (fp = fopen(h->file,"w"))) {
 	    fprintf(stderr,"grab: can't open %s: %s\n",h->file,strerror(errno));
 	    rc = -1;
@@ -470,7 +470,7 @@ static const struct ng_format_list files_vformats[] = {
     },{
 	name:  "jpeg",
 	ext:   "jpeg",
-	fmtid: VIDEO_MJPEG,
+	fmtid: VIDEO_JPEG,
     },{
 	/* EOF */
     }

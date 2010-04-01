@@ -268,15 +268,14 @@ void
 ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
     audio_off();
-    video_overlay(NULL);
+    video_overlay(0);
     video_close();
     if (have_mixer)
 	mixer_close();
     if (fs)
 	do_va_cmd(1,"fullscreen");
     XSync(dpy,False);
-    if (grabber->grab_close)
-	grabber->grab_close();
+    drv->close(h_drv);
     XtAppAddWorkProc (app_context,ExitWP, NULL);
     XtDestroyWidget(app_shell);
 }
@@ -592,14 +591,14 @@ freeze_image(void)
 {
     struct ng_video_buf buf;
     
-    if (NULL == grabber->grab_capture)
+    if (!(f_drv & CAN_CAPTURE))
 	return;
     if (NULL == grab_ximage)
 	return;
     if (cur_capture != CAPTURE_GRABDISPLAY) {
 	buf.fmt  = x11_fmt;
 	buf.data = grab_ximage->data;
-	if (NULL == ng_grabber_capture(&buf))
+	if (NULL == ng_grabber_capture(&buf,1))
 	    return;
     }
     
@@ -623,7 +622,7 @@ grabdisplay_idle(XtPointer data)
     struct timezone tz;
     struct ng_video_buf buf;
     
-    if (NULL == grabber->grab_capture)
+    if (!(f_drv & CAN_CAPTURE))
 	goto oops;
 
 #ifdef HAVE_LIBXV
@@ -632,7 +631,7 @@ grabdisplay_idle(XtPointer data)
 	    goto oops;
 	buf.fmt  = xv_fmt;
 	buf.data = xv_image->data;
-	if (NULL == ng_grabber_capture(&buf)) {
+	if (NULL == ng_grabber_capture(&buf,0)) {
 	    if (errors++ > 10)
 		goto oops;
 	} else {
@@ -649,7 +648,7 @@ grabdisplay_idle(XtPointer data)
 	    goto oops;
 	buf.fmt  = x11_fmt;
 	buf.data = grab_ximage->data;
-	if (NULL == ng_grabber_capture(&buf)) {
+	if (NULL == ng_grabber_capture(&buf,0)) {
 	    if (errors++ > 10)
 		goto oops;
 	} else {
@@ -677,8 +676,8 @@ grabdisplay_idle(XtPointer data)
 
  oops:
     idle_id = 0;
-    if (grabber->grab_stop)
-	grabber->grab_stop();
+    if (f_drv & CAN_CAPTURE)
+	drv->stopvideo(h_drv);
     return TRUE;
 }
 
@@ -722,7 +721,7 @@ grabdisplay_setsize(int width, int height)
     x11_fmt.bytesperline = 0;
 
     /* check what the driver can do ... */
-    if (!grabber->grab_setparams)
+    if (!(f_drv & CAN_CAPTURE))
 	return;
 
     if (!grab_gc)
@@ -799,7 +798,6 @@ tv_expose_event(Widget widget, XtPointer client_data,
 		XEvent *event, Boolean *d)
 {
     static GC  gc;
-    XColor     color;
     XGCValues  values;
 
     switch(event->type) {
@@ -809,12 +807,17 @@ tv_expose_event(Widget widget, XtPointer client_data,
 		    event->xexpose.count);
 	if (0 == event->xexpose.count && CAPTURE_OVERLAY == cur_capture) {
 	    if (0 == gc) {
+#if 0
+		XColor color;
 		color.red   = (grabber->colorkey & 0x00ff0000) >> 8;
 		color.green = (grabber->colorkey & 0x0000ff00);
 		color.blue  = (grabber->colorkey & 0x000000ff) << 8;
 		XAllocColor(dpy,colormap,&color);
 		values.foreground = color.pixel;
 		gc = XCreateGC(dpy, XtWindow(widget), GCForeground, &values);
+#else
+		gc = XCreateGC(dpy, XtWindow(widget), 0, &values);
+#endif
 	    }
 	    /* TODO: draw background for chroma keying */
 	    XFillRectangle(dpy,XtWindow(widget),gc,
@@ -890,33 +893,6 @@ new_message(char *txt)
 }
 
 static void
-new_norm(void)
-{
-    char label[64];
-
-    if (c_norm) {
-	sprintf(label,"%-" LABEL_WIDTH "s: %s","TV Norm",
-		grabber->norms[cur_norm].str);
-	XtVaSetValues(c_norm,XtNlabel,label,NULL);
-    }
-    if (win_width > 0)
-	grabdisplay_setsize(win_width,win_height);
-    video_new_size();
-}
-
-static void
-new_input(void)
-{
-    char label[64];
-
-    if (c_input) {
-	sprintf(label,"%-" LABEL_WIDTH "s: %s","Video Source",
-		grabber->inputs[cur_input].str);
-	XtVaSetValues(c_input,XtNlabel,label,NULL);
-    }
-}
-
-static void
 new_freqtab(void)
 {
     char label[64];
@@ -929,28 +905,49 @@ new_freqtab(void)
 }
 
 static void
-new_attr(int id)
+new_volume(void)
 {
-    switch (id) {
-    case GRAB_ATTR_VOLUME:
-	if (s_volume)
-	    set_float(s_volume,XtNtopOfThumb,(fp_res)cur_volume/65536);
+    if (s_volume)
+	set_float(s_volume,XtNtopOfThumb,(fp_res)cur_volume/65536);
+}
+
+static void
+new_attr(struct ng_attribute *attr, int val)
+{
+    char label[64];
+
+    switch (attr->id) {
+    case ATTR_ID_NORM:
+	if (c_norm) {
+	    sprintf(label,"%-" LABEL_WIDTH "s: %s","TV Norm",
+		    ng_attr_getstr(attr,val));
+	    XtVaSetValues(c_norm,XtNlabel,label,NULL);
+	}
+	if (win_width > 0)
+	    grabdisplay_setsize(win_width,win_height);
 	break;
-    case GRAB_ATTR_COLOR:
+    case ATTR_ID_INPUT:
+	if (c_input) {
+	    sprintf(label,"%-" LABEL_WIDTH "s: %s","Video Source",
+		    ng_attr_getstr(attr,val));
+	    XtVaSetValues(c_input,XtNlabel,label,NULL);
+	}
+	break;
+    case ATTR_ID_COLOR:
 	if (s_color)
-	    set_float(s_color,XtNtopOfThumb,(fp_res)cur_color/65536);
+	    set_float(s_color,XtNtopOfThumb,(fp_res)val/65536);
 	break;
-    case GRAB_ATTR_BRIGHT:
+    case ATTR_ID_BRIGHT:
 	if (s_bright)
-	    set_float(s_bright,XtNtopOfThumb,(fp_res)cur_bright/65536);
+	    set_float(s_bright,XtNtopOfThumb,(fp_res)val/65536);
 	break;
-    case GRAB_ATTR_HUE:
+    case ATTR_ID_HUE:
 	if (s_hue)
-	    set_float(s_hue,XtNtopOfThumb,(fp_res)cur_hue/65536);
+	    set_float(s_hue,XtNtopOfThumb,(fp_res)val/65536);
 	break;
-    case GRAB_ATTR_CONTRAST:
+    case ATTR_ID_CONTRAST:
 	if (s_contrast)
-	    set_float(s_contrast,XtNtopOfThumb,(fp_res)cur_contrast/65536);
+	    set_float(s_contrast,XtNtopOfThumb,(fp_res)val/65536);
 	break;
     default:
 	/* nothing */
@@ -991,19 +988,21 @@ new_channel(void)
 void
 change_audio(int mode)
 {
+    struct ng_attribute *attr;
     char label[64];
-
     char mname[10];
-    if (!grabber->grab_hasattr(GRAB_ATTR_MODE))
+
+    attr = ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE);
+    if (NULL == attr)
 	return;
 
     if (-1 != mode) {
 	/* set */
-	grabber->grab_setattr(GRAB_ATTR_MODE,mode);
+	drv->write_attr(h_drv,attr,mode);
     }
     if (-1 == mode || 0 == mode) {
-	/* read */
-	mode = grabber->grab_getattr(GRAB_ATTR_MODE);
+	/* read back */
+	mode = drv->read_attr(h_drv,attr);
     }
 
     if (mode & 2)
@@ -1050,14 +1049,14 @@ do_capture(int from, int to)
     case CAPTURE_GRABDISPLAY:
 	if (idle_id) {
 	    XtRemoveWorkProc(idle_id);
-	    if (grabber->grab_stop)
-		grabber->grab_stop();
+	    if (f_drv & CAN_CAPTURE)
+		drv->stopvideo(h_drv);
 	}
 	idle_id = 0;
 	XClearArea(XtDisplay(tv), XtWindow(tv), 0,0,0,0, True);
 	break;
     case CAPTURE_OVERLAY:
-	video_overlay(NULL);
+	video_overlay(0);
 	break;
     }
 
@@ -1072,12 +1071,12 @@ do_capture(int from, int to)
 	if (!niced)
 	    nice(niced = 10);
 	idle_id = XtAppAddWorkProc(app_context, grabdisplay_idle, NULL);
-	if (grabber->grab_start)
-	    grabber->grab_start(-1,2);
+	if (f_drv & CAN_CAPTURE)
+	    drv->startvideo(h_drv,-1,2);
 	break;
     case CAPTURE_OVERLAY:
 	sprintf(label,"%-" LABEL_WIDTH "s: %s","Capture","overlay");
-	video_overlay(grabber->grab_overlay);
+	video_overlay(1);
 	break;
     }
     if (c_cap)
@@ -1096,18 +1095,16 @@ pixit(void)
 	return;
 
     /* save picture settings */
-    channels[cur_sender]->color    = cur_color;
-    channels[cur_sender]->bright   = cur_bright;
-    channels[cur_sender]->hue      = cur_hue;
-    channels[cur_sender]->contrast = cur_contrast;
+    channels[cur_sender]->color    = cur_attrs[ATTR_ID_COLOR];
+    channels[cur_sender]->bright   = cur_attrs[ATTR_ID_BRIGHT];
+    channels[cur_sender]->hue      = cur_attrs[ATTR_ID_HUE];
+    channels[cur_sender]->contrast = cur_attrs[ATTR_ID_CONTRAST];
 
     if (0 == pix_width || 0 == pix_height)
 	return;
 
     /* capture mini picture */
-    if (!grabber->grab_capture)
-	return;
-    if (!grabber->grab_setparams)
+    if (!(f_drv & CAN_CAPTURE))
 	return;
 
     grabdisplay_suspend();
@@ -1115,7 +1112,7 @@ pixit(void)
     fmt.width  = pix_width;
     fmt.height = pix_height;
     if (0 == ng_grabber_setparams(&fmt,1,0) &&
-	NULL != (buf = ng_grabber_capture(NULL)) &&
+	NULL != (buf = ng_grabber_capture(NULL,1)) &&
 	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
 				      fmt.width,fmt.height,
 				      channels[cur_sender]->name))) {
@@ -1216,9 +1213,9 @@ scan_timeout(XtPointer client_data, XtIntervalId *id)
     scan_timer = 0;
     
     /* check */
-    if (!grabber->grab_tuned)
+    if (f_drv & CAN_TUNE)
 	return;
-    if (grabber->grab_tuned())
+    if (drv->is_tuned(h_drv))
 	return;
 
     do_va_cmd(2,"setchannel","next");
@@ -1633,31 +1630,35 @@ struct DO_AC  ac_zap   = { 0, "Zap",        { NULL }};
 
 void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
+    struct ng_attribute *attr;
     long  cd = (long)clientdata;
     int   j;
 
     switch (cd) {
     case 10:
-	if (-1 != (j=popup_menu(widget,"TV Norm",grabber->norms)))
-	    do_va_cmd(2,"setnorm",grabber->norms[j].str);
+	attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
+	if (-1 != (j=popup_menu(widget,"TV Norm",attr->choices)))
+	    do_va_cmd(2,"setnorm",ng_attr_getstr(attr,j));
 	break;
     case 11:
-	if (-1 != (j=popup_menu(widget,"Video Source",grabber->inputs)))
-	    do_va_cmd(2,"setinput",grabber->inputs[j].str);
+	attr = ng_attr_byid(a_drv,ATTR_ID_INPUT);
+	if (-1 != (j=popup_menu(widget,"Video Source",attr->choices)))
+	    do_va_cmd(2,"setinput",ng_attr_getstr(attr,j));
 	break;
     case 12:
 	if (-1 != (j=popup_menu(widget,"Freq table",chanlist_names)))
 	    do_va_cmd(2,"setfreqtab",chanlist_names[j].str);
 	break;
     case 13:
-	if (grabber->audio_modes) {
-	    int i,mode = grabber->grab_getattr(GRAB_ATTR_MODE);
-	    for (i = 1; grabber->audio_modes[i].str != NULL; i++) {
-		grabber->audio_modes[i].nr =
+	attr = ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE);
+	if (NULL != attr) {
+	    int i,mode = drv->read_attr(h_drv,attr);
+	    for (i = 1; attr->choices[i].str != NULL; i++) {
+		attr->choices[i].nr =
 		    (1 << (i-1)) & mode ? (1 << (i-1)) : -1;
 	    }
-	    if (-1 != (j=popup_menu(widget,"Audio",grabber->audio_modes)))
-		change_audio(grabber->audio_modes[j].nr);
+	    if (-1 != (j=popup_menu(widget,"Audio",attr->choices)))
+		change_audio(attr->choices[j].nr);
 	}
 	break;
     case 14:
@@ -1752,7 +1753,7 @@ void scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
 void create_optwin(void)
 {
-    Widget c, p,l;
+    Widget c,p,l;
 
     opt_shell = XtVaAppCreateShell("Options", "Xawtv",
 				   topLevelShellWidgetClass,
@@ -1811,13 +1812,13 @@ void create_optwin(void)
 				      PANED_FIX, NULL);
     XtAddCallback(c_input,XtNcallback,menu_cb,(XtPointer)11);
 
-    if (grabber->grab_tune) {
+    if (f_drv & CAN_TUNE) {
 	c_freq = XtVaCreateManagedWidget("freq", commandWidgetClass, opt_paned,
 					 PANED_FIX, NULL);
 	XtAddCallback(c_freq,XtNcallback,menu_cb,(XtPointer)12);
     }
 
-    if (grabber->grab_hasattr(GRAB_ATTR_MODE)) {
+    if (NULL != ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE)) {
 	c_audio = XtVaCreateManagedWidget("audio",commandWidgetClass,opt_paned,
 					  PANED_FIX, NULL);
 	XtAddCallback(c_audio,XtNcallback,menu_cb,(XtPointer)13);
@@ -1826,7 +1827,7 @@ void create_optwin(void)
 				    PANED_FIX, NULL);
     XtAddCallback(c_cap,XtNcallback,menu_cb,(XtPointer)14);
     
-    if (grabber->grab_hasattr(GRAB_ATTR_BRIGHT)) {
+    if (NULL != ng_attr_byid(a_drv,ATTR_ID_BRIGHT)) {
 	p = XtVaCreateManagedWidget("bright", panedWidgetClass, opt_paned,
 				    XtNorientation, XtEvertical,
 				    PANED_FIX, NULL);
@@ -1839,7 +1840,7 @@ void create_optwin(void)
 	XtAddCallback(s_bright,XtNscrollProc,scroll_scb,NULL);
     }
     
-    if (grabber->grab_hasattr(GRAB_ATTR_HUE)) {
+    if (NULL != ng_attr_byid(a_drv,ATTR_ID_HUE)) {
 	p = XtVaCreateManagedWidget("hue", panedWidgetClass, opt_paned,
 				    XtNorientation, XtEvertical,
 				    PANED_FIX, NULL);
@@ -1852,7 +1853,7 @@ void create_optwin(void)
 	XtAddCallback(s_hue,XtNscrollProc,scroll_scb,NULL);
     }
     
-    if (grabber->grab_hasattr(GRAB_ATTR_CONTRAST)) {
+    if (NULL != ng_attr_byid(a_drv,ATTR_ID_CONTRAST)) {
 	p = XtVaCreateManagedWidget("contrast", panedWidgetClass, opt_paned,
 				    XtNorientation, XtEvertical,
 				    PANED_FIX, NULL);
@@ -1865,7 +1866,7 @@ void create_optwin(void)
 	XtAddCallback(s_contrast,XtNscrollProc,scroll_scb,NULL);
     }
     
-    if (grabber->grab_hasattr(GRAB_ATTR_COLOR)) {
+    if (NULL != ng_attr_byid(a_drv,ATTR_ID_COLOR)) {
 	p = XtVaCreateManagedWidget("color", panedWidgetClass, opt_paned,
 				    XtNorientation, XtEvertical,
 				    PANED_FIX, NULL);
@@ -1879,7 +1880,7 @@ void create_optwin(void)
     }
     
     if (have_mixer ||
-	grabber->grab_hasattr(GRAB_ATTR_VOLUME)) {
+	NULL != ng_attr_byid(a_drv,ATTR_ID_VOLUME)) {
 	p = XtVaCreateManagedWidget("volume", panedWidgetClass, opt_paned,
 				    XtNorientation, XtEvertical,
 				    PANED_FIX, NULL);
@@ -1928,10 +1929,6 @@ static void
 exec_output(XtPointer data, int *fd, XtInputId * iproc)
 {
     char buffer[81];
-#if 0
-    XawTextPosition pos;
-    XawTextBlock blk = { 0, 0, buffer, FMT8BIT };
-#endif
     int len;
 
     switch (len = read(*fd,buffer,80)) {
@@ -1944,14 +1941,7 @@ exec_output(XtPointer data, int *fd, XtInputId * iproc)
 	break;
     default: /* got some bytes */
 	buffer[len] = 0;
-#if 0
-	blk.length = len;
-	pos = XawTextGetInsertionPoint(str_text);
-	XawTextReplace(str_text,pos,pos,&blk);
-	XawTextSetInsertionPoint(str_text,pos+len);
-#else
 	fprintf(stderr,"%s",buffer);
-#endif
 	break;
     }
 }
@@ -1967,9 +1957,6 @@ exec_x11(char **argv)
 	    fprintf(stderr,", \"%s\"",argv[i]);
 	fprintf(stderr,"\n");
     }
-#if 0
-    XtVaSetValues(str_text,XtNstring,"",NULL);
-#endif
     pipe(p);
     switch (pid = fork()) {
     case -1:
@@ -2005,18 +1992,16 @@ rec_work(XtPointer client_data)
 void
 exec_record(Widget widget, XtPointer client_data, XtPointer calldata)
 {
-    if (!grabber->grab_setparams ||
-	!grabber->grab_capture) {
-	missing_feature(MISSING_CAPTURE);
+    if (!(f_drv & CAN_CAPTURE)) {
 	fprintf(stderr,"grabbing: not supported\n");
 	return;
     }
 
     if (rec_work_id) {
 	do_va_cmd(2,"movie","stop");
-	return;
+    } else {
+	do_va_cmd(2,"movie","start");
     }
-    do_va_cmd(2,"movie","start");
     return;
 }
 
@@ -2472,9 +2457,8 @@ main(int argc, char *argv[])
     update_title        = new_title;
     display_message     = new_message;
     vtx_message         = display_vtx;
-    norm_notify         = new_norm;
-    input_notify        = new_input;
     attr_notify         = new_attr;
+    volume_notify       = new_volume;
     freqtab_notify      = new_freqtab;
     setfreqtab_notify   = new_freqtab;
     setstation_notify   = new_channel;
@@ -2519,7 +2503,7 @@ main(int argc, char *argv[])
 	}
     }
     siginit();
-    if (NULL == grabber)
+    if (NULL == drv)
 	grabber_init();
 
     XSetIOErrorHandler(x11_ctrl_alt_backspace);
@@ -2593,7 +2577,7 @@ main(int argc, char *argv[])
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
     } else {
-	if (grabber->grab_tune && 0 != (freq = grabber->grab_tune(-1,-1))) {
+	if ((f_drv & CAN_TUNE) && 0 != (freq = drv->getfreq(h_drv))) {
 	    for (i = 0; i < chancount; i++)
 		if (chanlist[i].freq == freq*1000/16) {
 		    do_va_cmd(2,"setchannel",chanlist[i].name);
@@ -2616,8 +2600,10 @@ main(int argc, char *argv[])
 	}
     }
 
+#if 0
     if (0 != grabber->colorkey)
 	XtAddEventHandler(tv,ExposureMask, True, tv_expose_event, NULL);
+#endif
 
     if (args.fullscreen) {
 	do_fullscreen();

@@ -26,11 +26,11 @@
 
 #include <X11/Intrinsic.h>
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "colorspace.h"
 
 #if !defined(__OpenBSD__)
-struct GRABBER grab_bsd = {};
+struct ng_driver bktr_driver;
 #else /* BSD */
 
 #include <machine/ioctl_bt848.h>

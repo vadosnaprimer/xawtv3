@@ -104,8 +104,8 @@ if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(png, png_read_info, GFXLIBS="-lpng $GFXLIBS"; PNG="found")
     if test "$PNG" = "found"; then
 	AC_CHECK_LIB(quicktime, quicktime_open,
-		GFXLIBS="-lquicktime -lglib $GFXLIBS";AC_DEFINE(HAVE_LIBQUICKTIME),,
-		-lglib -ljpeg -lpng $LIBPTHREAD)
+		GFXLIBS="-lquicktime -ldl -lglib $GFXLIBS";AC_DEFINE(HAVE_LIBQUICKTIME),,
+		-ldl -lglib -ljpeg -lpng $LIBPTHREAD)
     else
 	echo "*** libpng not found: no quicktime support, sorry"
     fi

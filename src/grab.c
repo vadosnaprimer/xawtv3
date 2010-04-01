@@ -16,9 +16,11 @@
 #include "commands.h"
 #include "webcam.h"
 
+#if 0
 extern struct GRABBER grab_v4l;
 extern struct GRABBER grab_v4l2;
 extern struct GRABBER grab_bsd;
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -26,14 +28,14 @@ int   fd_grab;
 int   grab_ratio_x;
 int   grab_ratio_y;
 
+#if 0
 struct        GRABBER *grabber;
 static struct GRABBER *grabbers[] = {
     &grab_v4l2,
     &grab_v4l,
     &grab_bsd,
 };
-
-#define GRABBER_COUNT (sizeof(grabbers)/sizeof(struct GRABBERS*))
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -42,8 +44,14 @@ extern char v4l_conf[];
 void
 grabber_run_v4l_conf(void)
 {
+    static int once = 0;
     if (!do_overlay)
 	return;
+
+    /* start v4l-conf once only */
+    if (once)
+	return;
+    once++;
 
     switch (system(v4l_conf)) {
     case -1: /* can't run */
@@ -56,35 +64,6 @@ grabber_run_v4l_conf(void)
 		"trying to continue anyway\n");
 	break;
     }
-}
-
-int
-grabber_open(char *device, int sw, int sh, void *base, int format, int width)
-{
-    int i;
-
-    /* check all grabber drivers */
-    for (i = 0; i < GRABBER_COUNT; i++) {
-	if (NULL == grabbers[i]->name)
-	    continue;
-	if (debug)
-	    fprintf(stderr,"init: trying: %s... \n",grabbers[i]->name);
-	if (-1 != (fd_grab = grabbers[i]->grab_open(device))) {
-	    grabber = grabbers[i];
-	    break;
-	}
-	if (debug)
-	    fprintf(stderr,"init: failed: %s\n",grabbers[i]->name);
-    }
-    if (i == GRABBER_COUNT) {
-	fprintf(stderr,"no video grabber device available\n");
-	exit(1);
-    }
-    if (debug)
-	fprintf(stderr,"init: ok: %s\n",grabber->name);
-    if (sw && sh && grabber->grab_setupfb)
-	grabber->grab_setupfb(sw,sh,format,base,width);
-    return 0;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -214,10 +193,15 @@ static struct CONV_LIST yuv420p_list[] = {
 };
 
 static struct CONV_LIST mjpg_list[] = {
-    { VIDEO_YUV420P, 0, mjpg_yuv420_compress, mjpg_yuv_init, mjpg_cleanup },
-    { VIDEO_YUV422P, 0, mjpg_yuv422_compress, mjpg_yuv_init, mjpg_cleanup },
-    { VIDEO_RGB24,   0, mjpg_rgb_compress,    mjpg_rgb_init, mjpg_cleanup },
-    { VIDEO_BGR24,   0, mjpg_bgr_compress,    mjpg_rgb_init, mjpg_cleanup },
+    { VIDEO_YUV422P, 0, mjpg_422_422_compress, mjpg_422_init, mjpg_cleanup },
+    { -1,0, NULL }
+};
+
+static struct CONV_LIST jpeg_list[] = {
+    { VIDEO_YUV420P, 0, mjpg_420_420_compress, mjpg_420_init, mjpg_cleanup },
+    { VIDEO_YUV422P, 0, mjpg_422_420_compress, mjpg_420_init, mjpg_cleanup },
+    { VIDEO_RGB24,   0, mjpg_rgb_compress,     mjpg_rgb_init, mjpg_cleanup },
+    { VIDEO_BGR24,   0, mjpg_bgr_compress,     mjpg_rgb_init, mjpg_cleanup },
     { -1,0, NULL }
 };
 
@@ -240,171 +224,15 @@ static struct CONV_LIST *conv_lists[] = {
     yuv422p_list,
     yuv420p_list,
     mjpg_list,
+    jpeg_list,
 };
-
-#if 0
-int
-grabber_setparams(int format, int *width, int *height,
-		  int *linelength, int lut_valid, int fix_ratio)
-{
-    int w,h,i;
-    struct CONV_LIST *list;
-
-    /* no capture support */
-    if (NULL == grabber->grab_setparams ||
-	NULL == grabber->grab_capture) {
-	grabber_format = -1;
-	return -1;
-    }
-    
-    if (grabber_data)
-	free(grabber_data);
-    grabber_data  = NULL;
-    grabber_conv  = NULL;
-    grabber_depth = ng_vfmt_to_depth[format]/8;
-    w = *width;
-    h = *height;
-
-    /* try native format first */
-    grabber_width      = w;
-    grabber_height     = h;
-    grabber_linelength = 0;
-    grabber_format     = format;
-    output_format      = -1;
-    if (0 == grabber->grab_setparams
-	(grabber_format,&grabber_width,&grabber_height,&grabber_linelength)) {
-	goto found;
-    }
-
-    /* check all available conversion functions */
-    list = conv_lists[format];
-    for (i = 0; list && list[i].converter; i++) {
-	if (list[i].lut && !lut_valid)
-	    continue;
-	grabber_width      = w;
-	grabber_height     = h;
-	grabber_linelength = 0;
-	grabber_format     = list[i].format;
-	grabber_conv       = list[i].converter;
-	if (0 == grabber->grab_setparams
-	    (grabber_format,&grabber_width,&grabber_height,&grabber_linelength)) {
-	    if (list[i].init)
-		list[i].init(grabber_width,grabber_height);
-	    goto found;
-	}
-    }
-    fprintf(stderr,"grab: no match for: %dx%d %s\n",
-	    *width,*height,ng_vfmt_to_desc[format]);
-    grabber_format = -1;
-    return -1;
-
- found:
-    if (debug)
-	fprintf(stderr,"grab: req: %dx%d %s\n",
-		*width,*height,ng_vfmt_to_desc[format]);
-    if (fix_ratio) {
-	grabber_fix_ratio(&grabber_width,&grabber_height,NULL,NULL);
-	grabber_linelength = 0;
-	if (0 != grabber->grab_setparams
-	    (grabber_format,&grabber_width,&grabber_height,&grabber_linelength)) {
-	    fprintf(stderr,"Oops: ratio size renegotiation failed\n");
-	    exit(1);
-	}
-    }
-    *width      = grabber_width;
-    *height     = grabber_height;
-    if (grabber_linelength == 0)
-	grabber_linelength = grabber_width*grabber_depth;
-    *linelength = grabber_linelength;
-    if (debug)
-	fprintf(stderr,"grab: use: %dx%d %s\n",
-		*width,*height,ng_vfmt_to_desc[grabber_format]);
-    output_format = format;
-    return 0;
-}
-
-int
-grabber_copy(unsigned char *dest, int dll,
-	     unsigned char *src,  int sll,
-	     int width, int height, int depth)
-{
-    int i,n,size = 0;
-
-    if (0 == dll || (dll == sll && sll == width*depth)) {
-	if (grabber_conv == NULL) {
-	    memcpy(dest,src,width*height*depth);
-	} else {
-	    size = grabber_conv(dest,src,width*height);
-	}
-    } else {
-	if (grabber_conv == NULL) {
-	    n = width*depth;
-	    for (i = 0; i < height; i++) {
-		memcpy(dest,src,n);
-		dest += dll;
-		src  += sll;
-	    }
-	} else {
-	    for (i = 0; i < height; i++) {
-		grabber_conv(dest,src,width);
-		dest += dll;
-		src  += sll;
-	    }
-	}
-    }
-    return size;
-}
-
-void*
-grabber_capture(void *dest, int dest_linelength, int *size)
-{
-    int rc = 0;
-    void *data;
-
-    if (size) *size = 0;
-    if (-1 == grabber_format)
-	return NULL;
-    if (NULL == (data = grabber->grab_capture()))
-	return NULL;
-
-    if (0 == dest_linelength)
-	dest_linelength = grabber_width * grabber_depth;
-
-    if (dest == NULL) {
-	if (grabber_conv == NULL && dest_linelength == grabber_linelength)
-	    goto done;
-	if (grabber_data == NULL)
-	    grabber_data = malloc(grabber_height * dest_linelength);
-	rc = grabber_copy(grabber_data, dest_linelength,
-			  data, grabber_linelength,
-			  grabber_width, grabber_height, grabber_depth);
-	if (size) *size = rc;
-	data = grabber_data;
-	goto done;
-    }
-
-    rc = grabber_copy(dest, dest_linelength,
-		      data, grabber_linelength,
-		      grabber_width, grabber_height, grabber_depth);
-    data = dest;
-
- done:
-    if (NULL != webcam &&
-	0 == webcam_put(webcam,output_format,grabber_width,grabber_height,
-			data,rc ? rc : (dest_linelength * grabber_height))) {
-	free(webcam);
-	webcam = NULL;
-    }
-    if (size) *size = rc;
-    return data;
-}
-#endif
 
 int
 grabber_sw_rate(struct timeval *start, int fps, int count)
 {
     struct timeval now;
     int msecs,frames;
+    static int lasterr;
 
     if (-1 == fps)
 	return 1;
@@ -417,8 +245,10 @@ grabber_sw_rate(struct timeval *start, int fps, int count)
 	fprintf(stderr,"rate: msecs=%d fps=%d -> frames=%d  |"
 		"  count=%d  ret=%d\n",
 		msecs,fps,frames,count,frames-count+1);
-    if (frames-count > 3)
-	fprintf(stderr,"rate control: video lags %d frames behind\n",frames-count);
+    if (frames-count > 3  &&  frames-count != lasterr) {
+	lasterr = frames-count;
+	fprintf(stderr,"rate control: video lags %d frames behind\n",lasterr);
+    }
     return frames-count+1;
 }
 
@@ -457,8 +287,7 @@ ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
     int i;
     
     /* no capture support */
-    if (NULL == grabber->grab_setparams ||
-	NULL == grabber->grab_capture) {
+    if (!(f_drv & CAN_CAPTURE)) {
 	gfmt.fmtid = -1;
 	return -1;
     }
@@ -466,10 +295,8 @@ ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
 
     /* try native format first */
     gfmt = *fmt;
-    if (0 == grabber->grab_setparams
-	(gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+    if (0 == drv->setformat(h_drv,&gfmt))
 	goto found;
-    }
 
     /* check all available conversion functions */
     list = conv_lists[fmt->fmtid];
@@ -479,8 +306,7 @@ ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
 	gfmt = *fmt;
 	gfmt.fmtid = list[i].format;
 	gconv = list[i].converter;
-	if (0 == grabber->grab_setparams
-	    (gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+	if (0 == drv->setformat(h_drv,&gfmt)) {
 	    if (list[i].init)
 		list[i].init(gfmt.width,gfmt.height);
 	    goto found;
@@ -495,8 +321,7 @@ ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
     if (fix_ratio) {
 	grabber_fix_ratio(&gfmt.width, &gfmt.height, NULL, NULL);
 	gfmt.bytesperline = 0;
-	if (0 != grabber->grab_setparams
-	    (gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+	if (0 != drv->setformat(h_drv,&gfmt)) {
 	    fprintf(stderr,"Oops: ratio size renegotiation failed\n");
 	    exit(1);
 	}
@@ -525,65 +350,71 @@ ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
 
 static void
 ng_grabber_copy(struct ng_video_buf *dest,
-		struct ng_video_fmt *fmt,
-		unsigned char *data)
+		struct ng_video_buf *src)
 {
     int i,sw,dw;
     unsigned char *sp,*dp;
 
     if (gconv && 0 == dest->fmt.bytesperline) {
 	/* compressed output */
-	dest->size = gconv(dest->data, data, fmt->width * fmt->height);
+	dest->size = gconv(dest->data, src->data,
+			   src->fmt.width * src->fmt.height);
 	return;
     }
 
     dw = dest->fmt.width * ng_vfmt_to_depth[dest->fmt.fmtid] / 8;
-    sw = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
-    if (fmt->bytesperline == sw && dest->fmt.bytesperline == dw) {
+    sw = src->fmt.width * ng_vfmt_to_depth[src->fmt.fmtid] / 8;
+    if (src->fmt.bytesperline == sw && dest->fmt.bytesperline == dw) {
 	/* can copy in one go */
 	if (gconv == NULL) {
-	    memcpy(dest->data, data, fmt->bytesperline * fmt->height);
+	    memcpy(dest->data, src->data,
+		   src->fmt.bytesperline * src->fmt.height);
 	} else {
-	    gconv(dest->data, data, fmt->width * fmt->height);
+	    gconv(dest->data, src->data, src->fmt.width * src->fmt.height);
 	}
     } else {
 	/* copy line by line */
 	dp = dest->data;
-	sp = data;
-	for (i = 0; i < fmt->height; i++) {
+	sp = src->data;
+	for (i = 0; i < src->fmt.height; i++) {
 	    if (gconv == NULL) {
 		memcpy(dp,sp,dw);
 	    } else {
-		gconv(dp,sp,fmt->width);
+		gconv(dp,sp,src->fmt.width);
 	    }
 	    dp += dest->fmt.bytesperline;
-	    sp += fmt->bytesperline;
+	    sp += src->fmt.bytesperline;
 	}
     }
 }
 
 struct ng_video_buf*
-ng_grabber_capture(struct ng_video_buf *dest)
+ng_grabber_capture(struct ng_video_buf *dest, int single)
 {
-    unsigned char *data;
+    struct ng_video_buf *buf;
     
     if (-1 == gfmt.fmtid)
 	return NULL;
-    if (NULL == (data = grabber->grab_capture()))
+
+    buf = single ? drv->getimage(h_drv) : drv->nextframe(h_drv);
+    if (NULL == buf)
 	return NULL;
 
-    if (NULL == dest) {
-	dest = ng_malloc_video_buf(&ofmt,osize);
-    } else {
+    if (NULL == dest && NULL != gconv)
+        dest = ng_malloc_video_buf(&ofmt,osize);
+
+    if (NULL != dest) {
 	dest->fmt  = ofmt;
 	dest->size = osize;
+	ng_grabber_copy(dest,buf);
+	ng_release_video_buf(buf);
+	buf = dest;
     }
-    ng_grabber_copy(dest, &gfmt, data);
 
-    if (NULL != webcam && 0 == webcam_put(webcam,dest)) {
+    if (NULL != webcam && 0 == webcam_put(webcam,buf)) {
 	free(webcam);
 	webcam = NULL;
     }
-    return dest;
+    return buf;
 }
 

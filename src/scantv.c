@@ -24,8 +24,8 @@
 /* xawtv */
 #include "channel.h"
 #include "frequencies.h"
+#include "grab-ng.h"
 #include "commands.h"
-#include "grab.h"
 #include "xv.h"
 
 /* libvbi */
@@ -52,7 +52,9 @@ char scratch[1024*256];
 static void
 grabber_init(void)
 {
-    grabber_open(device,0,0,0,0,0);
+    ng_grabber_open(device,NULL,0,NULL);
+    f_drv = drv->capabilities(h_drv);
+    a_drv = drv->list_attrs(h_drv);
 }
 
 static void
@@ -177,6 +179,7 @@ main(int argc, char **argv)
 {
     char *vbi_name = "/dev/vbi";
     struct vbi *vbi;
+    struct ng_attribute *attr;
     int c,i,j,scan=1;
     char *name,dummy[32];
     char *tvnorm  = NULL;
@@ -229,9 +232,9 @@ main(int argc, char **argv)
     if (dpy)
 	xv_init(1,0);
 #endif
-    if (NULL == grabber)
+    if (NULL == drv)
 	grabber_init();
-    if (NULL == grabber) {
+    if (NULL == drv) {
 	fprintf(stderr,"can't open video device\n");
 	exit(1);
     }
@@ -241,7 +244,8 @@ main(int argc, char **argv)
     audio_init();
 
     /* ask the user some questions ... */
-    i = menu("please select your TV norm",grabber->norms,tvnorm);
+    attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
+    i = menu("please select your TV norm",attr->choices,tvnorm);
     j = menu("please select a frequency table",chanlist_names,freqtab);
 
     fprintf(conf,"[global]\n");
@@ -249,14 +253,18 @@ main(int argc, char **argv)
     fprintf(conf,"\n");
     fprintf(conf,"[defaults]\n");
     fprintf(conf,"input = Television\n");
-    fprintf(conf,"norm = %s\n",grabber->norms[i].str);
+    fprintf(conf,"norm = %s\n",ng_attr_getstr(attr,i));
     fprintf(conf,"\n");
     if (!scan)
 	exit(0);
 
+    if (!(f_drv & CAN_TUNE)) {
+	fprintf(stderr,"device has no tuner, exiting\n");
+	exit(0);
+    }
     set_defaults();
     do_va_cmd(2,"setinput","television");
-    do_va_cmd(2,"setnorm",grabber->norms[i].str);
+    do_va_cmd(2,"setnorm",ng_attr_getstr(attr,i));
     do_va_cmd(2,"setfreqtab",chanlist_names[j].str);
 
     /* vbi */
@@ -271,8 +279,7 @@ main(int argc, char **argv)
 	fprintf(stderr,"%-4s (%6.2f MHz): ",chanlist[i].name,(float)chanlist[i].freq/1000);
 	do_va_cmd(2,"setchannel",chanlist[i].name);
 	usleep(200000); /* 0.2 sec */
-	if (grabber->grab_tuned &&
-	    0 == grabber->grab_tuned()) {
+	if (0 == drv->is_tuned(h_drv)) {
 	    fprintf(stderr,"no station\n");
 	    continue;
 	}
@@ -288,8 +295,7 @@ main(int argc, char **argv)
 
     /* cleanup */
     audio_off();
-    if (grabber->grab_close)
-	grabber->grab_close();
+    drv->close(h_drv);
     if (dpy)
 	XCloseDisplay(dpy);
 

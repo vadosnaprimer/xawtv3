@@ -2,7 +2,7 @@
 #include <sys/time.h>
 
 #include "frequencies.h"
-#include "grab.h"
+#include "grab-ng.h"
 
 /* --------------------------------------------------------------------- */
 

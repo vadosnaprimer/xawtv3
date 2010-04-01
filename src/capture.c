@@ -12,6 +12,7 @@
 #include <sys/shm.h>
 
 #include "grab-ng.h"
+#include "commands.h"       /* FIXME: *drv globals */
 #include "colorspace.h"
 #include "sound.h"
 #include "capture.h"
@@ -106,6 +107,7 @@ struct movie_handle {
     struct timeval          start;
     long long               rusec;
     long long               stopby;
+    int                     slots;
 
     struct ng_video_fmt     vfmt;
     int                     fps;
@@ -222,6 +224,7 @@ movie_writer_init(char *moviename, char *audioname,
     memset(h,0,sizeof(*h));
     pthread_mutex_init(&h->lock, NULL);
     h->writer = writer;
+    h->slots = slots;
 
     /* audio */
     if (audio->fmtid != AUDIO_NONE)
@@ -270,8 +273,7 @@ movie_writer_start(struct movie_handle *h)
     gettimeofday(&h->start,NULL);
     if (h->afmt.fmtid != AUDIO_NONE)
 	sound_startrec();
-    if (grabber->grab_start)
-	grabber->grab_start(h->fps,0);
+    drv->startvideo(h_drv,h->fps,h->slots);
     if (h->afmt.fmtid != AUDIO_NONE)
 	pthread_create(&h->raudio,NULL,record_audio_thread,h);
     pthread_create(&h->tflush,NULL,flushit,NULL);
@@ -314,8 +316,7 @@ movie_writer_stop(struct movie_handle *h)
 
     /* close file */
     h->writer->wr_close(h->handle);
-    if (grabber->grab_stop)
-	grabber->grab_stop();
+    drv->stopvideo(h_drv);
     if (h->afmt.fmtid != AUDIO_NONE)
 	sound_close();
     return 0;
@@ -350,7 +351,7 @@ movie_grab_put_video(struct movie_handle *h)
 	fprintf(stderr,"grab_put_video\n");
 
     /* get next frame */
-    buf = ng_grabber_capture(NULL);
+    buf = ng_grabber_capture(NULL,0);
     fifo_put(&h->vfifo,buf);
     h->frames++;
     h->vusec = (long long)h->frames * 1000000 / h->fps;

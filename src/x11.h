@@ -20,11 +20,8 @@ Pixmap x11_create_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
 			 unsigned char *byte_data,
 			 int width, int height, char *label);
 
-typedef int   (*set_overlay)(int x, int y, int w, int h, int f,
-			     struct OVERLAY_CLIP *oc, int count);
-
 void video_new_size(void);
-void video_overlay(set_overlay);
+void video_overlay(int state);
 
 Visual* x11_visual(Display *dpy);
 Widget video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class);
