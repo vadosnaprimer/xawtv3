@@ -1,0 +1,106 @@
+[ Note README.de is a (longer) german readme ]
+
+small is beautiful
+==================
+
+This is a _simple_ xaw-based TV Program which uses the bttv driver.
+Copy Policy is GNU GPL.
+
+
+compile & install
+=================
+
+./configure --with-bttv=../bttv && make
+make install
+
+A successful compile may require a "make clean" in the bttv
+directory. Tested with bttv 0.4.3. If you have a stereo card,
+you'll probably want to patch bttv's TVscreen widget, a diff
+is in the patches directory.
+
+
+usage
+=====
+
+Just start it. You'll get a black screen. You can control the Program
+with the following keys:
+
+  B		Capture on/off
+  T		Sound on/off		(req. configuration see below)
+  M		Mouse pointer on/off
+
+  P		PAL
+  N		NTSC
+  S		SECAM
+  up+down	tune up/down one channel
+  left+right	finetuning
+
+  ESC,Q,E	Exit
+
+  F5/F6		Bright up/down
+  F7/F8		Hue
+  F9/F10	Contrast
+  F11/F12	Color
+
+
+You can stick the channels into a config file ($HOME/.xawtv). Looks like this:
+
+	[ORB]
+	channel = 27
+
+The branches hold some String (channel name), the lines below the
+settings for that channel. Usually the channel line is enouth. Other
+options are:
+
+fine = n
+  finetuning (what left+right keys do)
+  Default: 0
+
+norm = pal | ntsc | secam
+  which TV norm, default is pal
+
+key = keysym
+  Hotkey for the channel. All X11 keysyms allowed here.
+
+capture = yes | no
+  capture on/off
+
+source = tuner | c1 | c2 | svhs
+  input source
+
+color = n
+  Color, default is 254
+
+bright = n
+  Bright, default is 0
+
+hue = n
+  Hue, default is 0
+
+contrast = n
+  Contrast, default is 216
+
+
+Anything *before* the first channel is taken as default for all
+channels. If you hav'nt PAL, you probably want to stick norm = NTSC
+there, so you don't need this line for every channel.
+
+Another global setting (alowed before the first channel) is this:
+
+	mixer = device
+
+This allows to control volume using the sound card mixer. device is
+*not* /dev/mixer, but the name of the sound source (line1 for me, just
+take one of the mixer programs floating around and try which is the tv
+card...).
+Volume-control works with the keypad: + is up, - is down, Enter is mute.
+
+The left mouse button will popup a menu with all channels, the right
+button has a menu with some of the control functions.
+
+Have fun!
+
+  Gerd
+
+--
+Gerd Knorr <kraxel@cs.tu-berlin.de>

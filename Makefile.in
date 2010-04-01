@@ -1,0 +1,53 @@
+bttvdir=@bttvdir@
+
+srcdir=@srcdir@
+VPATH=@srcdir@:$(bttvdir)/XTV
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+
+bindir=$(exec_prefix)/bin
+mandir=$(prefix)/man
+
+CC=@CC@
+DEPEND=@DEPEND@
+INSTALL=@INSTALL@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+INSTALL_DATA=@INSTALL_DATA@
+
+CFLAGS=-g -Wall @CFLAGS@ -I. @X_CFLAGS@ -I$(bttvdir) -I$(bttvdir)/XTV
+LDLIBS=@X_LIBS@ -l@XAWLIB@ -lXt @X_PRE_LIBS@ -lXext -lXmu \
+	-lXxf86dga -lX11 @X_EXTRA_LIBS@ @LIBS@
+
+PROGS=xawtv 
+
+SRCS=	$(srcdir)/main.c\
+	$(srcdir)/toolbox.c\
+	$(srcdir)/mixer.c\
+	$(srcdir)/channel.c\
+	$(bttvdir)/XTV/TVscreen.c\
+	$(bttvdir)/XTV/visual.c
+OBJS= main.o toolbox.o mixer.o channel.o TVscreen.o visual.o
+
+all: $(PROGS)
+
+xawtv: $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
+
+install: xawtv
+	$(INSTALL_PROGRAM) -s xawtv $(bindir)
+	$(INSTALL_DATA) Xawtv.ad @x_libraries@/X11/app-defaults/Xawtv
+
+clean:
+	-rm -f $(OBJS) $(OBJS2) *~ core* *.bak
+
+distclean realclean: clean
+	-rm -f $(PROGS) config.cache config.h config.log config.status Makefile
+	@echo "default:" > Makefile
+	@echo "	@echo 'try ./configure --with-bttv=path-to-package && make'" >> Makefile
+
+depend dep:
+	$(DEPEND) -- $(CFLAGS) -- $(SRCS) $(SRCS2)
+
+#-------------------------------------------------------------------------
+# DO NOT DELETE THIS LINE -- make depend depends on it.
+

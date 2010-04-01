@@ -1,0 +1,172 @@
+
+small is beautiful
+==================
+
+Also das hier ist ein _einfaches_ Xaw-basiertes Fernseh-Programm für
+die vom bttv-Treiber unterstützten bt848-Karten. Sender konfigurieren
+oder gar automatisch suchen is nich, ist alles per Hand in's config-file
+reinzuhacken. Maus kann auch erst mal ein Stück weg gelegt werden; bunte
+Buttons zum draufklicken gibt es auch nicht. Ich mag keinen überflüssigen
+Schnickschnack auf'm Bildschirm :-)
+
+copy policy ist GNU GPL.
+
+
+compilieren
+===========
+
+./configure --with-bttv=../bttv && make
+
+xawtv braucht ein paar Dinge aus dem bttv-package (das TV-Widget),
+ohne bttv geht's nicht. Getestet mit version 0.4.3. Wenn es Fehler
+gibt, im bttv-dir mal ein 'make clean' durchlaufen lassen. Für
+Stereo gibts einen patch im patches-Directory.
+
+
+installieren
+============
+
+su -c 'make install'
+
+Wer den Spaß als root compiliert hat, kann sich das su natürlich sparen.
+
+
+benutzen
+========
+
+Einfach starten. Man kriegt erst mal einen schwarzen Bildschirm. Mit den
+Cursortasten kann man dann den Tuner bedienen. rauf+runter ist das
+Kanäle-weiterschalten, links+rechts die Feinabstimmung. 'B' schaltet
+das Fernsehbild ein und aus. 'M' den Mauszeiger. Mit 'P', 'N', und 'S'
+kann man zwischen den Normen PAL, NTSC und SECAM rumschalten.
+
+Mit ESC, 'Q' und 'E' oder dem close-button vom Window-Manager kommt man
+aus dem Programm wieder raus.
+
+Auf'm linken Mausbutten (klick in's Fenster) liegt ein Sendermenü
+(also noch nichts, weil noch kein config-file da). Auf'm rechten
+ein Menu, wo man Bild bzw. Ton ein- und ausschalten und das Programm
+verlassen kann. Das mit dem Ton geht mangels config-File auch noch
+nicht.
+Bei Stereo-Karten kann man dort auch zwischen mono/stereo umschalten
+bzw. bei zweisprachigen Programmen eine aussuchen. "auto" sollte
+theoretisch automatisch passend umschalten, aber zumindest bei mir
+klappt das noch nicht so richtig...
+
+Mit F5-F12 kann man diverse Bildparameter einstellen:
+ F5	- Helligkeit runter
+ F6	- Helligkeit hoch
+ F8/8	- Hue
+ F9/10	- Kontrast
+ F11/12	- Farbe
+
+
+Ok, wenn man einen Sender gefunden hat, kann man ein config-file
+($HOME/.xawtv) anlegen und ihn da reinhacken, etwa so:
+
+	[ORB]
+	channel = 27
+
+in den eckigen Klammern steht der Sendername (beliebiger string),
+darunter die Einstellungen dazu. An Einstellungen gibt es viele, die
+aber alle sinnvoll mit defaults belegt sind, so daß die channel-angabe
+normalerweise reicht. Folgendes ist vorhanden:
+
+channel = n
+  Kanal. Default: 5
+
+fine = n
+  Feinabstimmung (das was man mit links+rechts einstellen kann).
+  Default: 0
+
+norm = pal | ntsc | secam
+  Fernsehnorm. Default: pal
+
+key = keysym
+  Hotkey für den Sender. Alles was es an X11 keysyms so gibt ist hier
+  erlaubt. Mit "key = A" kann man sich die ARD auf 'A' legen, mit
+  "key=F1" die Funktionstasten belegen, oder mit "key = KP_1" den
+  Nummernblock zur Fernbedienung machen. Default: nix
+
+capture = yes | no
+  Bild ein- oder ausgeschaltet. Default: ein.
+
+source = tuner | c1 | c2 | svhs
+  Bildquelle. Kann man z.B. seinen Video-Recorder als "Sender" einstellen:
+
+	[Video-Recorder]
+	source = svhs
+
+  Oder einen AUS-Schalter bauen:
+
+	[AUS]
+	source = irgendwas-unbenutztes
+	capture = no
+
+  Default: Tuner.
+
+color = n
+  Farbe. Default: 254
+
+bright = n
+  Helligkeit. Default: 0
+
+hue = n
+  ??. Default: 0
+
+contrast = n
+  Kontrast. Default: 216
+
+
+Einträge, die vor dem ersten Sender auftauchen, werden als default
+für alle Sender übernommen. Wer also gerne mehr Kontrast hätte, kann
+einfach seine Lieblingseinstellung vor den ersten Sender schreiben,
+die gilt dann für alle. Selbstverständlich kann man das für einzelne
+Sender wieder anders einstellen.
+
+Vor dem ersten Sender darf man auch folgendes schreiben:
+
+	mixer = gerät
+
+Das ist nützlich, wenn der Ton durch die Soundkarte geroutet wird und
+dieselbe einen Mixer hat. Mit dieser Zeile sagt man xawtv, wo die
+Fernsehkarte dran hängt (bei mir ist es "line1", wenn man's nicht weiß
+einfach mal ein mixer-programm starten und durchprobieren), und er
+steuert die Lautstärke über den Soundkarten-Mixer. Wenn man will kann
+man auch was anderes angeben und etwa die Lautstärke des CD-Players
+regeln...
+
+Lautstärkesteuerung geht mit drei Tasten des Nummernblocks: '+' ist
+lauter, '-' leiser, und Enter schaltet den Ton ein bzw. aus.
+
+
+Wer will kann in den app-defaults die Tastaturbelegungen nach seinem
+Gusto verdrehen.
+
+
+Fernsehen Fullscreen geht so:
+
+1) Dem Windowmanager sagen, daß er dem Fenster keinen Titelbalken etc.
+   verpaßt. Bei fvwm und Amkömmlingen etwa so:
+
+	Style  "fstv"           NoTitle, NoHandles, NoBorder
+
+2) Auflösung auf 800x600 stellen. Vorher! Zumindest bei mir mag der
+   bttv-Treiber X11-Auflösungswechsel bei laufendem Fernsehbild gar
+   nicht.
+
+3) xset s 0 (Screensaver aus)
+
+4) xawtv -name "fstv" -geometry 800x600+0+0
+
+5) Mit 'M' den Mauszeiger ausblenden.
+
+6) Jetzt fehlt nur noch 'ne Infrarot-Tastatur :-)
+
+
+Viel Spaß beim Fernsehn gucken wünscht:
+
+  Gerd
+
+--
+Gerd Knorr <kraxel@cs.tu-berlin.de>

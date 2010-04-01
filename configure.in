@@ -1,0 +1,59 @@
+dnl ---------------------------------------------------------------------
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(main.c)
+AC_CONFIG_HEADER(config.h)
+
+dnl ---------------------------------------------------------------------
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
+
+dnl ---------------------------------------------------------------------
+dnl X11 checks
+
+AC_PATH_XTRA
+if test "-DX_DISPLAY_MISSING" = "$X_CFLAGS"; then
+  AC_MSG_ERROR(can not find X11)
+fi
+AC_SUBST(X_CFLAGS)
+AC_SUBST(X_PRE_LIBS)
+AC_SUBST(X_EXTRA_LIBS)
+AC_SUBST(X_LIBS)
+AC_SUBST(x_libraries)
+
+AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB, 
+  XAWLIB=Xaw3d, XAWLIB=Xaw, 
+  $X_LIBS $X_PRE_LIBS -lXext -lXmu -lXt -lX11)
+AC_SUBST(XAWLIB)
+
+AC_CHECK_LIB(Xxf86dga, XF86DGAQueryVersion, have_dga=yes, have_dga=no,
+  $X_LIBS $X_PRE_LIBS -lXext -lX11)
+if test "$have_dga" = "no"; then
+  AC_MSG_ERROR(this package requires the xfree dga extention, sorry)
+fi
+
+dnl MIT shm
+AC_ARG_WITH(mitshm,
+  [  --with-mitshm           enable/disable MIT shared memory],
+  ac_mitshm="$withval",ac_mitshm="")
+
+if test "$ac_mitshm" != "no"; then
+  AC_CHECK_LIB(Xext, XShmAttach,
+	  [ MIT_SHMEM="-lXext"; AC_DEFINE(HAVE_MITSHM) ],,
+	  $X_LIBS $X_PRE_LIBS -lXt -lX11 $X_EXTRA_LIBS)
+fi
+
+AC_ARG_WITH(bttv,
+  [  --with-bttv=/path       give the path of the bttv package],
+  bttvdir="$withval", bttvdir="../bttv")
+AC_SUBST(bttvdir)
+
+if test ! -f "$bttvdir/bttv.h"; then
+  echo "bttv.h not found in $bttvdir, try --with-bttv=/path"
+  exit 1
+fi
+
+
+dnl ---------------------------------------------------------------------
+AC_OUTPUT(Makefile)

@@ -1,0 +1,54 @@
+
+Xawtv.title:		Fernseher
+Xawtv.widthInc:		40
+Xawtv.heightInc:	30
+Xawtv.minWidth:		80
+Xawtv.minHeight:	60
+Xawtv.maxWidth:		800
+Xawtv.maxHeight:	600
+
+Xawtv.tv.translations:	#override				\n\
+	<Btn1Up>:	Channel()				\n\
+	<Btn3Up>:	Menu()					\n\
+	<Key>Q:		CloseMain()				\n\
+	<Key>Escape:	CloseMain()				\n\
+	<Key>KP_Add:	Volume(inc)				\n\
+	<Key>KP_Subtract: Volume(dec)				\n\
+	<Key>KP_Enter:	Volume(mute)				\n\
+	<Key>T:		Volume(mute)				\n\
+	<Key>M:		Pointer()				\n\
+	<Key>0:		SetRes(audio,int,0)			\n\
+	<Key>1:		SetRes(audio,int,1)			\n\
+	<Key>2:		SetRes(audio,int,2)			\n\
+	<Key>3:		SetRes(audio,int,3)			\n\
+	<Key>4:		SetRes(audio,int,4)			\n\
+	<Key>P:		Tune(pal)				\n\
+	<Key>N:		Tune(ntsc)				\n\
+	<Key>S:		Tune(secam)				\n\
+	<Key>Up:	Tune(next)				\n\
+	<Key>Down:	Tune(prev)				\n\
+	<Key>Right:	Tune(fine_up)				\n\
+	<Key>Left:	Tune(fine_down)				\n\
+	<Key>F5:	SetRes(bright,int,-5)			\n\
+	<Key>F6:	SetRes(bright,int,+5)			\n\
+	<Key>F7:	SetRes(hue,int,-5)			\n\
+	<Key>F8:	SetRes(hue,int,+5)			\n\
+	<Key>F9:	SetRes(contrast,int,-5)			\n\
+	<Key>F10:	SetRes(contrast,int,+5)			\n\
+	<Key>F11:	SetRes(col,int,-5)			\n\
+	<Key>F12:	SetRes(col,int,+5)			\n\
+	<Key>B:		SetRes(capture,bool,toggle)
+
+Xawtv*cap.label:	B: Bild ein/aus
+Xawtv*mute.label:	T: Ton ein/aus
+Xawtv*auto.label:	0: Sound: auto
+Xawtv*mono.label:	1: Sound: mono
+Xawtv*stereo.label:	2: Sound: stereo
+Xawtv*bilang1.label:	3: Sound: Sprache 1
+Xawtv*bilang2.label:	4: Sound: Sprache 2
+Xawtv*quit.label:	Q: Quit
+
+Xawtv*beNiceToColormap:	false
+Xawtv*menu*background:	lightgray
+Xawtv*menu.translations: #override \n\
+	<Motion>:	highlight()

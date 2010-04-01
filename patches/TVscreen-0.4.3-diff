@@ -1,0 +1,193 @@
+diff -u XTV/TVscreen.c.orig XTV/TVscreen.c
+--- XTV/TVscreen.c.orig	Sun Oct 19 01:16:16 1997
++++ XTV/TVscreen.c	Mon Nov  3 11:53:26 1997
+@@ -177,6 +177,15 @@
+     XtRImmediate, 
+     (XtPointer) 0
+   },
++  {
++    XtNaudio, 
++    XtCAudio,
++    XtRInt, 
++    sizeof(int),
++    offset(TVscreen.audio), 
++    XtRImmediate, 
++    (XtPointer) 0
++  },
+ };
+ 
+ /* Declaration of methods */
+@@ -203,6 +212,7 @@
+ 
+ static Window lastrwin;
+ static XtIntervalId timer;
++static XtIntervalId audio_timer;
+ static Boolean Move=False;
+ 
+ TVscreenClassRec tvscreenClassRec = {
+@@ -535,6 +545,96 @@
+   cw->TVscreen.max_height=max_h;
+ }
+   
++
++/* --------------------------------------------------------------------- */
++
++#define AUDIO_AUTO     0
++#define AUDIO_MONO     1
++#define AUDIO_STEREO   2
++#define AUDIO_BILANG1  3
++#define AUDIO_BILANG2  4
++
++static char *audio_mode_name[] = {
++    "auto",
++    "mono",
++    "stereo",
++    "bi-lang 1",
++    "bi-lang 2",
++    NULL
++};
++
++void
++set_audiomode(TVscreenWidget w, int mode)
++{
++    int w1,w2;
++
++    if (w->TVscreen.audio_state != mode) {
++#ifdef AUDIO_DEBUG
++	fprintf(stderr,"set_audiomode: switch to %s\n",audio_mode_name[mode]);
++#endif
++	switch (mode) {
++	case AUDIO_MONO:
++	    w1 = 0x00080030;
++	    w2 = 0x000e3000;
++	    break;
++	case AUDIO_STEREO:
++	    w1 = 0x00080020;
++	    w2 = 0x000e3001;
++	    break;
++	case AUDIO_BILANG1:
++	    w1 = 0x00080000;
++	    w2 = 0x000e3000;
++	    break;
++	case AUDIO_BILANG2:
++	    w1 = 0x00080010;
++	    w2 = 0x000e3000;
++	    break;
++	}
++	if (0 == ioctl(w->TVscreen.fbttv,BTTV_WRITE_MSP_REG,&w1))
++	    ioctl(w->TVscreen.fbttv,BTTV_WRITE_MSP_REG,&w2);
++	else
++	    w->TVscreen.audio = -1; /* no stereo card */
++	w->TVscreen.audio_state = mode;
++    }
++}
++
++/* for "audio = auto" */
++void
++audio_watch(XtPointer client_data, XtIntervalId *id)
++{
++    int data,rc,mode;
++    TVscreenWidget w = (TVscreenWidget)client_data;
++
++    data = 0x18 << 16;
++    rc = ioctl(w->TVscreen.fbttv,BTTV_READ_MSP_REG,&data);
++    if (0 == rc) {
++	if (data & 0x8000) data |= 0xffff0000;
++	if (abs(data) <= 128) {
++	    if (abs(data) <= 100)
++		mode = AUDIO_MONO;
++	    else if (data > 0)
++		mode = AUDIO_STEREO;
++	    else
++		mode = AUDIO_BILANG2;
++#ifdef AUDIO_DEBUG
++	    fprintf(stderr,"audio_watch: %5d %s\n",data,audio_mode_name[mode]);
++#endif
++	    set_audiomode(w,mode);
++	} else {
++#ifdef AUDIO_DEBUG
++	    fprintf(stderr,"*"); /* nothing useful */
++#endif
++	}
++	audio_timer = XtAppAddTimeOut(XtWidgetToApplicationContext((Widget)w),
++				      2000,audio_watch,(XtPointer)w);
++    } else {
++	audio_timer = 0;
++#ifdef AUDIO_DEBUG
++	fprintf(stderr,"no stereo card\n");
++#endif
++    }
++}
++
+ static void
+ Initialize(treq, tnew, args, num_args)
+ Widget treq, tnew;
+@@ -791,6 +891,7 @@
+ 
+   if (newcw->TVscreen.CAP_ON){
+     if (!curcw->TVscreen.CAP_ON) {
++      getclip(current);
+       do_redisplay =True;
+       newcw->TVscreen.Change=TRUE;
+       SetGeo(newcw);
+@@ -836,6 +937,22 @@
+ 
+   if (curcw->TVscreen.Contrast !=newcw->TVscreen.Contrast){
+     ioctl(newcw->TVscreen.fbttv, BTTV_CONTRAST, &(newcw->TVscreen.Contrast));
++  }
++
++  if (curcw->TVscreen.audio != newcw->TVscreen.audio ||
++      newcw->TVscreen.audio == 0){
++      if (audio_timer)
++         XtRemoveTimeOut(audio_timer);
++      if (-1 == curcw->TVscreen.audio)
++	  newcw->TVscreen.audio = -1; /* no stereo card */
++      else {
++	  if (newcw->TVscreen.audio != AUDIO_AUTO)
++	      set_audiomode(newcw,newcw->TVscreen.audio);
++	  else
++	      audio_timer =
++		  XtAppAddTimeOut(XtWidgetToApplicationContext((Widget)newcw),
++				  0,audio_watch,(XtPointer)newcw);
++      }
+   }
+ #endif
+ 
+diff -u XTV/TVscreen.h.orig XTV/TVscreen.h
+--- XTV/TVscreen.h.orig	Sat Oct 18 22:40:32 1997
++++ XTV/TVscreen.h	Mon Nov  3 11:50:27 1997
+@@ -62,6 +62,7 @@
+ #define XtNvis  "visname"
+ #define XtNsnap  "snap"
+ #define XtNrealW  "realw"
++#define XtNaudio  "audio"
+  
+ #define XtCDevName  "devname"
+ #define XtCCap "capture"
+@@ -78,6 +79,7 @@
+ #define XtCVis  "visname"
+ #define XtCSnap  "snap"
+ #define XtCRealW  "realw"
++#define XtCAudio  "audio"
+ 
+ /* Class record constants */
+ 
+diff -u XTV/TVscreenP.h.orig XTV/TVscreenP.h
+--- XTV/TVscreenP.h.orig	Sat Oct 18 22:44:40 1997
++++ XTV/TVscreenP.h	Mon Nov  3 11:41:39 1997
+@@ -85,6 +85,7 @@
+   int bpp;
+   char *visname;
+   Boolean snap;
++  int audio;
+   /* private state */
+ #ifndef NOCARD
+   struct bttv_window wtw;
+@@ -103,6 +104,7 @@
+   int realw;
+   int aspect;
+   Boolean CMSET;
++  int audio_state;
+ } TVscreenPart;
+ 
+ /*
