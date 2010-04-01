@@ -2,7 +2,7 @@
 .SH NAME
 webcam - capture images and upload them to a webserver using ftp
 .SH SYNOPSIS
-.B webcam
+.B webcam [ config file ]
 .SH DESCRIPTION
 .B webcam
 captures images from a video4linux device like bttv, annotates them
@@ -10,8 +10,9 @@ and and uploads them to a webserver using ftp in a endless loop.
 .SH CONFIGURATION
 At startup
 .B webcam
-reads the configuration file ~/.webcamrc.  It looks like this (the
-given values are the defaults):
+reads the configuration from the given config file or ~/.webcamrc if
+none is specified in the command line.  It looks like this (the given
+values are the defaults):
 .nf
 
 [ftp]

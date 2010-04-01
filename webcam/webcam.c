@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/mman.h>
@@ -25,8 +26,6 @@
 
 /* ---------------------------------------------------------------------- */
 /* configuration                                                          */
-
-#define JPEG_FILE         "/tmp/webcam.jpeg"
 
 char *ftp_host  = "www";
 char *ftp_user  = "webcam";
@@ -63,7 +62,7 @@ void swap_rgb24(char *mem, int n);
 /* jpeg stuff                                                             */
 
 int
-write_file(char *filename, char *data, int width, int height)
+write_file(int fd, char *data, int width, int height)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -71,12 +70,7 @@ write_file(char *filename, char *data, int width, int height)
     int i;
     unsigned char *line;
 
-    if (NULL == (fp = fopen(filename,"w"))) {
-	fprintf(stderr,"can't open %s for writing: %s\n",
-		filename,strerror(errno));
-	return -1;
-    }
-
+    fp = fdopen(fd,"w");
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_compress(&cinfo);
     jpeg_stdio_dest(&cinfo, fp);
@@ -321,11 +315,15 @@ int
 main(int argc, char *argv[])
 {
     unsigned char *image,*val,*gimg,*lastimg = NULL;
-    char filename[100];
-    int width, height, i;
+    char filename[1024], *tmpdir;
+    int width, height, i, fh;
 
     /* read config */
-    sprintf(filename,"%s/%s",getenv("HOME"),".webcamrc");
+    if (argc > 1) {
+	strcpy(filename,argv[1]);
+    } else {
+	sprintf(filename,"%s/%s",getenv("HOME"),".webcamrc");
+    }
     fprintf(stderr,"reading config file: %s\n",filename);
     cfg_parse_file(filename);
 
@@ -421,6 +419,7 @@ main(int argc, char *argv[])
 	ftp_init(ftp_auto,ftp_passive);
 	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
     }
+    tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
 
     /* main loop */
     for (;;) {
@@ -444,15 +443,25 @@ main(int argc, char *argv[])
 	/* ok, label it and upload */
 	add_text(image,width,height);
 	if ( ftp_local ) {
-	    write_file(ftp_tmp, image, width, height);
+	    if (-1 == (fh = open(ftp_tmp,O_WRONLY,0600))) {
+		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
+		exit(1);
+	    }
+	    write_file(fh, image, width, height);
 	    if ( rename(ftp_tmp, ftp_file) ) {
 		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
 	    }
 	} else {
-	    write_file(JPEG_FILE, image, width, height);
+	    sprintf(filename,"%s/webcamXXXXXX",tmpdir);
+	    if (-1 == (fh = mkstemp(filename))) {
+		perror("mkstemp");
+		exit(1);
+	    }
+	    write_file(fh, image, width, height);
 	    if (!ftp_connected)
 		ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
-	    ftp_upload(JPEG_FILE,ftp_file,ftp_tmp);
+	    ftp_upload(filename,ftp_file,ftp_tmp);
+	    unlink(filename);
 	}
 
 	if (grab_once)

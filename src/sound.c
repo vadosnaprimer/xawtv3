@@ -303,13 +303,17 @@ oss_bufread(int fd,char *buffer,int blocksize)
     for (;;) {
 	rc = read(fd,buffer+count,blocksize-count);
 	if (rc < 0) {
+	    if (EINTR == errno)
+		continue;
 	    perror("read /dev/dsp");
 	    exit(1);
 	}
 	count += rc;
+	fprintf(stderr,"%d %d\n",count,blocksize);
 	if (count == blocksize)
 	    return;
     }
+    fprintf(stderr,"#");
 }
 
 static void
@@ -335,10 +339,11 @@ oss_read(void *handle, long long stopby)
 	if (debug)
 	    fprintf(stderr,"oss: left: %d bytes (%.3fs)\n",
 		    bytes,(float)bytes/h->bytes_per_sec);
+	if (bytes <= 0)
+	    return NULL;
+	bytes = (bytes + 3) & ~3;
 	if (bytes > h->blocksize)
 	    bytes = h->blocksize;
-	if (0 == bytes)
-	    return NULL;
     } else {
 	bytes = h->blocksize;
     }

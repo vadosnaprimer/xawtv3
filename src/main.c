@@ -2582,6 +2582,9 @@ main(int argc, char *argv[])
     XtVaGetValues(tv,XtNwidth,&w,NULL);
     if (!w) {
 	fprintf(stderr,"The app-defaults file is not correctly installed.\n");
+	fprintf(stderr,"It should be either in /etc/X11/app-defaults or in\n");
+	fprintf(stderr,"/usr/X11R6/lib/X11/app-defaults, depending on how\n");
+	fprintf(stderr,"your XFree86 installation is configured.\n");
 	fprintf(stderr,"Your fault (core dumped)\n");
 	exit(1);
     }

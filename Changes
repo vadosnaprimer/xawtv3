@@ -1,4 +1,15 @@
 
+3.42 => 3.43
+============
+
+ * webcam update (tmp file fix, allow to give a config file as
+   argument)
+ * turned off the *&%($ debugging code in grab-v4l.c
+ * some bugfixes in sound recording code.
+ * made the motif version compile again (still very incomplete
+   and not built by default).
+
+
 3.41 => 3.42
 ============
 

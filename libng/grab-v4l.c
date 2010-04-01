@@ -1105,7 +1105,7 @@ v4l_setformat(void *handle, struct ng_video_fmt *fmt)
     struct v4l_handle *h = handle;
     int rc;
 
-#if 1
+#if 0
     /* for debugging color space conversion functions:
        force xawtv to capture some specific format */
     if (fmt->fmtid != VIDEO_YUV422)

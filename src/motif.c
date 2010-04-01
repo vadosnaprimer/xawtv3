@@ -33,12 +33,15 @@
 # include <X11/extensions/xf86vmode.h>
 # include <X11/extensions/xf86vmstr.h>
 #endif
+#ifdef HAVE_LIBXINERAMA
+# include <X11/extensions/Xinerama.h>
+#endif
 #ifdef HAVE_LIBXV
 # include <X11/extensions/Xv.h>
 # include <X11/extensions/Xvlib.h>
 #endif
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "channel.h"
 #include "commands.h"
 #include "frequencies.h"
@@ -227,6 +230,7 @@ create_control(void)
     XtVaCreateManagedWidget("sep1",xmSeparatorWidgetClass,menu,
 			    NULL);
 
+#if 0
     /* options / input */
     submenu = XmCreatePulldownMenu(menu,"inputM",NULL,0);
     XtVaCreateManagedWidget("input",xmCascadeButtonWidgetClass,menu,
@@ -244,6 +248,7 @@ create_control(void)
 	add_cmd_menuitem("norm", i, submenu,
 			 grabber->norms[i].str, NULL, NULL,
 			 "setnorm",grabber->norms[i].str);
+#endif
     XtManageChild(menubar);
 
     /* scales */
@@ -291,13 +296,13 @@ do_capture(int from, int to)
     /* off */
     switch (from) {
     case CAPTURE_OVERLAY:
-	video_overlay(NULL);
+	video_overlay(0);
 	break;
     }
     /* on */
     switch (to) {
     case CAPTURE_OVERLAY:
-	video_overlay(grabber->grab_overlay);
+	video_overlay(1);
 	break;
     }
 }
@@ -348,8 +353,11 @@ main(int argc, char *argv[])
     set_capture_hook    = do_capture;
 
     tv = video_init(app_shell,&vinfo,xmPrimitiveWidgetClass);
-    if (NULL == grabber)
+    if (NULL == drv) {
+	if (debug)
+	    fprintf(stderr,"main: open grabber device...\n");
 	grabber_init();
+    }
 
     XtVaGetValues(tv,XtNwidth,&w,NULL);
     if (!w) {
@@ -389,7 +397,7 @@ main(int argc, char *argv[])
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
     } else {
-	if (grabber->grab_tune && 0 != (freq = grabber->grab_tune(-1,-1))) {
+	if ((f_drv & CAN_TUNE) && 0 != (freq = drv->getfreq(h_drv))) {
 	    for (i = 0; i < chancount; i++)
 		if (chanlist[i].freq == freq*1000/16) {
 		    do_va_cmd(2,"setchannel",chanlist[i].name);
@@ -397,10 +405,18 @@ main(int argc, char *argv[])
 		}
 	}
 	if (-1 == cur_channel) {
-	    if (count > 0)
+	    if (count > 0) {
+		if (debug)
+		    fprintf(stderr,"main: tuning first station\n");
 		do_va_cmd(2,"setstation","0");
-	    else
+	    } else {
+		if (debug)
+		    fprintf(stderr,"main: setting defaults\n");
 		set_defaults();
+	    }
+	} else {
+	    if (debug)
+		fprintf(stderr,"main: known station tuned, not changing\n");
 	}
     }
 
