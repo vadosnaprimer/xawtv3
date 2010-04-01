@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <fcntl.h>
-#include <string.h>
 
 #include <X11/Intrinsic.h>
 
@@ -24,7 +25,8 @@
 # include "videodev.h"
 #endif
 
-#define MEM_SIZE 0x144000
+static int MEM_SIZE;
+static int MEM_SIZE_try[] = { 0x151000, 0x144000 };
 
 /* ---------------------------------------------------------------------- */
 
@@ -34,7 +36,7 @@ static int   grab_open(char *filename, int sw, int sh,
 static int   grab_close();
 static int   grab_overlay(int x, int y, int width, int height, int format,
 			  struct OVERLAY_CLIP *oc, int count);
-static void* grab_scr(void *dest, int width, int height);
+static void* grab_scr(void *dest, int width, int height, int single);
 static void* grab_one(int width, int height);
 static int   grab_tune(unsigned long freq);
 static int   grab_input(int input, int norm);
@@ -78,7 +80,8 @@ static struct video_buffer      ov_fbuf;
 /* screen grab */
 static struct video_mmap        gb_even;
 static struct video_mmap        gb_odd;
-static int                      gb_count,even,pixmap_bytes;
+static int                      even,pixmap_bytes;
+static int                      gb_grab,gb_sync;
 
 static char *map = NULL;
 
@@ -251,7 +254,9 @@ grab_open(char *filename, int sw, int sh,
 	exit(1);
     }
     if (format &&
-	((format == VIDEO_RGB16 && ov_fbuf.depth != 16) ||
+	((format == VIDEO_GRAY  && ov_fbuf.depth !=  8) ||
+	 (format == VIDEO_RGB08 && ov_fbuf.depth !=  8) ||
+	 (format == VIDEO_RGB16 && ov_fbuf.depth != 16) ||
 	 (format == VIDEO_RGB24 && ov_fbuf.depth != 24) ||
 	 (format == VIDEO_RGB32 && ov_fbuf.depth != 32))) {
 	fprintf(stderr,"v4l and dga disagree about the color depth\n");
@@ -260,9 +265,17 @@ grab_open(char *filename, int sw, int sh,
     }
 
     if (0 == strncmp(capability.name,"BT848",5)) {
-	map = mmap(0,MEM_SIZE*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-	if ((char*)-1 == map)
+	for (i = 0; i < sizeof(MEM_SIZE_try)/sizeof(int); i++) {
+	    MEM_SIZE = MEM_SIZE_try[i];
+	    map = mmap(0,MEM_SIZE*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+	    if (-1 != (int)map)
+		break;
+	}
+	if ((char*)-1 == map) {
 	    perror("mmap");
+	} else {
+	    fprintf(stderr,"v4l: mmap()'ed buffer size = 0x%x\n",MEM_SIZE);
+	}
     }
     else
 	map = (char*)-1;
@@ -301,10 +314,11 @@ err:
 static int
 grab_close()
 {
-    while (gb_count > 0) {
+    while (gb_grab > gb_sync) {
 	if (-1 == ioctl(fd,VIDIOCSYNC,0))
 	    perror("ioctl VIDIOCSYNC");
-	gb_count--;
+	else
+	    gb_sync++;
     }
 
     if ((char*)-1 != map)
@@ -330,10 +344,11 @@ grab_overlay(int x, int y, int width, int height, int format,
     int one = 1, zero = 0;
     int i;
 
-    while (gb_count > 0) {
+    while (gb_grab > gb_sync) {
 	if (-1 == ioctl(fd,VIDIOCSYNC,0))
 	    perror("ioctl VIDIOCSYNC");
-	gb_count--;
+	else
+	    gb_sync++;
     }
 
     if (width == 0 || height == 0) {
@@ -380,6 +395,12 @@ grab_overlay(int x, int y, int width, int height, int format,
 	perror("ioctl VIDIOCSWIN");
     if (!overlay) {
 	switch (format) {
+	case VIDEO_GRAY:
+	    pict.palette  = VIDEO_PALETTE_GREY;
+	    break;
+	case VIDEO_RGB08:
+	    pict.palette  = VIDEO_PALETTE_HI240;
+	    break;
 	case VIDEO_RGB15:
 	    pict.palette  = VIDEO_PALETTE_RGB555;
 	    break;
@@ -438,7 +459,7 @@ rgb24_to_rgb32(void *d, void *s, int p)
 }
 
 static void*
-grab_scr(void *dest, int width, int height)
+grab_scr(void *dest, int width, int height, int single)
 {
     void *buf;
 
@@ -452,17 +473,39 @@ grab_scr(void *dest, int width, int height)
     gb_odd.width  = width;
     gb_odd.height = height;
 
-    if (gb_count == 0) {
-	if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_even : &gb_odd))
-	    perror("ioctl VIDIOCMCAPTURE");
-	gb_count++;
+    if (single) {
+	if (gb_grab > gb_sync) {
+	    if (-1 == ioctl(fd,VIDIOCSYNC,0))
+		perror("ioctl VIDIOCSYNC");
+	    else
+		gb_sync++;
+	}
+    } else {
+	if (gb_grab == gb_sync) {
+	    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_even : &gb_odd)) {
+		perror("ioctl VIDIOCMCAPTURE");
+		if (errno == EAGAIN) /* bttv: no station tuned in */
+		    return NULL;
+	    } else
+		gb_grab++;
+	}
     }
 
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_odd : &gb_even))
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_odd : &gb_even)) {
 	perror("ioctl VIDIOCMCAPTURE");
+	if (errno == EAGAIN) /* bttv: no station tuned in */
+	    return NULL;
+    } else
+	gb_grab++;
     if (-1 == ioctl(fd,VIDIOCSYNC,0))
 	perror("ioctl VIDIOCSYNC");
-    buf = even ? map : map + MEM_SIZE;
+    else
+	gb_sync++;
+    if (gb_grab > gb_sync) {
+	buf = even ? map : map + MEM_SIZE;
+    } else {
+	buf = even ? map + MEM_SIZE : map;
+    }
     even = !even;
 
     if (pixmap_bytes == 4) {
@@ -482,10 +525,11 @@ grab_one(int width, int height)
     if ((char*)-1 == map)
 	return NULL;
     
-    while (gb_count > 0) {
+    while (gb_grab > gb_sync) {
 	if (-1 == ioctl(fd,VIDIOCSYNC,0))
 	    perror("ioctl VIDIOCSYNC");
-	gb_count--;
+	else
+	    gb_sync++;
     }
 
     gb.format = 0x11; /* FIXME: BT848_COLOR_FMT_RGB24 */
@@ -497,11 +541,13 @@ grab_one(int width, int height)
     if (-1 == ioctl(fd,VIDIOCMCAPTURE,&gb)) {
 	perror("ioctl VIDIOCMCAPTURE");
 	return NULL;
-    }
+    } else
+	gb_grab++;
     if (-1 == ioctl(fd,VIDIOCSYNC,0)) {
 	perror("ioctl VIDIOCSYNC");
 	return NULL;
-    }
+    } else
+	gb_sync++;
 
     rgb_swap(map,width*height);
     return map;

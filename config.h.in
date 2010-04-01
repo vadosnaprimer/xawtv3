@@ -9,11 +9,11 @@
 /* MIT shared memory extention */
 #undef HAVE_MITSHM
 
+/* jpeg lib */
+#undef HAVE_LIBJPEG
+
 /* Define if you have the Xxf86dga library (-lXxf86dga).  */
 #undef HAVE_LIBXXF86DGA
 
 /* Define if you have the Xxf86vm library (-lXxf86vm).  */
 #undef HAVE_LIBXXF86VM
-
-/* Define if you have the jpeg library (-ljpeg).  */
-#undef HAVE_LIBJPEG

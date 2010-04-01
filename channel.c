@@ -39,7 +39,7 @@
 
 struct CHANNEL  defaults   = { "defaults", NULL,
 			       "5", 0, 0, 0,
-			       1, 0, 0,
+			       CAPTURE_OVERLAY, 0, 0,
 			       32768, 32768, 32768, 32768 };
 struct CHANNEL  **channels = NULL;
 int             count      = 0;
@@ -52,7 +52,7 @@ int    chan_tab = 4;
 
 extern struct GRABBER *grabbers[];
 extern int grabber;
-extern int fs_width,fs_height,fs_xoff,fs_yoff;
+extern int fs_width,fs_height,fs_xoff,fs_yoff,pix_width,pix_height;
 
 /* ----------------------------------------------------------------------- */
 
@@ -101,11 +101,24 @@ int  cf2freq(char *name, int fine)
 
 /* ----------------------------------------------------------------------- */
 
+static struct STRTAB captab[] = {
+    {  CAPTURE_OFF,         "off"         },
+    {  CAPTURE_OFF,         "no"          },
+    {  CAPTURE_OFF,         "false"       },
+    {  CAPTURE_OVERLAY,     "on"          },
+    {  CAPTURE_OVERLAY,     "yes"         },
+    {  CAPTURE_OVERLAY,     "true"        },
+    {  CAPTURE_OVERLAY,     "overlay"     },
+    {  CAPTURE_GRABDISPLAY, "grab"        },
+    {  CAPTURE_GRABDISPLAY, "grabdisplay" },
+    {  -1, NULL,     },
+};
+
 void
 read_config()
 {
     FILE *fp;
-    char filename[100],line[100], tag[32], val[100];
+    char filename[100],line[100], tag[32], val[100], *h;
     int i,nr = 0;
     struct CHANNEL *current = &defaults;
 
@@ -135,29 +148,30 @@ read_config()
 	    fprintf(stderr,"%s:%d: parse error\n",filename,nr);
 	    continue;
 	}
+	while (NULL != (h = strrchr(val,' ')))
+	    *h = '\0';
 
 	if (0 == strcmp(tag,"key"))
 	    current->key = strdup(val);
 	
 	else if (0 == strcmp(tag,"capture")) {
-	    current->capture = str_to_int(val,booltab);
+	    current->capture = str_to_int(val,captab);
 	    if (-1 == current->capture)
 		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
 			filename,nr,tag,val);
 	} else if (0 == strcmp(tag,"source")) {
 	    current->source = str_to_int(val,grabbers[grabber]->inputs);
-	    if (-1 == current->capture)
+	    if (-1 == current->source)
 		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
 			filename,nr,tag,val);
 	} else if (0 == strcmp(tag,"norm")) {
 	    current->norm = str_to_int(val,grabbers[grabber]->norms);
-	    if (-1 == current->capture)
+	    if (-1 == current->norm)
 		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
 			filename,nr,tag,val);
 	} else if (0 == strcmp(tag,"channel")) {
 	    current->cname   = strdup(val);
 	    current->channel = lookup_channel(current->cname);
-	    current->freq    = get_freq(current->channel);
 	    if (-1 == current->channel)
 		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
 			filename,nr,tag,val);
@@ -195,6 +209,14 @@ read_config()
 		fs_width = fs_height = 0;
 	    }
 
+	} else if (0 == count && 0 == strcmp(tag,"pixsize")) {
+	    if (2 != sscanf(val,"%d x %d",&pix_width,&pix_height)) {
+		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
+			filename,nr,tag,val);
+		pix_width = 128;
+		pix_height = 96;
+	    }
+
 	} else if (0 == count && 0 == strcmp(tag,"wm-off-by")) {
 	    if (2 != sscanf(val,"%d %d",&fs_xoff,&fs_yoff)) {
 		fprintf(stderr,"%s:%d: invalid value for %s: %s\n",
@@ -213,16 +235,16 @@ read_config()
 /* ----------------------------------------------------------------------- */
 
 struct STRTAB chan_names[] = {
-    { 0, "ntsc-bcast"      },
-    { 1, "ntsc-cable"      },
-    { 2, "ntsc-bcast-jp"   },
-    { 3, "ntsc-cable-jp"   },
-    { 4, "pal-europe"	   },
-    { 5, "pal-italy"	   },
-    { 6, "pal-newzealand"  },
-    { 7, "pal-australia"   },
-    { 8, "pal-uhf-ireland" },
-    { 9, "pal-cable-bg"	   },
+    { 0, "ntsc-bcast"       },
+    { 1, "ntsc-cable"       },
+    { 2, "ntsc-bcast-jp"    },
+    { 3, "ntsc-cable-jp"    },
+    { 4, "pal-bcast-europe" },
+    { 5, "pal-italy"	    },
+    { 6, "pal-newzealand"   },
+    { 7, "pal-australia"    },
+    { 8, "pal-ireland"      },
+    { 9, "pal-cable-europe" },
     { -1, NULL }
 };
 

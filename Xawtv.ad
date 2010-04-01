@@ -10,19 +10,6 @@ Xawtv*background:			lightgray
 Xawtv*font:				7x13bold
 Xawtv*justify:				left
 
-Xawtv*cap.label:		Video on/off                V
-Xawtv*mute.label:		Audio (un)mute              A
-Xawtv*ptr.label:		Mouse Pointer on/off        M
-Xawtv*fs.label:			Full Screen on/off          F
-Xawtv*grabppm.label:		Grab Image (ppm)            G
-Xawtv*grabjpeg.label:		Grab Image (jpeg)           J
-
-Xawtv*norm.label:		TV norm            >
-Xawtv*input.label:		Video source       >
-Xawtv*freq.label:		Frequency table    >
-Xawtv*audio.label:		Audio              >
-Xawtv*quit.label:		Quit                        Q
-
 Xawtv*auto.label:		autodetect
 Xawtv*mono.label:		mono
 Xawtv*stereo.label:		stereo
@@ -44,7 +31,6 @@ xawtv.translations:		#override			\n\
 
 xawtv.tv.background:		black
 xawtv.tv.translations:		#override			\n\
-	Shift<Key>Escape:	GrabDisplay()			\n\
 	<Key>0:			SetRes(audio,0)			\n\
 	<Key>1:			SetRes(audio,1)			\n\
 	<Key>2:			SetRes(audio,2)			\n\
@@ -58,9 +44,10 @@ xawtv.tv.translations:		#override			\n\
 	<Key>F10:		SetRes(contrast,+512)		\n\
 	<Key>F11:		SetRes(color,-512)		\n\
 	<Key>F12:		SetRes(color,+512)		\n\
+	<Key>C:			Channels()			\n\
+	<Key>O:			Options()			\n\
 	<Btn1Up>:		Channel()			\n\
 	<Btn2Up>:		SetChannel(next)		\n\
-	Ctrl<Btn3Up>:		Menu()				\n\
 	<Btn3Up>:		Options()			\n\
 	<Key>Escape:		CloseMain()			\n\
 								\
@@ -71,6 +58,7 @@ xawtv.tv.translations:		#override			\n\
 	<Key>A:			Volume(mute)			\n\
 	<Key>M:			Pointer()			\n\
 	<Key>F:			FullScreen()			\n\
+	<Key>Z:			Zap()				\n\
 	Ctrl<Key>G:		Snap(ppm,win)			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
 	<Key>G:			Snap(ppm,full)			\n\
@@ -89,12 +77,27 @@ xawtv.tv.translations:		#override			\n\
 
 Options.paned.internalBorderWidth:	0
 Options.paned*Scrollbar.orientation:	horizontal
-Options.paned*Scrollbar.length:		120
-Options.paned*Scrollbar.width:		120
+Options.paned*Scrollbar.length:		150
+Options.paned*Scrollbar.width:		150
 Options.paned*Scrollbar.minimumThumb:	3
 
 Options.translations:		#override			\n\
 	<Message>WM_PROTOCOLS:	Options()
+
+Options*mute.label:		Audio (un)mute                  A
+Options*ptr.label:		Mouse Pointer on/off            M
+Options*fs.label:		Full Screen on/off              F
+Options*grabppm.label:		Grab Image (ppm)                G
+Options*grabjpeg.label:		Grab Image (jpeg)               J
+Options*chanwin.label:		Channel Window                  C
+Options*zap.label:		Channel Hopping                 Z
+
+Options*cap.label:		Capture            >
+Options*norm.label:		TV norm            >
+Options*input.label:		Video source       >
+Options*freq.label:		Frequency table    >
+Options*audio.label:		Audio              >
+Options*quit.label:		Quit                            Q
 
 Options*bright.l.label:		Bright
 Options*hue.l.label:		Hue
@@ -112,6 +115,7 @@ Options.paned.translations:	#override\n\
 	<Key>A:			Volume(mute)			\n\
 	<Key>M:			Pointer()			\n\
 	<Key>F:			FullScreen()			\n\
+	<Key>Z:			Zap()				\n\
 	Ctrl<Key>G:		Snap(ppm,win)			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
 	<Key>G:			Snap(ppm,full)			\n\
@@ -124,5 +128,40 @@ Options.paned.translations:	#override\n\
 	<Key>Page_Down:		SetChannel(prev)		\n\
 	<Key>V:			SetRes(capture,toggle)
 
+! ----------------------------------------------------------------------------
+! Channel window
+
+Channels.viewport.useRight:				true
+Channels.viewport.channelbox.hSpace:			0
+Channels.viewport.channelbox.vSpace:			0
+Channels.viewport.channelbox.background:		black
+Channels.viewport.channelbox.Command.shadowWidth:	0
+Channels.viewport.channelbox.Command.justify:		center
+Channels.viewport.channelbox.Command.foreground:	yellow
+Channels.viewport.channelbox.Command.background:	black
+
+Channels.viewport.translations:	#override\n\
+	<Key>Escape:		Channels()			\n\
+								\
+	<Key>Q:			CloseMain()			\n\
+	<Key>KP_Add:		Volume(inc)			\n\
+	<Key>KP_Subtract:	Volume(dec)			\n\
+	<Key>KP_Enter:		Volume(mute)			\n\
+	<Key>A:			Volume(mute)			\n\
+	<Key>M:			Pointer()			\n\
+	<Key>F:			FullScreen()			\n\
+	<Key>Z:			Zap()				\n\
+	Ctrl<Key>G:		Snap(ppm,win)			\n\
+	Ctrl<Key>J:		Snap(jpeg,win)			\n\
+	<Key>G:			Snap(ppm,full)			\n\
+	<Key>J:			Snap(jpeg,full)			\n\
+	<Key>Up:		Tune(next)			\n\
+	<Key>Down:		Tune(prev)			\n\
+	<Key>Right:		Tune(fine_up)			\n\
+	<Key>Left:		Tune(fine_down)			\n\
+	<Key>Page_Up:		SetChannel(next)		\n\
+	<Key>Page_Down:		SetChannel(prev)		\n\
+	<Key>V:			SetRes(capture,toggle)
 
 ! ----------------------------------------------------------------------------
+

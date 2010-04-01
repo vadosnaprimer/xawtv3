@@ -14,6 +14,7 @@
 #include <qlistbox.h>
 #include <qaccel.h>
 #include <qslider.h>
+#include <qpopmenu.h>
 
 #include <kapp.h>
 #include <kmsgbox.h>

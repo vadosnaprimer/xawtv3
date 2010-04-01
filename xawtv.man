@@ -46,6 +46,9 @@ set output filename for jpeg grabbing (default is snap000.jpeg)
 Be verbose,
 .B level
 may be 0 (default), 1 or 2.  It exists just for debugging.
+.TP
+.B -x
+disable the usage of XFree extenions (DGA, VidMode).
 .SH GETTING STARTED
 Just start up xawtv, this will work without a config file too.  Then
 check out the options (right mouse button) and adjust the settings
@@ -68,6 +71,9 @@ G            Grab picture (full size, ppm)
 J            Grab picture (full size, jpeg)
 Ctrl+G       Grab picture (window size, ppm)
 Ctrl+J       Grab picture (window size, jpeg)
+O            Popup Options Window
+C            Popup Channels Window
+Z            Channel Hopping (tune in every station a few seconds)
 
 up+down      tune up/down one channel
 left+right   fine tuning
@@ -108,8 +114,10 @@ which TV norm, default is pal
 Hotkey for the channel. All X11 keysyms allowed here. You can prefix
 a keysym with Modifier+, i.e. ^F is "Ctrl+F".
 .TP
-.B capture = yes | no
-capture on/off
+.B capture = off | overlay | grabdisplay
+capture mode: off, overlay (default, TV card => video, 0% cpu) or
+grabdisplay (TV card => main memory => X-Server => video, frame rate
+depends on load and picture size).
 .TP
 .B source = Television | Composite1 | Composite1 | SVHS
 input source
@@ -138,14 +146,19 @@ windows.  For example, wm-off-by = -4-24 does the trick for kwm (the
 KDE window manager).
 .TP
 .B freqtab = 
-select a channel-to-freqency mapping
+select a channel-to-freqency mapping.  Options window->Frequency table
+brings up a menu with all valid entries (and allows table-switching at
+runtime). 
+.TP
+.B pixsize = width x height
+size of the channel pixmaps (within Channels window).  0x0 disables this
+feature.
 .TP
 .B mixer = device
 This allows to control volume using the sound card mixer. device is
 *not* /dev/mixer, but the name of the sound source (line1 for me, just
 take one of the mixer programs floating around and try which is the tv
 card...).
-
 Volume-control works with the keypad: + is up, - is down, Enter is
 mute.
 .SS config file example
@@ -157,7 +170,7 @@ My config file looks like this:
 
 source  = television
 norm    = pal
-freqtab = pal-europe
+freqtab = pal-bcast-europe
 #mixer   = synth
 fullscreen = 768x576
 

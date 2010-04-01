@@ -10,7 +10,7 @@
  *     chip driver  a driver for a chip connected
  *                  to a i2c bus                    (cdrom/hd driver)
  *
- + a devices will be attached to one bus and one chip driver.  Every chip
+ * a devices will be attached to one bus and one chip driver.  Every chip
  * driver gets a unique ID.
  *
  * A chip driver can provide a ioctl-like callback for the
@@ -32,7 +32,10 @@ struct i2c_device;
 
 #define I2C_DRIVERID_MSP3400     1
 #define I2C_DRIVERID_TUNER       2
+#define I2C_DRIVERID_VIDEOTEXT   3
 #define I2C_DRIVERID_CHARDEV     4
+
+#define I2C_BUSID_BT848          1
 
 /*
  * struct for a driver for a i2c chip (tuner, soundprocessor,
@@ -75,6 +78,8 @@ struct i2c_driver {
  * 
  * One must hold the spinlock to access the i2c bus (XXX: is the irqsave
  * required? Maybe better use a semaphore?).
+ * [-AC-] having a spinlock_irqsave is only needed if we have drivers wishing
+ *	  to bang their i2c bus from an interrupt.
  * 
  * attach/detach_inform is a callback to inform the bus driver about
  * attached chip drivers.
@@ -92,6 +97,7 @@ struct i2c_driver {
 
 struct i2c_bus {
     char  name[32];         /* some useful label */
+    int   id;
     void  *data;            /* free for use by the bus driver */
 
 #if LINUX_VERSION_CODE >= 0x020100

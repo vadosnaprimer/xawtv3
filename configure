@@ -2035,8 +2035,9 @@ else
 fi
 
 
+
 echo $ac_n "checking for jpeg_start_compress in -ljpeg""... $ac_c" 1>&6
-echo "configure:2040: checking for jpeg_start_compress in -ljpeg" >&5
+echo "configure:2041: checking for jpeg_start_compress in -ljpeg" >&5
 ac_lib_var=`echo jpeg'_'jpeg_start_compress | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -2044,7 +2045,7 @@ else
   ac_save_LIBS="$LIBS"
 LIBS="-ljpeg  $LIBS"
 cat > conftest.$ac_ext <<EOF
-#line 2048 "configure"
+#line 2049 "configure"
 #include "confdefs.h"
 /* Override any gcc2 internal prototype to avoid an error.  */
 /* We use char because int might match the return type of a gcc2
@@ -2055,7 +2056,7 @@ int main() {
 jpeg_start_compress()
 ; return 0; }
 EOF
-if { (eval echo configure:2059: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
+if { (eval echo configure:2060: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
   rm -rf conftest*
   eval "ac_cv_lib_$ac_lib_var=yes"
 else
@@ -2070,24 +2071,118 @@ LIBS="$ac_save_LIBS"
 fi
 if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
   echo "$ac_t""yes" 1>&6
-    ac_tr_lib=HAVE_LIB`echo jpeg | sed -e 's/[^a-zA-Z0-9_]/_/g' \
-    -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
-  cat >> confdefs.h <<EOF
-#define $ac_tr_lib 1
+  cat >> confdefs.h <<\EOF
+#define HAVE_LIBJPEG 1
 EOF
-
-  LIBS="-ljpeg $LIBS"
-
+ JPEG="-ljpeg"
 else
   echo "$ac_t""no" 1>&6
+JPEG=""
 fi
 
 
 
-kernel_v4l=0
-
+echo $ac_n "checking for initscr in -lncurses""... $ac_c" 1>&6
+echo "configure:2087: checking for initscr in -lncurses" >&5
+ac_lib_var=`echo ncurses'_'initscr | sed 'y%./+-%__p_%'`
+if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  ac_save_LIBS="$LIBS"
+LIBS="-lncurses  $LIBS"
 cat > conftest.$ac_ext <<EOF
-#line 2091 "configure"
+#line 2095 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char initscr();
+
+int main() {
+initscr()
+; return 0; }
+EOF
+if { (eval echo configure:2106: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=yes"
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=no"
+fi
+rm -f conftest*
+LIBS="$ac_save_LIBS"
+
+fi
+if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
+  echo "$ac_t""yes" 1>&6
+  CURSES="-lncurses"
+else
+  echo "$ac_t""no" 1>&6
+CURSES=""
+fi
+
+if test "$CURSES" = ""; then
+	echo $ac_n "checking for initscr in -lcurses""... $ac_c" 1>&6
+echo "configure:2129: checking for initscr in -lcurses" >&5
+ac_lib_var=`echo curses'_'initscr | sed 'y%./+-%__p_%'`
+if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  ac_save_LIBS="$LIBS"
+LIBS="-lcurses  $LIBS"
+cat > conftest.$ac_ext <<EOF
+#line 2137 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char initscr();
+
+int main() {
+initscr()
+; return 0; }
+EOF
+if { (eval echo configure:2148: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=yes"
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=no"
+fi
+rm -f conftest*
+LIBS="$ac_save_LIBS"
+
+fi
+if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
+  echo "$ac_t""yes" 1>&6
+  CURSES="-lcurses"
+else
+  echo "$ac_t""no" 1>&6
+CURSES=""
+fi
+
+fi
+
+
+kernel_v4l=0
+bttv=0
+
+# Check whether --with-bttv or --without-bttv was given.
+if test "${with_bttv+set}" = set; then
+  withval="$with_bttv"
+   bttvdir="$withval"; bttv=1 
+else
+  bttvdir="`pwd`/bttv/driver"
+fi
+
+
+if test "$bttv" != 1; then
+	cat > conftest.$ac_ext <<EOF
+#line 2186 "configure"
 #include "confdefs.h"
 #include <linux/videodev.h>
 EOF
@@ -2101,6 +2196,7 @@ EOF
 fi
 rm -f conftest*
 
+fi
 
 echo
 if test "$kernel_v4l" = "1"; then
@@ -2108,14 +2204,6 @@ if test "$kernel_v4l" = "1"; then
 	# dummy
 	bttvdir=.
 else
-	# Check whether --with-bttv or --without-bttv was given.
-if test "${with_bttv+set}" = set; then
-  withval="$with_bttv"
-  bttvdir="$withval"
-else
-  bttvdir="`pwd`/bttv"
-fi
-
 	
 	if test -f "$bttvdir/bttv.h"; then
 		echo "*** using bttv driver in $bttvdir"
@@ -2270,6 +2358,8 @@ s%@X_LIBS@%$X_LIBS%g
 s%@X_EXTRA_LIBS@%$X_EXTRA_LIBS%g
 s%@x_libraries@%$x_libraries%g
 s%@XAWLIB@%$XAWLIB%g
+s%@JPEG@%$JPEG%g
+s%@CURSES@%$CURSES%g
 s%@bttvdir@%$bttvdir%g
 
 CEOF

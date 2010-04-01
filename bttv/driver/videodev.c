@@ -11,7 +11,7 @@
  *
  * Author:	Alan Cox, <alan@cymru.net>
  *
- * Fixes:       
+ * Fixes:
  */
 
 #include <linux/config.h>
@@ -41,6 +41,9 @@ static struct video_device *video_device[VIDEO_NUM_DEVICES];
 #ifdef CONFIG_VIDEO_BT848
 extern int init_bttv_cards(struct video_init *);
 #endif
+#ifdef CONFIG_VIDEO_SAA5249
+extern int init_saa_5249(struct video_init *);
+#endif	
 #ifdef CONFIG_VIDEO_CQCAM
 extern int init_colour_qcams(struct video_init *);
 #endif
@@ -52,6 +55,9 @@ static struct video_init video_init_list[]={
 #ifdef CONFIG_VIDEO_BT848
 	{"bttv", init_bttv_cards},
 #endif	
+#ifdef CONFIG_VIDEO_SAA5249
+	{"saa5249", init_saa_5249},
+#endif	
 #ifdef CONFIG_VIDEO_CQCAM
 	{"c-qcam", init_colour_qcams},
 #endif	
@@ -59,7 +65,7 @@ static struct video_init video_init_list[]={
 	{"bw-qcam", init_bw_qcams},
 #endif	
 #ifdef CONFIG_VIDEO_PMS
-	{"PMS", init_pms_cards}, 	/* not defined anywhere */
+	{"PMS", init_pms_cards}, 
 #endif	
 	{"end", NULL}
 };
@@ -75,6 +81,8 @@ static ssize_t video_read(struct file *file,
 	struct video_device *vfl=video_device[MINOR(file->f_dentry->d_inode->i_rdev)];
 	return vfl->read(vfl, buf, count, file->f_flags&O_NONBLOCK);
 }
+
+
 
 /*
  *	Write for now does nothing. No reason it shouldnt do overlay setting
@@ -108,20 +116,6 @@ static int video_write(struct inode *ino,struct file *file, const char *buf,
 /*
  *	Open a video device.
  */
-
-#if LINUX_VERSION_CODE >= 0x020100
-static int video_mmap(struct file * file, struct vm_area_struct * vma)
-{
-	struct video_device *vfl=video_device[MINOR(file->f_dentry->d_inode->i_rdev)];
-#else
-static int video_mmap(struct inode * ino, struct file * file,
-		      struct vm_area_struct * vma)
-{
-	struct video_device *vfl=video_device[MINOR(ino->i_rdev)];
-#endif
-	return(vfl->mmap(vfl, (char *)vma->vm_start,
-			 (unsigned long) (vma->vm_end - vma->vm_start)));
-}
 
 static int video_open(struct inode *inode, struct file *file)
 {
@@ -168,7 +162,7 @@ static int video_release(struct inode *inode, struct file *file)
  *	Question: Should we be able to capture and then seek around the
  *	image ?
  */
-
+ 
 #if LINUX_VERSION_CODE >= 0x020100
 static long long video_lseek(struct file * file,
 			  long long offset, int origin)
@@ -182,6 +176,7 @@ static long long video_lseek(struct inode *inode, struct file * file,
 	return -ESPIPE;
 }
 #endif
+
 
 static int video_ioctl(struct inode *inode, struct file *file,
 	unsigned int cmd, unsigned long arg)
@@ -197,6 +192,27 @@ static int video_ioctl(struct inode *inode, struct file *file,
 		default:
 			return -EINVAL;
 	}
+}
+
+/*
+ *	We need to do MMAP support
+ */
+ 
+ 
+#if LINUX_VERSION_CODE >= 0x020100
+int video_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct video_device *vfl=video_device[MINOR(file->f_dentry->d_inode->i_rdev)];
+#else
+static int video_mmap(struct inode * ino, struct file * file,
+		      struct vm_area_struct * vma)
+{
+	struct video_device *vfl=video_device[MINOR(ino->i_rdev)];
+#endif
+	if(vfl->mmap)
+		return vfl->mmap(vfl, (char *)vma->vm_start, 
+				(unsigned long)(vma->vm_end-vma->vm_start));
+	return -EINVAL;
 }
 
 /*

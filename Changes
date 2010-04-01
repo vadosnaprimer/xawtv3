@@ -1,3 +1,45 @@
+2.10 => 2.11
+============
+
+  * bugfix: xawtv used to ignore "fine = ???" in the config file.
+  * added grab-one, a small tool to grab single, full-sized images.
+    Use the "-h" option for a short description.
+  * added channel window (try the 'C' key).
+  * Added "zap" mode: does channel hopping (tune in every station a
+    few seconds).
+  * added fbtv (for framebuffer devices).
+
+
+2.09 => 2.10
+============
+
+  * glibc compile fixes (hopefully, have still libc5...)
+  * updated driver to bttv-0.5.8
+  * updated applications according to the grabbing changes in the
+    bttv driver
+  * catched a bug in the config parser (was confused by spaces at
+    end-of-line)
+
+
+2.08 => 2.09
+============
+
+  * 15 bit HiColor works now (fixed bttv driver and v4l-conf)
+  * renamed some frequency tables to make the names more consistent
+    you might have to fix the freqtab= setting in $HOME/.xawtv
+    again...
+  * Added stereo support to the msp3400 volume mixer.
+  * Improved non-overlayed displaying (called grabdisplay in xawtv).
+    Not rock-solid yet, driver is'nt stable enouth wrt grabbing.
+
+    BTW: if you get "ioctl VIDIOCMCAPTURE: Try again" on stderr, it
+    just means that the bttv driver has no signal (i.e. no station
+    tuned in, wrong TV norm, something like that...).
+
+  * the doc subdirectory of the bttv distribution is included now.
+  * updated the driver to bttv-0.5.7
+
+
 2.07 => 2.08
 ============
 

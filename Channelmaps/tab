@@ -1,0 +1,13 @@
+#!/bin/sh
+cat *.html |\
+	perl -ne '
+s/\n//;
+s/<tr>/\n/;
+s/<table>/\n/;
+s/<\/table>/\n/;
+s/<td[^>]*>/ | /;
+s/<[^>]*>//g;
+s/&nbsp\;//g;
+s/ +/ /g;
+print' |\
+	awk -F'|' '/|/ {printf("%-10s %-10s %s\n",$2,$3,$4)}'

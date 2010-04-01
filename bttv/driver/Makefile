@@ -18,6 +18,8 @@ TUNER=0
 # 4: Intel
 # 5: Diamond
 # 6: AVerMedia
+# 7: MATRIX Vision MV-Delta
+# 8: FlyVideo
 CARD=0
 
 # Official major device number is 81
@@ -38,18 +40,19 @@ KERNEL_LOCATION=/usr/src/linux
 # some magic for using linux kernel settings
 # when compiling module(s)
 
-M_OBJS       = bttv.o i2c.o msp3400.o tuner.o videodev.o #i2c_chardev.o
+M_OBJS       = bttv.o msp3400.o tuner.o #i2c_chardev.o
+MX_OBJS      = i2c.o videodev.o
 EXTRA_CFLAGS = -DTUNER_DEFAULT=$(TUNER) -DCARD_DEFAULT=$(CARD) \
-	-DBTTV_MAJOR=$(BTTV_MAJOR) $(INTERFACE) -DEXPORT_SYMTAB 
+	-DBTTV_MAJOR=$(BTTV_MAJOR) $(INTERFACE) #-DUSE_PLL
 
 here:
 	DIR=`pwd`; (cd $(KERNEL_LOCATION); make SUBDIRS=$$DIR modules)
 
 install:
-	su -c "cp -v $(M_OBJS) /lib/modules/$(CURRENT)/misc"
+	su -c "cp -v $(M_OBJS) $(MX_OBJS) /lib/modules/$(CURRENT)/misc"
 
 clean:
-	-rm -f $(M_OBJS) .*.o.flags *~
+	-rm -f $(M_OBJS) $(MX_OBJS) .*.o.flags *~
 
 include $(KERNEL_LOCATION)/Rules.make
 

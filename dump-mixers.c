@@ -43,7 +43,7 @@ dump_mixer(char *devname)
 		   (1<<i) & recmask    ? "rec"    : "   ",
 		   (1<<i) & recsrc     ? "*"      : " ");
 	    if ((1<<i) & stereomask)
-		printf("  %d/%d\n",(volume >> 8) & 0xff,volume & 0xff);
+		printf("  %d/%d\n",volume & 0xff,(volume >> 8) & 0xff);
 	    else
 		printf("  %d\n",volume & 0xff);
 	}

@@ -26,7 +26,7 @@ CXXFLAGS = $(CFLAGS) -I$(QTDIR)/include -I$(KDEDIR)/include
 LDLIBS=@X_LIBS@ -l@XAWLIB@ -lXt @X_PRE_LIBS@ -lXext -lXmu \
 	-lX11 @X_EXTRA_LIBS@ @LIBS@
 
-PROGS=xawtv v4l-conf set-tv dump-mixers radio @KRADIO@
+PROGS=xawtv v4l-conf set-tv fbtv grab-one dump-mixers radio @KRADIO@
 
 CHAN_SRCS= $(shell echo Channelmaps/*.chan)
 SRCS=	$(srcdir)/main.c\
@@ -52,7 +52,7 @@ OBJS= main.o toolbox.o mixer.o channel.o x11.o grab-v4l.o
 all: $(PROGS)
 
 xawtv: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS) @JPEG@
 
 v4l-conf: v4l-conf.c
 	$(CC) $(CFLAGS) -o $@ $< -lXext -lX11 @X_EXTRA_LIBS@ @LIBS@
@@ -63,8 +63,14 @@ radio: radio.c
 dump-mixers: dump-mixers.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+grab-one: grab-one.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 set-tv: set-tv.o channel.o mixer.o grab-v4l.o
 	$(CC) $(CFLAGS) -o $@ $^
+
+fbtv: fbtv.o channel.o mixer.o grab-v4l.o
+	$(CC) $(CFLAGS) -o $@ $^ @CURSES@ @JPEG@
 
 
 kradio: kradio.moc kradio.o
@@ -112,9 +118,9 @@ check:
 	ldd $(PROGS)
 
 dist: distclean
-	rm -f snap0*.ppm
-	rm -f snap0*.jpeg
-	make -C bttv clean
+	find . -name snap0*.ppm  -print | xargs -i rm -f
+	find . -name snap0*.jpeg -print | xargs -i rm -f
+	make -C bttv/driver clean
 	make -C font dist
 	dir=`pwd`; rel=`basename $$dir`; cd ..; tar cvzf $$rel.tar.gz $$rel
 

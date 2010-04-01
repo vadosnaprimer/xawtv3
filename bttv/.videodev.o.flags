@@ -1,0 +1,3 @@
+ifeq (-Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -pipe -fno-strength-reduce -m486 -malign-loops=2 -malign-jumps=2 -malign-functions=2 -DCPU=686 -DMODULE -DMODVERSIONS -include /usr/src/kernel/2.1.97/include/linux/modversions.h -DTUNER_DEFAULT=0 -DCARD_DEFAULT=0 -DBTTV_MAJOR=81 -DEXPORT_SYMTAB,$(strip $(CFLAGS) $(EXTRA_CFLAGS) $(CFLAGS_videodev.o)))
+FILES_FLAGS_UP_TO_DATE += videodev.o
+endif

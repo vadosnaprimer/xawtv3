@@ -69,6 +69,7 @@ struct video_channel
 	__u16  type;
 #define VIDEO_TYPE_TV		1
 #define VIDEO_TYPE_CAMERA	2	
+	__u16 mode;			/* PAL/NTSC/SECAM/OTHER */
 };
 
 struct video_tuner

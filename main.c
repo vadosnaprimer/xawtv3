@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <time.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <sys/time.h>
 
 #include "config.h"
 
@@ -24,6 +24,8 @@
 #include <X11/Xaw/Paned.h>
 #include <X11/Xaw/Command.h>
 #include <X11/Xaw/Scrollbar.h>
+#include <X11/Xaw/Viewport.h>
+#include <X11/Xaw/Box.h>
 #ifdef HAVE_LIBXXF86DGA
 # include <X11/extensions/xf86dga.h>
 #endif
@@ -43,30 +45,29 @@
 #include "toolbox.h"
 
 #define TITLE_TIME          6000
+#define ZAP_TIME            5000
 #define WIDTH_INC             64
 #define HEIGHT_INC            48
 #define LABEL_WIDTH         "16"
 #define VIDMODE_DELAY        100   /* 0.1 sec */
 
-#define CAPTURE_OFF          0
-#define CAPTURE_OVERLAY      1
-#define CAPTURE_GRABDISPLAY  2
-
 /*--- public variables ----------------------------------------------------*/
 
 XtAppContext      app_context;
 Widget            app_shell, tv;
-Widget            opt_shell, opt_paned;
-Widget            c_norm,c_input,c_freq,c_audio;
+Widget            opt_shell, opt_paned, chan_shell;
+Widget            c_norm,c_input,c_freq,c_audio,c_cap;
 Widget            s_bright,s_color,s_hue,s_contrast,s_volume;
 Display           *dpy;
+XtWorkProcId      idle_id;
 
 Atom              wm_protocols[2];
-XtIntervalId      title_timer;
+XtIntervalId      title_timer, audio_timer, zap_timer;
 int               pointer_on = 1;
 int               debug = 0;
 int               fs = 0;
 int               fs_width,fs_height,fs_xoff,fs_yoff;
+int               pix_width=128,pix_height=96;
 int               bpp = 0;
 char              *ppmfile;
 char              *jpegfile;
@@ -116,41 +117,28 @@ void CloseMainAction(Widget, XEvent*, String*, Cardinal*);
 void SetResAction(Widget, XEvent*, String*, Cardinal*);
 void SetChannelAction(Widget, XEvent*, String*, Cardinal*);
 void TuneAction(Widget, XEvent*, String*, Cardinal*);
-void MenuAction(Widget, XEvent*, String*, Cardinal*);
 void ChannelAction(Widget, XEvent*, String*, Cardinal*);
 void VolumeAction(Widget, XEvent*, String*, Cardinal*);
 void PointerAction(Widget, XEvent*, String*, Cardinal*);
 void FullScreenAction(Widget, XEvent*, String*, Cardinal*);
 void OptionsAction(Widget, XEvent*, String*, Cardinal*);
+void ChannelsAction(Widget, XEvent*, String*, Cardinal*);
+void ZapAction(Widget, XEvent*, String*, Cardinal*);
 void SnapAction(Widget, XEvent*, String*, Cardinal*);
-void GrabDisplayAction(Widget, XEvent*, String*, Cardinal*);
 
 static XtActionsRec actionTable[] = {
     { "CloseMain",   CloseMainAction  },
     { "SetRes",      SetResAction },
     { "SetChannel",  SetChannelAction },
     { "Tune",        TuneAction },
-    { "Menu",        MenuAction },
     { "Channel",     ChannelAction },
     { "Volume",      VolumeAction },
     { "Pointer",     PointerAction },
     { "FullScreen",  FullScreenAction },
     { "Options",     OptionsAction },
+    { "Channels",    ChannelsAction },
+    { "Zap",         ZapAction },
     { "Snap",        SnapAction },
-    { "GrabDisplay", GrabDisplayAction },
-};
-
-static struct STRTAB try[] = {
-    {  1, "cap"     },
-    {  2, "mute"    },
-    {  3, "ptr"     },
-    {  4, "fs"      },
-    { 10, "norm"    },
-    { 11, "input"   },
-    { 12, "freq"    },
-    { 13, "audio"   },
-    { 99, "quit"    },
-    { -1, NULL,     },
 };
 
 static struct STRTAB stereo[] = {
@@ -160,6 +148,13 @@ static struct STRTAB stereo[] = {
     {  3, "lang1"   },
     {  4, "lang2"   },
     { -1, NULL,     },
+};
+
+static struct STRTAB cap_list[] = {
+    {  CAPTURE_OFF,         "off"         },
+    {  CAPTURE_OVERLAY,     "overlay"     },
+    {  CAPTURE_GRABDISPLAY, "grabdisplay" },
+    {  -1, NULL,     },
 };
 
 /*--- exit ----------------------------------------------------------------*/
@@ -255,11 +250,36 @@ CloseMainAction(Widget widget, XEvent *event,
 
 /*--- tv -----------------------------------------------------------------*/
 
+static Boolean
+idle_grabdisplay(XtPointer data)
+{
+    static long count,lastsec;
+    struct timeval  tv;
+    struct timezone tz;
+
+    if (debug) {
+	gettimeofday(&tv,&tz);
+	if (tv.tv_sec != lastsec) {
+	    if (lastsec == tv.tv_sec-1)
+		fprintf(stderr,"%5ld fps \r", count);
+	    lastsec = tv.tv_sec;
+	    count = 0;
+	}
+	count++;
+    }
+
+    if (-1 == video_displayframe(grabbers[grabber]->grab_scr)) {
+	idle_id = 0;
+	return TRUE;
+    }
+    return FALSE;
+}
+
 void
 set_title()
 {
     if (-1 != cur_sender) {
-	strcpy(title,channels[cur_sender]->name);
+	sprintf(title, "%s", channels[cur_sender]->name);
     } else {
 	sprintf(title,"channel %s",tvtuner[cur_channel].name);
 	if (cur_fine != 0)
@@ -300,6 +320,16 @@ change_audio(int mode)
     sprintf(title,"%-" LABEL_WIDTH "s: %s","Audio",stereo[mode].str);
     if (c_audio)
 	XtVaSetValues(c_audio,XtNlabel,title,NULL);
+    set_title();
+    sprintf(title+strlen(title)," (%s)",stereo[mode].str);
+    XtVaSetValues(app_shell,XtNtitle,title,NULL);
+}
+
+void
+watch_audio(XtPointer data, XtIntervalId *id)
+{
+    change_audio(0);
+    audio_timer = 0;
 }
 
 void set_norm(int j)
@@ -335,28 +365,47 @@ void set_freqtab(int j)
 void
 set_capture(int capture)
 {
-    if (cur_capture == capture)
+    static int niced = 0;
+
+    if (cur_capture == capture) {
+	if (cur_capture == CAPTURE_GRABDISPLAY && !idle_id)
+	    idle_id = XtAppAddWorkProc(app_context, idle_grabdisplay, NULL);
 	return;
+    }
+    
+    /* off */
+    switch (cur_capture) {
+    case CAPTURE_GRABDISPLAY:
+	if (idle_id)
+	    XtRemoveWorkProc(idle_id);
+	idle_id = 0;
+	XClearArea(XtDisplay(tv), XtWindow(tv), 0,0,0,0, True);
+	break;
+    case CAPTURE_OVERLAY:
+	video_overlay(NULL);
+	break;
+    }
 
     cur_capture = capture;
 
-    switch (capture) {
+    /* on */
+    switch (cur_capture) {
     case CAPTURE_OFF:
-	strcpy(title,"capture: off");
-	video_overlay(NULL);
+	sprintf(title,"%-" LABEL_WIDTH "s: %s","Capture","off");
+	break;
+    case CAPTURE_GRABDISPLAY:
+	sprintf(title,"%-" LABEL_WIDTH "s: %s","Capture","grabdisplay");
+	if (!niced)
+	    nice(niced = 10);
+	idle_id = XtAppAddWorkProc(app_context, idle_grabdisplay, NULL);
 	break;
     case CAPTURE_OVERLAY:
-    default:
-	strcpy(title,"capture: overlay");
+	sprintf(title,"%-" LABEL_WIDTH "s: %s","Capture","overlay");
 	video_overlay(grabbers[grabber]->grab_overlay);
 	break;
-#if 0
-    case CAPTURE_GRABDISPLAY:
-	strcpy(title,"capture: grabdisplay");
-	/* TODO */
-	break;
-#endif
     }
+    if (c_cap)
+	XtVaSetValues(c_cap,XtNlabel,title,NULL);
 }
 
 /* the RightWay[tm] to set float resources (copyed from Xaw specs) */
@@ -408,6 +457,35 @@ set_picparams(int color, int bright, int hue, int contrast)
 }
 
 void
+pixit()
+{
+    Pixmap pix;
+    char *data;
+
+    if (0 == pix_width || 0 == pix_height)
+	return;
+
+    if (cur_sender != -1 && grabbers[grabber]->grab_scr) {
+	data = malloc(pix_width*pix_height*4);
+	if (NULL != grabbers[grabber]->grab_scr(data,pix_width,pix_height,1) &&
+	    0 != (pix = x11_create_pixmap(channels[cur_sender]->button,data,
+					  pix_width,pix_height,
+					  channels[cur_sender]->name))) {
+	    if (channels[cur_sender]->pixmap)
+		XFreePixmap(dpy,channels[cur_sender]->pixmap);
+	    channels[cur_sender]->pixmap = pix;
+	    XtVaSetValues(channels[cur_sender]->button,
+			  XtNbackgroundPixmap,pix,
+			  XtNlabel,"",
+			  XtNwidth,pix_width,
+			  XtNheight,pix_height,
+			  NULL);
+	}
+	free(data);
+    }
+}
+    
+void
 set_channel(struct CHANNEL *channel)
 {
     /* image parameters */
@@ -426,6 +504,16 @@ set_channel(struct CHANNEL *channel)
     cur_fine     = channel->fine;
     grabbers[grabber]->grab_tune(channel->freq);
     set_title();
+
+    if (zap_timer) {
+	XtRemoveTimeOut(zap_timer);
+	zap_timer = 0;
+    }
+    if (audio_timer) {
+	XtRemoveTimeOut(audio_timer);
+	audio_timer = 0;
+    }
+    audio_timer = XtAppAddTimeOut(app_context, 8000, watch_audio, NULL);
 }
 
 void
@@ -465,7 +553,7 @@ SetResAction(Widget widget, XEvent *event,
 	change_int(params[0],params[1],&cur_hue);
 	set_picparams(-1,-1,cur_hue,-1);
     } else if (0 == strcmp(params[0],"capture")) {
-	set_capture(!cur_capture);
+	set_capture((cur_capture+1)%3);
     } else if (0 == strcmp("audio",params[0])) {
 	change_audio(atoi(params[1]));
     } else
@@ -540,8 +628,9 @@ SetChannelAction(Widget widget, XEvent *event,
 	i = atoi(params[0]);
     }
     if (i >= 0 && i < count) {
+	pixit();
 	cur_sender = i;
-	set_channel(channels[cur_sender]);
+	set_channel(channels[i]);
     }
 }
 
@@ -569,63 +658,17 @@ TuneAction(Widget widget, XEvent *event,
 	cur_fine--;
     }
 
+    pixit();
     cur_sender  = -1;
-
-    set_capture(CAPTURE_OVERLAY);
+    set_capture(defaults.capture /* CAPTURE_OVERLAY */ );
 
     freq = get_freq(cur_channel)+cur_fine;
     grabbers[grabber]->grab_tune(freq);
     set_title();
-}
 
-void
-MenuAction(Widget widget, XEvent *event,
-	   String *params, Cardinal *num_params)
-{
-    static String mute[] = { "mute", NULL };
-    int   i,j;
-
-    title[0] = 0;
-    switch(i=popup_menu(widget,"Settings",try)) {
-    case 1:
-	set_capture(!cur_capture);
-	break;
-    case 2:
-	XtCallActionProc(widget,"Volume",event,mute,1);
-	break;
-    case 3:
-	XtCallActionProc(widget,"Pointer",event,NULL,0);
-	break;
-    case 4:
-	XtCallActionProc(widget,"FullScreen",event,NULL,0);
-	break;
-    case 10:
-	if (-1 != (j=popup_menu(widget,"TV Norm",grabbers[grabber]->norms)))
-	    set_norm(j);
-	break;
-    case 11:
-	if (-1 != (j=popup_menu(widget,"Video Source",
-				grabbers[grabber]->inputs)))
-	    set_source(j);
-	break;
-    case 12:
-	if (-1 != (j=popup_menu(widget,"Freq table",chan_names)))
-	    set_freqtab(j);
-	break;
-    case 13:
-	if (-1 != (j=popup_menu(widget,"Audio",stereo))) {
-	    change_audio(j);
-	}
-	break;
-    case 99:
-	ExitCB(widget,NULL,NULL);
-	break;
-    default:
-	/* nothing */
-    }
-
-    if (title[0] != 0) {
-	set_timer_title();
+    if (audio_timer) {
+	XtRemoveTimeOut(audio_timer);
+	audio_timer = 0;
     }
 }
 
@@ -640,6 +683,7 @@ ChannelAction(Widget widget, XEvent *event,
     i = popup_menu(widget,"Stations",cmenu);
 
     if (i != -1) {
+	pixit();
 	cur_sender = i-1;
 	set_channel(channels[cur_sender]);
     }
@@ -669,7 +713,7 @@ vidmode_timer(XtPointer clientData, XtIntervalId *id)
 static void
 set_vidmode(int nr)
 {
-    if (cur_capture)
+    if (CAPTURE_OVERLAY == cur_capture)
 	video_overlay(NULL);
     usleep(VIDMODE_DELAY*1000);
     if (debug)
@@ -678,7 +722,7 @@ set_vidmode(int nr)
 		vm_modelines[nr]->vdisplay);
     XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),vm_modelines[nr]);
 
-    if (cur_capture) {
+    if (CAPTURE_OVERLAY == cur_capture) {
 	cur_capture = 0;
 	XtAppAddTimeOut(app_context,VIDMODE_DELAY,vidmode_timer,NULL);
     }
@@ -763,9 +807,55 @@ FullScreenAction(Widget widget, XEvent *event,
 	XGetScreenSaver(dpy,&timeout,&interval,
 			&prefer_blanking,&allow_exposures);
 	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
+	XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
 	fs = 1;
     }
     XtAppAddWorkProc (app_context,MyResize, NULL);
+}
+
+void
+ChannelsAction(Widget widget, XEvent *event,
+	       String *params, Cardinal *num_params)
+{
+    static int mapped = 0, first = 1;
+    Dimension height;
+
+    if (!count)
+	return;
+
+    if (event && event->type == ClientMessage) {
+	if (event->xclient.data.l[0] == wm_protocols[1]) {
+	    if (debug)
+		fprintf(stderr,"Options: wm_save_yourself\n");
+	    XSetCommand(XtDisplay(chan_shell), XtWindow(chan_shell), NULL, 0);
+	    return;
+	}
+    }
+
+    if (mapped) {
+	XtPopdown(chan_shell);
+	mapped = 0;
+    } else {
+	XtPopup(chan_shell, XtGrabNone);
+	mapped = 1;
+	if (first) {
+	    first = 0;
+	    XSetWMProtocols(XtDisplay(chan_shell), XtWindow(chan_shell),
+			    wm_protocols, 2);
+	    XtVaGetValues(chan_shell,XtNheight,&height,NULL);
+	    if (height > sheight-100)
+		XtVaSetValues(chan_shell,XtNheight,sheight-100,NULL);
+	}
+    }
+}
+
+void button_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    int i = (int)clientdata;
+
+    pixit();
+    cur_sender = i;
+    set_channel(channels[i]);
 }
 
 void
@@ -773,7 +863,25 @@ channel_menu()
 {
     int  i,max,len;
     char str[100],key[32],ctrl[16];
+    Widget box,viewport;
 
+    chan_shell = XtVaAppCreateShell("Channels", "Xawtv",
+				    applicationShellWidgetClass,
+				    dpy,
+				    XtNtransientFor,app_shell,
+				    NULL);
+    XtOverrideTranslations(chan_shell, XtParseTranslationTable
+			   ("<Message>WM_PROTOCOLS: Channels()"));
+    viewport = XtVaCreateManagedWidget("viewport",
+				       viewportWidgetClass, chan_shell,
+				       XtNallowHoriz, False,
+				       XtNallowVert, True,
+				       NULL);
+    box = XtVaCreateManagedWidget("channelbox",
+				  boxWidgetClass, viewport,
+				  XtNsensitive, True,
+				  NULL);
+	
     cmenu = malloc((count+1)*sizeof(struct STRTAB));
     memset(cmenu,0,(count+1)*sizeof(struct STRTAB));
     for (i = 0, max = 0; i < count; i++) {
@@ -782,8 +890,9 @@ channel_menu()
 	    max = len;
     }
     for (i = 0; i < count; i++) {
-	cmenu[i].nr  = i+1;
-	cmenu[i].str = channels[i]->name;
+	cmenu[i].nr      = i+1;
+	cmenu[i].str     = channels[i]->name;
+	channels[i]->freq = get_freq(channels[i]->channel) + channels[i]->fine;
 	if (channels[i]->key) {
 	    if (2 == sscanf(channels[i]->key,"%15[A-Za-z0-9_]+%31[A-Za-z0-9_]",
 			    ctrl,key))
@@ -792,63 +901,46 @@ channel_menu()
 		sprintf(str,"<Key>%s: SetChannel(%d)",channels[i]->key,i);
 	    XtOverrideTranslations(tv,XtParseTranslationTable(str));
 	    XtOverrideTranslations(opt_paned,XtParseTranslationTable(str));
+	    XtOverrideTranslations(viewport,XtParseTranslationTable(str));
 	    sprintf(str,"%-*s %s",max+2,channels[i]->name,channels[i]->key);
 	    cmenu[i].str=strdup(str);
 	}
+	channels[i]->button =
+	    XtVaCreateManagedWidget(channels[i]->name,
+				    commandWidgetClass, box,
+				    XtNwidth,pix_width,
+				    XtNheight,pix_height,
+				    NULL);
+	XtAddCallback(channels[i]->button,XtNcallback,button_cb,(XtPointer)i);
     }
-}
-
-static Boolean
-idle_grabdisplay(XtPointer data)
-{
-    static long count,lastsec;
-    struct timeval  tv;
-    struct timezone tz;
-
-    if (cur_capture) {
-	if (debug)
-	    fprintf(stderr,"grabdisplay off\n");
-	return TRUE;
-    }
-    if (!grabbers[grabber]->grab_scr)
-	return TRUE;
-
-    gettimeofday(&tv,&tz);
-    if (tv.tv_sec != lastsec) {
-        /* statistics */
-        sprintf(title,"grabdisplay: %ld fps", count);
-	XtVaSetValues(app_shell,XtNtitle,title,NULL);
-        lastsec = tv.tv_sec;
-        count = 0;
-    }
-    count++;
-
-    if (-1 == video_displayframe(grabbers[grabber]->grab_scr))
-	return TRUE;
-    return FALSE;
 }
 
 void
-GrabDisplayAction(Widget widget, XEvent *event,
-		  String *params, Cardinal *num_params)
+zap_timeout(XtPointer client_data, XtIntervalId *id)
 {
-#if 1
-    static int niced = 0;
+    pixit();
+    cur_sender = (cur_sender+1)%count;
+    set_channel(channels[cur_sender]);
+    sprintf(title, "Hop: %s", channels[cur_sender]->name);
+    XtVaSetValues(app_shell,XtNtitle,title,NULL);
+    zap_timer = XtAppAddTimeOut
+	(app_context, ZAP_TIME, zap_timeout,NULL);
+}
 
-    if (!niced) {
-	nice(10);
-	niced = 1;
-	if (debug)
-	    fprintf(stderr,"nice\n");
+void
+ZapAction(Widget widget, XEvent *event,
+	  String *params, Cardinal *num_params)
+{
+    if (zap_timer) {
+	XtRemoveTimeOut(zap_timer);
+	zap_timer = 0;
+	strcpy(title,"channel hopping off");
+	set_timer_title();
+    } else {
+	if (count)
+	    zap_timer = XtAppAddTimeOut
+		(app_context, 100, zap_timeout,NULL);
     }
-#endif
-    if (cur_capture) {
-	cur_capture = 0;
-	video_overlay(NULL);
-    }
-    XtAppAddWorkProc(app_context, idle_grabdisplay, NULL);
-    if (debug)
-	fprintf(stderr,"grabdisplay on\n");
 }
 
 /*--- option window ------------------------------------------------------*/
@@ -871,6 +963,9 @@ struct CALL_ACTION call_fs    = { 1, "FullScreen", { "mute", NULL }};
 
 struct CALL_ACTION call_gjpeg = { 1, "Snap",       { "jpeg", NULL }};
 struct CALL_ACTION call_gppm  = { 1, "Snap",       { "ppm",  NULL }};
+
+struct CALL_ACTION call_chan  = { 0, "Channels",   { NULL }};
+struct CALL_ACTION call_zap   = { 0, "Zap",        { NULL }};
 
 void action_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
@@ -901,6 +996,11 @@ void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     case 13:
 	if (-1 != (j=popup_menu(widget,"Audio",stereo))) {
 	    change_audio(j);
+	}
+	break;
+    case 14:
+	if (-1 != (j=popup_menu(widget,"Capture",cap_list))) {
+	    set_capture(j);
 	}
 	break;
 	
@@ -1007,10 +1107,6 @@ void create_optwin()
 				    NULL);
     
     
-    c = XtVaCreateManagedWidget("cap", commandWidgetClass, opt_paned,
-				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&call_cap);
-    
     c = XtVaCreateManagedWidget("mute", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&call_mute);
@@ -1031,6 +1127,12 @@ void create_optwin()
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&call_gjpeg);
 #endif
+    c = XtVaCreateManagedWidget("chanwin", commandWidgetClass, opt_paned,
+				PANED_FIX, NULL);
+    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&call_chan);
+    c = XtVaCreateManagedWidget("zap", commandWidgetClass, opt_paned,
+				PANED_FIX, NULL);
+    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&call_zap);
     
     
     c_norm = XtVaCreateManagedWidget("norm", commandWidgetClass, opt_paned,
@@ -1048,6 +1150,9 @@ void create_optwin()
     c_audio = XtVaCreateManagedWidget("audio", commandWidgetClass, opt_paned,
 				      PANED_FIX, NULL);
     XtAddCallback(c_audio,XtNcallback,menu_cb,(XtPointer)13);
+    c_cap = XtVaCreateManagedWidget("cap", commandWidgetClass, opt_paned,
+				    PANED_FIX, NULL);
+    XtAddCallback(c_cap,XtNcallback,menu_cb,(XtPointer)14);
     
     
     p = XtVaCreateManagedWidget("bright", panedWidgetClass, opt_paned,
@@ -1267,9 +1372,9 @@ xfree_init()
 #ifdef HAVE_LIBXXF86VM
     if (XF86VidModeQueryExtension(dpy,&foo,&bar)) {
 	XF86VidModeQueryVersion(dpy,&ma,&mi);
-	have_vm = 1;
 	fprintf(stderr,"X-Server supports VidMode extention (version %d.%d)\n",
 		ma,mi);
+	have_vm = 1;
 	fprintf(stderr,"  available video mode(s):");
 	XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
 				   &vm_count,&vm_modelines);
@@ -1407,7 +1512,7 @@ int main(int argc, char *argv[])
 	read_config();
     set_freqtab(chan_tab);
     defaults.channel = lookup_channel(defaults.cname);
-    defaults.freq    = get_freq(defaults.channel);
+    defaults.freq    = get_freq(defaults.channel) + defaults.fine;
     channel_menu();
     if (have_mixer)
 	cur_volume = mixer_get_volume() * 65535/100;

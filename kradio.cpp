@@ -95,6 +95,8 @@ KRadio::KRadio() : KTopLevelWidget("main")
 
     hw_init();
     hw_getaudio();
+    hw_audio.flags |= VIDEO_AUDIO_MUTE;
+    hw_setaudio();
     
     led  = mkled();
     mkpanel();
@@ -109,8 +111,6 @@ KRadio::KRadio() : KTopLevelWidget("main")
 
     freq = 87500000;
     tune(fr[0]);
-
-    hw_audio.flags |= VIDEO_AUDIO_MUTE;
     mute();
 }
 
@@ -405,4 +405,3 @@ void KRadio::vol(int val)
     fprintf(stderr,"vol: %d\n",hw_audio.volume);
     hw_setaudio();
 }
-

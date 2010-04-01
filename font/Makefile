@@ -25,6 +25,7 @@ SERVER=tcp/goldbach:7100
 
 bdf:
 	perl ./bigfont.pl -s $(SERVER) -fn "fixed" > led-fixed.bdf
+#	perl ./bigfont.pl -s $(SERVER) -fn "6x10"  > led-6x10.bdf
 #	perl ./bigfont.pl -s $(SERVER) -fn \
 #		"-adobe-helvetica-medium-r-normal--10-*" > led-helv-10.bdf
 #	perl ./bigfont.pl -s $(SERVER) -fn \

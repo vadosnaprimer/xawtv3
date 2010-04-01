@@ -17,7 +17,7 @@ function xrmmod () {
 }
 function xinsmod () {
 	echo insmod $*
-	$INSMOD $* || exit 1
+	$INSMOD -f $* || exit 1
 }
 
 # prepare for crashing the box -- flush dirty buffers
@@ -27,13 +27,15 @@ sync; sleep 1; sync
 xrmmod bttv
 xrmmod msp3400
 xrmmod tuner
+xrmmod i2c_chardev
 xrmmod i2c
 xrmmod videodev
 
 # ... and load the new ones
 xinsmod videodev
 xinsmod i2c		verbose=1 scan=1 i2c_debug=0
+test -f i2c_chardev.o && xinsmod i2c_chardev
 xinsmod tuner		debug=0 type=5 
 xinsmod msp3400		debug=0
-xinsmod bttv		radio=1
+xinsmod bttv		radio=1 vidmem=0xff0
 

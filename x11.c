@@ -241,6 +241,52 @@ x11_destroy_ximage(Display *dpy, XImage * ximage, void *shm)
 	fprintf(stderr,"video: x11_destroy_ximage\n");
 }
 
+Pixmap
+x11_create_pixmap(Widget w, unsigned char *byte_data,
+                  int width, int height, char *label)
+{
+    static XFontStruct    *font;
+    static XColor          color,dummy;
+
+    Pixmap          pixmap;
+    XImage         *ximage;
+    XGCValues       values;
+    GC              gc;
+    void           *shm;
+    Display        *dpy = XtDisplay(w);
+    Screen         *scr = XtScreen(w);
+
+    if (!font) {
+	font = XLoadQueryFont(dpy,"fixed");
+	XAllocNamedColor(dpy,DefaultColormapOfScreen(scr),
+			 "yellow",&color,&dummy);
+    }
+    
+    pixmap = XCreatePixmap(dpy,
+                           RootWindowOfScreen(scr),
+                           width, height,
+                           DefaultDepthOfScreen(scr));
+
+    values.font       = font->fid;
+    values.foreground = color.pixel;
+    gc = XCreateGC(dpy, pixmap, GCFont | GCForeground, &values);
+
+    if (NULL == (ximage = x11_create_ximage(dpy, width, height, &shm))) {
+	XFreePixmap(dpy, pixmap);
+        XFreeGC(dpy, gc);
+        return 0;
+    }
+    memcpy(ximage->data,byte_data,width*height*pixmap_bytes);
+    XPUTIMAGE(dpy, pixmap, gc, ximage, 0, 0, 0, 0, width, height);
+
+    if (label)
+	XDrawString(dpy,pixmap,gc,5,height-5,label,strlen(label));
+
+    x11_destroy_ximage(dpy, ximage, shm);
+    XFreeGC(dpy, gc);
+    return pixmap;
+}
+
 /* ------------------------------------------------------------------------ */
 /* video overlay stuff                                                      */
 
@@ -435,7 +481,7 @@ configure_overlay()
 	    if (overlay_refresh)
 		DEL_TIMER(overlay_refresh);
 	    overlay_refresh = ADD_TIMER(refresh_timer);
-	    conf = 0;
+    conf = 0;
 	}
     } else {
 	if (debug > 1)
@@ -635,13 +681,12 @@ video_displayframe(get_frame cb)
 	}
     }
 
-    if (NULL == cb(ximage->data,owidth,oheight))
+    if (NULL == cb(ximage->data,owidth,oheight,0))
 	return -1;
     XPUTIMAGE(DISPLAY(video), WINDOW(video), gc, ximage,
 	      0,0,ox-wx,oy-wy, owidth, oheight);
     return 0;
 }
-
 
 Widget
 video_init(Widget parent)

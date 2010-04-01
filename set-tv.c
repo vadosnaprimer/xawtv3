@@ -10,10 +10,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <X11/Intrinsic.h>
 
 #include "config.h"
 
 #include "channel.h"
+#include "channels.h"
 #include "grab.h"
 
 /*--- drivers -------------------------------------------------------------*/
@@ -31,7 +33,7 @@ int cur_color;
 int cur_bright;
 int cur_hue;
 int cur_contrast;
-int fs_width,fs_height,fs_xoff,fs_yoff;
+int fs_width,fs_height,fs_xoff,fs_yoff,pix_width,pix_height;
 
 /*------------------------------------------------------------------------*/
 
@@ -68,8 +70,10 @@ set_channel(struct CHANNEL *channel)
     cur_fine     = channel->fine;
     grabbers[grabber]->grab_tune(channel->freq);
 
-    printf("tuned in \"%s\": channel %d, freq %.3f, source %s\n",
-	   channel->name, channel->channel,(float)channel->freq/16,
+    printf("tuned in \"%s\": channel %s (%+d), freq %.3f, source %s\n",
+	   channel->name, tvtuner[channel->channel].name,
+	   channel->fine,
+	   (float)channel->freq/16,
 	   grabbers[grabber]->inputs[cur_input].str);
 }
 
@@ -125,6 +129,8 @@ int main(int argc, char *argv[])
 		argv[0],argv[optind]);
 	exit(1);
     }
+    channels[cur_sender]->freq =
+	get_freq(channels[cur_sender]->channel) + channels[cur_sender]->fine;
     set_channel(channels[cur_sender]);
     
     return 0;

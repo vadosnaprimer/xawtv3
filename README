@@ -35,6 +35,21 @@ You can install xawtv, v4l-conf and kradio (as root) with:
 usage
 =====
 
+bttv
+----
+
+Of cource you have to load the modules as very first thing.  There is
+a script called "update" in the bttv/drivers directory.  I use this
+one to load a new version while doing driver hacking.  You can use it
+too, but check the module arguments before.  They work for my setup,
+and probably do *not* for yours.  The module arguments are documented
+in bttv/driver/MODULES. 
+
+If you have some problems to make the driver work, check out the
+Trouble-Shooting file.  Don't expect to get a answer for questions
+which are covered there.
+
+
 v4l-conf
 --------
 
@@ -82,11 +97,19 @@ It prints some useless messages about video resolution due to the fact that
 it shares alot of code with xawtv, maybe I fix this later.
 
 
+grab-one
+--------
+
+Command line tool for grabbing single pictures (full-size, PPM or raw).
+Try "grab-one -h" for a description.
+
+
 dump-mixers
 -----------
 
 Just does what the name suggests:  It simply dumps the current mixer
-settings to stdout.
+settings to stdout.  I used it to debug the msp3400 module, maybe
+someone finds this useful...
 
 
 vic
@@ -102,7 +125,7 @@ Both versions are tested only with PAL.  The "large" picture size probably
 doest'nt work with NTSC.  
 
 If you plan to compile vic:  It is'nt trivial, you should have some
-basic knowledge about C and writing/editing Makefiles.  
+basic knowledge about C and writing/editing Makefiles. 
 
 
 radio & kradio
@@ -119,7 +142,16 @@ promps for a (FM) frequency.
 kradio is a more comfortable KDE application.  There is a font in the
 font subdirectory, it is required for kradio (for a cool LED-Style
 display :-).  Make sure the KDEDIR and QTDIR environment variables are
-set correctly.  Yes, the volume slider does'nt work yet.
+set correctly.
+
+
+videotext / teletext
+--------------------
+
+Ralph has written a software decoder for teletext.  You can donwload
+it from his web-page.  There is a program called videoteXt which can
+be used to view the teletext pages.  A link to this package is on
+Ralphs page too.
 
 
 resources

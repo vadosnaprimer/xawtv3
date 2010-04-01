@@ -3,6 +3,7 @@
 #define VIDEO_RGB16          4
 #define VIDEO_RGB24          8
 #define VIDEO_RGB32         16
+#define VIDEO_GRAY          32
 
 #define CAN_AUDIO_VOLUME     1
 
@@ -38,7 +39,7 @@ struct GRABBER {
 
     int   (*grab_overlay)(int x, int y, int width, int height, int format,
 			 struct OVERLAY_CLIP *oc, int count);
-    void* (*grab_scr)(void *dest, int width, int height); /* grab for screen display */
+    void* (*grab_scr)(void *dest, int width, int height, int single); /* grab for screen display */
     void* (*grab_one)(int width, int height); /* RGB24 snap */
     
     int   (*grab_tune)(unsigned long freq);

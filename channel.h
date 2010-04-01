@@ -1,3 +1,7 @@
+#define CAPTURE_OFF          0
+#define CAPTURE_OVERLAY      1
+#define CAPTURE_GRABDISPLAY  2
+
 struct CHANNEL {
     char  *name;
     char  *key;
@@ -15,6 +19,11 @@ struct CHANNEL {
     int   bright;
     int   hue;
     int   contrast;
+
+    Pixmap  pixmap;
+    Widget  button;
+
+    int ckey;
 };
 
 extern struct CHANNEL  defaults;

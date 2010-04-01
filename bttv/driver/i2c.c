@@ -1,5 +1,5 @@
 /*
- * generic i2c interface for linux
+ *   Generic i2c interface for linux
  *
  *   (c) 1998 Gerd Knorr <kraxel@cs.tu-berlin.de>
  *
@@ -391,6 +391,24 @@ int i2c_write(struct i2c_bus *bus, unsigned char addr,
 /* ----------------------------------------------------------------------- */
 
 #ifdef MODULE
+
+#if LINUX_VERSION_CODE >= 0x020100
+EXPORT_SYMBOL(i2c_register_bus);
+EXPORT_SYMBOL(i2c_unregister_bus);
+EXPORT_SYMBOL(i2c_register_driver);
+EXPORT_SYMBOL(i2c_unregister_driver);
+EXPORT_SYMBOL(i2c_control_device);
+EXPORT_SYMBOL(i2c_reset);
+EXPORT_SYMBOL(i2c_start);
+EXPORT_SYMBOL(i2c_stop);
+EXPORT_SYMBOL(i2c_one);
+EXPORT_SYMBOL(i2c_zero);
+EXPORT_SYMBOL(i2c_ack);
+EXPORT_SYMBOL(i2c_sendbyte);
+EXPORT_SYMBOL(i2c_readbyte);
+EXPORT_SYMBOL(i2c_read);
+EXPORT_SYMBOL(i2c_write);
+#endif
 
 int init_module(void)
 {

@@ -38,8 +38,8 @@ extern "C" {
 /* here you can tune the device names */
 const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
 
-//#define DEBUG(x)
-#define DEBUG(x) (x)
+#define DEBUG(x)
+//#define DEBUG(x) (x)
 
 #define BT848_COLOR_FMT_YUY2   0x44 /* FIXME */
 
@@ -50,7 +50,8 @@ const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
 #define CIF_WIDTH   352
 #define CIF_HEIGHT  288
 
-#define MEM_SIZE               (PAL_WIDTH * PAL_HEIGHT * 3)
+static int MEM_SIZE;
+static int MEM_SIZE_try[] = { 0x151000, 0x144000 };
 
 #define CF_422 0
 #define CF_411 1
@@ -80,7 +81,8 @@ protected:
 
     /* mmap */
     int                      have_mmap;
-    int                      even;
+    int                      grab_count;
+    int                      sync_count;
     struct video_mmap        gb_even;
     struct video_mmap        gb_odd;
     char                     *mem;
@@ -248,12 +250,17 @@ V4lGrabber::V4lGrabber(const char *cformat, const char *dev)
     }
 
     /* map grab buffer */
-    mem = (char*)mmap(0,MEM_SIZE * 2,PROT_READ|PROT_WRITE,MAP_SHARED,fd_,0);
+    for (i = 0; i < sizeof(MEM_SIZE_try)/sizeof(int); i++) {
+	MEM_SIZE = MEM_SIZE_try[i];
+	mem = (char*)mmap(0,MEM_SIZE*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd_,0);
+	if (-1 != (int)mem)
+	    break;
+    }
     if (-1 == (int)mem) {
 	perror("mmap");
 	fprintf(stderr,"V4l: device has no mmap support\n");
     } else {
-	fprintf(stderr,"V4l: using mmap()'ed buffer\n");
+	fprintf(stderr,"V4l: using mmap()'ed buffer (0x%x)\n",MEM_SIZE);
 	have_mmap = 1;
     }
     
@@ -265,13 +272,13 @@ V4lGrabber::V4lGrabber(const char *cformat, const char *dev)
     if(!strcmp(cformat, "cif"))
 	cformat_ = CF_CIF;
     
-    port_     = 0;
-    decimate_ = 2;
+    port_      = 0;
+    decimate_  = 2;
 }
 
 V4lGrabber::~V4lGrabber()
 {
-    DEBUG(fprintf(stderr,"V4l: destructor %s\n"));
+    DEBUG(fprintf(stderr,"V4l: destructor\n"));
 
     if (have_mmap)
 	munmap(mem,MEM_SIZE * 2);
@@ -313,11 +320,18 @@ void V4lGrabber::start()
     format();
 
     if (have_mmap) {
-	even = 1;
+	grab_count = 0;
+	sync_count = 0;
+
 	if (-1 == ioctl(fd_, VIDIOCMCAPTURE, &gb_even))
 	    perror("ioctl VIDIOCMCAPTURE even");
+	else
+	    grab_count++;
+
 	if (-1 == ioctl(fd_, VIDIOCMCAPTURE, &gb_odd))
 	    perror("ioctl VIDIOCMCAPTURE odd");
+	else
+	    grab_count++;
     }
     
     Grabber::start();
@@ -328,10 +342,13 @@ void V4lGrabber::stop()
     DEBUG(fprintf(stderr,"V4l: stop\n"));
 
     if (mmap) {
-	if (-1 == ioctl(fd_, VIDIOCSYNC, 0))
-	    perror("ioctl VIDIOCSYNC (stop 1)");
-	if (-1 == ioctl(fd_, VIDIOCSYNC, 0))
-	    perror("ioctl VIDIOCSYNC (stop 2)");
+	while (grab_count > sync_count) {
+	    if (-1 == ioctl(fd_, VIDIOCSYNC, 0)) {
+		perror("ioctl VIDIOCSYNC");
+		break;
+	    } else
+		sync_count++;
+	}
     }
     
     Grabber::stop();
@@ -339,11 +356,16 @@ void V4lGrabber::stop()
 
 int V4lGrabber::grab()
 {
-    DEBUG(fprintf(stderr,even ? "e" : "o"));
+    char  *fr;
+
+    DEBUG(fprintf(stderr,(sync_count % 2) ? "o" : "e"));
 
     if (mmap) {
+	fr = mem + ((sync_count % 2) ? MEM_SIZE : 0);
 	if (-1 == ioctl(fd_, VIDIOCSYNC, 0))
 	    perror("ioctl VIDIOCSYNC");
+	else
+	    sync_count++;
     } else {
 	/* FIXME: read() */
     }
@@ -351,22 +373,19 @@ int V4lGrabber::grab()
     switch (cformat_) {
     case CF_411:
     case CF_CIF:
-	packed422_to_planar411((char*)frame_,mem + (even ? 0 : MEM_SIZE));
+	packed422_to_planar411((char*)frame_,fr);
 	break;
     case CF_422:
-	packed422_to_planar422((char*)frame_,mem + (even ? 0 : MEM_SIZE));
+	packed422_to_planar422((char*)frame_,fr);
 	break;
     }
 
     if (mmap) {
-	if (even) {
-	    if (-1 == ioctl(fd_, VIDIOCMCAPTURE, &gb_even))
-		perror("ioctl VIDIOCSYNC even");
-	} else {
-	    if (-1 == ioctl(fd_, VIDIOCMCAPTURE, &gb_odd))
-		perror("ioctl VIDIOCSYNC odd");
-	}
-	even = !even;
+	if (-1 == ioctl(fd_, VIDIOCMCAPTURE,
+			(grab_count % 2) ? &gb_odd : &gb_even))
+	    perror("ioctl VIDIOMCAPTURE");
+	else
+	    grab_count++;
     }
 
     suppress(frame_);

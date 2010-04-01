@@ -1,5 +1,5 @@
 
-Here are a few hints if you have trouble to make bttv work:
+Here are a few hints if you have trouble to make bttv & xawtv work:
 
 
 general
@@ -18,6 +18,13 @@ general
 
 * Try a newer version of the X-Server (if available).
 
+* If you upgrade xawtv and something does'nt work any more, please
+  check the Changes file before sending bug reports...
+
+* There are some X-Servers with a buggy XF86VidMode extention around.
+  xawtv has a "-x" switch do disable the usage of the XFree extentions,
+  this should fix the hangs on startup.
+
 
 video
 =====
@@ -27,9 +34,11 @@ video
 
 * Black screen, no picture at all:  Bad, probably the video frame buffer
   address is wrong.
-  The bttv module has a vidmem= argument, so you can pass the correct one.
-  xawtv should print it (if the X-Server supports DGA), you can check the
-  X-Server startup messages and /proc/pci too.
+  The bttv module has a vidmem=0x??? argument, so you can pass the
+  correct one.  xawtv should print it (if the X-Server supports DGA),
+  you can check the X-Server startup messages and /proc/pci too.
+  Note: The vidmem= arg will be shiftet by 20 bits, you need the first
+  three (hex-)digits of the frame buffer address only!!!
 
 * Black screen after some time of normal operation: try to reload the
   bttv module.
@@ -49,6 +58,7 @@ video
      details.
    - Wrong channel map (the channel-to-freqency mapping is
      different in different countries)
+   - some trouble with the i2c bus, see below
 
 * Trouble with TrueColor mode:  It's impossible to find what color depth
   the X-Server uses internally, you might have to use the -b switch to
@@ -92,8 +102,15 @@ if it still does'nt work...  --  hardware problems/conflicts
 * /proc/pci, /proc/interrupts and /proc/ioports are your friends...
 
 
-Known incompatibilities
-=======================
+Known problems / incompatibilities
+==================================
+
+o	There are some problems with the i2c bus sometimes (you'll get
+        i2c i/o error messages in the syslog).  I got all sorts of
+	strange reports about this problem.  Seems at least some boards
+	(my one is fine) don't work reliably if they get hot or something
+	like that...
+
 
 [Alan on linux-kernel]
 
@@ -121,3 +138,4 @@ More hints/suggestions/corrections/updates are welcome,
 
 --
 Gerd Knorr <kraxel@cs.tu-berlin.de>
+

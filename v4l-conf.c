@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <sys/ioctl.h>
+#include <linux/fb.h>
 
 #include "config.h"
 
@@ -27,6 +28,10 @@ int    verbose = 1;
 int    bpp     = 0;
 char  *display = ":0.0";
 char  *device  = "/dev/bttv";
+char  *fbdev   = "/dev/fb0";
+
+struct fb_fix_screeninfo   fix;
+struct fb_var_screeninfo   var;
 
 int
 main(int argc, char *argv[])
@@ -86,28 +91,52 @@ main(int argc, char *argv[])
     }
 
     /* get screen params */
-    if (NULL == (dpy = XOpenDisplay(display))) {
-	fprintf(stderr,"can't open display %s\n",display);
-	exit(1);
-    }
-    scr  = DefaultScreenOfDisplay(dpy);
-    root = DefaultRootWindow(dpy);
-    XGetWindowAttributes(dpy, root, &wts);
-    if ((bpp == 32 || bpp == 24) && (wts.depth == 32 || wts.depth == 24))
-	wts.depth = bpp;
-    if (verbose)
-	fprintf(stderr,"x11: mode=%dx%dx%d\n",wts.width,wts.height,wts.depth);
-
+    if (NULL != (dpy = XOpenDisplay(display))) {
+	scr  = DefaultScreenOfDisplay(dpy);
+	root = DefaultRootWindow(dpy);
+	XGetWindowAttributes(dpy, root, &wts);
+	if ((bpp == 32 || bpp == 24) && (wts.depth == 32 || wts.depth == 24))
+	    wts.depth = bpp;
+	if (verbose)
+	    fprintf(stderr,"x11: mode=%dx%dx%d\n",wts.width,wts.height,wts.depth);
+	
 #ifdef HAVE_LIBXXF86DGA
-    if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
-	XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
-	if (flags & XF86DGADirectPresent) {
-	    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,&width,&foo,&bar);
-	    if (verbose)
-		fprintf(stderr,"dga: base=%p, width=%d\n",base, width);
+	if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
+	    XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
+	    if (flags & XF86DGADirectPresent) {
+		XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,&width,&foo,&bar);
+		if (verbose)
+		    fprintf(stderr,"dga: base=%p, width=%d\n", base, width);
+	    }
 	}
-    }
 #endif
+    } else {
+	fprintf(stderr,"can't open x11 display %s\n",display);
+
+	/* try framebuffer */
+	if (-1 == (fd = open(fbdev,O_RDWR))) {
+	    fprintf(stderr,"open %s: %s\n",fbdev,strerror(errno));
+	    exit(1);
+	}
+	if (-1 == ioctl(fd,FBIOGET_FSCREENINFO,&fix)) {
+	    perror("ioctl FBIOGET_FSCREENINFO");
+	    exit(1);
+	}
+	if (-1 == ioctl(fd,FBIOGET_VSCREENINFO,&var)) {
+	    perror("ioctl FBIOGET_VSCREENINFO");
+	    exit(1);
+	}
+	if (fix.type != FB_TYPE_PACKED_PIXELS) {
+	    fprintf(stderr,"can handle only packed pixel frame buffers\n");
+	    exit(1);
+	}
+	close(fd);
+	fprintf(stderr,"%s: %dx%dx%d @ %p\n",fbdev,
+		var.xres_virtual,
+		var.yres_virtual,
+		var.bits_per_pixel,
+		fix.smem_start);
+    }
 
     /* open & check v4l device */
     if (-1 == (fd = open(DEVICE,O_RDWR))) {
@@ -137,10 +166,19 @@ main(int argc, char *argv[])
 	    fprintf(stderr,"setting v4l base to %p\n",fbuf.base);
     }
 #endif
-    fbuf.depth        = wts.depth;
-    fbuf.width        = (flags & XF86DGADirectPresent) ? width : wts.width;
-    fbuf.height       = wts.height;
-    fbuf.bytesperline = fbuf.width * fbuf.depth/8;
+    if (dpy) {
+	/* x11 */
+	fbuf.depth        = (wts.depth+7) & 0xf8;
+	fbuf.width        = (flags & XF86DGADirectPresent) ? width : wts.width;
+	fbuf.height       = wts.height;
+	fbuf.bytesperline = fbuf.width * fbuf.depth/8;
+    } else {
+	/* framebuffer */
+	fbuf.depth        = (var.bits_per_pixel+7) & 0xf8;
+	fbuf.width        = var.xres_virtual;
+	fbuf.height       = var.yres_virtual;
+	fbuf.bytesperline = fix.line_length;
+    }
     if (-1 == ioctl(fd,VIDIOCSFBUF,&fbuf)) {
 	fprintf(stderr,"%s: ioctl VIDIOCSFBUF: %s\n",device,strerror(errno));
 	exit(1);
@@ -150,3 +188,6 @@ main(int argc, char *argv[])
 
     return 0;
 }
+
+
+
