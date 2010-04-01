@@ -1,4 +1,12 @@
 
+3.71 => 3.72
+============
+
+ * v4l2 fixes.
+ * irish frequency table fix (Dan Lindstrom).
+ * made the snap command write files using "write tmpfile + rename".
+
+
 3.70 => 3.71
 ============
 

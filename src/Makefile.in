@@ -43,7 +43,7 @@ SCANTV_LIBS	= $(THREAD_LIBS) -lvbi -ljpeg
 # what to build / install
 PROGS=v4lctl streamer scantv vbi-debug @PROGS@
 INST=install-dirs install-common @INST@
-LANG=de it
+LANGS=de it
 
 all build: $(PROGS) i18n
 
@@ -59,7 +59,7 @@ MoTV.ad: $(srcdir)/MoTV-default $(srcdir)/MoTV-fixed
 	cat $(srcdir)/MoTV-default $(srcdir)/MoTV-fixed > MoTV.ad
 
 i18n:
-	for lang in $(LANG); do	\
+	for lang in $(LANGS); do	\
 	  cat $(srcdir)/MoTV-$$lang $(srcdir)/MoTV-fixed > MoTV.$$lang.ad; \
 	done
 
@@ -109,6 +109,8 @@ mididump: midictrl.c
 gl: gl.o RegEdit.o
 	$(CC) $(CFLAGS) -o $@ gl.o RegEdit.o $(MOTIF_LIBS) \
 		-lGLU -lGL -lng -ljpeg $(DLFLAGS)
+hwscan: hwscan.o
+	$(CC) $(CFLAGS) -o $@ hwscan.o -lasound
 
 channel-no-x11.o: $(srcdir)/channel.c
 	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $(srcdir)/channel.c
@@ -146,7 +148,7 @@ install-motv:
 	$(INSTALL_PROGRAM) -s motv $(bindir)
 	$(INSTALL_DIR) $(resdir)/app-defaults
 	$(INSTALL_DATA) MoTV.ad $(resdir)/app-defaults/MoTV
-	for lang in $(LANG); do \
+	for lang in $(LANGS); do \
 	  $(INSTALL_DIR) $(resdir)/$$lang/app-defaults; \
 	  $(INSTALL_DATA) MoTV.$$lang.ad $(resdir)/$$lang/app-defaults/MoTV; \
 	done
@@ -168,7 +170,7 @@ clean:
 	-rm -f *.o *.moc *core TAGS Xawtv.h MoTV.h MoTV.ad $(I18N)
 
 realclean distclean: clean
-	-rm -f $(PROGS) Makefile *~ *.bak gl
+	-rm -f $(PROGS) Makefile *~ *.bak gl hwscan
 
 depend dep: Xawtv.h MoTV.h gl.h
 	$(DEPEND) -- $(CFLAGS) -- *.c

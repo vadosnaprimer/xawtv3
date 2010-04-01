@@ -8,7 +8,7 @@ Standards-Version: 3.5.2
 Package: xawtv
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version})
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.

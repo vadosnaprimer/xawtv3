@@ -960,6 +960,7 @@ static int dattr_handler(char *name, int argc, char **argv)
 static int snap_handler(char *hname, int argc, char **argv)
 {
     char message[512];
+    char *tmpfilename = NULL;
     char *filename = NULL;
     char *name;
     int   jpeg = 0;
@@ -1029,24 +1030,35 @@ static int snap_handler(char *hname, int argc, char **argv)
 	}
 	filename = snap_filename(snapbase, name, jpeg ? "jpeg" : "ppm");
     }
+    tmpfilename = malloc(strlen(filename)+8);
+    sprintf(tmpfilename,"%s.$$$",filename);
 
     if (jpeg) {
-	if (-1 == write_jpeg(filename, buf, ng_jpeg_quality, 0)) {
-	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
+	if (-1 == write_jpeg(tmpfilename, buf, ng_jpeg_quality, 0)) {
+	    sprintf(message,"open %s: %s\n",tmpfilename,strerror(errno));
 	} else {
 	    sprintf(message,"saved jpeg: %s",filename);
 	}
     } else {
 	if (-1 == write_ppm(filename, buf)) {
-	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
+	    sprintf(message,"open %s: %s\n",tmpfilename,strerror(errno));
 	} else {
 	    sprintf(message,"saved ppm: %s",filename);
 	}
     }
+    unlink(filename);
+    if (-1 == link(tmpfilename,filename)) {
+	fprintf(stderr,"link(%s,%s): %s\n",
+		tmpfilename,filename,strerror(errno));
+	goto done;
+    }
+    unlink(tmpfilename);
     if (display_message)
 	display_message(message);
 
 done:
+    if (tmpfilename)
+	free(tmpfilename);
     if (NULL != buf)
 	ng_release_video_buf(buf);
     if (capture_rel_hook)

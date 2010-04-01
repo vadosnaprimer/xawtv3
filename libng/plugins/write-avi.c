@@ -362,6 +362,8 @@ avi_open(char *filename, char *dummy,
 
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
+    if (NULL == filename)
+	return NULL;
 
     /* init */
     memset(h,0,sizeof(*h));

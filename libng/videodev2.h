@@ -107,10 +107,16 @@ struct v4l2_pix_format
 #define V4L2_PIX_FMT_YUYV    v4l2_fourcc('Y','U','Y','V') /* 16  YUV 4:2:2     */
 #define V4L2_PIX_FMT_UYVY    v4l2_fourcc('U','Y','V','Y') /* 16  YUV 4:2:2     */
 #if 0
-# define V4L2_PIX_FMT_YVU422P v4l2_fourcc('4','2','2','P') /* 16  YVU422 planar */
-# define V4L2_PIX_FMT_YVU411P v4l2_fourcc('4','1','1','P') /* 16  YVU411 planar */
+#define V4L2_PIX_FMT_YVU422P v4l2_fourcc('4','2','2','P') /* 16  YVU422 planar */
+#define V4L2_PIX_FMT_YVU411P v4l2_fourcc('4','1','1','P') /* 16  YVU411 planar */
 #endif
+#define V4L2_PIX_FMT_YUV422P v4l2_fourcc('4','2','2','P') /* 16  YVU422 planar */
+#define V4L2_PIX_FMT_YUV411P v4l2_fourcc('4','1','1','P') /* 16  YVU411 planar */
 #define V4L2_PIX_FMT_Y41P    v4l2_fourcc('Y','4','1','P') /* 12  YUV 4:1:1     */
+
+/* two planes -- one Y, one Cr + Cb interleaved  */
+#define V4L2_PIX_FMT_NV12    v4l2_fourcc('N','V','1','2') /* 12  Y/CbCr 4:2:0  */
+#define V4L2_PIX_FMT_NV21    v4l2_fourcc('N','V','2','1') /* 12  Y/CrCb 4:2:0  */
 
 /*  The following formats are not defined in the V4L2 specification */
 #define V4L2_PIX_FMT_YUV410  v4l2_fourcc('Y','U','V','9') /*  9  YUV 4:1:0     */
@@ -661,7 +667,7 @@ struct v4l2_modulator
 
 struct v4l2_frequency
 {
-	int	port;
+	int	input;
 	__u32	frequency;
 	__u32	reserved[2];
 };
@@ -814,6 +820,8 @@ struct v4l2_streamparm
 #define VIDIOC_S_EFFECT		_IOWR ('V', 53, int)
 #define VIDIOC_G_MODULATOR	_IOWR ('V', 54, struct v4l2_modulator)
 #define VIDIOC_S_MODULATOR	_IOW  ('V', 55, struct v4l2_modulator)
+#define VIDIOC_G_FREQUENCY	_IOWR ('V', 56, struct v4l2_frequency)
+#define VIDIOC_S_FREQUENCY	_IOW  ('V', 57, struct v4l2_frequency)
 
 #define VIDIOC_ENUM_CAPFMT	VIDIOC_ENUM_PIXFMT
 #define VIDIOC_ENUM_OUTFMT	VIDIOC_ENUM_PIXFMT
@@ -901,20 +909,10 @@ extern int v4l2_video_std_construct(struct v4l2_standard *vs,
 #define V4L2_MAX_IOCTL_SIZE		256
 
 /*  Compatibility layer interface  */
-struct v4l2_v4l_compat
-{
-    int	(*translate_ioctl)(struct inode         *inode,
-			   struct file		*file,
-			   int			cmd,
-			   void			*arg);
-#if 0
-    void (*fix_offset)(struct file *file,
-		       struct v4l2_device *vfl,
-		       struct vm_area_struct *vma);
-#endif
-};
-extern int v4l2_v4l_compat_register(struct v4l2_v4l_compat *);
-extern void v4l2_v4l_compat_unregister(struct v4l2_v4l_compat *);
+typedef int (*v4l2_ioctl_compat)(struct inode *inode, struct file *file,
+				 int cmd, void *arg);
+int v4l2_compat_register(v4l2_ioctl_compat hook);
+void v4l2_compat_unregister(v4l2_ioctl_compat hook);
 
 #endif /* __KERNEL__ */
 #endif /* __LINUX_VIDEODEV2_H */

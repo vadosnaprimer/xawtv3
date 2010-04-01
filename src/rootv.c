@@ -53,6 +53,7 @@ wm_menu(void)
 	if (0 == strcmp(*list,"defaults")) continue;
 	if (0 == strcmp(*list,"global"))   continue;
 	if (0 == strcmp(*list,"launch"))   continue;
+	if (0 == strcmp(*list,"eventmap")) continue;
 	printf("\t\"%s\" EXEC v4lctl setstation \"%s\"\n",*list,*list);    
     }
     printf("\"TV stations\" END\n");    
@@ -63,7 +64,7 @@ main(int argc, char *argv[])
 {
     Display *dpy;
     Screen  *scr;
-    Window win;
+    Window win = 0;
     XWindowAttributes wts;
 
     int ver, rel, req, ev, err;
@@ -71,22 +72,33 @@ main(int argc, char *argv[])
     int i,stop;
 
     stop = 0;
-    if (argc > 1) {
-	/* windowmaker menu */
+    while (argc > 1) {
 	if (0 == strcmp(argv[1],"-wm")) {
+	    /* windowmaker menu */
 	    wm_menu();
 	    exit(0);
 	}
-	/* stop video */
 	if (0 == strcmp(argv[1],"-stop")) {
+	    /* stop video */
 	    stop = 1;
+	    argc--;
+	    argv++;
+	} else if (argc > 2  &&  0 == strcmp(argv[1],"-id")) {
+	    /* pick window id (default: root window) */
+	    sscanf(argv[2],"%li",&win);
+	    argc-=2;
+	    argv+=2;
+	} else {
+	    fprintf(stderr,"unknown arg: %s\n",argv[1]);
+	    exit(1);
 	}
     }
 
     /* init X11 */
     dpy = XOpenDisplay(NULL);
     scr = DefaultScreenOfDisplay(dpy);
-    win = RootWindowOfScreen(scr);
+    if (0 == win)
+	win = RootWindowOfScreen(scr);
     
     /* query+print Xvideo properties */
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {

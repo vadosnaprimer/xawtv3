@@ -143,11 +143,7 @@ static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {
     0,                    /* LUT 2    */
     0,                    /* LUT 4    */
     V4L2_PIX_FMT_YUYV,    /* YUV422   */
-#if 0
-    V4L2_PIX_FMT_YVU422P, /* YUV422P  */
-#else
-    0,
-#endif
+    V4L2_PIX_FMT_YUV422P, /* YUV422P  */
     V4L2_PIX_FMT_YUV420,  /* YUV420P  */
 };
 
@@ -221,7 +217,7 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
 		    a->fmt.pix.sizeimage);
 	    break;
 	default:
-	    fprintf(stderr,"???)");
+	    fprintf(stderr,"??" "?)"); /* break trigraph */
 	    break;
 	}
 	break;

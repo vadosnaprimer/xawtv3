@@ -2,7 +2,7 @@ Name:         xawtv
 Group:        Applications/Multimedia
 Requires:     v4l-conf, tv-common
 Autoreqprov:  on
-Version:      3.71
+Version:      3.72
 Release:      0
 License:      GPL
 Summary:      Video4Linux TV application (Athena)
