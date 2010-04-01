@@ -25,6 +25,9 @@
 
 #include "grab-ng.h"
 
+#include "struct-dump.h"
+#include "struct-v4l.h"
+
 #define SYNC_TIMEOUT 3
 
 /* ---------------------------------------------------------------------- */
@@ -226,116 +229,7 @@ xioctl(int fd, int cmd, void *arg)
     rc = ioctl(fd,cmd,arg);
     if (0 == rc && ng_debug < 2)
 	return 0;
-    switch (cmd) {
-    case VIDIOCGCAP:
-    {
-	struct video_capability *a = arg;
-	fprintf(stderr,PREFIX "VIDIOCGCAP(%s,type=0x%x,chan=%d,audio=%d,"
-		"size=%dx%d-%dx%d)",
-		a->name,a->type,a->channels,a->audios,
-		a->minwidth,a->minheight,a->maxwidth,a->maxheight);
-	break;
-    }
-    case VIDIOCGCHAN:
-    case VIDIOCSCHAN:
-    {
-	struct video_channel *a = arg;
-	fprintf(stderr,PREFIX "%s(%d,%s,flags=0x%x,type=%d,norm=%d)",
-		(cmd == VIDIOCGCHAN) ? "VIDIOCGCHAN" : "VIDIOCSCHAN",
-		a->channel,a->name,a->flags,a->type,a->norm);
-	break;
-    }
-    case VIDIOCGTUNER:
-    case VIDIOCSTUNER:
-    {
-	struct video_tuner *a = arg;
-	fprintf(stderr,PREFIX "%s(%d,%s,range=%ld-%ld,flags=0x%x,"
-		"mode=%d,signal=%d)",
-		(cmd == VIDIOCGTUNER) ? "VIDIOCGTUNER" : "VIDIOCSTUNER",
-		a->tuner,a->name,a->rangelow,a->rangehigh,
-		a->flags,a->mode,a->signal);
-	break;
-    }
-    case VIDIOCGPICT:
-    case VIDIOCSPICT:
-    {
-	struct video_picture *a = arg;
-	fprintf(stderr,PREFIX "%s(params=%d/%d/%d/%d/%d,depth=%d,fmt=%d)",
-		(cmd == VIDIOCGPICT) ? "VIDIOCGPICT" : "VIDIOCSPICT",
-		a->brightness,a->hue,a->colour,a->contrast,a->whiteness,
-		a->depth,a->palette);
-	break;
-    }
-    case VIDIOCGAUDIO:
-    case VIDIOCSAUDIO:
-    {
-	struct video_audio *a = arg;
-	fprintf(stderr,PREFIX "%s(%d,%s,flags=0x%x,vol=%d,balance=%d,"
-		"bass=%d,treble=%d,mode=0x%x,step=%d)",
-		(cmd == VIDIOCGAUDIO) ? "VIDIOCGAUDIO" : "VIDIOCSAUDIO",
-		a->audio,a->name,a->flags,a->volume,a->balance,
-		a->bass,a->treble,a->mode,a->step);
-	break;
-    }
-    case VIDIOCGWIN:
-    case VIDIOCSWIN:
-    {
-	struct video_window *a = arg;
-	fprintf(stderr,PREFIX "%s(win=%dx%d+%d+%d,key=%d,flags=0x%x,clips=%d)",
-		(cmd == VIDIOCGWIN) ? "VIDIOCGWIN" : "VIDIOCSWIN",
-		a->width,a->height,a->x,a->y,
-		a->chromakey,a->flags,a->clipcount);
-	break;
-    }
-    case VIDIOCGFBUF:
-    case VIDIOCSFBUF:
-    {
-	struct video_buffer *a = arg;
-	fprintf(stderr,PREFIX "%s(base=%p,size=%dx%d,depth=%d,bpl=%d)",
-		(cmd == VIDIOCGFBUF) ? "VIDIOCGFBUF" : "VIDIOCSFBUF",
-		a->base,a->width,a->height,a->depth,a->bytesperline);
-	break;
-    }
-    case VIDIOCGFREQ:
-    case VIDIOCSFREQ:
-    {
-	unsigned long *a = arg;
-	fprintf(stderr,PREFIX "%s(%.3f MHz)",
-		(cmd == VIDIOCGFREQ) ? "VIDIOCGFREQ" : "VIDIOCSFREQ",
-		(float)*a/16);
-	break;
-    }
-    case VIDIOCCAPTURE:
-    {
-	int *a = arg;
-	fprintf(stderr,PREFIX "VIDIOCCAPTURE(%s)",
-		*a ? "on" : "off");
-	break;
-    }
-    case VIDIOCGMBUF:
-    {
-	struct video_mbuf *a = arg;	
-	fprintf(stderr,PREFIX "VIDIOCGMBUF(size=%d,frames=%d)",
-		a->size,a->frames);
-	break;
-    }
-    case VIDIOCMCAPTURE:
-    {
-	struct video_mmap *a = arg;	
-	fprintf(stderr,PREFIX "VIDIOCMCAPTURE(%d,fmt=%d,size=%dx%d)",
-		a->frame,a->format,a->width,a->height);
-	break;
-    }
-    case VIDIOCSYNC:
-    {
-	int *a = arg;
-	fprintf(stderr,PREFIX "VIDIOCSYNC(%d)",*a);
-	break;
-    }
-    default:
-	fprintf(stderr,PREFIX "UNKNOWN(cmd=0x%x)",cmd);
-	break;
-    }
+    print_ioctl(stderr,ioctls_v4l1,PREFIX,cmd,arg);
     fprintf(stderr,": %s\n",(rc == 0) ? "ok" : strerror(errno));
     return rc;
 }

@@ -215,6 +215,7 @@ control*box.XmPushButton*menu.edit.labelString:	Modifica ...
 *prop_popup.title:			Modifica stazione
 *prop_popup*rc.nameL.labelString:	Nome stazione
 *prop_popup*rc.keyL.labelString:	Acceleratore
+*prop_popup*rc.groupL.labelString:	[en] Group
 *prop_popup*rc.channelL.labelString:	Canale
 *prop_popup*rc.buttons.ok.labelString:	OK
 *prop_popup*rc.buttons.cancel.labelString: Annulla

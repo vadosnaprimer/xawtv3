@@ -52,7 +52,7 @@ cfg_init_entries(void)
     e->ent_names[0]  = NULL;
     e->ent_values    = malloc(ALLOC_SIZE*sizeof(char*));
     e->ent_values[0] = NULL;
-    e->ent_seen      = malloc(ALLOC_SIZE*sizeof(int));
+    e->ent_seen      = malloc(ALLOC_SIZE*sizeof(int*));
     e->ent_seen[0]   = 0;
     return e;
 }
@@ -94,7 +94,7 @@ cfg_set_entry(struct CFG_ENTRIES *e, char *name, char *value)
 	if ((e->ent_count % ALLOC_SIZE) == (ALLOC_SIZE-2)) {
 	    e->ent_names  = realloc(e->ent_names,(e->ent_count+2+ALLOC_SIZE)*sizeof(char*));
 	    e->ent_values = realloc(e->ent_values,(e->ent_count+2+ALLOC_SIZE)*sizeof(char*));
-	    e->ent_seen   = realloc(e->ent_seen,(e->ent_count+2+ALLOC_SIZE)*sizeof(int));
+	    e->ent_seen   = realloc(e->ent_seen,(e->ent_count+2+ALLOC_SIZE)*sizeof(int*));
 	}
 	e->ent_count++;    
 	e->ent_names[e->ent_count]  = NULL;
@@ -186,7 +186,9 @@ char**
 cfg_list_entries(char *name)
 {
     int i;
-    
+
+    if (NULL == c)
+	return NULL;
     for (i = 0; i < c->sec_count; i++)
 	if (0 == strcasecmp(c->sec_names[i],name))
 	    return c->sec_entries[i]->ent_names;

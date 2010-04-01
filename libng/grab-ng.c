@@ -241,9 +241,10 @@ ng_attr_getint(struct ng_attribute *attr, char *value)
     if (attr->type != ATTR_TYPE_CHOICE)
 	return -1;
 
-    for (i = 0; attr->choices[i].str != NULL; i++)
+    for (i = 0; attr->choices[i].str != NULL; i++) {
 	if (0 == strcasecmp(attr->choices[i].str,value))
 	    return attr->choices[i].nr;
+    }
 
     if (isdigit(value[0])) {
 	/* Hmm.  String not found, but starts with a digit.

@@ -55,8 +55,6 @@ clean::
 libng/plugins/conv-mjpeg.so: libng/plugins/conv-mjpeg.o
 libng/plugins/drv0-bsd.so:   libng/plugins/drv0-bsd.o
 libng/plugins/drv0-v4l2-new.so: libng/plugins/drv0-v4l2-new.o
-libng/plugins/drv0-v4l2.so:  libng/plugins/drv0-v4l2.o
-libng/plugins/drv1-v4l.so:   libng/plugins/drv1-v4l.o
 libng/plugins/flt-debug.so:  libng/plugins/flt-debug.o
 libng/plugins/flt-disor.so:  libng/plugins/flt-disor.o
 libng/plugins/flt-gamma.so:  libng/plugins/flt-gamma.o
@@ -68,3 +66,28 @@ libng/plugins/snd-oss.so:    libng/plugins/snd-oss.o
 libng/plugins/write-avi.so:  libng/plugins/write-avi.o
 libng/plugins/write-dv.so:   libng/plugins/write-dv.o
 libng/plugins/write-qt.so:   libng/plugins/write-qt.o
+
+libng/plugins/drv0-v4l2.so: \
+	libng/plugins/drv0-v4l2.o \
+	libng/plugins/struct-v4l2.o \
+	libng/plugins/struct-dump.o
+
+libng/plugins/drv1-v4l.so: \
+	libng/plugins/drv1-v4l.o \
+	libng/plugins/struct-v4l.o \
+	libng/plugins/struct-dump.o
+
+libng/plugins/struct-dump.o:: structs/struct-dump.c
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
+
+libng/plugins/struct-v4l.o:: structs/struct-v4l.c
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
+
+libng/plugins/struct-v4l2.o:: structs/struct-v4l2.c
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)

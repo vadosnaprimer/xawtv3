@@ -11,6 +11,7 @@ exec_prefix	:= @exec_prefix@
 bindir		:= $(DESTDIR)@bindir@
 mandir		:= $(DESTDIR)@mandir@
 libdir		:= $(DESTDIR)@libdir@/xawtv
+datadir		:= $(DESTDIR)@datadir@/xawtv
 resdir		:= $(DESTDIR)@resdir@
 config		:= @x11conf@/xawtvrc
 
@@ -31,7 +32,8 @@ LFS_FLAGS	:= -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
 X11_FLAGS	:= @X_CFLAGS@ -I/usr/X11R6/include/X11/fonts
 LIB_FLAGS	:= -I. -I./vbistuff -I./x11 \
 		   -I$(srcdir)/jwz -I$(srcdir)/common -I$(srcdir)/console \
-		   -I$(srcdir)/x11 -I$(srcdir)/libng -Llibng
+		   -I$(srcdir)/x11 -I$(srcdir)/structs \
+		   -I$(srcdir)/libng -Llibng
 
 # various libraries
 ATHENA_LIBS	:= @X_LIBS@ @LIBS@ @ATHENA@
@@ -60,6 +62,7 @@ FOUND_MOTIF	:= @FOUND_MOTIF@
 FOUND_OS	:= @FOUND_OS@
 FOUND_X11	:= @FOUND_X11@
 FOUND_ZVBI	:= @FOUND_ZVBI@
+USE_MMX		:= @USE_MMX@
 
 # build final cflags
 CFLAGS	:= @CFLAGS@
@@ -69,6 +72,7 @@ CFLAGS	+= $(X11_FLAGS)
 CFLAGS	+= $(LIB_FLAGS)
 CFLAGS	+= -DCONFIGFILE='"$(config)"'
 CFLAGS	+= -DLIBDIR='"$(libdir)"'
+CFLAGS	+= -DDATADIR='"$(datadir)"'
 CFLAGS	+= -DVERSION='"$(VERSION)"'
 CXXFLAGS = $(CFLAGS)
 
@@ -123,7 +127,7 @@ compile_cc	= $(CXX) $(CXXFLAGS) -Wp,-MD,$(tmpdep) -c -o $@ $<
 fixup_deps	= sed -e "s|.*\.o:|$@::|" < $(tmpdep) > $(depfile) && rm -f $(tmpdep)
 
 link_app	= $(CC) $(LDFLAGS) -o $@  $^ $(LDLIBS)
-link_so		= $(CC) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
+link_so		= $(CC) $(LDFLAGS) -shared -Wl,-soname,$(@F) -o $@ $^ $(LDLIBS)
 ar_lib		= rm -f $@ && ar -r $@ $^ && ranlib $@
 
 # non-verbose output
@@ -183,6 +187,7 @@ include $(srcdir)/common/Subdir.mk
 # subdirs
 include $(srcdir)/console/Subdir.mk
 include $(srcdir)/debug/Subdir.mk
+include $(srcdir)/frequencies/Subdir.mk
 include $(srcdir)/libng/Subdir.mk
 include $(srcdir)/libng/plugins/Subdir.mk
 include $(srcdir)/libng/contrib-plugins/Subdir.mk

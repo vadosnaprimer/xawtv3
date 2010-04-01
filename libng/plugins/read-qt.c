@@ -247,7 +247,7 @@ static struct ng_audio_buf* qt_adata(void *handle)
     return buf;
 }
 
-static long long qt_frame_time(void *handle)
+static int64_t qt_frame_time(void *handle)
 {
     struct qt_handle *h = handle;
 

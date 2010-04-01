@@ -843,6 +843,7 @@ Optional Features:
   --enable-alsa           enable alsa support
   --enable-zvbi           enable vbi support (via libzvbi)
   --enable-gl             enable opengl support
+  --enable-mmx            enable mmx support
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1256,6 +1257,11 @@ fi;
 # Check whether --enable-zvbi or --disable-zvbi was given.
 if test "${enable_zvbi+set}" = set; then
   enableval="$enable_zvbi"
+
+fi;
+# Check whether --enable-mmx or --disable-mmx was given.
+if test "${enable_mmx+set}" = set; then
+  enableval="$enable_mmx"
 
 fi;
 
@@ -5772,6 +5778,24 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 
+echo "$as_me:$LINENO: checking if mmx should be used" >&5
+echo $ECHO_N "checking if mmx should be used... $ECHO_C" >&6
+
+if test "$enable_mmx" = "no" -o "$enable_mmx" = "yes"; then
+	USE_MMX="$enable_mmx"
+else
+	case "`uname -m`" in
+		i586 | i686)
+			USE_MMX="yes"
+			;;
+		*)
+			USE_MMX="no"
+			;;
+	esac
+fi
+echo "$as_me:$LINENO: result: $USE_MMX" >&5
+echo "${ECHO_T}$USE_MMX" >&6
+
 ac_config_files="$ac_config_files Makefile xawtv.spec"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6377,6 +6401,7 @@ s,@LIBGL@,$LIBGL,;t t
 s,@VERSION@,$VERSION,;t t
 s,@x11conf@,$x11conf,;t t
 s,@resdir@,$resdir,;t t
+s,@USE_MMX@,$USE_MMX,;t t
 CEOF
 
 _ACEOF
@@ -6822,7 +6847,7 @@ if test "$no_create" != yes; then
 fi
 
 for dir in \
-	common console debug fonts jwz libvbi vbistuff x11 \
+	common console debug fonts jwz libvbi vbistuff x11 structs \
 	libng libng/plugins libng/contrib-plugins
 do
 	test -d $dir && continue

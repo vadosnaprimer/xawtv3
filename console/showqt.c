@@ -439,7 +439,7 @@ static void dump_fields(int fh, off_t pos, struct field_list *list)
 	    break;
 	case INT64:
 	    read(fh,&int64,sizeof(int64));
-	    printf(FIELD_NAME "%lld\n",si,list[i].name,SWAP8(int64));
+	    printf(FIELD_NAME "%" PRId64 "\n",si,list[i].name,SWAP8(int64));
 	    break;
 	case FIX16:
 	    read(fh,&int16,sizeof(int16));
@@ -567,7 +567,7 @@ static int handle_classic_atom(int fh, off_t pos, off_t size, int depth)
 	asize = a.size;
 	off   = 8;
     }
-    printf("0x%08llx 0x%08llx %*s%s\n",
+    printf("0x%08" PRIx64 " 0x%08" PRIx64 " %*s%s\n",
 	   pos,asize,depth,"",strfcc(a.type));
     switch (a.type) {
     case a_dinf:

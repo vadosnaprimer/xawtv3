@@ -465,7 +465,7 @@ oss_bufswap(void *ptr, int size)
 }
 
 static struct ng_audio_buf*
-oss_read(void *handle, long long stopby)
+oss_read(void *handle, int64_t stopby)
 {
     struct oss_handle *h = handle;
     struct ng_audio_buf* buf;
@@ -521,7 +521,7 @@ oss_write(void *handle, struct ng_audio_buf *buf)
     return buf;
 }
 
-static long long
+static int64_t
 oss_latency(void *handle)
 {
     struct oss_handle *h = handle;

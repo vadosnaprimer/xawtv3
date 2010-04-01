@@ -1,5 +1,5 @@
 /*
- * OpenMotif user interface
+ * Openmotif user interface
  *
  *   (c) 2000-2002 Gerd Knorr <kraxel@bytesex.org>
  *
@@ -141,6 +141,7 @@ static struct vbi_window *vtx;
 
 /* properties */
 static Widget prop_dlg,prop_name,prop_key,prop_channel,prop_button;
+static Widget prop_group;
 
 /* preferences */
 static Widget pref_dlg,pref_fs_toggle,pref_fs_menu,pref_fs_option;
@@ -694,6 +695,7 @@ chan_add_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     prop_button = NULL;
     XmTextSetString(prop_name,"");
     XmTextSetString(prop_key,"");
+    XmTextSetString(prop_group,"main");
     i = (-1 == cur_channel) ? 0 : cur_channel;
     str = XmStringGenerate(chanlist[i].name, NULL, XmMULTIBYTE_TEXT, NULL);
     XtVaSetValues(prop_channel,XmNselectedItem,str,NULL);
@@ -719,6 +721,7 @@ chan_edit_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     /* init stuff */
     XmTextSetString(prop_name,channels[i]->name);
     XmTextSetString(prop_key,channels[i]->key);
+    XmTextSetString(prop_group,channels[i]->group);
     i = (-1 == channels[i]->channel) ? 0 : channels[i]->channel;
     str = XmStringGenerate(chanlist[i].name, NULL, XmMULTIBYTE_TEXT, NULL);
     XtVaSetValues(prop_channel,XmNselectedItem,str,NULL);
@@ -730,7 +733,7 @@ chan_edit_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void
 chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
-    char *name, *key, *cname;
+    char *name, *key, *cname, *group;
     struct CHANNEL *c;
     XmString str;
     int i,channel;
@@ -745,6 +748,10 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
     name  = XmTextGetString(prop_name);
     key   = XmTextGetString(prop_key);
+    group = XmTextGetString(prop_group);
+    if (0 == strlen(group))
+	group = "main";
+	
     XtVaGetValues(prop_channel,XmNselectedItem,&str,NULL);
     cname = XmStringUnparse(str,NULL,XmMULTIBYTE_TEXT,XmMULTIBYTE_TEXT,
 			    NULL,0,0);
@@ -765,6 +772,7 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	if (strlen(key) > 0)
 	    c->key = strdup(key);
 	c->cname   = strdup(cname);
+	c->group   = strdup(group);
 	c->channel = channel;
     } else {
 	/* update */
@@ -778,6 +786,7 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	if (0 != strlen(key)) 
 	    c->key = strdup(key);
 	c->cname   = strdup(cname);
+	c->group   = strdup(group);
 	c->channel = channel;
 	XtRemoveAllCallbacks(c->button, XmNactivateCallback);
 	add_cmd_callback(c->button, XmNactivateCallback,
@@ -832,6 +841,11 @@ create_prop(void)
     prop_key = XtVaCreateManagedWidget("key", xmTextWidgetClass, rowcol,
 				       NULL);
     XtAddEventHandler(prop_key, KeyPressMask, False, chan_key_eh, NULL);
+
+    label = XtVaCreateManagedWidget("groupL", xmLabelWidgetClass, rowcol,
+				    NULL);
+    prop_group = XtVaCreateManagedWidget("group", xmTextWidgetClass, rowcol,
+					 NULL);
 
     label = XtVaCreateManagedWidget("channelL", xmLabelWidgetClass, rowcol,
 				    NULL);
@@ -1092,8 +1106,16 @@ menu_cols_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 void
 channel_menu(void)
 {
+    struct {
+	char *name;
+	Widget menu1;
+	Widget menu2;
+    } *sub = NULL;
+    int subs = 0;
+
+    Widget menu1,menu2;
     char ctrl[16],key[32],accel[64];
-    int  i;
+    int  i,j;
 
     if (0 == st_menu2) {
 	st_menu2 = XmCreatePopupMenu(tv,"stationsM",NULL,0);
@@ -1118,15 +1140,46 @@ channel_menu(void)
 	} else {
 	    accel[0] = 0;
 	}
-	add_cmd_menuitem("station", i, st_menu1,
+
+	menu1 = st_menu1;
+	menu2 = st_menu2;
+	if (0 != strcmp(channels[i]->group,"main")) {
+	    for (j = 0; j < subs; j++)
+		if (0 == strcmp(channels[i]->group,sub[j].name))
+		    break;
+	    if (j == subs) {
+		subs++;
+		sub = realloc(sub, subs * sizeof(*sub));
+		sub[j].name  = channels[i]->group;
+		sub[j].menu1 = XmCreatePulldownMenu(st_menu1,
+						    channels[i]->group,
+						    NULL,0);
+		sub[j].menu2 = XmCreatePulldownMenu(st_menu2,
+						    channels[i]->group,
+						    NULL,0);
+		XtVaCreateManagedWidget(channels[i]->group,
+					xmCascadeButtonWidgetClass, st_menu1,
+					XmNsubMenuId, sub[j].menu1,
+					NULL);
+		XtVaCreateManagedWidget(channels[i]->group,
+					xmCascadeButtonWidgetClass, st_menu2,
+					XmNsubMenuId, sub[j].menu2,
+					NULL);
+	    }
+	    menu1 = sub[j].menu1;
+	    menu2 = sub[j].menu2;
+	}
+
+	add_cmd_menuitem("station", i, menu1,
 			 channels[i]->name, channels[i]->key, accel, FALSE,
 			 "setstation",channels[i]->name,NULL);
-	add_cmd_menuitem("station", i, st_menu2,
+	add_cmd_menuitem("station", i, menu2,
 			 channels[i]->name, channels[i]->key, accel, FALSE,
 			 "setstation",channels[i]->name,NULL);
 	if (NULL == channels[i]->button)
 	    chan_makebutton(channels[i]);
     }
+    free(sub);
     calc_frequencies();
 }
 
@@ -3262,14 +3315,12 @@ main(int argc, char *argv[])
     create_onscreen(xmLabelWidgetClass);
     create_vtx();
     create_strwin();
-    create_control();
-    create_prop();
-    create_pref();
-    create_levels();
-    create_filter_prop();
     stderr_init();
 
     /* read config file + related settings */
+    if (debug)
+	fprintf(stderr,"main: init frequency tables ...\n");
+    freq_init();
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
@@ -3282,6 +3333,13 @@ main(int argc, char *argv[])
 	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
 	    add_attrs(attr);
     }
+
+    create_control();
+    create_prop();
+    create_pref();
+    create_levels();
+    create_filter_prop();
+
     init_movie_menus();
     create_scale();
     create_attr_widgets();
@@ -3347,7 +3405,8 @@ main(int argc, char *argv[])
     channel_menu();
 
     xt_handle_pending(dpy);
-    do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
+    do_va_cmd(2,"setfreqtab",(-1 != chantab)
+	      ? chanlist_names[chantab].str : "europe-west");
     cur_capture = 0;
     do_va_cmd(2,"capture","overlay");
     set_property(0,NULL,NULL);

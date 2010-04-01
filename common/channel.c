@@ -53,6 +53,7 @@
 
 struct CHANNEL defaults = {
     name:     "defaults",
+    group:    "main",
     capture:  CAPTURE_ON,
     channel:  -1,
     audio:    -1,
@@ -362,6 +363,8 @@ init_channel(char *name, struct CHANNEL *c)
 
     if (NULL != (val = cfg_get_str(name,"key")))
 	c->key  = strdup(val);
+    if (NULL != (val = cfg_get_str(name,"group")))
+	c->group  = strdup(val);
     if (NULL != (val = cfg_get_str(name,"midi")))
 	c->midi = atoi(val);
 
@@ -390,7 +393,8 @@ read_config(char *conffile, int *argc, char **argv)
 	if (0 == cfg_parse_file(conffile))
 	    have_config = 1;
     } else {
-	sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
+	sprintf(filename,"%.*s/%s",(int)sizeof(filename)-8,
+		getenv("HOME"),".xawtv");
 	if (0 == cfg_parse_file(CONFIGFILE))
 	    have_config = 1;
 	if (0 == cfg_parse_file(filename))
@@ -417,9 +421,7 @@ read_config(char *conffile, int *argc, char **argv)
 	    if (0 == strcasecmp(val,chanlists[i].name))
 		break;
 	if (chanlists[i].name != NULL) {
-	    chantab   = i;
-	    chanlist  = chanlists[chantab].list;
-	    chancount = chanlists[chantab].count;
+	    freq_newtab(i);
 	} else
 	    fprintf(stderr,"invalid value for freqtab: %s\n",val);
     }
@@ -624,6 +626,8 @@ save_config()
 
     /* write defaults */
     fprintf(fp,"[defaults]\n");
+    fprintf(fp,"group = %s\n",defaults.group);
+
     fprintf(fp,"norm = %s\n",
 	    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_NORM),
 			   cur_attrs[ATTR_ID_NORM]));
@@ -669,8 +673,11 @@ save_config()
 	    fprintf(fp,"input = %s\n",
 		    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_INPUT),
 				   channels[i]->input));
+
 	if (channels[i]->key != NULL)
 	    fprintf(fp,"key = %s\n",channels[i]->key);
+	if (0 != strcmp(channels[i]->group,defaults.group))
+	    fprintf(fp,"group = %s\n",defaults.group);
 	if (channels[i]->midi != 0)
 	    fprintf(fp,"midi = %d\n",channels[i]->midi);
 	if (channels[i]->capture != cur_capture)

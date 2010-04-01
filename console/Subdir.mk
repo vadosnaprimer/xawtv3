@@ -20,7 +20,8 @@ endif
 ifeq ($(FOUND_OS),linux)
 TARGETS-console += \
 	console/radio \
-	console/fbtv
+	console/fbtv \
+	console/v4l-info
 TARGETS-v4l-conf += \
 	console/v4l-conf
 endif
@@ -56,6 +57,12 @@ console/webcam: \
 	console/ftp.o \
 	common/parseconfig.o \
 	libng/libng.a
+
+console/v4l-info: \
+	console/v4l-info.o \
+	structs/struct-dump.o \
+	structs/struct-v4l.o \
+	structs/struct-v4l2.o
 
 console/dump-mixers: console/dump-mixers.o
 console/showriff: console/showriff.o

@@ -214,6 +214,7 @@ control*box.XmPushButton*menu.edit.labelString:	Edit ...
 *prop_popup.title:			Edit Station
 *prop_popup*rc.nameL.labelString:	Station name
 *prop_popup*rc.keyL.labelString:	Hotkey
+*prop_popup*rc.groupL.labelString:	Group
 *prop_popup*rc.channelL.labelString:	Channel
 *prop_popup*rc.buttons.ok.labelString:	OK
 *prop_popup*rc.buttons.cancel.labelString: Cancel

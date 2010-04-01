@@ -370,7 +370,7 @@ struct ng_filter {
 /* --------------------------------------------------------------------- */
 
 /* must be changed if we break compatibility */
-#define NG_PLUGIN_MAGIC 0x20020910
+#define NG_PLUGIN_MAGIC 0x20021114
 
 extern struct ng_video_conv  **ng_conv;
 extern struct ng_filter      **ng_filters;

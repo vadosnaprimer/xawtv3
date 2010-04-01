@@ -208,6 +208,7 @@ control*box.XmPushButton*menu.edit.labelString:	Ändern ...
 *prop_popup.title:			Einstellungen
 *prop_popup*rc.nameL.labelString:	Sendername
 *prop_popup*rc.keyL.labelString:	Hotkey
+*prop_popup*rc.groupL.labelString:	Gruppe
 *prop_popup*rc.channelL.labelString:	Kanal
 *prop_popup*rc.buttons.ok.labelString:	OK
 *prop_popup*rc.buttons.cancel.labelString: Abbrechen

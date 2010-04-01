@@ -216,6 +216,7 @@ control*box.XmPushButton*menu.edit.labelString:	Editer ...
 *prop_popup.title:			Editer émetteur
 *prop_popup*rc.nameL.labelString:	Nom de l'émetteur
 *prop_popup*rc.keyL.labelString:	Raccourci clavier
+*prop_popup*rc.groupL.labelString:	[en] Group
 *prop_popup*rc.channelL.labelString:	Emetteur
 *prop_popup*rc.buttons.ok.labelString:	OK
 *prop_popup*rc.buttons.cancel.labelString: Annuler

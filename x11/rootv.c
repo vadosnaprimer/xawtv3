@@ -86,7 +86,8 @@ static void station_list(FILE *fp)
     char filename[100];
     char **list;
     
-    sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
+    sprintf(filename,"%.*s/%s",(int)sizeof(filename)-8,
+	    getenv("HOME"),".xawtv");
     cfg_parse_file(CONFIGFILE);
     cfg_parse_file(filename);
 

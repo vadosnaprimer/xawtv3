@@ -1,4 +1,17 @@
 
+3.78 => 3.79
+============
+
+ * More v4l2 fixes.
+ * Some infrastructure for dumping structs.  Used that for
+   completely rewritten debug output of the video4linux plugins.
+   There is also a new utility called "v4l-info" which uses this.
+ * moved frequency tables into config files instead of having them
+   compiled-in
+ * added "group = " tag to channels.  motv builds submenus per group
+   using this.
+
+
 3.77 => 3.78
 ============
 

@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <sys/mman.h>
 
 #include <libdv/dv.h>
@@ -117,7 +118,7 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
     h->frames = len / h->dec->frame_size;
     
     if (ng_debug) {
-	fprintf(stderr,"dv: len=%lld => %d frames [%lld]\n",len,h->frames,
+	fprintf(stderr,"dv: len=%lld => %d frames [%" PRId64 "]\n",len,h->frames,
 		len - (off_t)h->frames * h->dec->frame_size);
 	fprintf(stderr,
 		"dv: quality=%d system=%d std=%d sampling=%d num_dif_seqs=%d\n"
@@ -280,7 +281,7 @@ static struct ng_audio_buf* dv_adata(void *handle)
     return buf;
 }
 
-static long long dv_frame_time(void *handle)
+static int64_t dv_frame_time(void *handle)
 {
     struct dv_handle *h = handle;
 
@@ -327,4 +328,7 @@ void ng_plugin_init(void)
     ng_reader_register(NG_PLUGIN_MAGIC,__FILE__,&dv_reader);
 }
 
+#else /* gcc3 */
+extern void ng_plugin_init(void);
+void ng_plugin_init(void) {}
 #endif /* gcc3 */

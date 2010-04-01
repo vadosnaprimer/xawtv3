@@ -81,7 +81,7 @@ vbi_open(char *dev, int debug, int sim)
     vbi->raw = malloc(vbi->lines * vbi->par->bytes_per_line);
     if (NULL == vbi->raw)
 	goto oops;
-    vbi->sliced = malloc(vbi->lines * sizeof(struct vbi_sliced));
+    vbi->sliced = malloc(vbi->lines * sizeof(vbi_sliced));
     if (NULL == vbi->sliced)
 	goto oops;
     vbi->tv.tv_sec  = 1;
@@ -229,7 +229,7 @@ int vbi_calc_page(int pagenr, int offset)
     return result;
 }
 
-int vbi_calc_subpage(struct vbi_decoder *dec, int pgno, int subno, int offset)
+int vbi_calc_subpage(vbi_decoder *dec, int pgno, int subno, int offset)
 {
     vbi_page pg;
     int newno;
@@ -257,10 +257,11 @@ int vbi_calc_subpage(struct vbi_decoder *dec, int pgno, int subno, int offset)
 }
 
 int vbi_export_txt(char *dest, char *charset, int size,
-		   struct vbi_page *pg, struct vbi_rect *rect,
+		   vbi_page *pg, struct vbi_rect *rect,
 		   enum vbi_txt_colors color)
 {
-    int x,y,rc,olen,ilen;
+    int x,y,rc;
+    size_t olen,ilen;
     int fg,bg,len=0;
     char *ibuf, *obuf;
     vbi_char *ch;
@@ -332,7 +333,7 @@ int vbi_export_txt(char *dest, char *charset, int size,
     return obuf - dest;
 }
 
-void vbi_find_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
+void vbi_find_subtitle(vbi_page *pg, struct vbi_rect *rect)
 {
     int x,y,showline;
     vbi_char *ch;

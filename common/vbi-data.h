@@ -7,10 +7,10 @@
 #define VBI_MAX_SUBPAGES 64
 
 struct vbi_state {
-    struct vbi_decoder      *dec;
-    struct vbi_capture      *cap;
-    struct vbi_raw_decoder  *par;
-    struct vbi_sliced       *sliced;
+    vbi_decoder             *dec;
+    vbi_capture             *cap;
+    vbi_raw_decoder         *par;
+    vbi_sliced              *sliced;
     uint8_t                 *raw;
     char                    *err;
     int                     lines,fd,sim,debug;

@@ -208,6 +208,7 @@ main(int argc, char **argv)
 
     /* init v4l */
     grabber_init();
+    freq_init();
     read_config(NULL,NULL,NULL);
     ng_ratio_x = 0;
     ng_ratio_y = 0;

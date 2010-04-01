@@ -335,10 +335,8 @@ set_volume(void)
 static void
 set_freqtab(int j)
 {
-    chantab   = j;
-    chanlist  = chanlists[chantab].list;
-    chancount = chanlists[chantab].count;
-
+    freq_newtab(j);
+    
     /* cur_channel might be invalid (>chancount) right now */
     cur_channel = -1;
     /* this is valid for (struct CHANNEL*)->channel too    */

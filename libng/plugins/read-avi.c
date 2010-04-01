@@ -376,7 +376,7 @@ static struct ng_audio_buf* avi_adata(void *handle)
     return buf;
 }
 
-static long long avi_frame_time(void *handle)
+static int64_t avi_frame_time(void *handle)
 {
     struct avi_handle *h = handle;
 

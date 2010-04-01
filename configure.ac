@@ -26,6 +26,8 @@ AC_ARG_ENABLE(zvbi,
   [  --enable-zvbi           enable vbi support (via libzvbi)])
 AC_ARG_ENABLE(zvbi,
   [  --enable-gl             enable opengl support])
+AC_ARG_ENABLE(mmx,
+  [  --enable-mmx            enable mmx support])
 
 
 dnl ---------------------------------------------------------------------
@@ -279,9 +281,27 @@ dnl for screenlock
 AC_DEFINE(HAVE_XMU,1,"have xmu")
 
 dnl ---------------------------------------------------------------------
+dnl deinterlace plugins
+AC_MSG_CHECKING(if mmx should be used)
+AC_SUBST(USE_MMX)
+if test "$enable_mmx" = "no" -o "$enable_mmx" = "yes"; then
+	USE_MMX="$enable_mmx"
+else
+	case "`uname -m`" in
+		i586 | i686)
+			USE_MMX="yes"
+			;;
+		*)
+			USE_MMX="no"
+			;;
+	esac
+fi
+AC_MSG_RESULT($USE_MMX)
+
+dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile xawtv.spec)
 for dir in \
-	common console debug fonts jwz libvbi vbistuff x11 \
+	common console debug fonts jwz libvbi vbistuff x11 structs \
 	libng libng/plugins libng/contrib-plugins
 do
 	test -d $dir && continue

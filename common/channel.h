@@ -11,6 +11,7 @@
 struct CHANNEL {
     char  *name;
     char  *key;
+    char  *group;
     int   midi;
 
     char  *cname;     /* name of the channel  */

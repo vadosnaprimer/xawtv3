@@ -166,6 +166,7 @@ control.form.status.f.?.labelString:
 *prop_popup*rc.channel.comboBoxType:	DROP_DOWN_LIST
 *prop_popup*rc.channel.positionMode:	ONE_BASED
 *prop_popup*rc.keyL.marginTop:		10
+*prop_popup*rc.groupL.marginTop:	10
 *prop_popup*rc.channelL.marginTop:	10
 *prop_popup*rc.XmLabel.alignment:	ALIGNMENT_BEGINNING
 

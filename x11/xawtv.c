@@ -1675,6 +1675,9 @@ main(int argc, char *argv[])
     create_launchwin();
 
     /* read config file + related settings */
+    if (debug)
+	fprintf(stderr,"main: init frequency tables ...\n");
+    freq_init();
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
@@ -1753,7 +1756,8 @@ main(int argc, char *argv[])
     channel_menu();
 
     xt_handle_pending(dpy);
-    do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
+    do_va_cmd(2,"setfreqtab",(-1 != chantab)
+	      ? chanlist_names[chantab].str : "europe-west");
     cur_capture = 0;
     do_va_cmd(2,"capture","overlay");
     set_property(0,NULL,NULL);
