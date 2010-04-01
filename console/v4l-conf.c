@@ -49,6 +49,8 @@ struct DISPLAYINFO {
 
 int    verbose    = 1;
 int    yuv        = 0;
+int    v4l1       = 1;
+int    v4l2       = 1;
 int    user_bpp   = 0;
 int    user_shift = 0;
 void   *user_base = NULL;
@@ -318,6 +320,12 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     struct v4l2_capability	cap;
     struct v4l2_framebuffer     fb;
 
+    if (0 == v4l2) {
+	if (verbose)
+	    fprintf(stderr,"skipping v4l2 (disabled on the cmd line)\n");
+	return -1;
+    }
+
     if (-1 == ioctl(fd,VIDIOC_QUERYCAP,&cap)) {
 	if (verbose)
 	    fprintf(stderr,"%s [v4l2]: ioctl VIDIOC_QUERYCAP: %s\n",
@@ -383,6 +391,12 @@ displayinfo_v4l(int fd, struct DISPLAYINFO *d)
 {
     struct video_capability  capability;
     struct video_buffer      fbuf;
+
+    if (0 == v4l1) {
+	if (verbose)
+	    fprintf(stderr,"skipping v4l (disabled on the cmd line)\n");
+	return -1;
+    }
 
     if (-1 == ioctl(fd,VIDIOCGCAP,&capability)) {
 	fprintf(stderr,"%s [v4l]: ioctl VIDIOCGCAP: %s\n",
@@ -462,7 +476,7 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hyqd:c:b:s:fa:")))
+	if (-1 == (c = getopt(argc, argv, "hyq12d:c:b:s:fa:")))
 	    break;
 	switch (c) {
 	case 'q':
@@ -470,6 +484,14 @@ main(int argc, char *argv[])
 	    break;
 	case 'y':
 	    yuv = 1;
+	    break;
+	case '1':
+	    v4l1 = 1;
+	    v4l2 = 0;
+	    break;
+	case '2':
+	    v4l1 = 0;
+	    v4l2 = 1;
 	    break;
 	case 'd':
 	    display = optarg;
@@ -515,7 +537,9 @@ main(int argc, char *argv[])
 		    "    -f        query frame buffer device for info\n"
 		    "    -a <addr> set framebuffer address to <addr>\n"
 		    "              (in hex, root only, successful autodetect\n"
-		    "               will overwrite this address)\n",
+		    "               will overwrite this address)\n"
+		    "    -1        force v4l API\n"
+		    "    -2        force v4l2 API\n",
 		    argv[0],
 #ifndef X_DISPLAY_MISSING
 		    display ? display : "none",

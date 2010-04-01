@@ -308,7 +308,10 @@ main(int argc, char **argv)
 	    name = get_vbi_name(vbi);
 	    fprintf(stderr,"%s\n",name ? name : "???");
 	    if (NULL == name) {
-		sprintf(dummy,"unknown (%s)",chanlist[fi].name);
+		if (-1 == fi)
+		    sprintf(dummy,"unknown (%s)",chanlist[fi].name);
+		else
+		    sprintf(dummy,"unknown (%.2f)",fc/16.0);
 		name = dummy;
 	    }
 	    if (-1 != fi) {

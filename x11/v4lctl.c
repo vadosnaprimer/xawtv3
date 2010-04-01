@@ -17,14 +17,14 @@
 # include <X11/Xlib.h>
 # include <X11/extensions/Xv.h>
 # include <X11/extensions/Xvlib.h>
+# include "atoms.h"
+# include "xv.h"
 #endif
 
 #include "grab-ng.h"
 #include "channel.h"
 #include "frequencies.h"
 #include "commands.h"
-#include "atoms.h"
-#include "xv.h"
 
 int debug = 0;
 int have_dga = 0;

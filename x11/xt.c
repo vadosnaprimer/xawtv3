@@ -901,13 +901,13 @@ do_modeswitch(int fs_state, int *vp_width, int *vp_height)
     *vp_width  = swidth;
     *vp_height = sheight;
 
-#ifdef HAVE_LIBXRANDR
-    if (have_randr)
-	do_randr_modeswitch(fs_state,vp_width,vp_height);
-#endif
 #ifdef HAVE_LIBXXF86VM
-    if (!have_randr  &&  have_vm)
+    if (have_vm)
 	do_vidmode_modeswitch(fs_state,vp_width,vp_height);
+#endif
+#ifdef HAVE_LIBXRANDR
+    if (!have_vm && have_randr)
+	do_randr_modeswitch(fs_state,vp_width,vp_height);
 #endif
 }
 

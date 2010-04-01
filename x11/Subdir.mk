@@ -1,11 +1,11 @@
 
 # targets to build
-TARGETS-x11 :=
+TARGETS-x11 := \
+	x11/v4lctl
 
 ifeq ($(FOUND_X11),yes)
 TARGETS-x11 += \
 	x11/propwatch \
-	x11/v4lctl \
 	x11/xawtv-remote \
 	x11/rootv \
 	x11/xawtv \
@@ -73,10 +73,14 @@ x11/mtt: \
 
 x11/v4lctl: \
 	x11/v4lctl.o \
-	x11/atoms.o \
-	x11/xv.o \
 	common/channel-no-x11.o \
 	$(OBJS-common-capture)
+
+ifeq ($(FOUND_X11),yes)
+x11/v4lctl: \
+	x11/atoms.o \
+	x11/xv.o
+endif
 
 x11/rootv: \
 	x11/rootv.o \

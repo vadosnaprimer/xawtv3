@@ -17,7 +17,7 @@ Description: X11 TV application
 Package: pia
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, xawtv-plugins (=${Source-Version})
 Description: movie player
  This is a simple movie player.  It is used by xawtv and motv to
  playback movie files which are recorded from TV.

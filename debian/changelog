@@ -1,3 +1,11 @@
+xawtv (3.91) unstable; urgency=low
+
+  * bugfix release.
+  * fix dependencies (closes: #217451).
+  * added Japanese po-debconf template (closes: #227811).
+
+ -- Gerd Knorr <kraxel@debian.org>  Thu, 29 Jan 2004 14:23:49 +0100
+
 xawtv (3.90) unstable; urgency=low
 
   * bugfix release (closes: #204990).
