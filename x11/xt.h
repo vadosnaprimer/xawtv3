@@ -24,6 +24,7 @@ struct ARGS {
     int  xv;
     int  xv_video;
     int  xv_image;
+    int  gl;
     int  vidmode;
     int  dga;
     int  help;

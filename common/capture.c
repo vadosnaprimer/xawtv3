@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -18,8 +20,8 @@
 #include "capture.h"
 #include "webcam.h"
 
-#define MAX_THREADS   4
-#define REORDER_SIZE  8
+#define MAX_THREADS    4
+#define REORDER_SIZE  32
 
 /*-------------------------------------------------------------------------*/
 /* data fifos (audio/video)                                                */
@@ -114,172 +116,39 @@ flushit(void *arg)
 }
 
 /*-------------------------------------------------------------------------*/
-/* color space conversion / compression functions + thread                 */
+/* color space conversion / compression thread                             */
 
-struct ng_convert_handle {
+struct ng_convthread_handle {
     /* converter data / state */
-    struct ng_video_fmt     ifmt;
-    struct ng_video_fmt     ofmt;
-    int                     isize;
-    int                     osize;
-    struct ng_video_conv    *conv;
-    void                    *chandle;
+    struct ng_convert_handle *c;
 
     /* thread data */
-    struct FIFO             *in;
-    struct FIFO             *out;
+    struct FIFO              *in;
+    struct FIFO              *out;
 };
-
-struct ng_convert_handle*
-ng_convert_alloc(struct ng_video_conv *conv,
-		 struct ng_video_fmt *i,
-		 struct ng_video_fmt *o)
-{
-    struct ng_convert_handle *h;
-    
-    h = malloc(sizeof(*h));
-    if (NULL == h)
-	return 0;
-    memset(h,0,sizeof(*h));
-
-    /* fixup output image size to match incoming */
-    o->width  = i->width;
-    o->height = i->height;
-    if (0 == o->bytesperline)
-	o->bytesperline = o->width * ng_vfmt_to_depth[o->fmtid] / 8;
-
-    h->ifmt = *i;
-    h->ofmt = *o;
-    if (conv)
-	h->conv = conv;
-    return h;
-}
-
-void
-ng_convert_init(struct ng_convert_handle *h)
-{
-    if (0 == h->ifmt.bytesperline)
-	h->ifmt.bytesperline = h->ifmt.width *
-	    ng_vfmt_to_depth[h->ifmt.fmtid] / 8;
-    if (0 == h->ofmt.bytesperline)
-	h->ofmt.bytesperline = h->ofmt.width *
-	    ng_vfmt_to_depth[h->ofmt.fmtid] / 8;
-
-    h->isize = h->ifmt.height * h->ifmt.bytesperline;
-    if (0 == h->isize)
-	h->isize = h->ifmt.width * h->ifmt.height * 3;
-    h->osize = h->ofmt.height * h->ofmt.bytesperline;
-    if (0 == h->osize)
-	h->osize = h->ofmt.width * h->ofmt.height * 3;
-
-    if (h->conv)
-	h->chandle = h->conv->init(&h->ofmt,h->conv->priv);
-
-    if (debug) {
-	fprintf(stderr,"convert-in : %dx%d %s (size=%d)\n",
-		h->ifmt.width, h->ifmt.height,
-		ng_vfmt_to_desc[h->ifmt.fmtid], h->isize);
-	fprintf(stderr,"convert-out: %dx%d %s (size=%d)\n",
-		h->ofmt.width, h->ofmt.height,
-		ng_vfmt_to_desc[h->ofmt.fmtid], h->osize);
-    }
-}
-
-static void
-ng_convert_copyframe(struct ng_video_buf *dest,
-		     struct ng_video_buf *src)
-{
-    int i,sw,dw;
-    unsigned char *sp,*dp;
-
-    dw = dest->fmt.width * ng_vfmt_to_depth[dest->fmt.fmtid] / 8;
-    sw = src->fmt.width * ng_vfmt_to_depth[src->fmt.fmtid] / 8;
-    if (src->fmt.bytesperline == sw && dest->fmt.bytesperline == dw) {
-	/* can copy in one go */
-	memcpy(dest->data, src->data,
-	       src->fmt.bytesperline * src->fmt.height);
-    } else {
-	/* copy line by line */
-	dp = dest->data;
-	sp = src->data;
-	for (i = 0; i < src->fmt.height; i++) {
-	    memcpy(dp,sp,dw);
-	    dp += dest->fmt.bytesperline;
-	    sp += src->fmt.bytesperline;
-	}
-    }
-}
-
-struct ng_video_buf*
-ng_convert_frame(struct ng_convert_handle *h,
-		 struct ng_video_buf *dest,
-		 struct ng_video_buf *buf)
-{
-    if (NULL == buf)
-	return NULL;
-
-    if (NULL == dest && NULL != h->conv)
-        dest = ng_malloc_video_buf(&h->ofmt,h->osize);
-
-    if (NULL != dest) {
-	dest->fmt  = h->ofmt;
-	dest->size = h->osize;
-	if (NULL != h->conv) {
-	    h->conv->frame(h->chandle,dest,buf);
-	} else {
-	    ng_convert_copyframe(dest,buf);
-	}
-	dest->info = buf->info;
-	ng_release_video_buf(buf);
-	buf = dest;
-    }
-
-#if 1 /* FIXME */
-    if (NULL != webcam && 0 == webcam_put(webcam,buf)) {
-	free(webcam);
-	webcam = NULL;
-    }
-#endif
-    return buf;
-}
-
-void
-ng_convert_fini(struct ng_convert_handle *h)
-{
-    if (h->conv)
-	h->conv->fini(h->chandle);
-    free(h);
-}
-
-struct ng_video_buf*
-ng_convert_single(struct ng_convert_handle *h, struct ng_video_buf *in)
-{
-    struct ng_video_buf *out;
-
-    ng_convert_init(h);
-    out = ng_convert_frame(h,NULL,in);
-    ng_convert_fini(h);
-    return out;
-}
 
 void*
 ng_convert_thread(void *arg)
 {
-    struct ng_convert_handle *h = arg;
+    struct ng_convthread_handle *h = arg;
     struct ng_video_buf *in, *out;
     
     if (debug)
 	fprintf(stderr,"convert_thread start [pid=%d]\n",getpid());
-    ng_convert_init(h);
+    ng_convert_init(h->c);
     for (;;) {
 	in  = fifo_get(h->in);
 	if (NULL == in)
 	    break;
-	out = ng_convert_frame(h,NULL,in);
+	out = ng_convert_frame(h->c,NULL,in);
+	if (NULL != webcam && 0 == webcam_put(webcam,out)) {
+	    free(webcam);
+	    webcam = NULL;
+	}
 	fifo_put(h->out,out);
     }
     fifo_put(h->out,NULL);
-    ng_convert_fini(h);
+    ng_convert_fini(h->c);
     if (debug)
 	fprintf(stderr,"convert_thread done [pid=%d]\n",getpid());
     return NULL;
@@ -335,7 +204,7 @@ ng_grabber_findconv(struct ng_video_fmt *fmt,
     
     /* check all available conversion functions */
     for (i = 0;;) {
-	conv = ng_conv_find(fmt->fmtid, &i);
+	conv = ng_conv_find_to(fmt->fmtid, &i);
 	if (NULL == conv)
 	    break;
 	gfmt = *fmt;
@@ -403,7 +272,7 @@ struct movie_handle {
     /* video converter thread */
     struct FIFO               cfifo;
     int                       cthreads;
-    struct ng_convert_handle  *hconv[MAX_THREADS];
+    struct ng_convthread_handle *hconv[MAX_THREADS];
     pthread_t                 tconv[MAX_THREADS];
 
     /* audio */
@@ -416,6 +285,9 @@ struct movie_handle {
     pthread_t                 taudio;
     pthread_t                 raudio;
     long long                 ats;
+
+    long long                 rdrift;
+    long long                 vdrift;
 };
 
 static void*
@@ -508,7 +380,10 @@ record_audio_thread(void *arg)
 	    break;
 	if (0 == buf->size)
 	    continue;
-	h->ats = buf->info.ts;
+	h->ats    = buf->info.ts;
+	h->rts    = ng_get_timestamp() - h->start;
+	h->rdrift = h->rts - h->ats;
+	h->vdrift = h->vts - h->ats;
 	if (0 != fifo_put(&h->afifo,buf))
 	    free(buf);
     }
@@ -542,7 +417,7 @@ movie_writer_init(char *moviename, char *audioname,
 
     /* audio */
     if (audio->fmtid != AUDIO_NONE) {
-	h->dsp = ng_dsp_open(dsp,audio,&h->hdsp);
+	h->dsp = ng_dsp_open(dsp,audio,1,&h->hdsp);
 	if (NULL == h->dsp) {
 	    free(h);
 	    return NULL;
@@ -578,7 +453,9 @@ movie_writer_init(char *moviename, char *audioname,
 	    fifo_init(&h->cfifo,"conv",slots,1);
 	    pthread_create(&h->tvideo,NULL,writer_video_thread,h);
 	    for (i = 0; i < h->cthreads; i++) {
-		h->hconv[i] = ng_convert_alloc(conv,&gfmt,video);
+		h->hconv[i] = malloc(sizeof(struct ng_convthread_handle));
+		memset(h->hconv[i],0,sizeof(struct ng_convthread_handle));
+		h->hconv[i]->c   = ng_convert_alloc(conv,&gfmt,video);
 		h->hconv[i]->in  = &h->cfifo;
 		h->hconv[i]->out = &h->vfifo;
 		pthread_create(&h->tconv[i],NULL,ng_convert_thread,
@@ -704,33 +581,23 @@ movie_writer_stop(struct movie_handle *h)
 static void
 movie_print_timestamps(struct movie_handle *h)
 {
-    long long adiff,vdiff;
     char line[128];
 
     if (NULL == rec_status)
 	return;
-    h->rts = ng_get_timestamp() - h->start;
-    adiff = h->ats - h->rts;
-    vdiff = h->vts - h->rts;
-#if 0
-    sprintf(line,"real: %d.%03ds   audio: %d.%03ds   video: %d.%03ds",
-	    (int)((h->rts / 1000000000)),
-	    (int)((h->rts % 1000000000) / 1000000),
-	    (int)((h->ats / 1000000000)),
-	    (int)((h->ats % 1000000000) / 1000000),
-	    (int)((h->vts / 1000000000)),
-	    (int)((h->vts % 1000000000) / 1000000));
-#else
-    sprintf(line,"real: %d.%03ds   audio: %c%d.%03ds   video: %c%d.%03ds",
-            (int)((h->rts / 1000000000)),
-            (int)((h->rts % 1000000000) / 1000000),
-	    (adiff > 0) ? '+' : '-',
-	    (int)((abs(adiff) / 1000000000)),
-	    (int)((abs(adiff) % 1000000000) / 1000000),
-	    (vdiff > 0) ? '+' : '-',
-	    (int)((abs(vdiff) / 1000000000)),
-	    (int)((abs(vdiff) % 1000000000) / 1000000));
-#endif
+
+    sprintf(line,"rec %d:%02d.%02d  -  a/r: %c%d.%02ds [%d], a/v: %c%d.%02ds [%d]",
+	    (int)(h->rts / 1000000000 / 60),
+	    (int)(h->rts / 1000000000 % 60),
+	    (int)((h->rts % 1000000000) / 10000000),
+	    (h->rdrift > 0) ? '+' : '-',
+	    (int)((abs(h->rdrift) / 1000000000)),
+	    (int)((abs(h->rdrift) % 1000000000) / 10000000),
+	    (int)(h->rdrift * h->fps / 1000000000000),
+	    (h->vdrift > 0) ? '+' : '-',
+	    (int)((abs(h->vdrift) / 1000000000)),
+	    (int)((abs(h->vdrift) % 1000000000) / 10000000),
+	    (int)(h->vdrift * h->fps / 1000000000000));
     rec_status(line);
 }
 
@@ -745,21 +612,25 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
 
     /* fetch next frame */
     buf = ng_grabber_grab_image(0);
-    if (NULL == buf)
+    if (NULL == buf) {
+	if (debug)
+	    fprintf(stderr,"grab_put_video: grab image failed\n");
 	return -1;
+    }
 #if 0 /* FIXME */
     buf = ng_filter_single(cur_filter,buf);
 #endif
 
     /* rate control */
-    expected = buf->info.ts * h->fps / 1000000000000;
-    if (expected < h->frames) {
+    expected = (buf->info.ts - h->vdrift) * h->fps / 1000000000000;
+    if (expected < h->frames-1) {
 	if (debug > 1)
-	    fprintf(stderr,"rate: ignoring frame\n");
+	    fprintf(stderr,"rate: ignoring frame [%d %d]\n",
+		    expected, h->frames);
 	ng_release_video_buf(buf);
 	return 0;
     }
-    if (expected > h->frames) {
+    if (expected > h->frames+1) {
 	fprintf(stderr,"rate: queueing frame twice (%d)\n",
 		expected-h->frames);
 	buf->info.twice++;

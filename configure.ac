@@ -24,6 +24,8 @@ AC_ARG_ENABLE(alsa,
   [  --enable-alsa           enable alsa support])
 AC_ARG_ENABLE(zvbi,
   [  --enable-zvbi           enable vbi support (via libzvbi)])
+AC_ARG_ENABLE(zvbi,
+  [  --enable-gl             enable opengl support])
 
 
 dnl ---------------------------------------------------------------------
@@ -52,6 +54,7 @@ FOUND_LQT="no"
 FOUND_MOTIF="no"
 FOUND_OS="unknown"
 FOUND_X11="no"
+FOUND_GL="no"
 FOUND_ZVBI="no"
 
 case "`uname -s`" in
@@ -62,6 +65,7 @@ case "`uname -s`" in
 		# *BSD has important stuff (from ports)
 		# in /usr/local ...
 		CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
+		LDLIBS="$LDLIBS -L/usr/local/lib"
 		FOUND_OS="bsd"
 		;;
 	*)
@@ -133,6 +137,7 @@ AC_SUBST(ATHENA)
 AC_SUBST(FSLIB)
 AC_SUBST(SUBS)
 AC_SUBST(TOOLS)
+AC_SUBST(LDLIBS)
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then
@@ -227,8 +232,15 @@ else
     echo "*** motif support disabled"
 fi
 
-AC_CHECK_LIB(GL, glXChooseVisual, [ FOUND_GL="yes" ],,
-  $X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+AC_SUBST(LIBGL)
+LIBGL=""
+if test "$enable_gl" != "no"; then
+    AC_CHECK_LIB(GL, glXChooseVisual,
+        AC_DEFINE(HAVE_GL) FOUND_GL="yes"; LIBGL="-lGLU -lGL -lm",,
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS -lm)
+else
+    echo "*** OpenGL disabled"
+fi
 
 VERSION="`(cd $srcdir; pwd) | sed -e 's/.*-//'`"
 AC_SUBST(VERSION)

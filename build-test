@@ -53,6 +53,10 @@ make distclean
 ./configure --disable-zvbi && make				|| exit 1
 make distclean
 
+# no opengl
+./configure --disable-gl && make				|| exit 1
+make distclean
+
 # no X11
 ./configure --without-x && make					|| exit 1
 make distclean

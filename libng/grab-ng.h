@@ -158,6 +158,7 @@ struct ng_audio_fmt {
 struct ng_audio_buf {
     struct ng_audio_fmt  fmt;
     int                  size;
+    int                  written; /* for partial writes */
     char                 *data;
 
     struct {
@@ -165,6 +166,8 @@ struct ng_audio_buf {
     } info;
 };
 
+struct ng_audio_buf* ng_malloc_audio_buf(struct ng_audio_fmt *fmt,
+					 int size);
 
 /* --------------------------------------------------------------------- */
 /* someone who receives video and/or audio data (writeavi, ...)          */
@@ -191,6 +194,23 @@ struct ng_writer {
     int (*wr_video)(void *handle, struct ng_video_buf *buf);
     int (*wr_audio)(void *handle, struct ng_audio_buf *buf);
     int (*wr_close)(void *handle);
+};
+
+struct ng_reader {
+    const char *name;
+    const char *desc;
+
+    char  *magic[4];
+    int   moff[4];
+    int   mlen[4];
+
+    void* (*rd_open)(char *moviename, int *vfmt, int vn);
+    struct ng_video_fmt* (*rd_vfmt)(void *handle);
+    struct ng_audio_fmt* (*rd_afmt)(void *handle);
+    struct ng_video_buf* (*rd_vdata)(void *handle, int drop);
+    struct ng_audio_buf* (*rd_adata)(void *handle);
+    long long (*frame_time)(void *handle);
+    int (*rd_close)(void *handle);
 };
 
 
@@ -274,11 +294,14 @@ struct ng_vid_driver {
 
 struct ng_dsp_driver {
     const char            *name;
-    void*                 (*open)(char *device, struct ng_audio_fmt *fmt);
+    void*                 (*open)(char *device, struct ng_audio_fmt *fmt,
+				  int record);
     void                  (*close)(void *handle);
     int                   (*fd)(void *handle);
     int                   (*startrec)(void *handle);
     struct ng_audio_buf*  (*read)(void *handle, long long stopby);
+    struct ng_audio_buf*  (*write)(void *handle, struct ng_audio_buf *buf);
+    long long             (*latency)(void *handle);
 };
 
 struct ng_mix_driver {
@@ -306,6 +329,26 @@ struct ng_video_conv {
     void                  *priv;
 };
 
+struct ng_convert_handle {
+    struct ng_video_fmt     ifmt;
+    struct ng_video_fmt     ofmt;
+    int                     isize;
+    int                     osize;
+    struct ng_video_conv    *conv;
+    void                    *chandle;
+};
+
+struct ng_convert_handle* ng_convert_alloc(struct ng_video_conv *conv,
+					   struct ng_video_fmt *i,
+					   struct ng_video_fmt *o);
+void ng_convert_init(struct ng_convert_handle *h);
+struct ng_video_buf* ng_convert_frame(struct ng_convert_handle *h,
+				      struct ng_video_buf *dest,
+				      struct ng_video_buf *buf);
+void ng_convert_fini(struct ng_convert_handle *h);
+struct ng_video_buf* ng_convert_single(struct ng_convert_handle *h,
+				       struct ng_video_buf *in);
+
 /* --------------------------------------------------------------------- */
 /* filters                                                               */
 
@@ -322,11 +365,12 @@ struct ng_filter {
 /* --------------------------------------------------------------------- */
 
 /* must be changed if we break compatibility */
-#define NG_PLUGIN_MAGIC 0x20020322
+#define NG_PLUGIN_MAGIC 0x20020701
 
 extern struct ng_video_conv  **ng_conv;
 extern struct ng_filter      **ng_filters;
 extern struct ng_writer      **ng_writers;
+extern struct ng_reader      **ng_readers;
 extern struct ng_vid_driver  **ng_vid_drivers;
 extern struct ng_dsp_driver  **ng_dsp_drivers;
 extern struct ng_mix_driver  **ng_mix_drivers;
@@ -337,6 +381,8 @@ int ng_filter_register(int magic, char *plugname,
 		       struct ng_filter *filter);
 int ng_writer_register(int magic, char *plugname,
 		       struct ng_writer *writer);
+int ng_reader_register(int magic, char *plugname,
+		       struct ng_reader *reader);
 int ng_vid_driver_register(int magic, char *plugname,
 			   struct ng_vid_driver *driver);
 int ng_dsp_driver_register(int magic, char *plugname,
@@ -344,27 +390,32 @@ int ng_dsp_driver_register(int magic, char *plugname,
 int ng_mix_driver_register(int magic, char *plugname,
 			   struct ng_mix_driver *driver);
 
-struct ng_video_conv* ng_conv_find(int out, int *i);
+struct ng_video_conv* ng_conv_find_to(int out, int *i);
+struct ng_video_conv* ng_conv_find_from(int out, int *i);
+struct ng_video_conv* ng_conv_find_match(int in, int out);
 
-const struct ng_vid_driver*
-ng_vid_open(char *device, struct ng_video_fmt *screen,
-	    void *base, void **handle);
-const struct ng_dsp_driver*
-ng_dsp_open(char *device, struct ng_audio_fmt *fmt, void **handle);
-struct ng_attribute*
-ng_mix_init(char *device, char *channel);
+const struct ng_vid_driver* ng_vid_open(char *device,
+					struct ng_video_fmt *screen,
+					void *base, void **handle);
+const struct ng_dsp_driver* ng_dsp_open(char *device, struct ng_audio_fmt *fmt,
+					int record, void **handle);
+struct ng_attribute* ng_mix_init(char *device, char *channel);
+struct ng_reader* ng_find_reader(char *filename);
 
 long long ng_get_timestamp(void);
 void ng_check_clipping(int width, int height, int xadjust, int yadjust,
 		       struct OVERLAY_CLIP *oc, int *count);
-struct ng_video_buf*
-ng_filter_single(struct ng_filter *filter, struct ng_video_buf *in);
+struct ng_video_buf* ng_filter_single(struct ng_filter *filter,
+				      struct ng_video_buf *in);
 
 /* --------------------------------------------------------------------- */
 
 void ng_init(void);
 void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 		 unsigned long blue_mask, int fmtid, int swap);
+
+void ng_rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p);
+void ng_rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p);
 
 /* --------------------------------------------------------------------- */
 /* internal stuff starts here                                            */

@@ -1,7 +1,7 @@
 /*
  * main.c for xawtv -- a TV application
  *
- *   (c) 1997-2001 Gerd Knorr <kraxel@bytesex.org>
+ *   (c) 1997-2002 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -75,6 +75,7 @@
 #include "complete.h"
 #include "wmhooks.h"
 #include "conf.h"
+#include "blit.h"
 #include "vbi-data.h"
 #include "vbi-x11.h"
 
@@ -486,7 +487,7 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    height != event->xconfigure.height) {
 	    width  = event->xconfigure.width;
 	    height = event->xconfigure.height;
-	    video_gd_configure(width, height);
+	    video_gd_configure(width, height, args.gl);
 	    XClearWindow(XtDisplay(tv),XtWindow(tv));
 	    sprintf(label,"%-" LABEL_WIDTH "s: %dx%d",MOVIE_SIZE,width,height);
 	    if (w_movie_size)
@@ -646,7 +647,7 @@ do_capture(int from, int to, int tmp_switch)
     case CAPTURE_OFF:
 	sprintf(label,"%-" LABEL_WIDTH "s: %s","Capture","off");
 	if (!tmp_switch) {
-	    tv_pix = freeze_image(dpy, colormap);
+	    tv_pix = x11_capture_pixmap(dpy, &vinfo, colormap, 0, 0);
 	    if (tv_pix)
 		XtVaSetValues(tv,XtNbackgroundPixmap,tv_pix,NULL);
 	}
@@ -693,26 +694,30 @@ pixit(void)
 	return;
 
     video_gd_suspend();
-    fmt = x11_fmt;
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = x11_dpy_fmtid;
     fmt.width  = pix_width;
     fmt.height = pix_height;
-    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
-	buf = ng_filter_single(cur_filter,buf);
-	if (0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-					  fmt.width,fmt.height,
-					  channels[cur_sender]->name))) {
-	    XtVaSetValues(channels[cur_sender]->button,
-			  XtNbackgroundPixmap,pix,
-			  XtNlabel,"",
-			  XtNwidth,pix_width,
-			  XtNheight,pix_height,
-			  NULL);
-	    if (channels[cur_sender]->pixmap)
-		XFreePixmap(dpy,channels[cur_sender]->pixmap);
-	    channels[cur_sender]->pixmap = pix;
-	}
-	ng_release_video_buf(buf);
-    }
+    if (NULL == (buf = ng_grabber_get_image(&fmt)))
+	goto done1;
+    buf = ng_filter_single(cur_filter,buf);
+    if (0 == (pix = x11_create_pixmap(dpy,&vinfo,buf)))
+	goto done2;
+    x11_label_pixmap(dpy,colormap,pix,buf->fmt.height,
+		     channels[cur_sender]->name);
+    XtVaSetValues(channels[cur_sender]->button,
+		  XtNbackgroundPixmap,pix,
+		  XtNlabel,"",
+		  XtNwidth,pix_width,
+		  XtNheight,pix_height,
+		  NULL);
+    if (channels[cur_sender]->pixmap)
+	XFreePixmap(dpy,channels[cur_sender]->pixmap);
+    channels[cur_sender]->pixmap = pix;
+    
+ done2:
+    ng_release_video_buf(buf);
+ done1:
     video_gd_restart();
 }
 
@@ -1007,7 +1012,8 @@ jump_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
     range = attr->max - attr->min;
     value = (int)(*(float*)call_data * range) + attr->min;
-    fprintf(stderr,"value is %d\n",value);
+    if (debug)
+	fprintf(stderr,"scroll: value is %d\n",value);
     if (value < attr->min)
 	value = attr->min;
     if (value > attr->max)
@@ -1346,8 +1352,8 @@ do_movie_record(int argc, char **argv)
 
 	wr = ng_writers[movie_driver];
 	video.fmtid  = wr->video[movie_video].fmtid;
-	video.width  = x11_fmt.width;
-	video.height = x11_fmt.height;
+	video.width  = cur_tv_width;
+	video.height = cur_tv_height;
 	if (NULL != wr->audio[movie_audio].name) {
 	    audio.fmtid  = wr->audio[movie_audio].fmtid;
 	    audio.rate   = movie_rate;
@@ -1549,8 +1555,7 @@ create_launchwin(void)
 /*--- main ---------------------------------------------------------------*/
 
 int
-main(
-    int argc, char *argv[])
+main(int argc, char *argv[])
 {
     int            i;
     unsigned long  freq;
@@ -1575,7 +1580,9 @@ main(
     /* device scan */
     if (args.hwscan) {
 	fprintf(stderr,"looking for available devices\n");
-	xv_init(1,1,-1,1);
+#ifdef HAVE_LIBXV
+	xv_video_init(-1,1);
+#endif
 	grabber_scan();
     }
     
@@ -1598,10 +1605,17 @@ main(
     if (debug)
 	fprintf(stderr,"main: xinerama extention...\n");
     xfree_xinerama_init();
+#ifdef HAVE_LIBXV
     if (debug)
-	fprintf(stderr,"main: xvideo extention...\n");
-    xv_init(args.xv_video,args.xv_image,args.xv_port,0);
-
+	fprintf(stderr,"main: xvideo extention [video]...\n");
+    if (args.xv_video)
+	xv_video_init(args.xv_port,0);
+    if (debug)
+	fprintf(stderr,"main: xvideo extention [image]...\n");
+    if (args.xv_image)
+	xv_image_init(dpy);
+#endif
+    
     /* set hooks (command.c) */
     update_title        = new_title;
     display_message     = new_message;
@@ -1627,32 +1641,9 @@ main(
     
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
-    tv = video_init(app_shell,&vinfo,simpleWidgetClass);
+    tv = video_init(app_shell,&vinfo,simpleWidgetClass,args.bpp);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
-    if (ImageByteOrder(dpy) == MSBFirst) {
-	/* X-Server is BE */
-	switch(args.bpp) {
-	case  8: x11_native_format = VIDEO_RGB08;    break;
-	case 15: x11_native_format = VIDEO_RGB15_BE; break;
-	case 16: x11_native_format = VIDEO_RGB16_BE; break;
-	case 24: x11_native_format = VIDEO_BGR24;    break;
-	case 32: x11_native_format = VIDEO_BGR32;    break;
-	default:
-	    args.bpp = 0;
-	}
-    } else {
-	/* X-Server is LE */
-	switch(args.bpp) {
-	case  8: x11_native_format = VIDEO_RGB08;    break;
-	case 15: x11_native_format = VIDEO_RGB15_LE; break;
-	case 16: x11_native_format = VIDEO_RGB16_LE; break;
-	case 24: x11_native_format = VIDEO_BGR24;    break;
-	case 32: x11_native_format = VIDEO_BGR32;    break;
-	default:
-	    args.bpp = 0;
-	}
-    }
     if (debug)
 	fprintf(stderr,"main: install signal handlers...\n");
     xt_siginit();
@@ -1792,7 +1783,7 @@ main(
 
     sprintf(modename,"%dx%d, ",
 	    XtScreen(app_shell)->width,XtScreen(app_shell)->height);
-    strcat(modename,ng_vfmt_to_desc[x11_native_format]);
+    strcat(modename,ng_vfmt_to_desc[x11_dpy_fmtid]);
     new_message(modename);
     if (!have_config)
 	XtCallActionProc(tv,"Help",NULL,NULL,0);

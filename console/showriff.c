@@ -72,6 +72,10 @@ typedef unsigned char boolean;
 #define audstag MAKEFOURCC('a','u','d','s')
 #define dmlhtag MAKEFOURCC('d','m','l','h')
 
+#define avi_tag MAKEFOURCC('A','V','I',' ')
+#define wavetag MAKEFOURCC('W','A','V','E')
+#define fmt_tag MAKEFOURCC('f','m','t',' ') 
+
 #define MJPGtag MAKEFOURCC('M','J','P','G')
 #define _00dbtag MAKEFOURCC('0','0','d','b')
 #define _00dctag MAKEFOURCC('0','0','d','c')
@@ -96,6 +100,7 @@ static void FOURCC2Str(FOURCC fcc, char* s)
 }
 
 static DWORD fcc_type;
+static DWORD riff_type;
 static int stop_on_errors = 1;
 static int print_mjpeg = 0;
 
@@ -429,10 +434,11 @@ static boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
 	FOURCC2Str(formtype,formstr);           /* make it printable  */
 	
 	/* print out the indented form of the chunk: */
-	if (chunkid==RIFFtag)
+	if (chunkid==RIFFtag) {
 	    printf("%12c %*c  Form Type = <%s>\n",
 		   ' ',(RekDepth+1)*4,' ',formstr);
-	else
+	    riff_type = formtype;
+	} else
 	    printf("%12c %*c  List Type = <%s>\n",
 		   ' ',(RekDepth+1)*4,' ',formstr);
 	
@@ -482,6 +488,10 @@ static boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
 	    printf("unknown\n");
 	    break;
 	}
+	break;
+    case fmt_tag:
+	if (riff_type == wavetag)
+	    dump_vals(f,sizeof(names_strf_auds)/sizeof(char*),names_strf_auds);
 	break;
     case dmlhtag:
 	dump_vals(f,sizeof(names_dmlh)/sizeof(struct VAL),names_dmlh);

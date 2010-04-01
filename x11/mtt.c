@@ -46,6 +46,7 @@
 XtAppContext  app_context;
 Widget        app_shell;
 Display       *dpy;
+int           debug;
 
 static String fallback_ressources[] = {
 #include "mtt.h"

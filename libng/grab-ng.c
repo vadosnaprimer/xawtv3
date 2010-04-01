@@ -175,6 +175,21 @@ ng_malloc_video_buf(struct ng_video_fmt *fmt, int size)
 
 /* --------------------------------------------------------------------- */
 
+struct ng_audio_buf*
+ng_malloc_audio_buf(struct ng_audio_fmt *fmt, int size)
+{
+    struct ng_audio_buf *buf;
+
+    buf = malloc(sizeof(*buf)+size);
+    memset(buf,0,sizeof(*buf));
+    buf->fmt  = *fmt;
+    buf->size = size;
+    buf->data = (char*)buf + sizeof(*buf);
+    return buf;
+}
+
+/* --------------------------------------------------------------------- */
+
 struct ng_attribute*
 ng_attr_byid(struct ng_attribute *attrs, int id)
 {
@@ -347,6 +362,7 @@ ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
 struct ng_video_conv  **ng_conv;
 struct ng_filter      **ng_filters;
 struct ng_writer      **ng_writers;
+struct ng_reader      **ng_readers;
 struct ng_vid_driver  **ng_vid_drivers;
 struct ng_dsp_driver  **ng_dsp_drivers;
 struct ng_mix_driver  **ng_mix_drivers;
@@ -409,6 +425,15 @@ ng_writer_register(int magic, char *plugname, struct ng_writer *writer)
 }
 
 int
+ng_reader_register(int magic, char *plugname, struct ng_reader *reader)
+{
+    if (0 != ng_check_magic(magic,plugname,"reader"))
+	return -1;
+    ng_register_listadd((void***)(&ng_readers),reader);
+    return 0;
+}
+
+int
 ng_vid_driver_register(int magic, char *plugname, struct ng_vid_driver *driver)
 {
     if (0 != ng_check_magic(magic,plugname,"video drv"))
@@ -436,13 +461,13 @@ ng_mix_driver_register(int magic, char *plugname, struct ng_mix_driver *driver)
 }
 
 struct ng_video_conv*
-ng_conv_find(int out, int *i)
+ng_conv_find_to(int out, int *i)
 {
     struct ng_video_conv *ret = NULL;
     
     for (; ng_conv[*i] != NULL; (*i)++) {
 #if 0
-	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
+	fprintf(stderr,"\tconv to:  %-28s =>  %s\n",
 		ng_vfmt_to_desc[ng_conv[*i]->fmtid_in],
 		ng_vfmt_to_desc[ng_conv[*i]->fmtid_out]);
 #endif
@@ -453,6 +478,37 @@ ng_conv_find(int out, int *i)
 	}
     }
     return ret;
+}
+
+struct ng_video_conv*
+ng_conv_find_from(int in, int *i)
+{
+    struct ng_video_conv *ret = NULL;
+    
+    for (; ng_conv[*i] != NULL; (*i)++) {
+#if 0
+	fprintf(stderr,"\tconv from:  %-28s =>  %s\n",
+		ng_vfmt_to_desc[ng_conv[*i]->fmtid_in],
+		ng_vfmt_to_desc[ng_conv[*i]->fmtid_out]);
+#endif
+	if (ng_conv[*i]->fmtid_in == in) {
+	    ret = ng_conv[*i];
+	    (*i)++;
+	    break;
+	}
+    }
+    return ret;
+}
+
+struct ng_video_conv*
+ng_conv_find_match(int in, int out)
+{
+    int i;
+    
+    for (i = 0; ng_conv[i] != NULL; i++)
+	if (ng_conv[i]->fmtid_in  == in && ng_conv[i]->fmtid_out == out)
+	    return ng_conv[i];
+    return NULL;
 }
 
 /* --------------------------------------------------------------------- */
@@ -503,7 +559,7 @@ ng_vid_open(char *device, struct ng_video_fmt *screen, void *base,
 }
 
 const struct ng_dsp_driver*
-ng_dsp_open(char *device, struct ng_audio_fmt *fmt, void **handle)
+ng_dsp_open(char *device, struct ng_audio_fmt *fmt, int record, void **handle)
 {
     int i;
     
@@ -513,10 +569,14 @@ ng_dsp_open(char *device, struct ng_audio_fmt *fmt, void **handle)
     for (i = 0; NULL != ng_dsp_drivers[i]; i++) {
 	if (NULL == ng_dsp_drivers[i]->name)
 	    continue;
+	if (record && NULL == ng_dsp_drivers[i]->read)
+	    continue;
+	if (!record && NULL == ng_dsp_drivers[i]->write)
+	    continue;
 	if (ng_debug)
 	    fprintf(stderr,"dsp-open: trying: %s... \n",
 		    ng_dsp_drivers[i]->name);
-	if (NULL != (*handle = ng_dsp_drivers[i]->open(device,fmt)))
+	if (NULL != (*handle = ng_dsp_drivers[i]->open(device,fmt,record)))
 	    break;
 	if (ng_debug)
 	    fprintf(stderr,"dsp-open: failed: %s\n",ng_dsp_drivers[i]->name);
@@ -555,6 +615,40 @@ ng_mix_init(char *device, char *channel)
     if (ng_debug && NULL != attrs)
 	fprintf(stderr,"mix-init: ok: %s\n",ng_mix_drivers[i]->name);
     return attrs;
+}
+
+struct ng_reader* ng_find_reader(char *filename)
+{
+    struct ng_reader *reader;
+    char blk[512];
+    FILE *fp;
+    int i,m;
+
+    if (NULL == ng_readers)
+	return NULL;
+    
+    if (NULL == (fp = fopen(filename, "r"))) {
+	fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
+        return NULL;
+    }
+    memset(blk,0,sizeof(blk));
+    fread(blk,1,sizeof(blk),fp);
+    fclose(fp);
+
+    for (i = 0;; i++) {
+	reader = ng_readers[i];
+	if (NULL == reader) {
+	    if (ng_debug)
+		fprintf(stderr,"%s: no reader found\n",filename);
+	    return NULL;
+	}
+	for (m = 0; m < 4 && reader->mlen[m] > 0; m++) {
+	    if (0 == memcmp(blk+reader->moff[m],reader->magic[m],
+			    reader->mlen[m]))
+		return reader;
+	}
+    }
+    return NULL;
 }
 
 long long
@@ -700,20 +794,19 @@ void ng_check_clipping(int width, int height, int xadjust, int yadjust,
 
 static int ng_plugins(char *dirname)
 {
-    struct dirent *ent;
+    struct dirent **list;
     char filename[1024];
     void *plugin;
     void (*initcall)(void);
-    DIR *dir;
-    int n = 0;
+    int i,n = 0,l = 0;
 
-    dir = opendir(dirname);
-    if (NULL == dir)
-	return n;
-    while (NULL != (ent = readdir(dir))) {
-	if (0 != fnmatch("*.so",ent->d_name,0))
+    n = scandir(dirname,&list,NULL,alphasort);
+    if (n <= 0)
+	return 0;
+    for (i = 0; i < n; i++) {
+	if (0 != fnmatch("*.so",list[i]->d_name,0))
 	    continue;
-	sprintf(filename,"%s/%s",dirname,ent->d_name);
+	sprintf(filename,"%s/%s",dirname,list[i]->d_name);
 	if (NULL == (plugin = dlopen(filename,RTLD_NOW))) {
 	    fprintf(stderr,"dlopen: %s\n",dlerror());
 	    continue;
@@ -725,10 +818,12 @@ static int ng_plugins(char *dirname)
 	    }
 	}
 	initcall();
-	n++;
+	l--;
     }
-    closedir(dir);
-    return n;
+    for (i = 0; i < n; i++)
+	free(list[i]);
+    free(list);
+    return l;
 }
 
 void

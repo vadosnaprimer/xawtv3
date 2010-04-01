@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -25,10 +26,10 @@ unsigned long   ng_lut_blue[256];
 
 /* ------------------------------------------------------------------- */
 
-static void
-rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
+void
+ng_rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    uint16_t *d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[0]] | ng_lut_green[src[1]] |
@@ -40,7 +41,7 @@ rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 static void
 bgr24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    uint16_t *d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -52,7 +53,7 @@ bgr24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 static void
 rgb32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    uint16_t *d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[1]] | ng_lut_green[src[2]] |
@@ -64,7 +65,7 @@ rgb32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 static void
 bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    uint16_t *d = (uint16_t*)dest;
 
     while (p-- > 0) {
        *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -76,7 +77,7 @@ bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 static void
 gray_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    uint16_t *d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[*src] | ng_lut_green[*src] | ng_lut_blue[*src];
@@ -86,8 +87,8 @@ gray_to_lut2(unsigned char *dest, unsigned char *src, int p)
 
 /* ------------------------------------------------------------------- */
 
-static void
-rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p)
+void
+ng_rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
@@ -151,7 +152,7 @@ static struct ng_video_conv lut2_list[] = {
     {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_RGB24,
-	priv:		rgb24_to_lut2,
+	priv:		ng_rgb24_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_BGR24,
@@ -189,7 +190,7 @@ static struct ng_video_conv lut4_list[] = {
     {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_RGB24,
-	priv:		rgb24_to_lut4,
+	priv:		ng_rgb24_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_BGR24,

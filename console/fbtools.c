@@ -74,6 +74,17 @@ struct DEVS devs_devfs = {
 };
 struct DEVS *devices;
 
+static void dev_init(void)
+{
+    struct stat dummy;
+
+    if (NULL != devices)
+	return;
+    if (0 == stat("/dev/.devfsd",&dummy))
+	devices = &devs_devfs;
+    else
+	devices = &devs_default;
+}
 
 /* -------------------------------------------------------------------- */
 /* console switching                                                    */
@@ -288,6 +299,29 @@ fb_setvt(int vtno)
     }
 }
 
+int fb_probe(void)
+{
+    struct fb_con2fbmap c2m;
+    struct stat st;
+    int fb;
+
+    dev_init();
+    fstat(0,&st);
+    if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR)
+	/* not a linux console */
+	return -1;
+    if (-1 == (fb = open(devices->fb0,O_WRONLY,0)))
+	/* can't open /dev/fb0 */
+	return -1;
+
+    c2m.console = st.st_rdev & 0xff;
+    if (-1 == ioctl(fb, FBIOGET_CON2FBMAP, &c2m))
+	/* ??? */
+	return -1;
+    close(fb);
+    return 0;
+}
+
 int
 fb_init(char *device, char *mode, int vt)
 {
@@ -299,6 +333,7 @@ fb_init(char *device, char *mode, int vt)
 	fb_setvt(vt);
 
     /* FIXME: where are MAJOR() / MINOR() ??? */
+    dev_init();
     fstat(tty,&st);
     if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR) {
 	/* catch that here, give a more user friendly error message that just
@@ -307,13 +342,6 @@ fb_init(char *device, char *mode, int vt)
 		"ERROR: tty is not a linux console.  You can not start this\n"
 		"       tool from a pseudo tty (xterm/ssh/screen/...).\n");
 	exit(1);
-    }
-    if (NULL == devices) {
-	struct stat dummy;
-	if (0 == stat("/dev/.devfsd",&dummy))
-	    devices = &devs_devfs;
-	else
-	    devices = &devs_default;
     }
     
     if (NULL == device) {

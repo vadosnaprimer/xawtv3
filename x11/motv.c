@@ -21,6 +21,7 @@
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
 #include <Xm/Xm.h>
+#include <Xm/XmStrDefs.h>
 #include <Xm/Primitive.h>
 #include <Xm/Form.h>
 #include <Xm/Label.h>
@@ -42,6 +43,7 @@
 #include <Xm/TransferP.h>
 #include <Xm/DragIcon.h>
 
+#include <X11/extensions/XShm.h>
 #ifdef HAVE_LIBXXF86VM
 # include <X11/extensions/xf86vmode.h>
 # include <X11/extensions/xf86vmstr.h>
@@ -73,6 +75,7 @@
 #include "list.h"
 #include "vbi-data.h"
 #include "vbi-x11.h"
+#include "blit.h"
 
 /*----------------------------------------------------------------------*/
 
@@ -329,7 +332,7 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    height != event->xconfigure.height) {
 	    width  = event->xconfigure.width;
 	    height = event->xconfigure.height;
-	    video_gd_configure(width, height);
+	    video_gd_configure(width, height, args.gl);
 	    XClearWindow(XtDisplay(tv),XtWindow(tv));
 	}
 	break;
@@ -1630,24 +1633,27 @@ pixit(void)
 	return;
 
     video_gd_suspend();
-    fmt = x11_fmt;
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = x11_dpy_fmtid;
     fmt.width  = pix_width;
     fmt.height = pix_height;
-    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
-	buf = ng_filter_single(cur_filter,buf);
-	if (0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-					  fmt.width,fmt.height,
-					  channels[cur_sender]->name))) {
-	    XtVaSetValues(channels[cur_sender]->button,
-			  XmNlabelPixmap,pix,
-			  XmNlabelType,XmPIXMAP,
-			  NULL);
-	    if (channels[cur_sender]->pixmap)
-	    XFreePixmap(dpy,channels[cur_sender]->pixmap);
-	    channels[cur_sender]->pixmap = pix;
-	}
-	ng_release_video_buf(buf);
-    }
+    if (NULL == (buf = ng_grabber_get_image(&fmt)))
+	goto done1;
+    buf = ng_filter_single(cur_filter,buf);
+    if (0 == (pix = x11_create_pixmap(dpy,&vinfo,buf)))
+	goto done2;
+    x11_label_pixmap(dpy,colormap,pix,buf->fmt.height,
+		     channels[cur_sender]->name);
+    XtVaSetValues(channels[cur_sender]->button,
+		  XmNlabelPixmap,pix,
+		  XmNlabelType,XmPIXMAP,
+		  NULL);
+    if (channels[cur_sender]->pixmap)
+	XFreePixmap(dpy,channels[cur_sender]->pixmap);
+    channels[cur_sender]->pixmap = pix;
+ done2:
+    ng_release_video_buf(buf);
+ done1:
     video_gd_restart();
 }
 
@@ -2046,8 +2052,8 @@ do_movie_record(int argc, char **argv)
 
 	wr = ng_writers[movie_driver];
 	video.fmtid  = wr->video[movie_video].fmtid;
-	video.width  = x11_fmt.width;
-	video.height = x11_fmt.height;
+	video.width  = cur_tv_width;
+	video.height = cur_tv_height;
 	audio.fmtid  = wr->audio[movie_audio].fmtid;
 	audio.rate   = rate;
 	
@@ -2527,7 +2533,7 @@ convert_buffer(struct ng_video_buf *in, int out_fmt)
 
     /* find converter */
     for (i = 0;;) {
-	conv = ng_conv_find(out_fmt,&i);
+	conv = ng_conv_find_to(out_fmt,&i);
 	if (NULL == conv)
 	    break;
 	if (conv->fmtid_in == in->fmt.fmtid)
@@ -2603,11 +2609,9 @@ ipc_iconify(Widget widget, struct ipc_data *ipc)
 
     /* scale down & create pixmap */
     small = scale_rgb_buffer(ipc->buf,scale);
-    small = convert_buffer(small, x11_fmt.fmtid);
-    ipc->icon_pixmap = x11_create_pixmap(dpy,&vinfo,colormap,small->data,
-					 small->fmt.width,small->fmt.height,
-					 NULL);
-    
+    small = convert_buffer(small, x11_dpy_fmtid);
+    ipc->icon_pixmap = x11_create_pixmap(dpy,&vinfo,small);
+        
     /* build DnD icon */
     n = 0;
     depth = DefaultDepthOfScreen(XtScreen(widget));
@@ -2643,8 +2647,10 @@ ipc_init(Atom selection)
     
     /* capture a frame and save a copy */
     video_gd_suspend();
-    fmt = x11_fmt;
-    fmt.fmtid = VIDEO_RGB24;
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = VIDEO_RGB24;
+    fmt.width  = cur_tv_width;
+    fmt.height = cur_tv_height;
     buf = ng_grabber_get_image(&fmt);
     buf = ng_filter_single(cur_filter,buf);
     ipc = malloc(sizeof(*ipc));
@@ -2693,9 +2699,8 @@ ipc_pixmap(struct ipc_data *ipc)
 	return;
 
     ipc->buf->refcount++;
-    buf = convert_buffer(ipc->buf, x11_fmt.fmtid);
-    ipc->pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-				 buf->fmt.width,buf->fmt.height,NULL);
+    buf = convert_buffer(ipc->buf, x11_dpy_fmtid);
+    ipc->pix = x11_create_pixmap(dpy,&vinfo,buf);
     ng_release_video_buf(buf);
     return;
 }
@@ -3007,7 +3012,7 @@ levels_toggle_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	/* enable */
 	a.fmtid = AUDIO_U8_STEREO;
 	a.rate  = 44100;
-	levels_dsp = ng_dsp_open(args.dspdev,&a,&levels_hdsp);
+	levels_dsp = ng_dsp_open(args.dspdev,&a,1,&levels_hdsp);
 	if (levels_dsp) {
 	    levels_dsp->startrec(levels_hdsp);
 	    levels_id  = XtAppAddInput(app_context,levels_dsp->fd(levels_hdsp),
@@ -3166,7 +3171,9 @@ main(int argc, char *argv[])
     /* device scan */
     if (args.hwscan) {
 	fprintf(stderr,"looking for available devices\n");
-	xv_init(1,1,-1,1);
+#ifdef HAVE_LIBXV
+	xv_video_init(-1,1);
+#endif
 	grabber_scan();
     }
     
@@ -3190,9 +3197,16 @@ main(int argc, char *argv[])
     if (debug)
 	fprintf(stderr,"main: xinerama extention...\n");
     xfree_xinerama_init();
+#ifdef HAVE_LIBXV
     if (debug)
-	fprintf(stderr,"main: xvideo extention...\n");
-    xv_init(args.xv_video,args.xv_image,args.xv_port,0);
+	fprintf(stderr,"main: xvideo extention [video]...\n");
+    if (args.xv_video)
+	xv_video_init(args.xv_port,0);
+    if (debug)
+	fprintf(stderr,"main: xvideo extention [image]...\n");
+    if (args.xv_image)
+	xv_image_init(dpy);
+#endif
 
     /* set hooks (command.c) */
     update_title        = new_title;
@@ -3218,32 +3232,9 @@ main(int argc, char *argv[])
 
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
-    tv = video_init(app_shell,&vinfo,xmPrimitiveWidgetClass);
+    tv = video_init(app_shell,&vinfo,xmPrimitiveWidgetClass,args.bpp);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
-    if (ImageByteOrder(dpy) == MSBFirst) {
-	/* X-Server is BE */
-	switch(args.bpp) {
-	case  8: x11_native_format = VIDEO_RGB08;    break;
-	case 15: x11_native_format = VIDEO_RGB15_BE; break;
-	case 16: x11_native_format = VIDEO_RGB16_BE; break;
-	case 24: x11_native_format = VIDEO_BGR24;    break;
-	case 32: x11_native_format = VIDEO_BGR32;    break;
-	default:
-	    args.bpp = 0;
-	}
-    } else {
-	/* X-Server is LE */
-	switch(args.bpp) {
-	case  8: x11_native_format = VIDEO_RGB08;    break;
-	case 15: x11_native_format = VIDEO_RGB15_LE; break;
-	case 16: x11_native_format = VIDEO_RGB16_LE; break;
-	case 24: x11_native_format = VIDEO_BGR24;    break;
-	case 32: x11_native_format = VIDEO_BGR32;    break;
-	default:
-	    args.bpp = 0;
-	}
-    }
     if (debug)
 	fprintf(stderr,"main: install signal handlers...\n");
     xt_siginit();

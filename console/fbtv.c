@@ -648,7 +648,7 @@ main(int argc, char *argv[])
 	    if (optarg)
 		vt = strtoul(optarg, 0, 0);
 	    else
-		vt = -1;
+		vt = 0;
 	    break;
 	case 'j':
 	    joydev = optarg;

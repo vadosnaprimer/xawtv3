@@ -117,7 +117,7 @@ static void calc_lut(void)
     int i,val;
     
     for (i = 0; i < 256; i++) {
-	val = 255 * pow((float)i/255, 10000.0/g);
+	val = 255 * pow((float)i/255, 100.0/g);
 	if (val < 0)   val = 0;
 	if (val > 255) val = 255;
 	lut[i] = val;
@@ -144,7 +144,7 @@ static struct ng_attribute attrs[] = {
 	type:     ATTR_TYPE_INTEGER,
 	defval:   100,
 	min:      1,
-	max:      999,
+	max:      500,
 	points:   2,
 	read:     read_attr,
 	write:    write_attr,

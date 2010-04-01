@@ -36,6 +36,7 @@
 #include "x11.h"
 #include "xv.h"
 #include "commands.h"
+#include "blit.h"
 
 #define DISPLAY             XtDisplay
 #define SCREEN              XtScreen
@@ -43,440 +44,99 @@
 #define DEL_TIMER(proc)     XtRemoveTimeOut(proc)
 #define ADD_TIMER(proc)     XtAppAddTimeOut(app_context,200,proc,NULL)
 
-/* ------------------------------------------------------------------------ */
-
 extern XtAppContext    app_context;
-extern int             have_shmem;
 extern XVisualInfo     vinfo;
 
-static int             display_bits = 0;
-static int             display_bytes = 0;
-static int             pixmap_bytes = 0;
-static int             x11_error = 0;
-static int             x11_byteswap = 0;
+/* ------------------------------------------------------------------------ */
 
-static struct SEARCHFORMAT {
-    int           depth;
-    unsigned long order;
-    unsigned long red;
-    unsigned long green;
-    unsigned long blue;
-    int           format;
-} fmt[] = {
-    { 2, MSBFirst, 0x7c00,     0x03e0,     0x001f,     VIDEO_RGB15_BE },
-    { 2, MSBFirst, 0xf800,     0x07e0,     0x001f,     VIDEO_RGB16_BE },
-    { 2, LSBFirst, 0x7c00,     0x03e0,     0x001f,     VIDEO_RGB15_LE },
-    { 2, LSBFirst, 0xf800,     0x07e0,     0x001f,     VIDEO_RGB16_LE },
-
-    { 3, LSBFirst, 0x00ff0000, 0x0000ff00, 0x000000ff, VIDEO_BGR24    },
-    { 3, LSBFirst, 0x000000ff, 0x0000ff00, 0x00ff0000, VIDEO_RGB24    },
-    { 3, MSBFirst, 0x00ff0000, 0x0000ff00, 0x000000ff, VIDEO_RGB24    },
-    { 3, MSBFirst, 0x000000ff, 0x0000ff00, 0x00ff0000, VIDEO_BGR24    },
-
-    { 4, LSBFirst, 0x00ff0000, 0x0000ff00, 0x000000ff, VIDEO_BGR32    },
-    { 4, LSBFirst, 0x0000ff00, 0x00ff0000, 0xff000000, VIDEO_RGB32    },
-    { 4, MSBFirst, 0x00ff0000, 0x0000ff00, 0x000000ff, VIDEO_RGB32    },
-    { 4, MSBFirst, 0x0000ff00, 0x00ff0000, 0xff000000, VIDEO_BGR32    },
-
-    { 2, -1,       0,          0,          0,          VIDEO_LUT2     },
-    { 4, -1,       0,          0,          0,          VIDEO_LUT4     },
-    { 0 /* END OF LIST */ },
-};
-
-Visual*
-x11_visual(Display *dpy)
+Pixmap
+x11_capture_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
+		   int width, int height)
 {
-    XVisualInfo  *info, template;
-    Visual*      vi = CopyFromParent;
-    int          found,i;
-    char         *class;
+    struct ng_video_buf *buf;
+    struct ng_video_fmt fmt;
+    Pixmap pix = 0;
 
-    template.screen = XDefaultScreen(dpy);
-    info = XGetVisualInfo(dpy, VisualScreenMask,&template,&found);
-    for (i = 0; i < found; i++) {
-	switch (info[i].class) {
-	case StaticGray:   class = "StaticGray";  break;
-	case GrayScale:    class = "GrayScale";   break;
-	case StaticColor:  class = "StaticColor"; break;
-	case PseudoColor:  class = "PseudoColor"; break;
-	case TrueColor:    class = "TrueColor";   break;
-	case DirectColor:  class = "DirectColor"; break;
-	default:           class = "UNKNOWN";     break;
-	}
-	if (debug)
-	    fprintf(stderr,"visual: id=0x%lx class=%d (%s), depth=%d\n",
-		    info[i].visualid,info[i].class,class,info[i].depth);
-    }
-    for (i = 0; vi == CopyFromParent && i < found; i++)
-	if (info[i].class == TrueColor && info[i].depth >= 15)
-	    vi = info[i].visual;
-    for (i = 0; vi == CopyFromParent && i < found; i++)
-	if (info[i].class == StaticGray && info[i].depth == 8)
-	    vi = info[i].visual;
-    return vi;
+    if (!(f_drv & CAN_CAPTURE))
+	return 0;
+
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = x11_dpy_fmtid;
+    fmt.width  = width  ? width  : cur_tv_width;
+    fmt.height = height ? height : cur_tv_height;
+    if (NULL == (buf = ng_grabber_get_image(&fmt)))
+	return 0;
+    buf = ng_filter_single(cur_filter,buf);
+    pix = x11_create_pixmap(dpy,vinfo,buf);
+    ng_release_video_buf(buf);
+    return pix;
 }
 
-static int
-x11_init(Display *dpy, XVisualInfo *vinfo)
+void
+x11_label_pixmap(Display *dpy, Colormap colormap, Pixmap pixmap,
+		 int height, char *label)
 {
-    XPixmapFormatValues *pf;
-    int                  i,n;
-    int                  format = 0;
-
-    if (XShmQueryExtension(dpy)) {
-	have_shmem = 1;
+    static XFontStruct    *font;
+    static XColor          color,dummy;
+    XGCValues              values;
+    GC                     gc;
+    
+    if (!font) {
+	font = XLoadQueryFont(dpy,"fixed");
+	XAllocNamedColor(dpy,colormap,"yellow",&color,&dummy);
     }
-
-    display_bits = vinfo->depth;
-    display_bytes = (display_bits+7)/8;
-
-    pf = XListPixmapFormats(dpy,&n);
-    for (i = 0; i < n; i++)
-	if (pf[i].depth == display_bits)
-	    pixmap_bytes = pf[i].bits_per_pixel/8;
-
-    if (debug) {
-	fprintf(stderr,"x11: color depth: "
-		"%d bits, %d bytes - pixmap: %d bytes\n",
-		display_bits,display_bytes,pixmap_bytes);
-	if (vinfo->class == TrueColor || vinfo->class == DirectColor)
-	    fprintf(stderr, "x11: color masks: "
-		    "red=0x%08lx green=0x%08lx blue=0x%08lx\n",
-		    vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask);
-	fprintf(stderr,"x11: server byte order: %s\n",
-		ImageByteOrder(dpy)==LSBFirst ? "little endian":"big endian");
-	fprintf(stderr,"x11: client byte order: %s\n",
-		BYTE_ORDER==LITTLE_ENDIAN ? "little endian":"big endian");
-    }
-    if (ImageByteOrder(dpy)==LSBFirst && BYTE_ORDER!=LITTLE_ENDIAN)
-	x11_byteswap=1;
-    if (ImageByteOrder(dpy)==MSBFirst && BYTE_ORDER!=BIG_ENDIAN)
-	x11_byteswap=1;
-    if (vinfo->class == TrueColor /* || vinfo->class == DirectColor */) {
-	/* pixmap format */
-	for (i = 0; fmt[i].depth > 0; i++) {
-	    if (fmt[i].depth  == pixmap_bytes                               &&
-		(fmt[i].order == ImageByteOrder(dpy) || fmt[i].order == -1) &&
-		(fmt[i].red   == vinfo->red_mask     || fmt[i].red   == 0)  &&
-		(fmt[i].green == vinfo->green_mask   || fmt[i].green == 0)  &&
-		(fmt[i].blue  == vinfo->blue_mask    || fmt[i].blue  == 0)) {
-		x11_fmt.fmtid = fmt[i].format;
-		break;
-	    }
-	}
-	if (fmt[i].depth == 0) {
-	    fprintf(stderr, "Huh?\n");
-	    exit(1);
-	}
-	ng_lut_init(vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask,
-		    x11_fmt.fmtid,x11_byteswap);
-	/* guess physical screen format */
-	if (ImageByteOrder(dpy) == MSBFirst) {
-	    switch (pixmap_bytes) {
-	    case 2: format = (display_bits==15) ?
-			VIDEO_RGB15_BE : VIDEO_RGB16_BE; break;
-	    case 3: format = VIDEO_RGB24; break;
-	    case 4: format = VIDEO_RGB32; break;
-	    }
-	} else {
-	    switch (pixmap_bytes) {
-	    case 2: format = (display_bits==15) ?
-			VIDEO_RGB15_LE : VIDEO_RGB16_LE; break;
-	    case 3: format = VIDEO_BGR24; break;
-	    case 4: format = VIDEO_BGR32; break;
-	    }
-	}
-    }
-    if (vinfo->class == StaticGray && vinfo->depth == 8) {
-	format = VIDEO_GRAY;
-	x11_fmt.fmtid = VIDEO_GRAY;
-    }
-    if (0 == format) {
-	if (vinfo->class == PseudoColor && vinfo->depth == 8) {
-	    fprintf(stderr,
-"\n"
-"8-bit Pseudocolor Visual (256 colors) is *not* supported.\n"
-"You can startup X11 either with 15 bpp (or more)...\n"
-"	xinit -- -bpp 16\n"
-"... or with StaticGray visual:\n"
-"	xinit -- -cc StaticGray\n"
-	    );
-	} else {
-	    fprintf(stderr, "Sorry, I can't handle your strange display\n");
-	}
-	exit(1);
-    }
-    return format;
+    values.font       = font->fid;
+    values.foreground = color.pixel;
+    gc = XCreateGC(dpy, pixmap, GCFont | GCForeground, &values);
+    XDrawString(dpy,pixmap,gc,5,height-5,label,strlen(label));
+    XFreeGC(dpy, gc);
 }
 
 static int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
-    x11_error++;
-    if (debug > 1)
-	fprintf(stderr," x11-error\n");
     return 0;
-}
-
-/* ------------------------------------------------------------------------ */
-/* ximage handling for grab & display                                       */
-
-XImage *
-x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
-		  int width, int height, void **shm)
-{
-    XImage         *ximage = NULL;
-    unsigned char  *ximage_data;
-    XShmSegmentInfo *shminfo = NULL;
-    void            *old_handler;
-
-    if (debug)
-	fprintf(stderr,"video: x11_create_ximage\n");
-    if (have_shmem) {
-	x11_error = 0;
-	old_handler = XSetErrorHandler(x11_error_dev_null);
-	(*shm) = shminfo = malloc(sizeof(XShmSegmentInfo));
-	memset(shminfo, 0, sizeof(XShmSegmentInfo));
-	ximage = XShmCreateImage(dpy,vinfo->visual,vinfo->depth,
-				 ZPixmap, NULL,
-				 shminfo, width, height);
-	if (ximage) {
-	    shminfo->shmid = shmget(IPC_PRIVATE,
-				    ximage->bytes_per_line * ximage->height,
-				    IPC_CREAT | 0777);
-	    if (-1 == shminfo->shmid) {
-		have_shmem = 0;
-		perror("shmget");
-		if (errno == ENOSYS)
-		    fprintf(stderr, "WARNING: Your kernel has no support "
-			    "for SysV IPC\n");
-		XDestroyImage(ximage);
-		ximage = NULL;
-		goto no_sysvipc;
-	    }
-	    shminfo->shmaddr = (char *) shmat(shminfo->shmid, 0, 0);
-	    if ((void *) -1 == shminfo->shmaddr) {
-		perror("shmat");
-		goto oom;
-	    }
-	    ximage->data = shminfo->shmaddr;
-	    shminfo->readOnly = False;
-
-	    XShmAttach(dpy, shminfo);
-	    XSync(dpy, False);
-	    shmctl(shminfo->shmid, IPC_RMID, 0);
-	    if (x11_error) {
-		have_shmem = 0;
-		shmdt(shminfo->shmaddr);
-		free(shminfo);
-		shminfo = *shm = NULL;
-		XDestroyImage(ximage);
-		ximage = NULL;
-	    }
-	} else {
-	    have_shmem = 0;
-	    free(shminfo);
-	    shminfo = *shm = NULL;
-	}
-	XSetErrorHandler(old_handler);
-    }
-
-no_sysvipc:
-    if (ximage == NULL) {
-	(*shm) = NULL;
-	if (NULL == (ximage_data = malloc(width * height * pixmap_bytes))) {
-	    fprintf(stderr,"out of memory\n");
-	    goto oom;
-	}
-	ximage = XCreateImage(dpy, vinfo->visual, vinfo->depth,
-			      ZPixmap, 0, ximage_data,
-			      width, height,
-			      8, 0);
-    }
-    memset(ximage->data, 0, ximage->bytes_per_line * ximage->height);
-
-    return ximage;
-
-oom:
-    if (shminfo) {
-	if (shminfo->shmid && shminfo->shmid != -1)
-	    shmctl(shminfo->shmid, IPC_RMID, 0);
-	free(shminfo);
-    }
-    if (ximage)
-	XDestroyImage(ximage);
-    return NULL;
-}
-
-void
-x11_destroy_ximage(Display *dpy, XImage * ximage, void *shm)
-{
-    XShmSegmentInfo *shminfo = shm;
-
-    if (shminfo) {
-	XShmDetach(dpy, shminfo);
-	XDestroyImage(ximage);
-	shmdt(shminfo->shmaddr);
-	free(shminfo);
-    } else
-	XDestroyImage(ximage);
-
-    if (debug)
-	fprintf(stderr,"video: x11_destroy_ximage\n");
-}
-
-Pixmap
-x11_create_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
-		  unsigned char *byte_data,
-                  int width, int height, char *label)
-{
-    static XFontStruct    *font;
-    static XColor          color,dummy;
-
-    Pixmap          pixmap;
-    XImage         *ximage;
-    XGCValues       values;
-    GC              gc;
-    void           *shm;
-    Screen         *scr = DefaultScreenOfDisplay(dpy);
-
-    if (!font) {
-	font = XLoadQueryFont(dpy,"fixed");
-	XAllocNamedColor(dpy,colormap,"yellow",&color,&dummy);
-    }
-   
-    pixmap = XCreatePixmap(dpy,RootWindowOfScreen(scr),
-                           width, height, vinfo->depth);
-
-    values.font       = font->fid;
-    values.foreground = color.pixel;
-    gc = XCreateGC(dpy, pixmap, GCFont | GCForeground, &values);
-
-    if (NULL == (ximage = x11_create_ximage(dpy,vinfo,width,height,&shm))) {
-	XFreePixmap(dpy, pixmap);
-        XFreeGC(dpy, gc);
-        return 0;
-    }
-    memcpy(ximage->data,byte_data,width*height*pixmap_bytes);
-    XPUTIMAGE(dpy, pixmap, gc, ximage, 0, 0, 0, 0, width, height);
-
-    if (label)
-	XDrawString(dpy,pixmap,gc,5,height-5,label,strlen(label));
-
-    x11_destroy_ximage(dpy, ximage, shm);
-    XFreeGC(dpy, gc);
-    return pixmap;
 }
 
 /* ------------------------------------------------------------------------ */
 /* video grabdisplay stuff                                                  */
 
-struct format_status {
-    int status;
-#define STATUS_UNKNOWN       0
-#define STATUS_BROKEN        1
-#define STATUS_CONVERT       2
-#define STATUS_XVIDEO        3
-
-    /* current ximage/xvimage */
-    struct ng_video_buf      buf;
-    void                     *shm;            /* MIT SHM */
-
-    /* convert stuff to RGB */
-    struct ng_video_conv     *conv;
-    struct ng_convert_handle *chandle;
-    XImage                   *ximage;
-
-    /* image filtering */
-    struct ng_filter         *filter;
-    void                     *fhandle;
-
-    /* Xvideo */
-#ifdef HAVE_LIBXV
-    int                      xv_id;
-    XvImage                  *xv_image;
-#endif
-};
-
 struct video_handle {
     Widget                win;
     Dimension             width,height;
-    GC                    gc;
     XtWorkProcId          work_id;
     int                   suspend;         /* temporarely disabled */
     int                   nw,nh;           /* new size (suspend)   */
-    int                   using_xv;
-
     struct ng_video_fmt   best;
-    struct format_status  formats[VIDEO_FMT_COUNT];
+    struct blit_state     *blit;
+
+    /* image filtering */
+    struct ng_filter      *filter;
+    void                  *fhandle;
+    struct ng_video_fmt   ffmt;
 };
 struct video_handle vh;
 
-Pixmap
-freeze_image(Display *dpy, Colormap colormap)
-{
-    struct ng_video_buf *buf;
-    struct ng_video_fmt fmt;
-    Pixmap pix = 0;
-    
-    if (!(f_drv & CAN_CAPTURE))
-	return 0;
-
-    fmt = x11_fmt;
-    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
-	buf = ng_filter_single(cur_filter,buf);
-	pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-				buf->fmt.width, buf->fmt.height,
-				NULL);
-	ng_release_video_buf(buf);
-    }
-    return pix;
-}
-
-static void
-video_initformat(struct format_status *st, int fmtid)
-{
-    struct ng_video_conv *conv;
-    int i;
-    
-#ifdef HAVE_LIBXV
-    if (0 != im_formats[fmtid]) {
-	st->status = STATUS_XVIDEO;
-	return;
-    }
-#endif
-    if (x11_fmt.fmtid == fmtid) {
-	st->status = STATUS_CONVERT;
-	return;
-    }
-    for (i = 0;;) {
-	conv = ng_conv_find(x11_fmt.fmtid, &i);
-	if (NULL == conv) {
-	    st->status = STATUS_BROKEN;
-	    return;
-	}
-	if (conv->fmtid_in != fmtid)
-	    continue;
-	break;
-    }
-    st->status = STATUS_CONVERT;
-    st->conv   = conv;
-}
-
 static struct ng_video_buf*
-video_gd_filter(struct format_status *st, struct ng_video_buf *buf)
+video_gd_filter(struct video_handle *h, struct ng_video_buf *buf)
 {
-    if (NULL != st->filter && cur_filter != st->filter) {
-	st->filter->fini(st->fhandle);
-	st->filter  = NULL;
-	st->fhandle = NULL;
+    if (NULL != h->filter &&
+	(cur_filter      != h->filter ||
+	 buf->fmt.fmtid  != h->ffmt.fmtid ||
+	 buf->fmt.width  != h->ffmt.width ||
+	 buf->fmt.height != h->ffmt.height)) {
+	h->filter->fini(h->fhandle);
+	h->filter  = NULL;
+	h->fhandle = NULL;
+	memset(&h->ffmt,0,sizeof(h->ffmt));
     }
     if ((1 << buf->fmt.fmtid) & cur_filter->fmts) {
-	if (NULL == st->filter) {
-	    st->filter  = cur_filter;
-	    st->fhandle = st->filter->init(&buf->fmt);
+	if (NULL == h->filter) {
+	    h->filter  = cur_filter;
+	    h->fhandle = h->filter->init(&buf->fmt);
+	    h->ffmt    = buf->fmt;
 	}
-	buf = cur_filter->frame(st->fhandle,buf);
+	buf = cur_filter->frame(h->fhandle,buf);
     }
     return buf;
 }
@@ -484,106 +144,13 @@ video_gd_filter(struct format_status *st, struct ng_video_buf *buf)
 int
 video_gd_blitframe(struct video_handle *h, struct ng_video_buf *buf)
 {
-    struct format_status *st;
-
-    if (buf->fmt.width  > x11_fmt.width ||
-	buf->fmt.height > x11_fmt.height)
-	return -1;
-    st = h->formats + buf->fmt.fmtid;
-
- again:
-    switch (st->status) {
-    case STATUS_UNKNOWN:
-	video_initformat(st,buf->fmt.fmtid);
-	goto again;
-
-    case STATUS_CONVERT:
-	if (debug > 1)
-	    fprintf(stderr,"gd: convert\n");
-	if (st->buf.fmt.width  != buf->fmt.width ||
-	    st->buf.fmt.height != buf->fmt.height) {
-	    if (st->chandle) {
-		ng_convert_fini(st->chandle);
-		st->chandle = NULL;
-	    }
-	    if (st->filter) {
-		st->filter->fini(st->fhandle);
-		st->filter  = NULL;
-		st->fhandle = NULL;
-	    }
-	    if (st->ximage) {
-		x11_destroy_ximage(XtDisplay(h->win),st->ximage,st->shm);
-		st->ximage = NULL;
-	    }
-	}
-	if (cur_filter)
-	    buf = video_gd_filter(st,buf);
-	if (NULL == st->chandle) {
-	    st->buf.fmt.fmtid  = x11_fmt.fmtid;
-	    st->buf.fmt.width  = buf->fmt.width;
-	    st->buf.fmt.height = buf->fmt.height;
-	    st->buf.fmt.bytesperline = 0;
-	    st->chandle = ng_convert_alloc(st->conv,&buf->fmt,&st->buf.fmt);
-	    ng_convert_init(st->chandle);
-	}
-	if (NULL == st->ximage) {
-	    st->ximage = x11_create_ximage(XtDisplay(h->win),&vinfo,
-					   st->buf.fmt.width,
-					   st->buf.fmt.height,
-					   &st->shm);
-	    st->buf.data = st->ximage->data;
-	}
-	buf = ng_convert_frame(st->chandle,&st->buf,buf);
-	XPUTIMAGE(XtDisplay(h->win), XtWindow(h->win), h->gc,st->ximage,0,0,
-		  (x11_fmt.width  - st->buf.fmt.width)  >> 1,
-		  (x11_fmt.height - st->buf.fmt.height) >> 1,
-		  st->buf.fmt.width, st->buf.fmt.height);
-	break;
-
-#ifdef HAVE_LIBXV
-    case STATUS_XVIDEO:
-	if (debug > 1)
-	    fprintf(stderr,"gd: xvideo\n");
-	if (st->buf.fmt.width  != buf->fmt.width ||
-	    st->buf.fmt.height != buf->fmt.height) {
-	    if (st->filter) {
-		st->filter->fini(st->fhandle);
-		st->filter  = NULL;
-		st->fhandle = NULL;
-	    }
-	    if (st->xv_image) {
-		xv_destroy_ximage(XtDisplay(h->win),st->xv_image,st->shm);
-		st->xv_image = NULL;
-	    }
-	}
-	if (cur_filter)
-	    buf = video_gd_filter(st,buf);
-	if (NULL == st->xv_image) {
-	    st->buf.fmt = buf->fmt;
-	    st->xv_image = xv_create_ximage(XtDisplay(h->win),
-					    st->buf.fmt.width,
-					    st->buf.fmt.height,
-					    im_formats[st->buf.fmt.fmtid],
-					    &st->shm);
-	}
-	memcpy(st->xv_image->data,buf->data,buf->size);
-	ng_release_video_buf(buf);
-	XVPUTIMAGE(XtDisplay(h->win), im_port, XtWindow(h->win),
-		   h->gc, st->xv_image,
-		   0, 0,  st->buf.fmt.width, st->buf.fmt.height,
-		   0, 0,  x11_fmt.width, x11_fmt.height);
-	h->using_xv = 1;
-	break;
-#endif
-
-    case STATUS_BROKEN:
-    default:
-	if (debug > 1)
-	    fprintf(stderr,"gd: oops\n");
-	ng_release_video_buf(buf);
+    if (buf->fmt.width  > cur_tv_width ||
+	buf->fmt.height > cur_tv_height)
 	return -1;
 
-    }
+    if (cur_filter)
+	buf = video_gd_filter(h,buf);
+    blit_putframe(h->blit,buf);
     return 0;
 }
 
@@ -650,10 +217,7 @@ video_gd_stop(void)
 	drv->stopvideo(h_drv);
 	XtRemoveWorkProc(h->work_id);
 	h->work_id = 0;
-#ifdef HAVE_LIBXV
-	if (h->using_xv)
-	    XvStopVideo(XtDisplay(h->win), im_port, XtWindow(h->win));
-#endif
+	blit_fini_frame(h->blit);
     }
 }
 
@@ -677,7 +241,7 @@ video_gd_restart(void)
 	return;
     h->suspend = 0;
     if (h->nw && h->nh) {
-	video_gd_configure(h->nw,h->nh);
+	video_gd_configure(h->nw,h->nh,0);
 	h->nw = 0;
 	h->nh = 0;
     }
@@ -687,14 +251,17 @@ video_gd_restart(void)
 }
 
 void
-video_gd_configure(int width, int height)
+video_gd_configure(int width, int height, int gl)
 {
-    struct ng_video_conv *conv;
     struct video_handle *h = &vh;
-    int i;
+    int i,fmtids[2*VIDEO_FMT_COUNT];
 
     if (!(f_drv & CAN_CAPTURE))
 	return;
+
+    if (NULL == h->blit)
+	h->blit = blit_init(h->win,&vinfo, gl);
+    blit_resize(h->blit,width,height);
 
     if (h->suspend) {
 	if (debug)
@@ -711,48 +278,21 @@ video_gd_configure(int width, int height)
     if (!XtWindow(h->win))
 	return;
 
-    if (!h->gc)
-	h->gc = XCreateGC(XtDisplay(h->win),XtWindow(h->win),0,NULL);
-
-    x11_fmt.width   = width;
-    x11_fmt.height  = height;
-    x11_fmt.bytesperline = 0;
+    cur_tv_width  = width;
+    cur_tv_height = height;
     h->best.width   = width;
     h->best.height  = height;
     h->best.bytesperline = 0;
-    ng_ratio_fixup(&x11_fmt.width, &x11_fmt.height, NULL, NULL);
+    ng_ratio_fixup(&cur_tv_width,  &cur_tv_height,  NULL, NULL);
     ng_ratio_fixup(&h->best.width, &h->best.height, NULL, NULL);
 
     if (0 == h->best.fmtid) {
-#ifdef HAVE_LIBXV
-	/* try yuv if we have hw scaling */
-	if (0 != im_formats[VIDEO_YUV422]) {
-	    h->best.fmtid = VIDEO_YUV422;
+	blit_get_formats(fmtids,sizeof(fmtids)/sizeof(int));
+	for (i = 0; i < sizeof(fmtids)/sizeof(int); i++) {
+	    h->best.fmtid = fmtids[i];
 	    if (0 == ng_grabber_setformat(&h->best,0))
 		goto done;
 	}
-	if (0 != im_formats[VIDEO_YUV420P]) {
-	    h->best.fmtid = VIDEO_YUV420P;
-	    if (0 == ng_grabber_setformat(&h->best,0))
-		goto done;
-	}
-#endif
-
-	/* try native rgb */
-	h->best.fmtid = x11_fmt.fmtid;
-	if (0 == ng_grabber_setformat(&h->best,0))
-	    goto done;
-
-	/* try to find something we can convert from */ 
-	for (i = 0;;) {
-	    conv = ng_conv_find(x11_fmt.fmtid, &i);
-	    if (NULL == conv)
-		break;
-	    h->best.fmtid = conv->fmtid_in;
-	    if (0 == ng_grabber_setformat(&h->best,0))
-		goto done;
-	}
-
 	/* failed */
 	h->best.fmtid = 0;
     }
@@ -770,8 +310,8 @@ video_gd_configure(int width, int height)
 /* ------------------------------------------------------------------------ */
 /* video overlay stuff                                                      */
 
-int        x11_native_format;
-int        swidth,sheight;                         /* screen  */
+int              swidth,sheight;           /* screen  */
+static int       x11_overlay_fmtid;
 
 /* window  */
 static Widget    video,video_parent;
@@ -1010,7 +550,7 @@ video_new_size()
     wy          = y; if (wy > 32768)          wy          -= 65536;
     wfmt.width  = w; if (wfmt.width > 32768)  wfmt.width  -= 65536;
     wfmt.height = h; if (wfmt.height > 32768) wfmt.height -= 65536;
-    wfmt.fmtid  = x11_native_format;
+    wfmt.fmtid  = x11_overlay_fmtid;
     if (debug > 1)
 	fprintf(stderr,"video: shell: size %dx%d+%d+%d\n",
 		wfmt.width,wfmt.height,wx,wy);
@@ -1148,17 +688,36 @@ video_overlay(int state)
 }
 
 Widget
-video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class)
+video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class, int args_bpp)
 {
     Window root = DefaultRootWindow(DISPLAY(parent));
 
     swidth  = SCREEN(parent)->width;
     sheight = SCREEN(parent)->height;
 
-    x11_native_format = x11_init(XtDisplay(parent),vinfo);
+    x11_overlay_fmtid = x11_dpy_fmtid;
+    if (ImageByteOrder(XtDisplay(parent)) == MSBFirst) {
+	/* X-Server is BE */
+	switch(args_bpp) {
+	case  8: x11_overlay_fmtid = VIDEO_RGB08;    break;
+	case 15: x11_overlay_fmtid = VIDEO_RGB15_BE; break;
+	case 16: x11_overlay_fmtid = VIDEO_RGB16_BE; break;
+	case 24: x11_overlay_fmtid = VIDEO_BGR24;    break;
+	case 32: x11_overlay_fmtid = VIDEO_BGR32;    break;
+	}
+    } else {
+	/* X-Server is LE */
+	switch(args_bpp) {
+	case  8: x11_overlay_fmtid = VIDEO_RGB08;    break;
+	case 15: x11_overlay_fmtid = VIDEO_RGB15_LE; break;
+	case 16: x11_overlay_fmtid = VIDEO_RGB16_LE; break;
+	case 24: x11_overlay_fmtid = VIDEO_BGR24;    break;
+	case 32: x11_overlay_fmtid = VIDEO_BGR32;    break;
+	}
+    }
+
     video_parent = parent;
-    video = XtVaCreateManagedWidget("tv",class,parent,
-				    NULL);
+    video = XtVaCreateManagedWidget("tv",class,parent,NULL);
     vh.win = video;
 
     /* Shell widget -- need map, unmap, configure */

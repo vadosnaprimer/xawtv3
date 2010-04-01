@@ -5,7 +5,8 @@ OBJS-libng := \
 	libng/color_common.o \
 	libng/color_packed.o \
 	libng/color_lut.o \
-	libng/color_yuv2rgb.o
+	libng/color_yuv2rgb.o \
+	libng/convert.o
 
 libng/libng.a: $(OBJS-libng)
 	rm -f $@

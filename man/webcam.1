@@ -138,6 +138,37 @@ and
 parameters) rather than ftped.
 .B ssh
 set to non-zero makes webcam use ssh instead of ftp.
+.SH CORRECTION OF DISTORTION
+contributed by Frederic Helin, the parameters belong into the [grab]
+section of the config file too.
+.TP
+.B distor = 1
+If distor param is set to 1, the correction of distortion works. 
+.TP
+.B distor_k = 700
+This is the coefficient of distortion. This algorithm is based on the
+paper "Correcting Distortion of Image by Image Registration" of Toru
+Tamaki, Tsuyoshi Yamamura and Noboru Ahnishi. More your lens has an
+important distortion, more 'distor_k' must be neared of 0. 700 is the
+défault value. Coefficient k of program is x100 than article.
+.TP
+.B distor_cx = 192
+.TP
+.B distor_cy = 144
+Coordinates of the lens optical axis: width/2 and height/2 are the
+default values. The axis doesn't go through the image center. So, you
+can change its coordinates around the center of image to affine
+correction.
+.TP
+.B distor_zoom = 30
+Zoom parameter is used to cache the distorted borders of image, if you
+don't like this. Default value is 100.
+.TP
+.B distor_sensorw = 320
+.TP
+.B distor_sensorh = 240
+Dimensions of camera sensor. Default values are for 1/4p sensor. This
+parameters used to have the same k coefficient than article.
 .SH AUTHOR
 Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT

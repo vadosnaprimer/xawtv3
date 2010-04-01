@@ -83,7 +83,7 @@ Streamer.title:			record a movies
 Streamer*vlabel.label:		movie/images filename
 Streamer*alabel.label:		*.wav filename
 Streamer*streamer.label:	start/stop recording
-Streamer*xanim.label:		playback (start xanim)
+Streamer*xanim.label:		playback (start pia)
 
 
 ! ----------------------------------------------------------------------------

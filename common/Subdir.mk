@@ -1,4 +1,5 @@
 
+
 OBJS-common-capture := \
 	common/sound.o \
 	common/webcam.o \
@@ -13,6 +14,9 @@ OBJS-common-input := \
 	common/lirc.o \
 	common/joystick.o \
 	common/midictrl.o
+
+# RegEdit.c is good old K&R ...
+common/RegEdit.o : CFLAGS += -Wno-missing-prototypes -Wno-strict-prototypes
 
 common/channel-no-x11.o:: common/channel.c
 	$(CC) $(CFLAGS) -DNO_X11=1 -Wp,-MD,$*.dep -c -o $@ $<

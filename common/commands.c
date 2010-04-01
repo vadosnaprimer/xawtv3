@@ -61,7 +61,7 @@ int do_overlay;
 char *snapbase = "snap";
 int have_shmem;
 
-struct ng_video_fmt x11_fmt;
+int cur_tv_width,cur_tv_height;
 int cur_movie,cur_attrs[256];
 
 /* current hardware driver */
@@ -1007,8 +1007,8 @@ static int snap_handler(char *hname, int argc, char **argv)
 	if (0 == strcasecmp(argv[1],"full")) {
 	    /* nothing */
 	} else if (0 == strcasecmp(argv[1],"win")) {
-	    fmt.width  = x11_fmt.width;
-	    fmt.height = x11_fmt.height;
+	    fmt.width  = cur_tv_width;
+	    fmt.height = cur_tv_height;
 	} else if (2 == sscanf(argv[1],"%dx%d",&fmt.width,&fmt.height)) {
 	    /* nothing */
 	} else {
@@ -1096,8 +1096,10 @@ static int webcam_handler(char *hname, int argc, char **argv)
        the webcam happy */
     if (capture_get_hook)
 	capture_get_hook();
-    fmt = x11_fmt;
-    fmt.fmtid = VIDEO_RGB24;
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = VIDEO_RGB24;
+    fmt.width  = cur_tv_width;
+    fmt.height = cur_tv_height;
     buf = ng_grabber_get_image(&fmt);
     if (buf)
 	ng_release_video_buf(buf);

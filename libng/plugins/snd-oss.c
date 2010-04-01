@@ -331,7 +331,7 @@ oss_setformat(struct oss_handle *h, struct ng_audio_fmt *fmt)
 }
 
 static void*
-oss_open(char *device, struct ng_audio_fmt *fmt)
+oss_open(char *device, struct ng_audio_fmt *fmt, int record)
 {
     struct oss_handle *h;
     struct ng_audio_fmt ifmt;
@@ -341,7 +341,8 @@ oss_open(char *device, struct ng_audio_fmt *fmt)
 	return NULL;
     memset(h,0,sizeof(*h));
 
-    if (-1 == (h->fd = open(device ? device : ng_dev.dsp, O_RDONLY))) {
+    if (-1 == (h->fd = open(device ? device : ng_dev.dsp,
+			    record ? O_RDONLY : O_WRONLY | O_NONBLOCK))) {
 	fprintf(stderr,"oss: open %s: %s\n",
 		device ? device : ng_dev.dsp,
 		strerror(errno));
@@ -380,7 +381,7 @@ oss_open(char *device, struct ng_audio_fmt *fmt)
 	return h;
     }
 
-    fprintf(stderr,"oss: can't record %s\n",
+    fprintf(stderr,"oss: can't use format %s\n",
 	    ng_afmt_to_desc[fmt->fmtid]);
     
  err:
@@ -429,19 +430,6 @@ oss_startrec(void *handle)
     trigger = PCM_ENABLE_INPUT;
     ioctl(h->fd,SNDCTL_DSP_SETTRIGGER,&trigger);
     return 0;
-}
-
-static struct ng_audio_buf*
-oss_bufalloc(struct ng_audio_fmt *fmt, int size)
-{
-    struct ng_audio_buf *buf;
-
-    buf = malloc(sizeof(*buf)+size);
-    memset(buf,0,sizeof(*buf));
-    buf->fmt  = *fmt;
-    buf->size = size;
-    buf->data = (char*)buf + sizeof(*buf);
-    return buf;
 }
 
 static void
@@ -496,13 +484,57 @@ oss_read(void *handle, long long stopby)
     } else {
 	bytes = h->blocksize;
     }
-    buf = oss_bufalloc(&h->ofmt,bytes);
+    buf = ng_malloc_audio_buf(&h->ofmt,bytes);
     oss_bufread(h->fd,buf->data,bytes);
     if (h->byteswap)
 	oss_bufswap(buf->data,bytes);
     h->bytes += bytes;
     buf->info.ts = (long long)h->bytes * 1000000000 / h->bytes_per_sec;
     return buf;
+}
+
+static struct ng_audio_buf*
+oss_write(void *handle, struct ng_audio_buf *buf)
+{
+    struct oss_handle *h = handle;
+    int rc;
+
+    if (0 == buf->written && h->byteswap)
+	oss_bufswap(buf->data,buf->size);
+    rc = write(h->fd, buf->data+buf->written, buf->size-buf->written);
+    switch (rc) {
+    case -1:
+	perror("write dsp");
+	free(buf);
+	buf = NULL;
+    case 0:
+	fprintf(stderr,"write dsp: Huh? no data written?\n");
+	free(buf);
+	buf = NULL;
+    default:
+	buf->written += rc;
+	if (buf->written == buf->size) {
+	    free(buf);
+	    buf = NULL;
+	}
+    }
+    return buf;
+}
+
+static long long
+oss_latency(void *handle)
+{
+    struct oss_handle *h = handle;
+    audio_buf_info info;
+    int bytes,samples;
+    long long latency;
+
+    if (-1 == ioctl(h->fd, SNDCTL_DSP_GETOSPACE, &info))
+	return 0;
+    bytes   = info.fragsize * info.fragstotal;
+    samples = bytes * 8 / ng_afmt_to_bits[h->ifmt.fmtid] * h->channels;
+    latency = (long long)samples * 1000000000 / h->rate;
+    return latency;
 }
 
 static int
@@ -530,6 +562,8 @@ static struct ng_dsp_driver oss_dsp = {
     fd:        oss_fd,
     startrec:  oss_startrec,
     read:      oss_read,
+    write:     oss_write,
+    latency:   oss_latency,
 };
 
 extern void ng_plugin_init(void);

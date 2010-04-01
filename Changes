@@ -1,4 +1,25 @@
 
+3.75 => 3.76
+============
+
+ * reorganized screen blitting code (used for grabdisplay), moved that
+   to another file.
+ * Added OpenGL support (for hw-scaled RGB-images through gl-textures).
+ * libng got support for reading movie files.  Added libquicktime
+   interface and AVI file parser.
+ * started writing a playback utility (debug/play.c for now ...), should
+   be able to playback all AVI/QuickTime movies recorded by
+   xawtv/streamer.  Other QuickTime files should work too as long as the
+   codec is supported by libquicktime.
+ * Added Australian Optus cable TV channels (contributor wishes to remain
+   anonymous).
+ * Added icons (by Pedro Romão <pedro.romao@netvisao.pt>, they are in
+   contrib/)
+ * some A/V sync tweaks for the recording code.
+ * Correction of lens distortion for webcam (Frederic Helin
+   <Frederic.Helin@inrialpes.fr>).
+
+
 3.74 => 3.75
 ============
 
@@ -14,6 +35,7 @@
    instead (http://zapping.ft.net, version 0.2.1 or newer).
  * unbundled the fonts, there is another tarball with all the fonts
    now.
+ * some more Makefile tweaks.
 
 
 3.73 => 3.74

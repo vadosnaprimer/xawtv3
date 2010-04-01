@@ -1,12 +1,16 @@
 
 # targets to build
 TARGETS-plugins := \
-	libng/plugins/flt-invert.so \
 	libng/plugins/flt-gamma.so \
+	libng/plugins/flt-invert.so \
+	libng/plugins/flt-smooth.so \
+	libng/plugins/flt-disor.so \
 	libng/plugins/conv-mjpeg.so \
+	libng/plugins/read-avi.so \
 	libng/plugins/write-avi.so
 ifeq ($(FOUND_LQT),yes)
 TARGETS-plugins += \
+	libng/plugins/read-qt.so \
 	libng/plugins/write-qt.so
 endif
 ifeq ($(FOUND_OS),linux)
@@ -27,6 +31,7 @@ GONE-plugins := \
 	$(libdir)/flt-nop.so
 
 # libraries to link
+libng/plugins/read-qt.so  : LDLIBS := $(QT_LIBS)
 libng/plugins/write-qt.so : LDLIBS := $(QT_LIBS)
 
 # global targets

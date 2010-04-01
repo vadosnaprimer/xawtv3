@@ -6,6 +6,8 @@
 
 #include "config.h"
 
+#ifdef HAVE_LIBXV
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,48 +18,28 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
-#ifdef HAVE_LIBXV
-# include <X11/Intrinsic.h>
-# include <X11/Shell.h>
-# include <X11/extensions/XShm.h>
-# include <X11/extensions/Xv.h>
-# include <X11/extensions/Xvlib.h>
-#endif
+#include <X11/Intrinsic.h>
+#include <X11/Shell.h>
+#include <X11/extensions/XShm.h>
+#include <X11/extensions/Xv.h>
+#include <X11/extensions/Xvlib.h>
 
 #include "grab-ng.h"
 #include "commands.h"    /* FIXME: global *drv vars */
 #include "atoms.h"
 #include "xv.h"
 
-#ifndef HAVE_LIBXV
-/* dummy stubs */
-int have_xv;
-void xv_init(int foo,int bar, int port, int hwscan)
-{
-    if (debug)
-	fprintf(stderr,"Xvideo: compiled without Xvideo extention support\n");
-}
-//void xv_video(Window win, int width, int height, int on) {}
-#else
-
-/* ********************************************************************* */
-/* the real code                                                         */
-
 extern Display    *dpy;
 int               have_xv;
-int               im_adaptor = -1, im_port = -1;
-unsigned int      im_formats[VIDEO_FMT_COUNT];
 
 const struct ng_vid_driver xv_driver;
 
 static int              ver, rel, req, ev, err, grabbed;
 static int              adaptors;
 static int              attributes;
-static int              formats;
 static XvAdaptorInfo        *ai;
 static XvEncodingInfo       *ei;
 static XvAttribute          *at;
-static XvImageFormatValues  *fo;
 
 static int
 xv_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
@@ -326,113 +308,13 @@ static struct ng_attribute* xv_attrs(void *handle)
 
 /* ********************************************************************* */
 
-extern int             have_shmem;
-static int             x11_error = 0;
-static int
-x11_error_dev_null(Display * dpy, XErrorEvent * event)
-{
-    x11_error++;
-    if (debug > 1)
-	fprintf(stderr," x11-error\n");
-    return 0;
-}
-
-XvImage*
-xv_create_ximage(Display *dpy, int width, int height,
-		 int format, void **shm)
-{
-    XvImage         *xvimage = NULL;
-    unsigned char   *ximage_data;
-    XShmSegmentInfo *shminfo;
-    void            *old_handler;
-
-    if (debug)
-	fprintf(stderr,"Xvideo: xv_create_ximage %dx%d\n",width,height);
-
-    if (have_shmem) {
-	x11_error = 0;
-	old_handler = XSetErrorHandler(x11_error_dev_null);
-	shminfo = malloc(sizeof(XShmSegmentInfo));
-	memset(shminfo, 0, sizeof(XShmSegmentInfo));
-	xvimage = XvShmCreateImage(dpy, im_port, format, 0,
-				   width, height, shminfo);
-	if (xvimage) {
-	    shminfo->shmid = shmget(IPC_PRIVATE, xvimage->data_size,
-				    IPC_CREAT | 0777);
-	    if (-1 == shminfo->shmid) {
-		have_shmem = 0;
-		XFree(xvimage);
-		xvimage = NULL;
-		free(shminfo);
-		shminfo = *shm = NULL;
-		goto no_sysvipc;
-	    }
-	    shminfo->shmaddr  = (char *) shmat(shminfo->shmid, 0, 0);
-	    shminfo->readOnly = False;
-	    xvimage->data = shminfo->shmaddr;
-	    XShmAttach(dpy, shminfo);
-	    XSync(dpy, False);
-	    shmctl(shminfo->shmid, IPC_RMID, 0);
-	    if (x11_error) {
-		have_shmem = 0;
-		XFree(xvimage);
-		xvimage = NULL;
-		shmdt(shminfo->shmaddr);
-		free(shminfo);
-		shminfo = *shm = NULL;
-		goto no_sysvipc;
-	    }
-	} else {
-	    have_shmem = 0;
-	    free(shminfo);
-	    shminfo = *shm = NULL;
-	    goto no_sysvipc;
-	}
-    	XSetErrorHandler(old_handler);
-	*shm = shminfo;
-	return xvimage;
-    }
-
- no_sysvipc:
-    *shm = NULL;
-    if (NULL == (ximage_data = malloc(width * height * 2))) {
-	fprintf(stderr,"out of memory\n");
-	return NULL;
-    }
-    xvimage = XvCreateImage(dpy, im_port, format, ximage_data,
-			    width, height);
-    return xvimage;
-}
-
-void
-xv_destroy_ximage(Display *dpy, XvImage * xvimage, void *shm)
-{
-    XShmSegmentInfo *shminfo = shm;
-
-    if (debug)
-	fprintf(stderr,"Xvideo: x11_destroy_ximage\n");
-
-    if (shminfo) {
-	XShmDetach(dpy, shminfo);
-	XFree(xvimage);
-	shmdt(shminfo->shmaddr);
-	free(shminfo);
-    } else
-	XFree(xvimage);
-}
-
-/* ********************************************************************* */
-
-void xv_init(int xvideo, int hwscale, int port, int hwscan)
+void xv_video_init(int port, int hwscan)
 {
     struct xv_handle *handle;
     struct STRTAB *norms  = NULL;
     struct STRTAB *inputs = NULL;
     char *h;
     int n, i, vi_port = -1, vi_adaptor = -1;
-
-    if (!xvideo && !hwscale)
-	return;
 
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
 	if (debug)
@@ -491,22 +373,12 @@ void xv_init(int xvideo, int hwscale, int port, int hwscan)
 			    ai[i].base_id, ai[i].base_id+ai[i].num_ports-1, port);
 	    }
 	}
-
-	if ((ai[i].type & XvInputMask) &&
-	    (ai[i].type & XvImageMask) &&
-	    (im_port == -1)) {
-	    im_port = ai[i].base_id;
-	    im_adaptor = i;
-	}
     }
     if (hwscan)
 	return;
 
     /* *** video port *** */
-    if (!xvideo) {
-	if (debug)
-	    fprintf(stderr,"Xvideo: video disabled\n");
-    } else if (vi_port == -1) {
+    if (vi_port == -1) {
 	if (debug)
 	    fprintf(stderr,"Xvideo: no usable video port found\n");
     } else {
@@ -576,41 +448,6 @@ void xv_init(int xvideo, int hwscale, int port, int hwscan)
 	h_drv = handle;
 	f_drv = xv_flags(h_drv);
 	add_attrs(xv_attrs(h_drv));
-    }
-
-    /* *** image scaler port *** */
-    if (!hwscale) {
-	if (debug)
-	    fprintf(stderr,"Xvideo: hw scaler disabled\n");
-    } else if (im_port == -1) {
-	if (debug)
-	    fprintf(stderr,"Xvideo: no usable hw scaler port found\n");
-    } else {
-	fo = XvListImageFormats(dpy, im_port, &formats);
-	if (debug)
-	    fprintf(stderr,"  image format list for port %d\n",im_port);
-	for(i = 0; i < formats; i++) {
-	    if (debug)
-		fprintf(stderr, "    0x%x (%c%c%c%c) %s",
-			fo[i].id,
-			(fo[i].id)       & 0xff,
-			(fo[i].id >>  8) & 0xff,
-			(fo[i].id >> 16) & 0xff,
-			(fo[i].id >> 24) & 0xff,
-			(fo[i].format == XvPacked) ? "packed" : "planar");
-	    if (0x32595559 == fo[i].id) {
-		if (debug)
-		    fprintf(stderr," [ok]");
-		im_formats[VIDEO_YUV422] = fo[i].id;
-	    }
-	    if (0x30323449 == fo[i].id) {
-		if (debug)
-		    fprintf(stderr," [ok]");
-		im_formats[VIDEO_YUV420P] = fo[i].id;
-	    }
-	    if (debug)
-		fprintf(stderr,"\n");
-	}
     }
 }
 
@@ -706,4 +543,8 @@ const struct ng_vid_driver xv_driver = {
     is_tuned:      xv_tuned,
 };
 
-#endif
+#else /* HAVE_LIBXV */
+
+int               have_xv = 0;
+
+#endif /* HAVE_LIBXV */

@@ -9,15 +9,13 @@
 #include <sys/param.h>
 #include <sys/uio.h>
 
-#include "byteswap.h"
+#include "riff.h"
 #include "grab-ng.h"
 
-#if BYTE_ORDER == BIG_ENDIAN
-# define AVI_SWAP2(a) SWAP2((a))
-# define AVI_SWAP4(a) SWAP4((a))
+#if 0 /* debugging */
+# define LIMIT_OPENDML      (1024*1024) 
 #else
-# define AVI_SWAP2(a) (a)
-# define AVI_SWAP4(a) (a)
+# define LIMIT_OPENDML (2000*1024*1024)
 #endif
 
 /*
@@ -49,72 +47,6 @@
 
 #define TRAP(txt) fprintf(stderr,"%s:%d:%s\n",__FILE__,__LINE__,txt);exit(1);
 
-#define WAVE_FORMAT_PCM                 (0x0001)
-#define WAVE_FORMAT_ALAW                (0x0006)
-#define WAVE_FORMAT_MULAW               (0x0007)
-
-#define AVIF_HASINDEX                   0x10
-
-typedef unsigned int   uint32;
-typedef unsigned short uint16;
-
-struct RIFF_avih {
-    uint32 us_frame;          /* microsec per frame */
-    uint32 bps;               /* byte/s overall */
-    uint32 unknown1;          /* pad_gran (???) */
-    uint32 flags;
-    uint32 frames;            /* # of frames (all) */
-    uint32 init_frames;       /* initial frames (???) */
-    uint32 streams;
-    uint32 bufsize;           /* suggested buffer size */
-    uint32 width;
-    uint32 height;
-    uint32 scale;
-    uint32 rate;
-    uint32 start;
-    uint32 length;
-};
-
-struct RIFF_strh {
-    char   type[4];           /* stream type */
-    char   handler[4];
-    uint32 flags;
-    uint32 priority;
-    uint32 init_frames;       /* initial frames (???) */
-    uint32 scale;
-    uint32 rate;
-    uint32 start;
-    uint32 length;
-    uint32 bufsize;           /* suggested buffer size */
-    uint32 quality;
-    uint32 samplesize;
-    /* XXX 16 bytes ? */
-};
-
-struct RIFF_strf_vids {       /* == BitMapInfoHeader */
-    uint32 size;
-    uint32 width;
-    uint32 height;
-    uint16 planes;
-    uint16 bit_cnt;
-    char   compression[4];
-    uint32 image_size;
-    uint32 xpels_meter;
-    uint32 ypels_meter;
-    uint32 num_colors;        /* used colors */
-    uint32 imp_colors;        /* important colors */
-    /* may be more for some codecs */
-};
-
-struct RIFF_strf_auds {       /* == WaveHeader (?) */
-    uint16 format;
-    uint16 channels;
-    uint32 rate;
-    uint32 av_bps;
-    uint16 blockalign;
-    uint16 size;
-};
-
 #define size_strl_vids (sizeof(struct RIFF_strh) + \
 			sizeof(struct RIFF_strf_vids) + \
 			4*5)
@@ -122,100 +54,36 @@ struct RIFF_strf_auds {       /* == WaveHeader (?) */
 			sizeof(struct RIFF_strf_auds) + \
 			4*5)
 
-static const struct AVI_HDR {
-    char                     riff_id[4];
-    uint32                   riff_size;
-    char                     riff_type[4];
-
-    char                       hdrl_list_id[4];
-    uint32                     hdrl_size;
-    char                       hdrl_type[4];
-
-    char                         avih_id[4];
-    uint32                       avih_size;
-    struct RIFF_avih             avih;
-} avi_hdr = {
+static const struct AVI_HDR avi_hdr = {
     {'R','I','F','F'}, 0,                             {'A','V','I',' '},
     {'L','I','S','T'}, 0,                             {'h','d','r','l'},
     {'a','v','i','h'}, AVI_SWAP4(sizeof(struct RIFF_avih)),      {}
 };
 
-static const struct AVIX_HDR {
-    char                     riff_id[4];
-    uint32                   riff_size;
-    char                     riff_type[4];
-
-    char                       data_list_id[4];
-    uint32                     data_size;
-    char                       data_type[4];
-} avix_hdr = {
+static const struct AVIX_HDR avix_hdr = {
     {'R','I','F','F'}, 0,                             {'A','V','I','X'},
     {'L','I','S','T'}, 0,                             {'m','o','v','i'},
 };
 
-static const struct AVI_HDR_VIDEO {
-    char                         strl_list_id[4];
-    uint32                       strl_size;
-    char                         strl_type[4];
-
-    char                           strh_id[4];
-    uint32                         strh_size;
-    struct RIFF_strh               strh;
-
-    char                           strf_id[4];
-    uint32                         strf_size;
-    struct RIFF_strf_vids          strf;
-} avi_hdr_video = {
+static const struct AVI_HDR_VIDEO avi_hdr_video = {
     {'L','I','S','T'}, AVI_SWAP4(size_strl_vids),                {'s','t','r','l'},
     {'s','t','r','h'}, AVI_SWAP4(sizeof(struct RIFF_strh)),      {{'v','i','d','s'}},
     {'s','t','r','f'}, AVI_SWAP4(sizeof(struct RIFF_strf_vids)), {}
 };
 
-static const struct AVI_HDR_AUDIO {
-    char                         strl_list_id[4];
-    uint32                       strl_size;
-    char                         strl_type[4];
-
-    char                           strh_id[4];
-    uint32                         strh_size;
-    struct RIFF_strh               strh;
-
-    char                           strf_id[4];
-    uint32                         strf_size;
-    struct RIFF_strf_auds          strf;
-} avi_hdr_audio = {
+static const struct AVI_HDR_AUDIO avi_hdr_audio = {
     {'L','I','S','T'}, AVI_SWAP4(size_strl_auds),                {'s','t','r','l'},
     {'s','t','r','h'}, AVI_SWAP4(sizeof(struct RIFF_strh)),      {{'a','u','d','s'}},
     {'s','t','r','f'}, AVI_SWAP4(sizeof(struct RIFF_strf_auds)), {}
 };
 
-static const struct AVI_HDR_ODML {
-    char                         strl_list_id[4];
-    uint32                       strl_size;
-    char                         strl_type[4];
-
-    char                           strh_id[4];
-    uint32                         strh_size;
-    uint32                         total_frames;
-} avi_hdr_odml = {
-    {'L','I','S','T'}, AVI_SWAP4(sizeof(uint32) + 4*3),  {'o','d','m','l'},
-    {'d','m','l','h'}, AVI_SWAP4(sizeof(uint32)),
+static const struct AVI_HDR_ODML avi_hdr_odml = {
+    {'L','I','S','T'}, AVI_SWAP4(sizeof(uint32_t) + 4*3),  {'o','d','m','l'},
+    {'d','m','l','h'}, AVI_SWAP4(sizeof(uint32_t)),
 };
 
-static const struct AVI_DATA {
-    char                       data_list_id[4];
-    uint32                     data_size;
-    char                       data_type[4];
-
-    /* audio+video data follows */
-    
-} avi_data = {
+static const struct AVI_DATA avi_data = {
     {'L','I','S','T'}, 0,                   {'m','o','v','i'},
-};
-
-struct CHUNK_HDR {
-    char                       id[4];
-    uint32                     size;
 };
 
 static const struct CHUNK_HDR frame_hdr = {
@@ -226,13 +94,6 @@ static const struct CHUNK_HDR sound_hdr = {
 };
 static const struct CHUNK_HDR idx_hdr = {
     {'i','d','x','1'}, 0
-};
-
-struct IDX_RECORD {
-    char                      id[4];
-    uint32                    flags;
-    uint32                    offset;
-    uint32                    size;
 };
 
 /* ----------------------------------------------------------------------- */
@@ -548,7 +409,7 @@ avi_video(void *handle, struct ng_video_buf *buf)
 	h->datax_size += size + sizeof(struct CHUNK_HDR);
 	h->framesx    += 1;
     }
-    if ((h->bigfile ? h->datax_size : h->data_size) > 1024*1024*2000)
+    if ((h->bigfile ? h->datax_size : h->data_size) > LIMIT_OPENDML)
 	avi_bigfile(h,0);
     return 0;
 }

@@ -25,8 +25,8 @@ vbistuff/alevtd: \
 vbistuff/ntsc-cc: vbistuff/ntsc-cc.o
 
 # libraries to link
-vbistuff/alevtd  : LDLIBS  := $(VBI_LIBS)
-vbistuff/ntsc-cc : LDLIBS  := $(ATHENA_LIBS)
+vbistuff/alevtd  : LDLIBS  += $(VBI_LIBS)
+vbistuff/ntsc-cc : LDLIBS  += $(ATHENA_LIBS)
 
 # global targets
 all:: $(TARGETS-vbistuff)

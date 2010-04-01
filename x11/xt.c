@@ -37,6 +37,7 @@
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/cursorfont.h>
+# include <X11/extensions/XShm.h>
 #ifdef HAVE_LIBXXF86DGA
 # include <X11/extensions/xf86dga.h>
 # include <X11/extensions/xf86dgastr.h>
@@ -77,6 +78,7 @@ Status DPMSDisable(Display*);
 #include "lirc.h"
 #include "joystick.h"
 #include "vbi-data.h"
+#include "blit.h"
 
 /* jwz */
 #include "remote.h"
@@ -226,6 +228,11 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,xv_image),
 	XtRString, "1"
     },{
+	"gl",
+	XtCBoolean, XtRBoolean, sizeof(int),
+	XtOffset(struct ARGS*,gl),
+	XtRString, "1"
+    },{
 	"vidmode",
 	XtCBoolean, XtRBoolean, sizeof(int),
 	XtOffset(struct ARGS*,vidmode),
@@ -284,6 +291,8 @@ XrmOptionDescRec opt_desc[] = {
     { "-noxv-video", "xvVideo",     XrmoptionNoArg,  "0" },
     { "-xv-image",   "xvImage",     XrmoptionNoArg,  "1" },
     { "-noxv-image", "xvImage",     XrmoptionNoArg,  "0" },
+    { "-gl",         "gl",          XrmoptionNoArg,  "1" },
+    { "-nogl",       "gl",          XrmoptionNoArg,  "0" },
 
     { "-vm",         "vidmode",     XrmoptionNoArg,  "1" },
     { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
@@ -296,7 +305,6 @@ XrmOptionDescRec opt_desc[] = {
 };
 
 const int opt_count = (sizeof(opt_desc)/sizeof(XrmOptionDescRec));
-
 /*----------------------------------------------------------------------*/
 
 Boolean
@@ -632,7 +640,8 @@ exec_x11(char **argv)
 void
 exec_player(char *moviefile)
 {
-    static char *command = "xanim +f +Sr +Ze -Zr";
+    //static char *command = "xanim +f +Sr +Ze -Zr";
+    static char *command = "pia";
     char *cmd;
     char **argv;
     int  argc;
@@ -749,7 +758,8 @@ xscreensaver_timefunc(XtPointer clientData, XtIntervalId *id)
     }
     status = xscreensaver_command(dpy,XA_DEACTIVATE,0,debug,&err);
     if (0 != status) {
-	fprintf(stderr,"xscreensaver_command: %s\n",err);
+	if (debug)
+	    fprintf(stderr,"xscreensaver_command: %s\n",err);
 	return;
     }
     xscreensaver_timer = XtAppAddTimeOut(app_context,60000,
@@ -1083,7 +1093,7 @@ void tv_expose_event(Widget widget, XtPointer client_data,
 	    if (f_drv & NEEDS_CHROMAKEY) {
 		if (debug)
 		    fprintf(stderr,"expose: chromakey [%dx%d]\n",
-			    x11_fmt.width, x11_fmt.height);
+			    cur_tv_width, cur_tv_height);
 		if (0 == gc) {
 		    XColor color;
 		    color.red   = (ng_chromakey & 0x00ff0000) >> 8;
@@ -1098,7 +1108,7 @@ void tv_expose_event(Widget widget, XtPointer client_data,
 		XFillRectangle(dpy,XtWindow(widget),gc,
 			       0 /* (win_width  - x11_fmt.width)  >> 1 */,
 			       0 /* (win_height - x11_fmt.height) >> 1 */,
-			       x11_fmt.width, x11_fmt.height);
+			       cur_tv_width, cur_tv_height);
 	    }
 	    if (have_xv) {
 		if (debug)
@@ -1228,8 +1238,8 @@ grabber_init()
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
-	screen.fmtid  = x11_native_format;
-	screen.bytesperline *= ng_vfmt_to_depth[x11_native_format]/8;
+	screen.fmtid  = x11_dpy_fmtid;
+	screen.bytesperline *= ng_vfmt_to_depth[x11_dpy_fmtid]/8;
 	if (debug)
 	    fprintf(stderr,"x11: %dx%d, %d bit/pixel, %d byte/scanline%s%s\n",
 		    screen.width,screen.height,
@@ -1368,7 +1378,7 @@ visual_init(char *n1, char *n2)
     int            n;
 
     /* look for a useful visual */
-    visual = x11_visual(XtDisplay(app_shell));
+    visual = x11_find_visual(XtDisplay(app_shell));
     vinfo.visualid = XVisualIDFromVisual(visual);
     vinfo_list = XGetVisualInfo(dpy, VisualIDMask, &vinfo, &n);
     vinfo = vinfo_list[0];
@@ -1387,6 +1397,7 @@ visual_init(char *n1, char *n2)
     } else {
 	colormap = DefaultColormapOfScreen(XtScreen(app_shell));
     }
+    x11_init_visual(XtDisplay(app_shell),&vinfo);
 }
 
 void
@@ -1423,11 +1434,16 @@ usage(void)
 	    "  -f  -fullscreen     startup in fullscreen mode\n"
 	    "      -(no)dga        enable/disable DGA extention\n"
 	    "      -(no)vm         enable/disable VidMode extention\n"
+#ifdef HAVE_LIBXV
 	    "      -(no)xv         enable/disable Xvideo extention altogether\n"
 	    "      -(no)xv-video   enable/disable Xvideo extention (for video only,\n"
 	    "                      i.e. XvPutVideo() calls)\n"
 	    "      -(no)xv-image   enable/disable Xvideo extention (for image scaling\n"
 	    "                      only, i.e. XvPutImage() calls)\n"
+#endif
+#ifdef HAVE_GL
+	    "      -(no)gl         enable/disable OpenGL\n"
+#endif
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"
 	    "  -c  -device file    use <file> as video4linux device\n"

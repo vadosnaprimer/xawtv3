@@ -92,7 +92,8 @@ int main(int argc, char *argv[])
 	dpy = XOpenDisplay(NULL);
     if (dpy) {
 	init_atoms(dpy);
-	xv_init(xvideo,0,0,0);
+	if (xvideo)
+	    xv_video_init(-1,0);
     }
 #endif
     if (NULL == drv)

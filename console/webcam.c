@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <math.h>
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
@@ -23,6 +24,7 @@
 #include "ftp.h"
 #include "parseconfig.h"
 #include "list.h"
+
 
 /* ---------------------------------------------------------------------- */
 /* configuration                                                          */
@@ -333,7 +335,7 @@ grab_init(void)
     /* check all available conversion functions */
     fmt.bytesperline = fmt.width*ng_vfmt_to_depth[fmt.fmtid]/8;
     for (i = 0;;) {
-	conv = ng_conv_find(fmt.fmtid, &i);
+	conv = ng_conv_find_to(fmt.fmtid, &i);
 	if (NULL == conv)
 	    break;
 	gfmt = fmt;
@@ -440,6 +442,98 @@ add_text(char *image, int width, int height)
     }
 }
 
+/* ---------------------------------------------------------------------- */
+/* Frederic Helin <Frederic.Helin@inrialpes.fr> - 15/07/2002              */
+/* Correction fonction of stereographic radial distortion                 */
+
+int grab_dist_on = 0; 
+int grab_dist_k = 700;
+int grab_dist_cx = -1; 
+int grab_dist_cy = -1;
+int grab_dist_zoom = 50;
+int grab_dist_sensorw = 640;
+int grab_dist_sensorh = 480;
+
+static unsigned char *
+correct_distor(unsigned char * in, int width, int height,
+	       int grab_zoom, int grap_k, int cx, int cy,
+	       int grab_sensorw, int grab_sensorh)
+{
+    static unsigned char * corrimg = NULL;
+    
+    int i, j, di, dj;
+    float dr, cr,ca, sensor_w, sensor_h, sx, zoom, k;
+    
+    sensor_w = grab_dist_sensorw/100.0;
+    sensor_h = grab_dist_sensorh/100.0;
+    zoom = grab_zoom / 100.0;
+    k = grap_k / 100.0;
+    
+    if (corrimg == NULL && (corrimg = malloc(width*height*3)) == NULL ) {
+	fprintf(stderr, "out of memory\n");
+	exit(1);
+    }
+    
+    sensor_w = 6.4;
+    sensor_h = 4.8;
+    
+    // calc ratio x/y
+    sx = width * sensor_h / (height * sensor_w);
+    
+    // calc new value of k in the coordonates systeme of computer
+    k = k * height / sensor_h;
+    
+    // Clear image
+    for (i = 0; i < height*width*3; i++) corrimg[i] = 255;
+    
+    for (j = 0; j < height ; j++) {
+	for (i = 0; i < width ; i++) {	
+	    
+	    // compute radial distortion / parameters of center of image 
+	    cr  = sqrt((i-cx)/sx*(i-cx)/sx+(j-cy)*(j-cy));
+	    ca  = atan(cr/k/zoom);
+	    dr = k * tan(ca/2);	
+	    
+	    if (i == cx && j == cy) {di = cx; dj = cy;}
+	    else {
+		di = (i-cx) * dr / cr + cx;
+		dj = (j-cy) * dr / cr + cy;
+	    }
+	    
+	    if (dj<height && di < width && di >= 0  && dj >= 0 &&
+		j<height &&  i < width &&  i >= 0  &&  j >= 0 ) {
+		corrimg[3*(j*width + i)  ] = in[3*(dj*width + di)  ];
+		corrimg[3*(j*width + i)+1] = in[3*(dj*width + di)+1];
+		corrimg[3*(j*width + i)+2] = in[3*(dj*width + di)+2];	
+	    }
+	}
+    }
+    return corrimg;	
+}
+
+/* ---------------------------------------------------------------------- */
+
+static unsigned int
+compare_images(unsigned char *last, unsigned char *current,
+	       int width, int height)
+{
+    unsigned char *p1 = last;
+    unsigned char *p2 = current;
+    int avg, diff, max, i = width*height*3;
+
+    for (max = 0, avg = 0; --i; p1++,p2++) {
+	diff = (*p1 < *p2) ? (*p2 - *p1) : (*p1 - *p2);
+	avg += diff;
+	if (diff > max)
+	    max = diff;
+    }
+    avg = avg / width / height;
+    fprintf(stderr,"compare: max=%d,avg=%d\n",max,avg);
+    /* return avg */
+    return max;
+}
+
+
 static unsigned char *
 rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 	     int top, int left, int bottom, int right)
@@ -456,7 +550,7 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 	fprintf(stderr, "out of memory\n");
 	exit(1);
     }
-    switch ( rot ) {
+    switch (rot) {
     default:
     case 0:
 	for (j = 0; j < oh; j++) {
@@ -514,25 +608,6 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
     return rotimg;	
 }
 
-static unsigned int
-compare_images(unsigned char *last, unsigned char *current,
-	       int width, int height)
-{
-    unsigned char *p1 = last;
-    unsigned char *p2 = current;
-    int avg, diff, max, i = width*height*3;
-
-    for (max = 0, avg = 0; --i; p1++,p2++) {
-	diff = (*p1 < *p2) ? (*p2 - *p1) : (*p1 - *p2);
-	avg += diff;
-	if (diff > max)
-	    max = diff;
-    }
-    avg = avg / width / height;
-    fprintf(stderr,"compare: max=%d,avg=%d\n",max,avg);
-    /* return avg */
-    return max;
-}
 
 /* ---------------------------------------------------------------------- */
 
@@ -609,7 +684,22 @@ main(int argc, char *argv[])
     if (-1 != (i = cfg_get_int("grab","bg_blue")))
 	if (i >= 0 && i <= 255)
 	    grab_bg_b = i;
-
+    
+    if (-1 != (i = cfg_get_int("grab","distor")))
+      grab_dist_on = i;
+    if (-1 != (i = cfg_get_int("grab","distor_k")))
+      grab_dist_k = i;
+    if (-1 != (i = cfg_get_int("grab","distor_cx")))
+      grab_dist_cx = i;
+    if (-1 != (i = cfg_get_int("grab","distor_cy")))
+      grab_dist_cy = i;
+    if (-1 != (i = cfg_get_int("grab","distor_zoom")))
+      grab_dist_zoom =i;
+    if (-1 != (i = cfg_get_int("grab","distor_sensorw")))
+      grab_dist_sensorw = i;
+    if (-1 != (i = cfg_get_int("grab","distor_sensorh")))
+      grab_dist_sensorh = i;
+    
     if ( grab_top < 0 ) grab_top = 0;
     if ( grab_left < 0 ) grab_left = 0;
     if ( grab_bottom > grab_height ) grab_bottom = grab_height;
@@ -618,6 +708,19 @@ main(int argc, char *argv[])
     if ( grab_right < 0 ) grab_right = grab_width;
     if ( grab_top >= grab_bottom ) grab_top = 0;
     if ( grab_left >= grab_right ) grab_left = 0;
+
+    if (grab_dist_k < 1 || grab_dist_k > 10000)
+	grab_dist_k = 700;
+    if (grab_dist_cx < 0 || grab_dist_cx > grab_width)
+	grab_dist_cx = grab_width / 2;
+    if (grab_dist_cy < 0 || grab_dist_cy > grab_height)
+	grab_dist_cy = grab_height / 2;
+    if (grab_dist_zoom < 1 || grab_dist_zoom > 1000)
+	grab_dist_zoom = 100;
+    if (grab_dist_sensorw < 1 ||  grab_dist_sensorw >9999)
+	grab_dist_sensorw = 640;
+    if (grab_dist_sensorh < 1 ||  grab_dist_sensorh >9999)
+	grab_dist_sensorh = 480;
 
     INIT_LIST_HEAD(&connections);
     for (sections = cfg_list_sections(); *sections != NULL; sections++) {
@@ -708,6 +811,13 @@ main(int argc, char *argv[])
     for (;;) {
 	/* grab a new one */
 	gimg = grab_one(&width,&height);
+
+	if (grab_dist_on)
+	    gimg = correct_distor(gimg, width, height,
+				  grab_dist_zoom, grab_dist_k,
+				  grab_dist_cx, grab_dist_cy,
+				  grab_dist_sensorw, grab_dist_sensorh);
+	
 	image = rotate_image(gimg, &width, &height, grab_rotate,
 			     grab_top, grab_left, grab_bottom, grab_right);
 

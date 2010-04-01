@@ -8,7 +8,8 @@ TARGETS-x11 += \
 	x11/v4lctl \
 	x11/xawtv-remote \
 	x11/rootv \
-	x11/xawtv
+	x11/xawtv \
+	x11/pia
 endif
 ifeq ($(FOUND_MOTIF),yes)
 TARGETS-x11 += \
@@ -25,6 +26,7 @@ x11/xawtv: \
 	x11/wmhooks.o \
 	x11/atoms.o \
 	x11/x11.o \
+	x11/blit.o \
 	x11/xt.o \
 	x11/xv.o \
 	x11/toolbox.o \
@@ -44,6 +46,7 @@ x11/motv: \
 	x11/wmhooks.o \
 	x11/atoms.o \
 	x11/x11.o \
+	x11/blit.o \
 	x11/xt.o \
 	x11/xv.o \
 	x11/complete-motif.o \
@@ -62,6 +65,7 @@ x11/mtt: \
 	x11/vbi-x11.o \
 	x11/vbi-gui.o \
 	console/vbi-tty.o \
+	console/fbtools.o \
 	common/vbi-data.o \
 	common/RegEdit.o
 
@@ -77,26 +81,33 @@ x11/rootv: \
 	x11/atoms.o \
 	common/parseconfig.o
 
+x11/pia: \
+	x11/pia.o \
+	x11/blit.o \
+	libng/libng.a
+
 x11/xawtv-remote: x11/xawtv-remote.o
 x11/propwatch:    x11/propwatch.o
 
 # libraries to link
-x11/xawtv        : LDLIBS  := \
+x11/xawtv        : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(ATHENA_LIBS) $(VBI_LIBS) -ljpeg -lm
-x11/motv         : LDLIBS  := \
+	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
+x11/motv         : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(MOTIF_LIBS) $(VBI_LIBS) -ljpeg -lm
-x11/mtt          : LDLIBS  := $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS)
-x11/v4lctl       : LDLIBS  := $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
-x11/rootv        : LDLIBS  := $(ATHENA_LIBS)
-x11/xawtv-remote : LDLIBS  := $(ATHENA_LIBS)
-x11/propwatch    : LDLIBS  := $(ATHENA_LIBS)
+	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
+x11/mtt          : LDLIBS  += $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS)
+x11/v4lctl       : LDLIBS  += $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
+x11/pia          : LDLIBS  += $(ATHENA_LIBS) $(GL_LIBS) $(QT_LIBS) -ljpeg -lm
+x11/rootv        : LDLIBS  += $(ATHENA_LIBS)
+x11/xawtv-remote : LDLIBS  += $(ATHENA_LIBS)
+x11/propwatch    : LDLIBS  += $(ATHENA_LIBS)
 
 # linker flags
 x11/xawtv        : LDFLAGS := $(DLFLAGS)
 x11/motv         : LDFLAGS := $(DLFLAGS)
 x11/v4lctl       : LDFLAGS := $(DLFLAGS)
+x11/pia          : LDFLAGS :=  $(DLFLAGS)
 
 # i18n
 LANGUAGES := de it fr
@@ -126,6 +137,7 @@ install::
 endif
 ifeq ($(FOUND_MOTIF),yes)
 install::
+	$(INSTALL_DATA) x11/mtt.ad $(resdir)/app-defaults/mtt
 	$(INSTALL_DATA) x11/MoTV.ad $(resdir)/app-defaults/MoTV
 	for lang in $(LANGUAGES); do \
 	    $(INSTALL_DIR) $(resdir)/$$lang/app-defaults; \

@@ -7,6 +7,9 @@
 /* libzvbi */
 #undef HAVE_ZVBI
 
+/* opengl */
+#undef HAVE_GL
+
 /* alsa */
 #undef HAVE_ALSA
 
