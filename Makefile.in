@@ -55,7 +55,7 @@ xawtv: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS) @JPEG@
 
 v4l-conf: v4l-conf.c
-	$(CC) $(CFLAGS) -o $@ $< -lXext -lX11 @X_EXTRA_LIBS@ @LIBS@
+	$(CC) $(CFLAGS) -o $@ $< @X_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@ @LIBS@
 
 radio: radio.c
 	$(CC) $(CFLAGS) -o $@ $<
@@ -90,6 +90,9 @@ install: all
 		$(INSTALL_DIR) $(kradiodir)/toolbar;		\
 		$(INSTALL_DATA) *.xpm $(kradiodir)/toolbar;	\
 		make -C font install;				\
+	fi
+	if test -f fbtv; then					\
+		$(INSTALL_PROGRAM) -s fbtv $(bindir)		\
 	fi
 
 clean:

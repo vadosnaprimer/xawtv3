@@ -88,6 +88,9 @@ static char *map = NULL;
 /* state */
 static int                      overlay, swidth, sheight;
 
+/* pass 0/1 by reference */
+static int                      one = 1, zero = 0;
+
 struct GRABBER grab_v4l = {
     "video4linux",
     VIDEO_RGB16 | VIDEO_RGB24 | VIDEO_RGB32,
@@ -200,7 +203,7 @@ grab_open(char *filename, int sw, int sh,
 
     /* tuner (more than one???) */
     if (-1 == ioctl(fd,VIDIOCGTUNER,&tuner))
-	perror("ioctl VIDIOCGCAUDIO");
+	perror("ioctl VIDIOCGTUNER");
     if (debug)
 	fprintf(stderr,"  tuner   : %s %lu-%lu",
 		tuner.name,tuner.rangelow,tuner.rangehigh);
@@ -241,8 +244,8 @@ grab_open(char *filename, int sw, int sh,
     fprintf(stderr,"v4l: base=%p\n", ov_fbuf.base);
     if (ov_fbuf.base != base && have_dga) {
 	fprintf(stderr,"v4l and dga disagree about the framebuffer address\n");
-	fprintf(stderr,"you probably want to check out the vidmem "
-		"argument of the bttv module\n");
+	fprintf(stderr,"you probably want to insmod the bttv module with "
+		"\"vidmem=0x%03lx\"\n",(unsigned long)base >> 20);
 	exit(1);
     }
     fprintf(stderr,"v4l: %d x %d x %d bit\n",
@@ -281,6 +284,10 @@ grab_open(char *filename, int sw, int sh,
 	map = (char*)-1;
 
     switch (pixmap) {
+    case VIDEO_GRAY:
+	gb_even.format = gb_odd.format = 0x66;  /* FIXME */
+	pixmap_bytes = 1;
+	break;
     case VIDEO_RGB15:
 	gb_even.format = gb_odd.format = 0x33;  /* FIXME */
 	pixmap_bytes = 2;
@@ -314,7 +321,7 @@ err:
 static int
 grab_close()
 {
-    while (gb_grab > gb_sync) {
+    if (gb_grab > gb_sync) {
 	if (-1 == ioctl(fd,VIDIOCSYNC,0))
 	    perror("ioctl VIDIOCSYNC");
 	else
@@ -341,11 +348,10 @@ static int
 grab_overlay(int x, int y, int width, int height, int format,
 	     struct OVERLAY_CLIP *oc, int count)
 {
-    int one = 1, zero = 0;
     int i;
 
-    while (gb_grab > gb_sync) {
-	if (-1 == ioctl(fd,VIDIOCSYNC,0))
+    if (gb_grab > gb_sync) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
 	    perror("ioctl VIDIOCSYNC");
 	else
 	    gb_sync++;
@@ -475,7 +481,7 @@ grab_scr(void *dest, int width, int height, int single)
 
     if (single) {
 	if (gb_grab > gb_sync) {
-	    if (-1 == ioctl(fd,VIDIOCSYNC,0))
+	    if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
 		perror("ioctl VIDIOCSYNC");
 	    else
 		gb_sync++;
@@ -497,13 +503,18 @@ grab_scr(void *dest, int width, int height, int single)
 	    return NULL;
     } else
 	gb_grab++;
-    if (-1 == ioctl(fd,VIDIOCSYNC,0))
-	perror("ioctl VIDIOCSYNC");
-    else
-	gb_sync++;
-    if (gb_grab > gb_sync) {
+
+    if (gb_grab > gb_sync+1) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
+	    perror("ioctl VIDIOCSYNC");
+	else
+	    gb_sync++;
 	buf = even ? map : map + MEM_SIZE;
     } else {
+	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &one : &zero))
+	    perror("ioctl VIDIOCSYNC");
+	else
+	    gb_sync++;
 	buf = even ? map + MEM_SIZE : map;
     }
     even = !even;
@@ -525,8 +536,8 @@ grab_one(int width, int height)
     if ((char*)-1 == map)
 	return NULL;
     
-    while (gb_grab > gb_sync) {
-	if (-1 == ioctl(fd,VIDIOCSYNC,0))
+    if (gb_grab > gb_sync) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
 	    perror("ioctl VIDIOCSYNC");
 	else
 	    gb_sync++;
@@ -543,7 +554,7 @@ grab_one(int width, int height)
 	return NULL;
     } else
 	gb_grab++;
-    if (-1 == ioctl(fd,VIDIOCSYNC,0)) {
+    if (-1 == ioctl(fd,VIDIOCSYNC,&zero)) {
 	perror("ioctl VIDIOCSYNC");
 	return NULL;
     } else

@@ -38,13 +38,6 @@ AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB,
   $X_LIBS $X_PRE_LIBS -lXext -lXmu -lXt -lX11)
 AC_SUBST(XAWLIB)
 
-AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
-	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
-AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
-	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
-AC_CHECK_LIB(Xext, XShmAttach,AC_DEFINE(HAVE_MITSHM),,
-	$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
-
 AC_SUBST(JPEG)
 AC_CHECK_LIB(jpeg, jpeg_start_compress,AC_DEFINE(HAVE_LIBJPEG) JPEG="-ljpeg",JPEG="",)
 
@@ -53,6 +46,13 @@ AC_CHECK_LIB(ncurses, initscr,CURSES="-lncurses",CURSES="",)
 if test "$CURSES" = ""; then
 	AC_CHECK_LIB(curses, initscr,CURSES="-lcurses",CURSES="",)
 fi
+
+AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+AC_CHECK_LIB(Xext, XShmAttach,AC_DEFINE(HAVE_MITSHM),,
+	$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
 
 dnl ---------------------------------------------------------------------
 dnl video dev checks

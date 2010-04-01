@@ -180,7 +180,8 @@ struct video_key
 #define VIDIOCSFREQ		_IOW('v',15, unsigned long)		/* Set tuner */
 #define VIDIOCGAUDIO		_IOR('v',16, struct video_audio)	/* Get audio info */
 #define VIDIOCSAUDIO		_IOW('v',17, struct video_audio)	/* Audio source, mute etc */
-#define VIDIOCSYNC		_IO('v',18)				/* Sync with mmap grabbing */
+#define VIDIOCSYNC_OLD		_IO('v',18)				/* Sync with mmap grabbing */
+#define VIDIOCSYNC		_IOW('v',18, int)      			/* Sync with mmap grabbing */
 #define VIDIOCMCAPTURE		_IOW('v',19, struct video_mmap)		/* Grab frames */
 
 

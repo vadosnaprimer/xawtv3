@@ -825,6 +825,7 @@ static inline void write_risc_segment(unsigned int **rp, unsigned long line_adr,
                 *((*rp)++)=line_adr+*x*bpp;
 	*x+=dx;
 }
+
 static void make_clip_tab(struct bttv *btv, struct cliprec *cr, int count)
 {
         int i,ncr;
@@ -1206,7 +1207,7 @@ static int vgrab(struct bttv *btv, struct video_mmap *mp)
 		if(fbuffer_alloc(btv))
 			return -ENOBUFS;
 	}
-        if (btv->grabbing > 1)
+        if (btv->grabbing >= MAX_GBUFFERS)
                 return -ENOBUFS;
 	
 	/*
@@ -1244,12 +1245,15 @@ static int vgrab(struct bttv *btv, struct video_mmap *mp)
 	/* bt848_set_risc_jmps(btv); */
 	btor(3, BT848_CAP_CTL);
 	btor(3, BT848_GPIO_DMA_CTL);
+        btv->frame_stat[mp->frame] = GBUFFER_GRABBING;
         if (btv->grabbing) {
 		btv->gro_next=virt_to_bus(ro);
 		btv->gre_next=virt_to_bus(re);
+                btv->grf_next=mp->frame;
         } else {
 		btv->gro=virt_to_bus(ro);
 		btv->gre=virt_to_bus(re);
+                btv->grf=mp->frame;
         }
 	if (!(btv->grabbing++)) 
 		btv->risc_jmp[12]=BT848_RISC_JUMP|(0x8<<16)|BT848_RISC_IRQ;
@@ -1672,7 +1676,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 {
 	unsigned char eedata[256];
 	struct bttv *btv=(struct bttv *)dev;
-  	static int lastchan=0;
+  	static int lastchan=0,i;
   	
 	switch (cmd)
 	{	
@@ -1705,6 +1709,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			v.flags=VIDEO_VC_AUDIO;
 			v.tuners=0;
 			v.type=VIDEO_TYPE_CAMERA;
+			v.mode = btv->win.norm;
 			switch(v.channel)
 			{
 				case 0:
@@ -1734,11 +1739,15 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 		 */
 		case VIDIOCSCHAN:
 		{
-			int v;
+			struct video_channel v;
 			if(copy_from_user(&v, arg, sizeof(v)))
 				return -EFAULT;
-			bt848_muxsel(btv, v);
-			lastchan=v;
+			bt848_muxsel(btv, v.channel);
+			lastchan=v.channel;
+#if 0
+			btv->win.norm = v.mode;
+			bt848_set_winsize(btv);
+#endif
 			return 0;
 		}
 		case VIDIOCGTUNER:
@@ -1751,7 +1760,8 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			strcpy(v.name, "Television");
 			v.rangelow=0;
 			v.rangehigh=0xFFFFFFFF;
-			v.flags=VIDEO_TUNER_PAL|VIDEO_TUNER_NTSC;
+			v.flags=VIDEO_TUNER_PAL|VIDEO_TUNER_NTSC|
+				VIDEO_TUNER_SECAM;
 			v.mode = btv->win.norm;
 			if(copy_to_user(arg,&v,sizeof(v)))
 				return -EFAULT;
@@ -2038,7 +2048,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			btv->audio_dev=v;
 			return 0;
 		}
-	        case VIDIOCSYNC:
+	        case VIDIOCSYNC_OLD:
 #if 0
                         if (!btv->grabbing)
                                 return -EAGAIN;
@@ -2047,6 +2057,20 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			        interruptible_sleep_on(&btv->capq);
 		        btv->lastgrab++;
 		        return 0;
+	        case VIDIOCSYNC:
+			if(copy_from_user((void *)&i,arg,sizeof(int)))
+				return -EFAULT;
+                        switch (btv->frame_stat[i]) {
+                        case GBUFFER_UNUSED:
+                                return -EINVAL;
+                        case GBUFFER_GRABBING:
+			        interruptible_sleep_on(&btv->capq);
+                                /* fall */
+                        case GBUFFER_DONE:
+                                btv->frame_stat[i] = GBUFFER_UNUSED;
+                                break;
+                        }
+                        return 0;
 
 		case BTTV_WRITEE:
 			if(!suser())
@@ -2069,6 +2093,8 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
                         struct video_mmap vm;
 			if(copy_from_user((void *) &vm, (void *) arg, sizeof(vm)))
 				return -EFAULT;
+                        if (btv->frame_stat[vm.frame] == GBUFFER_GRABBING)
+                                return -EBUSY;
 		        return vgrab(btv, &vm);
 		}
 		default:
@@ -2920,10 +2946,12 @@ static void bttv_irq(int irq, void *dev_id, struct pt_regs * regs)
 			if (stat&(2<<28)) 
 			{
 			        btv->grab++;
+                                btv->frame_stat[btv->grf] = GBUFFER_DONE;
 			        if ((--btv->grabbing))
 				{
 					btv->gro = btv->gro_next;
 					btv->gre = btv->gre_next;
+					btv->grf = btv->grf_next;
                                         btv->risc_jmp[5]=btv->gro;
 					btv->risc_jmp[11]=btv->gre;
 					bt848_set_geo(btv, btv->gwidth,
@@ -3207,7 +3235,7 @@ int init_bttv_cards(struct video_init *unused)
 		} 
 	}
 
-#if 1
+#if 0
         /* load i2c chip drivers (requires a tiny patch for 2.0.x) */
         request_module("msp3400");
         request_module("tuner");

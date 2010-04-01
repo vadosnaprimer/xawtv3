@@ -10,9 +10,7 @@
 #define TRAP(txt) fprintf(stderr,"%s:%d:%s\n",__FILE__,__LINE__,txt);exit(1);
 
 extern int debug;
-#ifdef HAVE_LIBXXF86DGA
 extern int have_dga;
-#endif
 
 /* ------------------------------------------------------------------------- */
 

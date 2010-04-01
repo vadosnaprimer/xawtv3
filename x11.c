@@ -112,6 +112,10 @@ x11_init(Display *dpy)
 	    break;
 	}
     }
+    if (info->class == StaticGray) {
+	format = VIDEO_GRAY;
+	x11_pixmap_format = VIDEO_GRAY;
+    }
     if (0 == format) {
 	fprintf(stderr, "sorry, visual not supported\n");
 	exit(1);

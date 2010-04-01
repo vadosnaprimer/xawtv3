@@ -1,28 +1,27 @@
-#!/bin/sh
+#!/bin/bash
 
-# kill old ones...
-rm -f /dev/bttv*
+function makedev () {
 
+	for dev in 0 1 2 3; do
+		echo "/dev/$1$dev: char 81 $[ $2 + $dev ]"
+		rm -f /dev/$1$dev
+		mknod /dev/$1$dev c 81 $[ $2 + $dev ]
+	done
 
-# video
-mknod /dev/bttv0	c 81 0
-mknod /dev/bttv1	c 81 1
-mknod /dev/bttv2	c 81 2
-mknod /dev/bttv3	c 81 3
+	# symlink for default device
+	rm -f /dev/$1
+	ln -s /dev/${1}0 /dev/$1
+}
 
-# videotext
-mknod /dev/bttv-vbi0	c 81 224
-mknod /dev/bttv-vbi1	c 81 225
+# see http://roadrunner.swansea.uk.linux.org/v4lapi.shtml
 
-# radio
-mknod /dev/bttv-fm0	c 81 64
-mknod /dev/bttv-fm1	c 81 65
+echo "*** new device names ***"
+makedev video 0
+makedev radio 64
+makedev vtx 192
+makedev vbi 224
 
-
-# add some links...
-ln /dev/bttv0		/dev/bttv
-ln /dev/bttv-vbi0	/dev/bttv-vbi
-ln /dev/bttv-fm0	/dev/bttv-fm
-
-chmod 666 /dev/bttv*
-ls -Flag /dev/bttv*
+echo "*** old device names (for compatibility only) ***"
+makedev bttv 0
+makedev bttv-fm 64
+makedev bttv-vbi 224

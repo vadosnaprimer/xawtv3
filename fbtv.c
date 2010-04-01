@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <signal.h>
 #include <ctype.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/fb.h>
@@ -43,7 +44,7 @@ unsigned short ored[256], ogreen[256], oblue[256];
 struct fb_cmap cmap  = { 0, 256, red,  green,  blue };
 struct fb_cmap ocmap = { 0, 256, ored, ogreen, oblue };
 
-int x11_native_format,have_dga;
+int x11_native_format,have_dga=1;
 int debug,sig;
 int fs_width,fs_height,fs_xoff,fs_yoff,pix_width,pix_height;
 int ww,hh;
@@ -309,7 +310,6 @@ channel_menu()
     for (i = 0; i < count; i++) {
 	cmenu[i].nr      = i+1;
 	cmenu[i].str     = channels[i]->name;
-	channels[i]->freq = get_freq(channels[i]->channel) + channels[i]->fine;
 	if (channels[i]->key) {
 	    if (2 != sscanf(channels[i]->key,"%15[A-Za-z0-9_]+%31[A-Za-z0-9_]",
 			    ctrl,key))
@@ -462,7 +462,7 @@ grabber_init()
 int
 main(int argc, char *argv[])
 {
-    int             key,i,c,gray=0;
+    int             freq=0,key,i,c,gray=0;
     char            *line;
 
     if (NULL != (line = getenv("FRAMEBUFFER"))) {
@@ -519,8 +519,6 @@ main(int argc, char *argv[])
     grabber_init();
     read_config();
     set_freqtab(chan_tab);
-    defaults.channel = lookup_channel(defaults.cname);
-    defaults.freq    = get_freq(defaults.channel) + defaults.fine;
     channel_menu();
     if (have_mixer)
 	cur_volume = mixer_get_volume() * 65535/100;
@@ -541,7 +539,14 @@ main(int argc, char *argv[])
 
     for (;!sig;) {
 	clear();
-	printw("Framebuffer TV  -  %s\n",channels[cur_sender]->name);
+	if (cur_sender != -1) {
+	    printw("Framebuffer TV  -  %s\n",channels[cur_sender]->name);
+	} else {
+	    printw("Framebuffer TV  -  channel %s", tvtuner[cur_channel].name);
+	    if (cur_fine)
+		printw(" (%+d)",cur_fine);
+	    printw("  freq %.3f\n",(float)freq/16);
+	}
 	refresh();
 	switch (key = getch()) {
 	case 27: /* ESC */
@@ -577,13 +582,44 @@ main(int argc, char *argv[])
 	    snap(1);
 	    break;
 
-	case KEY_UP:
+	case 339 /* PgUp  --  is'nt in curses.h ??? */:
 	    cur_sender = (cur_sender+1)%count;
 	    set_channel(channels[cur_sender]);
 	    break;
-	case KEY_DOWN:
+	case 338 /* PgDown */:
 	    cur_sender = (cur_sender+count-1)%count;
 	    set_channel(channels[cur_sender]);
+	    break;
+
+	case KEY_UP:
+	    do {
+		cur_channel = (cur_channel+1) % CHAN_ENTRIES;
+	    } while (!tvtuner[cur_channel].freq[chan_tab]);
+	    cur_fine = 0;
+	    cur_sender = -1;
+	    freq = get_freq(cur_channel)+cur_fine;
+	    grabbers[grabber]->grab_tune(freq);
+	    break;
+	case KEY_DOWN:
+	    do {
+		cur_channel = (cur_channel+CHAN_ENTRIES-1) % CHAN_ENTRIES;
+	    } while (!tvtuner[cur_channel].freq[chan_tab]);
+	    cur_fine = 0;
+	    cur_sender = -1;
+	    freq = get_freq(cur_channel)+cur_fine;
+	    grabbers[grabber]->grab_tune(freq);
+	    break;
+	case KEY_LEFT:
+	    cur_fine--;
+	    cur_sender = -1;
+	    freq = get_freq(cur_channel)+cur_fine;
+	    grabbers[grabber]->grab_tune(freq);
+	    break;
+	case KEY_RIGHT:
+	    cur_fine++;
+	    cur_sender = -1;
+	    freq = get_freq(cur_channel)+cur_fine;
+	    grabbers[grabber]->grab_tune(freq);
 	    break;
 
 	case -1:

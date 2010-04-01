@@ -36,7 +36,7 @@ extern "C" {
 #include "module.h"
 
 /* here you can tune the device names */
-const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
+static const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
 
 #define DEBUG(x)
 //#define DEBUG(x) (x)
@@ -52,6 +52,9 @@ const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
 
 static int MEM_SIZE;
 static int MEM_SIZE_try[] = { 0x151000, 0x144000 };
+
+/* pass 0/1 by reference */
+static const int  one = 1, zero = 0;
 
 #define CF_422 0
 #define CF_411 1
@@ -343,7 +346,7 @@ void V4lGrabber::stop()
 
     if (mmap) {
 	while (grab_count > sync_count) {
-	    if (-1 == ioctl(fd_, VIDIOCSYNC, 0)) {
+	    if (-1 == ioctl(fd_, VIDIOCSYNC, (sync_count%2) ? &one:&zero)) {
 		perror("ioctl VIDIOCSYNC");
 		break;
 	    } else
@@ -362,7 +365,7 @@ int V4lGrabber::grab()
 
     if (mmap) {
 	fr = mem + ((sync_count % 2) ? MEM_SIZE : 0);
-	if (-1 == ioctl(fd_, VIDIOCSYNC, 0))
+	if (-1 == ioctl(fd_, VIDIOCSYNC, (sync_count%2) ? &one:&zero))
 	    perror("ioctl VIDIOCSYNC");
 	else
 	    sync_count++;

@@ -84,6 +84,15 @@ If you want to try xawtv without installing it, type...
 file).
 
 
+fbtv
+----
+
+TV program for the linux console.  Runs on top of a graphic framebuffer,
+tested with vesafb (check vger CVS) so far.  Shares config file
+($HOME/.xawtv) and keyboard shortcuts with xawtv.  Read the source code
+for details.
+
+
 set-tv
 ------
 
@@ -118,8 +127,8 @@ vic
 The grabber-bttv-0.5.6.cc file is a grabber driver for vic, works with
 plain bttv-0.5.6.  Up to 12 fps.
 
-There is newer version, grabber-video4linux.cc.  Requires the included
-modified bttv version or a kernel >= 2.1.94.  Handles up to 25 fps.
+There is newer version, grabber-video4linux.cc.  This one runs with newer
+bttv versions (0.5.7/8) and the current kernel code.
 
 Both versions are tested only with PAL.  The "large" picture size probably
 doest'nt work with NTSC.  
@@ -159,7 +168,7 @@ resources
 
 http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv		- xawtv       [me]
 http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv driver [Ralph]
-http://roadrunner.swansea.linux.org.uk/v4l.shtml	- video4linux [Alan]
+http://roadrunner.swansea.uk.linux.org/v4l.shtml	- video4linux [Alan]
 http://www-nrg.ee.lbl.gov/vic/				- vic
 http://www.kde.org					- KDE
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <strings.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -169,7 +170,11 @@ main(int argc, char *argv[])
     if (dpy) {
 	/* x11 */
 	fbuf.depth        = (wts.depth+7) & 0xf8;
+#ifdef HAVE_LIBXXF86DGA
 	fbuf.width        = (flags & XF86DGADirectPresent) ? width : wts.width;
+#else
+	fbuf.width        = wts.width;
+#endif
 	fbuf.height       = wts.height;
 	fbuf.bytesperline = fbuf.width * fbuf.depth/8;
     } else {

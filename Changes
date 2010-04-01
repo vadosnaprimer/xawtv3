@@ -1,3 +1,16 @@
+2.11 => 2.12
+============
+
+  * added support for 8 bit Servers:  Run the Server with StaticGray
+    visual (-cc 0x27 for XFree) -- and you should get a b/w TV picture.
+  * fixed a few configure-script and #ifdef bugs
+  * modified channel maps again -- hope I got the european map is ok now.
+    there is only one map: pal-europe.  This one should work for both
+    cable and broadcast.
+  * driver changes (capture code -- the SYNC ioctl takes the frame number
+    as argument now)
+
+
 2.10 => 2.11
 ============
 

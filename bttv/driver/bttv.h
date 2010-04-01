@@ -32,6 +32,7 @@
 #include "videodev.h"
 
 #define MAX_CLIPRECS	100
+#define MAX_GBUFFERS	2
 #define RISCMEM_LEN	(32744*2)
 
 /* maximum needed buffer size for extended VBI frame mode capturing */
@@ -115,11 +116,19 @@ struct bttv
 	struct gbuffer *egbuffers;
 	u16 gwidth, gheight, gfmt;
 	u32 *grisc;
+
 	unsigned long gro;
 	unsigned long gre;
 	unsigned long gro_next;
 	unsigned long gre_next;
-	char *fbuffer;
+
+        int grf,grf_next;  /* frame numbers in grab queue */
+        int frame_stat[MAX_GBUFFERS];
+#define GBUFFER_UNUSED       0
+#define GBUFFER_GRABBING     1
+#define GBUFFER_DONE         2
+
+        char *fbuffer;
 	int gmode;
 	int grabbing;
 	int lastgrab;

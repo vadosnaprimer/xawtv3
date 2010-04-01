@@ -74,11 +74,9 @@ char              *jpegfile;
 
 char              modename[64];
 char              *progname;
-#ifdef HAVE_LIBXXF86DGA
-int               have_dga;
-#endif
+int               have_dga = 0;
+int               have_vm = 0;
 #ifdef HAVE_LIBXXF86VM
-int               have_vm;
 int               vm_count;
 XF86VidModeModeInfo **vm_modelines;
 #endif
@@ -461,16 +459,25 @@ pixit()
 {
     Pixmap pix;
     char *data;
+    struct tm *tm;
+    time_t t;
 
     if (0 == pix_width || 0 == pix_height)
 	return;
 
     if (cur_sender != -1 && grabbers[grabber]->grab_scr) {
+#if 0
+	time(&t);
+	tm = localtime(&t);
+	strftime(title,128,"%H:%M  ",tm);
+	strcat(title,channels[cur_sender]->name);
+#else
+	strcpy(title,channels[cur_sender]->name);
+#endif
 	data = malloc(pix_width*pix_height*4);
 	if (NULL != grabbers[grabber]->grab_scr(data,pix_width,pix_height,1) &&
 	    0 != (pix = x11_create_pixmap(channels[cur_sender]->button,data,
-					  pix_width,pix_height,
-					  channels[cur_sender]->name))) {
+					  pix_width,pix_height,title))) {
 	    if (channels[cur_sender]->pixmap)
 		XFreePixmap(dpy,channels[cur_sender]->pixmap);
 	    channels[cur_sender]->pixmap = pix;
@@ -704,6 +711,7 @@ MyResize(XtPointer client_data)
     return TRUE;
 }
 
+#ifdef HAVE_LIBXXF86VM
 static void
 vidmode_timer(XtPointer clientData, XtIntervalId *id)
 {
@@ -727,6 +735,7 @@ set_vidmode(int nr)
 	XtAppAddTimeOut(app_context,VIDMODE_DELAY,vidmode_timer,NULL);
     }
 }
+#endif
 
 void
 FullScreenAction(Widget widget, XEvent *event,
@@ -734,7 +743,9 @@ FullScreenAction(Widget widget, XEvent *event,
 {
     static Dimension x,y,w,h;
     static int timeout,interval,prefer_blanking,allow_exposures;
+#ifdef HAVE_LIBXXF86VM
     static int vm_switched;
+#endif
 
     if (fs) {
 #ifdef HAVE_LIBXXF86VM
@@ -756,7 +767,7 @@ FullScreenAction(Widget widget, XEvent *event,
 	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
 	fs = 0;
     } else {
-	int vp_x, vp_y, vp_width, vp_height, i;
+	int vp_x, vp_y, vp_width, vp_height;
 
 	vp_x = 0;
 	vp_y = 0;
@@ -764,6 +775,7 @@ FullScreenAction(Widget widget, XEvent *event,
 	vp_height = sheight;
 #ifdef HAVE_LIBXXF86VM
 	if (have_vm) {
+	    int i;
 	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
 				       &vm_count,&vm_modelines);
 	    for (i = 0; i < vm_count; i++)
@@ -892,7 +904,6 @@ channel_menu()
     for (i = 0; i < count; i++) {
 	cmenu[i].nr      = i+1;
 	cmenu[i].str     = channels[i]->name;
-	channels[i]->freq = get_freq(channels[i]->channel) + channels[i]->fine;
 	if (channels[i]->key) {
 	    if (2 == sscanf(channels[i]->key,"%15[A-Za-z0-9_]+%31[A-Za-z0-9_]",
 			    ctrl,key))
@@ -1393,8 +1404,9 @@ grabber_init()
 {
     int sw,sh;
     void *base = NULL;
+    int  width = 0;
 #ifdef HAVE_LIBXXF86DGA
-    int  width = 0,bar,fred;
+    int bar,fred;
 
     if (have_dga) {
 	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
@@ -1407,7 +1419,8 @@ grabber_init()
     for (grabber = 0; grabber < sizeof(grabbers)/sizeof(struct GRABBERS*);
 	 grabber++) {
 	if (-1 != grabbers[grabber]->grab_open
-	    (NULL,sw,sh,x11_native_format,x11_pixmap_format,base,width))
+	    (NULL,sw,sh,x11_native_format,x11_pixmap_format,base,
+	     width ? width : sw))
 	    break;
     }
     if (grabber == sizeof(grabbers)/sizeof(struct GRABBERS*)) {
@@ -1511,8 +1524,6 @@ int main(int argc, char *argv[])
     if (!noconf)
 	read_config();
     set_freqtab(chan_tab);
-    defaults.channel = lookup_channel(defaults.cname);
-    defaults.freq    = get_freq(defaults.channel) + defaults.fine;
     channel_menu();
     if (have_mixer)
 	cur_volume = mixer_get_volume() * 65535/100;
