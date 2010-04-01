@@ -46,6 +46,7 @@ int     dontdetach     = 0;
 int     timeout        = 60;
 int     keepalive_time = 5;
 int     tcp_port       = 0;
+int     ascii_art      = 0;
 char    *listen_ip     = NULL;
 char    *listen_port   = "5654";
 char    server_host[256];
@@ -127,7 +128,8 @@ usage(char *name)
 	    "  -l log   write access log to file >log<      [%s]\n"
 	    "  -L log   same as above + flush every line\n"
             "  -r       poll tv frequency and clear cache\n"
-	    "           on station changes                  [%s]\n",
+	    "           on station changes                  [%s]\n"
+	    "  -a       use ascii art for block graphics    [%s]\n",
 	    h ? h+1 : name,
 	    ng_dev.vbi,
  	    debug     ?  "on" : "off",
@@ -138,7 +140,8 @@ usage(char *name)
 	    server_host,
 	    listen_ip ? listen_ip : "any",
 	    logfile ? logfile : "none",
-	    cachereset ?  "on" : "off");
+	    cachereset ?  "on" : "off",
+	    ascii_art ? "on" : "off");
     if (getuid() == 0) {
 	pw = getpwuid(0);
 	gr = getgrgid(getgid());
@@ -559,7 +562,7 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc,argv,"69hsdFrp:n:i:t:c:u:g:l:L:v:")))
+	if (-1 == (c = getopt(argc,argv,"69hasdFrp:n:i:t:c:u:g:l:L:v:")))
 	    break;
 	switch (c) {
 	case 'h':
@@ -570,6 +573,9 @@ main(int argc, char *argv[])
 	    break;
 	case '9':
 	    bttv = 1;
+	    break;
+	case 'a':
+	    ascii_art++;
 	    break;
 	case 's':
 	    usesyslog++;

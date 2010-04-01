@@ -2699,7 +2699,8 @@ void IpcAction(Widget widget, XEvent *event, String *argv, Cardinal *argc)
 
 Widget levels_left, levels_right;
 XtInputId levels_id;
-void *levels_oss;
+const struct ng_dsp_driver *levels_dsp;
+void *levels_hdsp;
 
 static void
 levels_input(XtPointer clientdata, int *src, XtInputId *id)
@@ -2707,7 +2708,7 @@ levels_input(XtPointer clientdata, int *src, XtInputId *id)
     struct ng_audio_buf *buf;
     int left, right;
 
-    buf = oss_read(levels_oss,0);
+    buf = levels_dsp->read(levels_hdsp,0);
     oss_levels(buf,&left,&right);
     XmScaleSetValue(levels_left,left);
     XmScaleSetValue(levels_right,right);
@@ -2724,25 +2725,26 @@ levels_toggle_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     if (tb->reason != XmCR_VALUE_CHANGED)
 	return;
 
-    if (tb->set  &&  NULL == levels_oss) {
+    if (tb->set  &&  NULL == levels_dsp) {
 	/* enable */
 	a.fmtid = AUDIO_U8_STEREO;
 	a.rate  = 44100;
-	levels_oss = oss_open(args.dspdev,&a);
-	if (levels_oss) {
-	    oss_startrec(levels_oss);
-	    levels_id  = XtAppAddInput(app_context,oss_fd(levels_oss),
+	levels_dsp = ng_dsp_open(args.dspdev,&a,&levels_hdsp);
+	if (levels_dsp) {
+	    levels_dsp->startrec(levels_hdsp);
+	    levels_id  = XtAppAddInput(app_context,levels_dsp->fd(levels_hdsp),
 				       (XtPointer)XtInputReadMask,
 				       levels_input,NULL);
 	    if (debug)
 		fprintf(stderr,"levels: started sound monitor\n");
 	}
     }
-    if (!tb->set  &&  NULL != levels_oss) {
+    if (!tb->set  &&  NULL != levels_hdsp) {
 	/* disable */
 	XtRemoveInput(levels_id);
-	oss_close(levels_oss);
-	levels_oss = NULL;
+	levels_dsp->close(levels_hdsp);
+	levels_dsp = NULL;
+	levels_hdsp = NULL;
 	XmScaleSetValue(levels_left,0);
 	XmScaleSetValue(levels_right,0);
 	if (debug)
@@ -3012,7 +3014,7 @@ main(int argc, char *argv[])
 	struct ng_attribute *attr;
 	if (debug)
 	    fprintf(stderr,"main: open mixer device...\n");
-	if (NULL != (attr = mixer_open(mixerdev,mixerctl)))
+	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
 	    add_attrs(attr);
     }
     init_movie_menus();

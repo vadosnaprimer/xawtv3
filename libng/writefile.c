@@ -581,7 +581,7 @@ static const struct ng_format_list wav_aformats[] = {
     }
 };
 
-const struct ng_writer files_writer = {
+struct ng_writer files_writer = {
     name:      "files",
     desc:      "multiple image files",
     video:     files_vformats,
@@ -592,7 +592,7 @@ const struct ng_writer files_writer = {
     wr_close:  files_close,
 };
 
-const struct ng_writer raw_writer = {
+struct ng_writer raw_writer = {
     name:      "raw",
     desc:      "single file, raw video data",
     video:     raw_vformats,
@@ -602,3 +602,12 @@ const struct ng_writer raw_writer = {
     wr_audio:  raw_audio,
     wr_close:  raw_close,
 };
+
+/* ------------------------------------------------------------------- */
+
+void
+ng_writefile_init(void)
+{
+    ng_writer_register(&files_writer);
+    ng_writer_register(&raw_writer);
+}

@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <ncurses.h>
+#include <curses.h>
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>

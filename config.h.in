@@ -18,6 +18,9 @@
 /* ipv6 struct sockaddr_storage */
 #undef HAVE_SOCKADDR_STORAGE
 
+/* Define if you have the dlopen function.  */
+#undef HAVE_DLOPEN
+
 /* Define if you have the fseeko function.  */
 #undef HAVE_FSEEKO
 
@@ -36,6 +39,9 @@
 /* Define if you have the <alsa/asoundlib.h> header file.  */
 #undef HAVE_ALSA_ASOUNDLIB_H
 
+/* Define if you have the <dev/ic/bt8xx.h> header file.  */
+#undef HAVE_DEV_IC_BT8XX_H
+
 /* Define if you have the <endian.h> header file.  */
 #undef HAVE_ENDIAN_H
 
@@ -44,6 +50,9 @@
 
 /* Define if you have the <linux/joystick.h> header file.  */
 #undef HAVE_LINUX_JOYSTICK_H
+
+/* Define if you have the <machine/ioctl_bt848.h> header file.  */
+#undef HAVE_MACHINE_IOCTL_BT848_H
 
 /* Define if you have the <soundcard.h> header file.  */
 #undef HAVE_SOUNDCARD_H

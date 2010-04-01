@@ -72,11 +72,11 @@ static void setpixel4(void *ptr, unsigned int color)
     *p = color;
 }
 
-int fs_init_fb()
+int fs_init_fb(int white8)
 {
     switch (fb_var.bits_per_pixel) {
     case 8:
-	white = 15; black = 0; bpp = 1;
+	white = white8; black = 0; bpp = 1;
 	setpixel = setpixel1;
 	break;
     case 15:
@@ -367,6 +367,7 @@ struct fs_font* fs_consolefont(char **filename)
 	fprintf(stderr,"can't use font %s\n",filename[i]);
 	return NULL;
     }
+    fprintf(stderr,"using linux console font \"%s\"\n",filename[i]);
 
     f = malloc(sizeof(*f));
     memset(f,0,sizeof(*f));
@@ -396,7 +397,6 @@ struct fs_font* fs_consolefont(char **filename)
 	f->eindex[i]->descent = 0;
 	f->eindex[i]->ascent  = f->height;
     }
-    fprintf(stderr,"using linux console font \"%s\"\n",filename[i]);
     return f;
 }
 

@@ -56,6 +56,7 @@ struct REQUEST {
 
 extern int    debug;
 extern int    tcp_port;
+extern int    ascii_art;
 extern char   *server_name;
 extern char   server_host[];
 extern time_t now,start;

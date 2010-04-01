@@ -24,14 +24,10 @@
 # include <endian.h>
 #endif
 
-#include "grab-ng.h"
-
-#ifndef __linux__
-struct ng_driver v4l2_driver;
-#else /* __linux__ */
-
 #include <asm/types.h>		/* XXX glibc */
 #include "videodev2.h"
+
+#include "grab-ng.h"
 
 /* ---------------------------------------------------------------------- */
 
@@ -109,7 +105,7 @@ struct v4l2_handle {
 
 /* ---------------------------------------------------------------------- */
 
-const struct ng_driver v4l2_driver = {
+struct ng_vid_driver v4l2_driver = {
     name:          "v4l2",
     open:          v4l2_open,
     close:         v4l2_close,
@@ -1286,11 +1282,10 @@ v4l2_getimage(void *handle)
     return buf;
 }
 
-#endif /* __linux__ */
+/* ---------------------------------------------------------------------- */
 
-/* --------------------------------------------------------------------- */
-/*
- * Local variables:
- * compile-command: "(cd ..; make)"
- * End:
- */
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
+{
+    ng_vid_driver_register(&v4l2_driver);
+}

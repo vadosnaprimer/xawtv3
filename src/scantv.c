@@ -42,7 +42,7 @@ char scratch[1024*256];
 static void
 grabber_init(void)
 {
-    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -159,13 +159,23 @@ menu(char *intro, struct STRTAB *tab, char *opt)
 }
 
 static void
-usage(FILE *out, char *prog)
+usage(FILE *out, char *prog, char *outfile)
 {
     fprintf(out,
 	    "This tool scan for tv stations and writes "
 	    "a initial xawtv config file.\n"
-	    "usage: %s outfile\n",
-	    prog);
+	    "usage: %s [ options ]\n"
+	    "options:\n"
+	    "   -h           print this text\n"
+	    "   -o outfile   set output file.        [%s]\n"
+	    "   -n norm      set tv norm.\n"
+	    "   -f table     set frequency table.\n"
+	    "   -c device    set video device file.  [%s]\n"
+	    "   -C device    set vbi device file.    [%s]\n"
+	    "   -s           skip channel scan\n",
+	    prog,
+	    outfile ? outfile : "stdout",
+	    ng_dev.video,ng_dev.vbi);
 }
 
 int
@@ -183,6 +193,7 @@ main(int argc, char **argv)
     setprgname(argv[0]);
 
     /* parse options */
+    ng_init();
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "hsdn:f:o:c:C:")))
 	    break;
@@ -209,10 +220,10 @@ main(int argc, char **argv)
 	    ng_dev.vbi = optarg;
 	    break;
 	case 'h':
-	    usage(stdout,argv[0]);
+	    usage(stdout,argv[0],outfile);
 	    exit(0);
 	default:
-	    usage(stderr,argv[0]);
+	    usage(stderr,argv[0],outfile);
 	    exit(1);
 	}
     }

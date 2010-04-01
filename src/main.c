@@ -7,6 +7,8 @@
 
 #define _GNU_SOURCE
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,8 +25,6 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#include "config.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -1661,7 +1661,7 @@ main(int argc, char *argv[])
 	struct ng_attribute *attr;
 	if (debug)
 	    fprintf(stderr,"main: open mixer device...\n");
-	if (NULL != (attr = mixer_open(mixerdev,mixerctl)))
+	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
 	    add_attrs(attr);
     }
     init_movie_menus();

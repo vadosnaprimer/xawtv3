@@ -36,23 +36,23 @@ AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 dnl ---------------------------------------------------------------------
 dnl do some OS specific stuff here
 
-NG_GRAB=""
 VBIFLAGS=""
 PROGS=""
 INST=""
 RADIO=""
+PLUGINS=""
 case "`uname -s`" in
 	Linux)
-		NG_GRAB="grab-v4l.o grab-v4l2.o"
+		PLUGINS="drv0-v4l2.so drv1-v4l.so snd-oss.so"
 		PROGS="v4l-conf fbtv"
 		INST="install-v4l-conf install-fbtv"
 		RADIO="radio"
 		;;
-	OpenBSD | FreeBSD)
+	OpenBSD | FreeBSD | NetBSD)
 		# *BSD has important stuff (from ports) in
 		# /usr/local ...
 		CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
-		NG_GRAB="grab-bsd.o"
+		PLUGINS="drv0-bsd.so snd-oss.so"
 		VBIFLAGS="-DBSD"
 		;;
 	*)
@@ -60,19 +60,32 @@ case "`uname -s`" in
 		AC_MSG_RESULT(maybe)
 		;;
 esac
-AC_SUBST(NG_GRAB)
 AC_SUBST(VBIFLAGS)
 AC_SUBST(PROGS)
 AC_SUBST(INST)
 AC_SUBST(RADIO)
+AC_SUBST(PLUGINS)
 
 
 dnl ---------------------------------------------------------------------
 dnl Checks for functions
 
-AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long)
 AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
-AC_CHECK_HEADERS(endian.h getopt.h soundcard.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h)
+AC_CHECK_HEADERS(endian.h getopt.h soundcard.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
+AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long dlopen)
+
+AC_SUBST(DLFLAGS)
+DLFLAGS=""
+if test "$ac_cv_func_dlopen" = "no"; then
+  AC_CHECK_LIB(dl,dlopen, [ DLFLAGS="-ldl" ] )
+fi
+AC_MSG_CHECKING(for ELF)
+if test -z "`echo __ELF__ | $CC -E - | grep __ELF__`"; then
+  AC_MSG_RESULT(yes)
+  DLFLAGS="$DLFLAGS -Wl,-E"
+else
+  AC_MSG_RESULT(no)
+fi
 
 AC_CHECK_LIB(pthread,pthread_create,LIBPTHREAD="-lpthread")
 if test "$LIBPTHREAD" = ""; then
@@ -121,9 +134,7 @@ AC_SUBST(FSLIB)
 AC_SUBST(SUBS)
 AC_SUBST(TOOLS)
 
-AC_SUBST(GFXLIBS)
-GFXLIBS="";
-AC_CHECK_LIB(jpeg, jpeg_start_compress, GFXLIBS="-ljpeg"; JPEG="found",,)
+AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then
     echo "Oops:	jpeg library not found.  You need this one, please install."
     echo "Note:	to compile stuff just the library packages are not enougth,"
@@ -149,18 +160,26 @@ else
     echo "*** lirc disabled"
 fi
 
+AC_SUBST(AALIBS)
+AALIBS=""
 if test "$enable_aa" != "no"; then
     AC_CHECK_LIB(aa,aa_autoinit,
-	[ PROGS="$PROGS ttv"; INST="$INST install-ttv" ],,)
+	[ PROGS="$PROGS ttv"; INST="$INST install-ttv"; AA="found" ],,)
+    if test "$AA" = "found"; then
+        AALIBS=-laa
+        if test -x "`which aalib-config 2>/dev/null`"; then
+            AALIBS=`aalib-config --libs`
+        fi
+    fi
 else
     echo "*** aalib support disabled"
 fi
 
 if test "$enable_quicktime" != "no"; then
-    AC_CHECK_LIB(png, png_read_info, GFXLIBS="-lpng -lz -lm $GFXLIBS"; PNG="found")
+    AC_CHECK_LIB(png, png_read_info, PNG="found")
     if test "$PNG" = "found"; then
 	AC_CHECK_LIB(quicktime, quicktime_open,
-		GFXLIBS="-lquicktime -ldl -lglib $GFXLIBS";AC_DEFINE(HAVE_LIBQUICKTIME),,
+		QUICKTIME="found";AC_DEFINE(HAVE_LIBQUICKTIME),,
 		-ldl -lglib -ljpeg -lpng $LIBPTHREAD)
     else
 	echo "*** libpng not found: no quicktime support, sorry"
@@ -168,6 +187,13 @@ if test "$enable_quicktime" != "no"; then
 else
     echo "*** quicktime disabled"
 fi
+if test "$QUICKTIME" = "found"; then
+    QTLIBS="-lquicktime -ldl -lglib -lpng -lz -lm" 
+    PLUGINS="$PLUGINS write-qt.so"
+else
+    QTLIBS=""
+fi
+AC_SUBST(QTLIBS)
 
 if test "$enable_xfree_ext" != "no"; then
     AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 

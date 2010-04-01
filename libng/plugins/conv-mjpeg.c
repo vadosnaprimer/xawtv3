@@ -396,8 +396,8 @@ static struct ng_video_conv mjpg_list[] = {
 };
 static const int nconv = sizeof(mjpg_list)/sizeof(struct ng_video_conv);
 
-void
-ng_mjpg_init(void)
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
 {
     ng_conv_register(mjpg_list,nconv);
 }

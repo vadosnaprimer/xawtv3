@@ -7,13 +7,15 @@
 <b>about the alevt http daemon</b>
 <p>
 This daemon serves videotext pages as HTML.&nbsp; The vbi decoder is
-taken from <a href="http://user.exit.de/froese/">alevt
-1.5.1</a>.&nbsp; Source code of this deamon comes with <a
-href="http://www.strusel007.de/linux/xawtv/">xawtv</a>.
+taken from <a href="http://lecker.essen.de/~froese/">alevt
+1.6.0</a>.&nbsp; Source code of this deamon comes with <a
+href="http://bytesex.org/xawtv/">xawtv</a>.
 <p>
-&copy; 1999-2000 Gerd Knorr &lt;kraxel@goldbach.in-berlin.de&gt; [http server]
+&copy; 1999-2002 Gerd Knorr &lt;kraxel@goldbach.in-berlin.de&gt; [http server]
 <br>
 &copy; 1998-2000 Edgar Toernig &lt;froese@gmx.de&gt; [vbi decoding, alevt]
+<br>
+misc patches by several other hackers.
 <hr noshade size=1>
 <a href="/100/">100</a> &nbsp;
 <a href="/200/">200</a> &nbsp;

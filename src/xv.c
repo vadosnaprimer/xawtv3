@@ -47,7 +47,7 @@ int               have_xv;
 int               im_adaptor = -1, im_port = -1;
 unsigned int      im_formats[VIDEO_FMT_COUNT];
 
-const struct ng_driver xv_driver;
+const struct ng_vid_driver xv_driver;
 
 static int              ver, rel, req, ev, err;
 static int              adaptors;
@@ -693,7 +693,7 @@ init_icon_window(Widget shell,WidgetClass class)
 
 /* ********************************************************************* */
 
-const struct ng_driver xv_driver = {
+const struct ng_vid_driver xv_driver = {
     name:          "Xvideo",
     close:         xv_close,
 

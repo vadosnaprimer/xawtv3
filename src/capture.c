@@ -406,7 +406,8 @@ struct movie_handle {
     pthread_t                 tconv[MAX_THREADS];
 
     /* audio */
-    void                      *sndhandle;
+    const struct ng_dsp_driver *dsp;
+    void                      *hdsp;
     struct ng_audio_fmt       afmt;
     unsigned long             bytes_per_sec;
     unsigned long             bytes;
@@ -501,7 +502,7 @@ record_audio_thread(void *arg)
     if (debug)
 	fprintf(stderr,"record_audio_thread start [pid=%d]\n",getpid());
     for (;;) {
-	buf = oss_read(h->sndhandle,h->stopby);
+	buf = h->dsp->read(h->hdsp,h->stopby);
 	if (NULL == buf)
 	    break;
 	if (0 == buf->size)
@@ -540,8 +541,8 @@ movie_writer_init(char *moviename, char *audioname,
 
     /* audio */
     if (audio->fmtid != AUDIO_NONE) {
-	h->sndhandle = oss_open(dsp,audio);
-	if (NULL == h->sndhandle) {
+	h->dsp = ng_dsp_open(dsp,audio,&h->hdsp);
+	if (NULL == h->dsp) {
 	    free(h);
 	    return NULL;
 	}
@@ -563,7 +564,7 @@ movie_writer_init(char *moviename, char *audioname,
 	    struct ng_video_fmt gfmt = *video;
 	    if (NULL == (conv = ng_grabber_findconv(&gfmt,1))) {
 		if (h->afmt.fmtid != AUDIO_NONE)
-		    oss_close(h->sndhandle);
+		    h->dsp->close(h->hdsp);
 		free(h);
 		return NULL;
 	    }
@@ -600,7 +601,7 @@ movie_writer_init(char *moviename, char *audioname,
     if (h->afmt.fmtid != AUDIO_NONE) {
 	pthread_cancel(h->taudio);
 	pthread_join(h->taudio,&dummy);
-	oss_close(h->sndhandle);
+	h->dsp->close(h->hdsp);
     }
     if (h->vfmt.fmtid != VIDEO_NONE) {
 	pthread_cancel(h->tvideo);
@@ -623,7 +624,7 @@ movie_writer_start(struct movie_handle *h)
 	fprintf(stderr,"movie_writer_start\n");
     h->start = ng_get_timestamp();
     if (h->afmt.fmtid != AUDIO_NONE)
-	if (0 != oss_startrec(h->sndhandle))
+	if (0 != h->dsp->startrec(h->hdsp))
 	    rc = -1;
     if (h->vfmt.fmtid != VIDEO_NONE)
 	if (0 != drv->startvideo(h_drv,h->fps,h->slots))
@@ -682,7 +683,7 @@ movie_writer_stop(struct movie_handle *h)
     /* close file */
     h->writer->wr_close(h->handle);
     if (h->afmt.fmtid != AUDIO_NONE)
-	oss_close(h->sndhandle);
+	h->dsp->close(h->hdsp);
     if (h->vfmt.fmtid != VIDEO_NONE)
 	drv->stopvideo(h_drv);
 

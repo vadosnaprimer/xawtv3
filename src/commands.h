@@ -46,7 +46,7 @@ extern struct ng_video_fmt x11_fmt;
 extern int cur_movie,cur_attrs[256];
 extern struct movie_parm m_parm;
 
-extern const struct ng_driver     *drv;
+extern const struct ng_vid_driver *drv;
 extern void                       *h_drv;
 extern int                         f_drv;
 

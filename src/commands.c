@@ -58,11 +58,11 @@ struct ng_video_fmt x11_fmt;
 int cur_movie,cur_attrs[256];
 
 /* current hardware driver */
-const struct ng_driver    *drv;
-void                      *h_drv;
-int                        f_drv;
+const struct ng_vid_driver  *drv;
+void                        *h_drv;
+int                          f_drv;
 
-struct ng_attribute       *attrs = NULL;
+struct ng_attribute         *attrs = NULL;
 
 
 /* ----------------------------------------------------------------------- */
@@ -507,7 +507,7 @@ set_defaults()
 
 /* ----------------------------------------------------------------------- */
 
-static char* strnstr(char *haystack, char *needle)
+static char* strcasestr(char *haystack, char *needle)
 {
     int hlen = strlen(haystack);
     int nlen = strlen(needle);
@@ -551,7 +551,7 @@ static int setstation_handler(char *name, int argc, char **argv)
 	/* ... next try substring matches ... */
 	if (i == count)
 	    for (i = 0; i < count; i++)
-		if (NULL != strnstr(channels[i]->name,argv[0]))
+		if (NULL != strcasestr(channels[i]->name,argv[0]))
 		    break;
 	/* ... next try using the argument as index ... */
 	if (i == count)

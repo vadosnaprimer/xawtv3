@@ -472,7 +472,7 @@ grabber_init(void)
     screen.width        = fb_var.xres_virtual;
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
-    drv = ng_grabber_open(ng_dev.video,&screen,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,&screen,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -616,7 +616,7 @@ main(int argc, char *argv[])
     fb_initcolors(fb,gray);
     fb_switch_init();
     switch_last = fb_switch_state;
-    fs_init_fb();
+    fs_init_fb(15);
 
     if (matrox)
 	if (-1 == gfx_init(fb))
@@ -628,7 +628,7 @@ main(int argc, char *argv[])
     read_config();
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
-	if (NULL != (attr = mixer_open(mixerdev,mixerctl)))
+	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
 	    add_attrs(attr);
     }
 

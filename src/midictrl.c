@@ -135,8 +135,8 @@ int midi_open(struct midi_handle *h, char *name)
 
     func = "snd_seq_open";
 #if SND_LIB_VERSION >= 0x000900
-    if ((rc = snd_seq_open(&h->seq, "hw", SND_SEQ_OPEN_INPUT,
-			   SND_SEQ_TYPE_HW)) < 0)
+    if ((rc = snd_seq_open(&h->seq, "default", SND_SEQ_OPEN_INPUT,
+			   SND_SEQ_NONBLOCK)) < 0)
 	goto err;
 #else
     if ((rc = snd_seq_open(&h->seq, SND_SEQ_OPEN_IN)) < 0)

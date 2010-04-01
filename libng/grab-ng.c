@@ -4,6 +4,8 @@
  * (c) 2001 Gerd Knorr <kraxel@bytesex.org>
  *
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,7 +13,6 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <fnmatch.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -19,7 +20,11 @@
 # include <endian.h>
 #endif
 
-#include "config.h"
+#include <dlfcn.h>
+#ifndef RTLD_NOW
+# define RTLD_NOW RTLD_LAZY
+#endif
+
 #include "grab-ng.h"
 
 int  ng_debug          = 0;
@@ -294,42 +299,89 @@ ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
 
 /* --------------------------------------------------------------------- */
 
-extern const struct ng_writer files_writer;
-extern const struct ng_writer raw_writer;
-extern const struct ng_writer avi_writer;
-#ifdef HAVE_LIBQUICKTIME
-extern const struct ng_writer qt_writer;
-#endif
+struct ng_video_conv  **ng_conv;
+struct ng_filter      **ng_filters;
+struct ng_writer      **ng_writers;
+struct ng_vid_driver  **ng_vid_drivers;
+struct ng_dsp_driver  **ng_dsp_drivers;
+struct ng_mix_driver  **ng_mix_drivers;
 
-const struct ng_writer *ng_writers[] = {
-    &files_writer,
-    &raw_writer,
-    &avi_writer,
-#ifdef HAVE_LIBQUICKTIME
-    &qt_writer,
+static void ng_register_listadd(void ***list, void *add)
+{
+    int n = 0;
+
+    if (*list)
+	for (n = 0; NULL != (*list)[n]; n++)
+	    /* nothing */;
+    *list = realloc(*list,sizeof(void*)*(n+2));
+    (*list)[n++] = add;
+    (*list)[n++] = NULL;
+}
+
+void
+ng_conv_register(struct ng_video_conv *list, int count)
+{
+    int n;
+    
+    for (n = 0; n < count; n++)
+	ng_register_listadd((void***)(&ng_conv),&list[n]);
+}
+
+void
+ng_filter_register(struct ng_filter *filter)
+{
+    ng_register_listadd((void***)(&ng_filters),filter);
+}
+
+void
+ng_writer_register(struct ng_writer *writer)
+{
+    ng_register_listadd((void***)(&ng_writers),writer);
+}
+
+void
+ng_vid_driver_register(struct ng_vid_driver *driver)
+{
+    ng_register_listadd((void***)(&ng_vid_drivers),driver);
+}
+
+void
+ng_dsp_driver_register(struct ng_dsp_driver *driver)
+{
+    ng_register_listadd((void***)(&ng_dsp_drivers),driver);
+}
+
+void
+ng_mix_driver_register(struct ng_mix_driver *driver)
+{
+    ng_register_listadd((void***)(&ng_mix_drivers),driver);
+}
+
+struct ng_video_conv*
+ng_conv_find(int out, int *i)
+{
+    struct ng_video_conv *ret = NULL;
+    
+    for (; ng_conv[*i] != NULL; (*i)++) {
+#if 1
+	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
+		ng_vfmt_to_desc[ng_conv[*i]->fmtid_in],
+		ng_vfmt_to_desc[ng_conv[*i]->fmtid_out]);
 #endif
-    NULL
-};
+	if (ng_conv[*i]->fmtid_out == out) {
+	    ret = ng_conv[*i];
+	    (*i)++;
+	    break;
+	}
+    }
+    return ret;
+}
 
 /* --------------------------------------------------------------------- */
 
-extern const struct ng_driver v4l_driver;
-extern const struct ng_driver v4l2_driver;
-extern const struct ng_driver bsd_driver;
-const struct ng_driver *ng_drivers[] = {
-#ifdef __linux__
-    &v4l2_driver,
-    &v4l_driver,
-#endif
-#if defined(__OpenBSD__) || defined(__FreeBSD__)
-    &bsd_driver,
-#endif
-    NULL
-};
-
-const struct ng_driver*
-ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
-		void **handle)
+const struct ng_vid_driver*
+ng_vid_open(char *device, struct ng_video_fmt *screen, void *base,
+	    void **handle)
 {
     int i;
 
@@ -350,25 +402,77 @@ ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
 #endif
 
     /* check all grabber drivers */
-    for (i = 0; NULL != ng_drivers[i]; i++) {
-	if (NULL == ng_drivers[i]->name)
-	    continue;
+    if (NULL == ng_vid_drivers)
+	return NULL;
+    for (i = 0; NULL != ng_vid_drivers[i]; i++) {
 	if (ng_debug)
-	    fprintf(stderr,"init: trying: %s... \n",ng_drivers[i]->name);
-	if (NULL != (*handle = ng_drivers[i]->open(device)))
+	    fprintf(stderr,"vid-open: trying: %s... \n",
+		    ng_vid_drivers[i]->name);
+	if (NULL != (*handle = ng_vid_drivers[i]->open(device)))
 	    break;
 	if (ng_debug)
-	    fprintf(stderr,"init: failed: %s\n",ng_drivers[i]->name);
+	    fprintf(stderr,"vid-open: failed: %s\n",ng_vid_drivers[i]->name);
     }
-    if (NULL == ng_drivers[i])
+    if (NULL == ng_vid_drivers[i])
 	return NULL;
     if (ng_debug)
-	fprintf(stderr,"init: ok: %s\n",ng_drivers[i]->name);
+	fprintf(stderr,"vid-open: ok: %s\n",ng_vid_drivers[i]->name);
     if (NULL != screen &&
-	ng_drivers[i]->capabilities(*handle) & CAN_OVERLAY) {
-	ng_drivers[i]->setupfb(*handle,screen,base);
+	ng_vid_drivers[i]->capabilities(*handle) & CAN_OVERLAY) {
+	ng_vid_drivers[i]->setupfb(*handle,screen,base);
     }
-    return ng_drivers[i];
+    return ng_vid_drivers[i];
+}
+
+const struct ng_dsp_driver*
+ng_dsp_open(char *device, struct ng_audio_fmt *fmt, void **handle)
+{
+    int i;
+    
+    /* check all dsp drivers */
+    if (NULL == ng_dsp_drivers)
+	return NULL;
+    for (i = 0; NULL != ng_dsp_drivers[i]; i++) {
+	if (NULL == ng_dsp_drivers[i]->name)
+	    continue;
+	if (ng_debug)
+	    fprintf(stderr,"dsp-open: trying: %s... \n",
+		    ng_dsp_drivers[i]->name);
+	if (NULL != (*handle = ng_dsp_drivers[i]->open(device,fmt)))
+	    break;
+	if (ng_debug)
+	    fprintf(stderr,"dsp-open: failed: %s\n",ng_dsp_drivers[i]->name);
+    }
+    if (NULL == ng_dsp_drivers[i])
+	return NULL;
+    if (ng_debug)
+	fprintf(stderr,"dsp-open: ok: %s\n",ng_dsp_drivers[i]->name);
+    return ng_dsp_drivers[i];
+}
+
+struct ng_attribute*
+ng_mix_init(char *device, char *channel)
+{
+    struct ng_attribute *attrs = NULL;
+    int i;
+    
+    /* check all mixer drivers */
+    if (NULL == ng_mix_drivers)
+	return NULL;
+    for (i = 0; NULL != ng_mix_drivers[i]; i++) {
+	if (NULL == ng_mix_drivers[i]->name)
+	    continue;
+	if (ng_debug)
+	    fprintf(stderr,"mix-init: trying: %s... \n",
+		    ng_mix_drivers[i]->name);
+	if (NULL != (attrs = ng_mix_drivers[i]->init(device,channel)))
+	    break;
+	if (ng_debug)
+	    fprintf(stderr,"mix-init: failed: %s\n",ng_mix_drivers[i]->name);
+    }
+    if (ng_debug && NULL != attrs)
+	fprintf(stderr,"mix-init: ok: %s\n",ng_mix_drivers[i]->name);
+    return attrs;
 }
 
 long long
@@ -387,73 +491,129 @@ ng_get_timestamp()
 
 /* --------------------------------------------------------------------- */
 
-static struct ng_video_conv *ng_conv;
-static int                  ng_nconv;
-
-void
-ng_conv_register(struct ng_video_conv *list, int count)
+static void clip_dump(char *state, struct OVERLAY_CLIP *oc, int count)
 {
-    int size = sizeof(struct ng_video_conv) * (ng_nconv + count);
+    int i;
 
-    ng_conv = realloc(ng_conv,size);
-    memcpy(ng_conv + ng_nconv,list,sizeof(struct ng_video_conv)*count);
-    ng_nconv += count;
+    fprintf(stderr,"clip: %s - %d clips\n",state,count);
+    for (i = 0; i < count; i++)
+	fprintf(stderr,"clip:   %d: %dx%d+%d+%d\n",i,
+		oc[i].x2 - oc[i].x1,
+		oc[i].y2 - oc[i].y1,
+		oc[i].x1, oc[i].y1);
 }
 
-struct ng_video_conv*
-ng_conv_find(int out, int *i)
+static void clip_drop(struct OVERLAY_CLIP *oc, int n, int *count)
 {
-    struct ng_video_conv *ret = NULL;
-    
-    for (; *i < ng_nconv; (*i)++) {
-#if 0
-	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
-		ng_vfmt_to_desc[ng_conv[*i].fmtid_in],
-		ng_vfmt_to_desc[ng_conv[*i].fmtid_out]);
-#endif
-	if (ng_conv[*i].fmtid_out == out) {
-	    ret = &ng_conv[*i];
-	    (*i)++;
-	    break;
+    (*count)--;
+    memmove(oc+n, oc+n+1, sizeof(struct OVERLAY_CLIP) * (*count-n));
+}
+
+void ng_check_clipping(int width, int height, int xadjust, int yadjust,
+		       struct OVERLAY_CLIP *oc, int *count)
+{
+    int i,j;
+
+    if (ng_debug > 1) {
+	fprintf(stderr,"clip: win=%dx%d xa=%d ya=%d\n",
+		width,height,xadjust,yadjust);
+	clip_dump("init",oc,*count);
+    }
+    for (i = 0; i < *count; i++) {
+	/* fixup coordinates */
+	oc[i].x1 += xadjust;
+	oc[i].x2 += xadjust;
+	oc[i].y1 += yadjust;
+	oc[i].y2 += yadjust;
+    }
+    if (ng_debug > 1)
+	clip_dump("fixup adjust",oc,*count);
+
+    for (i = 0; i < *count; i++) {
+	/* fixup borders */
+	if (oc[i].x1 < 0)
+	    oc[i].x1 = 0;
+	if (oc[i].x2 < 0)
+	    oc[i].x2 = 0;
+	if (oc[i].x1 > width)
+	    oc[i].x1 = width;
+	if (oc[i].x2 > width)
+	    oc[i].x2 = width;
+	if (oc[i].y1 < 0)
+	    oc[i].y1 = 0;
+	if (oc[i].y2 < 0)
+	    oc[i].y2 = 0;
+	if (oc[i].y1 > height)
+	    oc[i].y1 = height;
+	if (oc[i].y2 > height)
+	    oc[i].y2 = height;
+    }
+    if (ng_debug > 1)
+	clip_dump("fixup range",oc,*count);
+
+    /* drop zero-sized clips */
+    for (i = 0; i < *count;) {
+	if (oc[i].x1 == oc[i].x2 || oc[i].y1 == oc[i].y2) {
+	    clip_drop(oc,i,count);
+	    continue;
+	}
+	i++;
+    }
+    if (ng_debug > 1)
+	clip_dump("zerosize done",oc,*count);
+
+    /* try to merge clips */
+ restart_merge:
+    for (j = *count - 1; j >= 0; j--) {
+	for (i = 0; i < *count; i++) {
+	    if (i == j)
+		continue;
+	    if (oc[i].x1 == oc[j].x1 &&
+		oc[i].x2 == oc[j].x2 &&
+		oc[i].y1 <= oc[j].y1 &&
+		oc[i].y2 >= oc[j].y1) {
+		if (ng_debug > 1)
+		    fprintf(stderr,"clip: merge y %d,%d\n",i,j);
+		if (oc[i].y2 < oc[j].y2)
+		    oc[i].y2 = oc[j].y2;
+		clip_drop(oc,j,count);
+		if (ng_debug > 1)
+		    clip_dump("merge y done",oc,*count);
+		goto restart_merge;
+	    }
+	    if (oc[i].y1 == oc[j].y1 &&
+		oc[i].y2 == oc[j].y2 &&
+		oc[i].x1 <= oc[j].x1 &&
+		oc[i].x2 >= oc[j].x1) {
+		if (ng_debug > 1)
+		    fprintf(stderr,"clip: merge x %d,%d\n",i,j);
+		if (oc[i].x2 < oc[j].x2)
+		    oc[i].x2 = oc[j].x2;
+		clip_drop(oc,j,count);
+		if (ng_debug > 1)
+		    clip_dump("merge x done",oc,*count);
+		goto restart_merge;
+	    }
 	}
     }
-    return ret;
-}
-
-struct ng_filter **ng_filters;
-
-void
-ng_filter_register(struct ng_filter *list, int count)
-{
-    int n = 0;
-
-    if (ng_filters)
-	for (n = 0; NULL != ng_filters[n]; n++)
-	    /* nothing */;
-    ng_filters = realloc(ng_filters,sizeof(struct ng_filter*)*(n+count+1));
-    memcpy(ng_filters+n,&list,sizeof(struct ng_filter*)*count);
-    memset(ng_filters+n+count,0,sizeof(struct ng_filter*));
-
-#if 0 /* DEBUG */
-    for (n = 0; NULL != ng_filters[n]; n++)
-	fprintf(stderr,"%s\n",ng_filters[n]->name);
-    fprintf(stderr,"-- \n");
-#endif
+    if (ng_debug)
+	clip_dump("final",oc,*count);
 }
 
 /* --------------------------------------------------------------------- */
 
-static void ng_plugins(char *dirname)
+static int ng_plugins(char *dirname)
 {
     struct dirent *ent;
     char filename[1024];
     void *plugin;
     void (*initcall)(void);
     DIR *dir;
+    int n = 0;
 
     dir = opendir(dirname);
     if (NULL == dir)
-	return;
+	return n;
     while (NULL != (ent = readdir(dir))) {
 	if (0 != fnmatch("*.so",ent->d_name,0))
 	    continue;
@@ -463,12 +623,14 @@ static void ng_plugins(char *dirname)
 	    continue;
 	}
 	if (NULL == (initcall = dlsym(plugin,"ng_plugin_init"))) {
-	    fprintf(stderr,"dlsym: %s\n",dlerror());
+	    fprintf(stderr,"dlsym[%s]: %s\n",filename,dlerror());
 	    continue;
 	}
 	initcall();
+	n++;
     }
     closedir(dir);
+    return n;
 }
 
 void
@@ -483,9 +645,10 @@ ng_init(void)
     ng_device_init();
     ng_color_packed_init();
     ng_color_yuv2rgb_init();
-    ng_mjpg_init();
+    ng_writefile_init();
 
-    ng_plugins(LIBDIR);
+    if (0 == ng_plugins(LIBDIR))
+	ng_plugins("../libng/plugins");  /* nice for development */
 }
 
 /*

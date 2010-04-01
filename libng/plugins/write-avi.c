@@ -650,7 +650,7 @@ static const struct ng_format_list avi_aformats[] = {
     }
 };
 
-const struct ng_writer avi_writer = {
+struct ng_writer avi_writer = {
     name:      "avi",
     desc:      "Microsoft AVI (RIFF) format",
     combined:  1,
@@ -661,3 +661,9 @@ const struct ng_writer avi_writer = {
     wr_audio:  avi_audio,
     wr_close:  avi_close,
 };
+
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
+{
+    ng_writer_register(&avi_writer);
+}

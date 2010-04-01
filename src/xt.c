@@ -1146,7 +1146,7 @@ grabber_init()
     if (!do_overlay) {
 	if (debug)
 	    fprintf(stderr,"x11: remote display (overlay disabled)\n");
-	drv = ng_grabber_open(args.device, NULL, base, &h_drv);
+	drv = ng_vid_open(args.device, NULL, base, &h_drv);
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
@@ -1159,7 +1159,7 @@ grabber_init()
 		    screen.bytesperline,
 		    have_dga ? ", DGA"     : "",
 		    have_vm  ? ", VidMode" : "");
-	drv = ng_grabber_open(args.device, &screen, base, &h_drv);
+	drv = ng_vid_open(args.device, &screen, base, &h_drv);
     }
     if (NULL == drv) {
 	fprintf(stderr,"no video grabber device available\n");
@@ -1172,7 +1172,7 @@ grabber_init()
 void
 grabber_scan(void)
 {
-    const struct ng_driver  *driver;
+    const struct ng_vid_driver  *driver;
     void *handle;
     struct stat st;
     int n,i,fh,flags;
@@ -1193,7 +1193,7 @@ grabber_scan(void)
 	}
 	close(fh);
 
-	driver = ng_grabber_open(ng_dev.video_scan[i], NULL, NULL, &handle);
+	driver = ng_vid_open(ng_dev.video_scan[i], NULL, NULL, &handle);
 	if (NULL == driver) {
 	    fprintf(stderr,"%s: initialization failed\n",ng_dev.video_scan[i]);
 	    continue;

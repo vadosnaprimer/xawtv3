@@ -131,5 +131,5 @@ static struct ng_filter filter = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_filter_register(&filter,1);
+    ng_filter_register(&filter);
 }

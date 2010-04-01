@@ -3,8 +3,9 @@ VPATH=$(srcdir)
 
 include ../../Make.config
 
-CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I../.. -I..
-PLUGINS=nop.so invert.so
+CFLAGS=-g -fPIC @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I../.. -I..
+PLUGINS=flt-nop.so flt-invert.so conv-mjpeg.so write-avi.so \
+	@PLUGINS@
 
 all build: $(PLUGINS)
 
@@ -12,8 +13,11 @@ all build: $(PLUGINS)
 .o.so:
 	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $<
 
+write-qt.so: write-qt.o
+	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(QT_LIBS)
+
 clean:
-	rm -f $(PLUGINS) $(OBJS)
+	rm -f $(PLUGINS) *.o
 
 distclean realclean: clean
 	rm -f Makefile *~ *.bak

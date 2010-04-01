@@ -23,14 +23,9 @@
 # include <endian.h>
 #endif
 #include <pthread.h>
+#include <linux/videodev.h>
 
 #include "grab-ng.h"
-
-#ifndef __linux__
-const struct ng_driver v4l_driver;
-#else /* __linux__ */
-
-#include <linux/videodev.h>
 
 #define SYNC_TIMEOUT 3
 
@@ -176,7 +171,7 @@ struct v4l_handle {
     struct ng_video_buf      *buf_me;
 };
 
-const struct ng_driver v4l_driver = {
+struct ng_vid_driver v4l_driver = {
     name:          "v4l",
     open:          v4l_open,
     close:         v4l_close,
@@ -1262,9 +1257,10 @@ v4l_getimage(void *handle)
     }
 }
 
-#endif /* __linux__ */
-/*
- * Local variables:
- * compile-command: "(cd ..; make)"
- * End:
- */
+/* ---------------------------------------------------------------------- */
+
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
+{
+    ng_vid_driver_register(&v4l_driver);
+}

@@ -25,7 +25,8 @@ tmp  = uploading.jpeg
 passive = 1
 debug = 0
 auto = 0
-local= 0
+local = 0
+ssh = 0
 
 [grab]
 device = /dev/video0
@@ -77,6 +78,8 @@ the
 and
 .B file
 parameters) rather than ftped.
+.B ssh
+set to non-zero makes webcam use ssh instead of ftp.
 .P
 .B top, bottom, left,
 and 

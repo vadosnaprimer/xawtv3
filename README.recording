@@ -117,6 +117,17 @@ stuff using lav2yuv + mpeg2enc in a pipe.  The streamer help text
 (streamer -h) has a few examples.
 
 
+Large Files
+===========
+
+xawtv has LFS support, i.e. it can write files >2GB without problems.
+The AVI format has a 2GB limit.  There is a extention to overcome this
+[http://www.matrox.com/videoweb/news/press/papers/odmlff2.pdf], but not
+all applications can deal with it.  The quicktime format usually works
+better as there is the quicktime4linux library everybody uses to
+read/write *.mov files, thus there are less compatibility issues.
+
+
 Read, Convert, Edit + Playback stuff
 ====================================
 
@@ -128,7 +139,8 @@ avi format
  * Windows Media Player plays the uncompressed formats fine.
    mjpeg/jpeg work too if a codec is installed (/me has a very
    old one from MainConcept).
- * avifile can't deal with the uncompressed video correctly.
+ * avifile can't deal with the uncompressed video correctly
+   [fixed in recent versions].
    mjpeg/jpeg doesn't work either for me as it seems not to
    recognise the MainConcept codec, althought I've copied
    stuff to /usr/lib/win32.  Maybe it works with another

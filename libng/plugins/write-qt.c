@@ -271,7 +271,7 @@ static const struct ng_format_list qt_aformats[] = {
     }
 };
 
-const struct ng_writer qt_writer = {
+struct ng_writer qt_writer = {
     name:      "qt",
     desc:      "Apple QuickTime format",
     combined:  1,
@@ -282,5 +282,11 @@ const struct ng_writer qt_writer = {
     wr_audio:  qt_audio,
     wr_close:  qt_close,
 };
+
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
+{
+    ng_writer_register(&qt_writer);
+}
 
 #endif /* HAVE_LIBQUICKTIME */

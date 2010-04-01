@@ -24,14 +24,15 @@
 #endif
 #include <pthread.h>
 
+#ifdef HAVE_DEV_IC_BT8XX_H
+# include <dev/ic/bt8xx.h>
+#endif
+#ifdef HAVE_MACHINE_IOCTL_BT848_H
+# include <machine/ioctl_bt848.h>
+# include <machine/ioctl_meteor.h>
+#endif
+
 #include "grab-ng.h"
-
-#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
-struct ng_driver bsd_driver;
-#else /* BSD */
-
-#include <machine/ioctl_bt848.h>
-#include <machine/ioctl_meteor.h>
 
 /* ---------------------------------------------------------------------- */
 /* global variables                                                       */
@@ -98,7 +99,7 @@ static unsigned long bsd_getfreq(void *handle);
 static void bsd_setfreq(void *handle, unsigned long freq);
 static int bsd_tuned(void *handle);
 
-const struct ng_driver bsd_driver = {
+struct ng_vid_driver bsd_driver = {
     name:          "bktr",
     open:          bsd_open,
     close:         bsd_close,
@@ -800,4 +801,10 @@ static struct ng_video_buf* bsd_getimage(void *handle)
     return buf;
 }
 
-#endif /* BSD */
+/* ---------------------------------------------------------------------- */
+
+extern void ng_plugin_init(void);
+void ng_plugin_init(void)
+{
+    ng_vid_driver_register(&bsd_driver);
+}

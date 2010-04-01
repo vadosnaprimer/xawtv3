@@ -40,7 +40,37 @@ static char page_bottom[] =
 #include "bottom.html.h"
 ;
 
+/*                          01234567890123456789012345678901 */
+static char graphic1[32] = " °°¯·'²²·°°°-°°°.:::.;;;.}/}.÷/#";
+/*                          012345 6789 0123 456789012345678901 */
+static char graphic2[32] = ".:::.\\{{.\\||.\\÷#_:::.¿¿[.||].###";
+
 /* ---------------------------------------------------------------------- */
+
+/* fix bcd issues ... */
+static int calc_page(int pagenr, int offset)
+{
+    int result;
+    
+    result = pagenr + offset;
+    if (offset < 0) {
+	while ((result & 0x0f) > 0x09)
+	    result -= 0x01;
+	while ((result & 0xf0) > 0x90)
+	    result -= 0x10;
+	if (result < 0x100)
+	    result = 0x100;
+    }
+    if (offset > 0) {
+	while ((result & 0x0f) > 0x09)
+	    result += 0x01;
+	while ((result & 0xf0) > 0x90)
+	    result += 0x10;
+	if (result > 0x899)
+	    result = 0x899;
+    }
+    return result;
+}
 
 static void vbipage(struct REQUEST *req, struct vt_page *page,
 		    int pagenr, int subnr, int html)
@@ -76,8 +106,16 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 		    c.ch = '?';
 		    break;
 		default:
-		    if (c.attr & EA_GRAPHIC)
-			c.ch = '#';
+		    if (c.attr & EA_GRAPHIC) {
+			if (ascii_art) {
+			    if (!(c.ch & 128))
+				c.ch = graphic1[c.ch];
+			    else
+				c.ch = graphic2[c.ch-128];
+			} else {
+			    c.ch = '#';
+			}
+		    }
 		    break;
 		}
 		L[x] = c;
@@ -116,7 +154,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 		    lcolor = color;
 		}
 
-		/* check for refences to other pages */
+		/* check for references to other pages */
 		if (html && y > 0 && -1 == link && x < W-2 &&
 		    isdigit(L[x].ch) &&
 		    isdigit(L[x+1].ch) &&
@@ -141,9 +179,37 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 				   page->pgno-1);
 		    link = 1;
 		}
-		/* check for refences to other subpages */
+
+		/* check for references to WWW pages */
+		if (html && y > 0 && -1 == link && x < W-9 &&
+		    (((tolower(L[x+0].ch) == 'w') &&
+		      (tolower(L[x+1].ch) == 'w') &&
+		      (tolower(L[x+2].ch) == 'w') &&
+		      (L[x+3].ch == '.')) ||
+		     ((tolower(L[x+0].ch) == 'h') &&
+		      (tolower(L[x+1].ch) == 't') &&
+		      (tolower(L[x+2].ch) == 't') &&
+		      (tolower(L[x+3].ch) == 'p')))) {
+		    int offs = 0;
+
+		    len += sprintf(out+len,"<a href=\"");
+		    if(tolower(L[x].ch == 'w'))
+			len += sprintf(out+len,"http://");
+		    while ((L[x+offs].ch!=' ') && (x+offs < W)) {
+			len += sprintf(out+len,"%c",tolower(L[x+offs].ch));
+			offs++;
+		    }
+		    while ( (*(out+len-1)<'a') || (*(out+len-1)>'z') ) {
+			len--;
+			offs--;
+		    }
+		    len += sprintf(out+len,"\">");
+		    link = offs - 1;
+		}
+
+		/* check for references to other subpages */
 		if (html && y > 0 && -1 == link && x < W-2 &&
-		    page->subno > 0 && 
+		    page->subno > 0 &&
 		    isdigit(L[x].ch) &&
 		    '/' == L[x+1].ch &&
 		    isdigit(L[x+2].ch) &&
@@ -187,7 +253,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 	                link=1;
 		    }
 		}
-		out[len++] = L[x].ch;
+	        out[len++] = L[x].ch;
 	    }
 	    /* close any tags + put newline */
 	    if (html && link >= 0)
@@ -206,7 +272,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
     if (html) {
 #define MAXSUBPAGES    32
         int subpage;
-	
+
 	/* close preformatted text header */
 	len+=sprintf(out+len,"</pre>\n<div class=quick>\n") ;
 	if (vbi->cache->op->get(vbi->cache,pagenr,1)) {
@@ -224,6 +290,19 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 	    }
 	    len += sprintf(out+len,"<br>\n") ;
 	}
+	len += sprintf(out+len,"<a href=\"/%03x/\"><<</a> &nbsp;",
+		       calc_page(pagenr, -0x10));
+	len += sprintf(out+len,"<a href=\"/%03x/\"><</a> &nbsp;",
+		       calc_page(pagenr, -0x01));
+	if (!subnr)
+	    len += sprintf(out+len,"<a href=\"/%03x/\">o</a> &nbsp;", pagenr);
+	else
+	    len += sprintf(out+len,"<a href=\"/%03x/%02x.html\">o</a> &nbsp;", pagenr, subnr);
+	len += sprintf(out+len,"<a href=\"/%03x/\">></a> &nbsp;",
+		       calc_page(pagenr, +0x01));
+	len += sprintf(out+len,"<a href=\"/%03x/\">>></a>",
+		       calc_page(pagenr, +0x10));
+	len += sprintf(out+len,"<br>\n") ;
 	len += sprintf(out+len,"%s",page_bottom);
 	req->mime = "text/html; charset=\"iso-8859-1\"";
     } else {

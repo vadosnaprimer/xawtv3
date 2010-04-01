@@ -221,7 +221,7 @@ void ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
 /* --------------------------------------------------------------------- */
 /* capture/overlay interface driver                                      */
 
-struct ng_driver {
+struct ng_vid_driver {
     const char *name;
 
     /* open/close */
@@ -249,6 +249,24 @@ struct ng_driver {
     unsigned long (*getfreq)(void *handle);
     void  (*setfreq)(void *handle, unsigned long freq);
     int   (*is_tuned)(void *handle);
+};
+
+
+/* --------------------------------------------------------------------- */
+/* sound driver                                                          */
+
+struct ng_dsp_driver {
+    const char            *name;
+    void*                 (*open)(char *device, struct ng_audio_fmt *fmt);
+    void                  (*close)(void *handle);
+    int                   (*fd)(void *handle);
+    int                   (*startrec)(void *handle);
+    struct ng_audio_buf*  (*read)(void *handle, long long stopby);
+};
+
+struct ng_mix_driver {
+    const char            *name;
+    struct ng_attribute*  (*init)(char *device, char *channel);
 };
 
 
@@ -281,19 +299,33 @@ struct ng_filter {
 
 /* --------------------------------------------------------------------- */
 
-extern const struct ng_driver *ng_drivers[];
-extern const struct ng_writer *ng_writers[];
-extern struct ng_filter **ng_filters;
+extern struct ng_video_conv  **ng_conv;
+extern struct ng_filter      **ng_filters;
+extern struct ng_writer      **ng_writers;
+extern struct ng_vid_driver  **ng_vid_drivers;
+extern struct ng_dsp_driver  **ng_dsp_drivers;
+extern struct ng_mix_driver  **ng_mix_drivers;
 
 void ng_conv_register(struct ng_video_conv *list, int count);
+void ng_filter_register(struct ng_filter *filter);
+void ng_writer_register(struct ng_writer *writer);
+void ng_vid_driver_register(struct ng_vid_driver *driver);
+void ng_dsp_driver_register(struct ng_dsp_driver *driver);
+void ng_mix_driver_register(struct ng_mix_driver *driver);
+
 struct ng_video_conv* ng_conv_find(int out, int *i);
 
-void ng_filter_register(struct ng_filter *list, int count);
+const struct ng_vid_driver*
+ng_vid_open(char *device, struct ng_video_fmt *screen,
+	    void *base, void **handle);
+const struct ng_dsp_driver*
+ng_dsp_open(char *device, struct ng_audio_fmt *fmt, void **handle);
+struct ng_attribute*
+ng_mix_init(char *device, char *channel);
 
-const struct ng_driver*
-ng_grabber_open(char *device, struct ng_video_fmt *screen,
-		void *base, void **handle);
 long long ng_get_timestamp(void);
+void ng_check_clipping(int width, int height, int xadjust, int yadjust,
+		       struct OVERLAY_CLIP *oc, int *count);
 
 /* --------------------------------------------------------------------- */
 
@@ -309,7 +341,7 @@ void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 /* init functions */
 void ng_color_packed_init(void);
 void ng_color_yuv2rgb_init(void);
-void ng_mjpg_init(void);
+void ng_writefile_init(void);
 
 /* for yuv2rgb using lookup tables (color_lut.c, color_yuv2rgb.c) */
 unsigned long   ng_lut_red[256];
@@ -337,10 +369,6 @@ void  ng_conv_nop_fini(void *handle);
 	init:           ng_packed_init,		\
 	frame:          ng_packed_frame,       	\
 	fini:           ng_conv_nop_fini
-
-/* clipping.c stuff */
-void ng_check_clipping(int width, int height, int xadjust, int yadjust,
-		       struct OVERLAY_CLIP *oc, int *count);
 
 #endif /* NG_PRIVATE */
 

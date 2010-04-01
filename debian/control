@@ -8,7 +8,7 @@ Standards-Version: 3.5.2
 Package: xawtv
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.
@@ -18,7 +18,7 @@ Description: X11 TV application
 
 Package: fbtv
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf
+Depends: ${shlibs:Depends}, v4l-conf, xawtv-plugins
 Suggests: xawtv
 Description: linux console (fbcon) TV application
  TV application for the linux console, requires a
@@ -27,7 +27,7 @@ Description: linux console (fbcon) TV application
 
 Package: ttv
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, xawtv-plugins
 Suggests: xawtv
 Description: tty TV application
  TV application for terminals, based on aalib.
@@ -35,7 +35,7 @@ Description: tty TV application
 
 Package: scantv
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, xawtv-plugins
 Replaces: xawtv (<< 3.53)
 Description: scan TV channels for stations
  This utility can scan a channel set for TV stations
@@ -45,7 +45,7 @@ Description: scan TV channels for stations
 
 Package: streamer
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, xawtv-plugins
 Suggests: xawtv
 Description: capture tool (images / movies)
  A tool to capture single/multiple images or
@@ -93,7 +93,7 @@ Description: plugins for xawtv and motv
 Package: webcam
 Section: net
 Architecture: any
-Depends: ${shlibs:Depends},ftp
+Depends: ${shlibs:Depends}, ftp, xawtv-plugins
 Description: capture and upload images
  webcam captures images from a video4linux device like
  bttv, annotates them and and uploads them to a webserver

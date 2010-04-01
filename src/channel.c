@@ -32,6 +32,8 @@
 #include <pthread.h>
 
 #ifndef NO_X11
+# include <X11/Xlib.h>
+# include <X11/Intrinsic.h>
 # include <X11/StringDefs.h>
 # include <X11/Xaw/XawInit.h>
 # include <X11/Xaw/Command.h>
@@ -361,8 +363,9 @@ read_config(void)
     char *val;
     int  i;
 
-    cfg_parse_file(CONFIGFILE);
     sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
+    if (0 == cfg_parse_file(CONFIGFILE))
+	have_config = 1;
     if (0 == cfg_parse_file(filename))
 	have_config = 1;
 

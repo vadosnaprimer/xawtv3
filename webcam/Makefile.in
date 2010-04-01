@@ -4,7 +4,7 @@ VPATH=$(srcdir)
 include ../Make.config
 
 CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LIB_FLAGS) -I..
-LDLIBS=$(GFX_LIBS)
+LDLIBS=$(THREAD_LIBS) -ljpeg
 
 PROGS=webcam
 
@@ -15,7 +15,7 @@ OBJS=webcam.o ftp.o parseconfig.o
 all build: $(PROGS)
 
 webcam: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) ../libng/libng.a $(LDLIBS) -ldl -Wl,-E
+	$(CC) $(CFLAGS) -o $@ $(OBJS) ../libng/libng.a $(LDLIBS) $(DLFLAGS)
 
 install: all
 	$(INSTALL_DIR) $(bindir)
@@ -29,4 +29,8 @@ clean:
 realclean distclean: clean
 	-rm -f $(PROGS) Makefile *~ *.bak
 
-dep depend install:
+depend dep:
+	$(DEPEND) -- $(CFLAGS) -- *.c
+
+##########################################################################
+# DO NOT DELETE THIS LINE -- make depend depends on it.

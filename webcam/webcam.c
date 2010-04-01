@@ -1,8 +1,8 @@
 /*
- * (c) 1998-2000 Gerd Knorr
+ * (c) 1998-2002 Gerd Knorr
  *
  *    capture a image, compress as jpeg and upload to the webserver
- *    using ftp the ftp utility
+ *    using the ftp utility
  *
  */
 
@@ -27,15 +27,22 @@
 /* ---------------------------------------------------------------------- */
 /* configuration                                                          */
 
+enum mode {
+    FTP   = 1,
+    SSH   = 2,
+    LOCAL = 3,
+};
+
 char *ftp_host  = "www";
 char *ftp_user  = "webcam";
 char *ftp_pass  = "xxxxxx";
 char *ftp_dir   = "public_html/images";
 char *ftp_file  = "webcam.jpeg";
 char *ftp_tmp   = "uploading.jpeg";
+char *ssh_cmd;
 int ftp_passive = 1;
 int ftp_auto    = 0;
-int ftp_local   = 0;
+enum mode ftp_mode = FTP;
 
 char *grab_text   = "webcam %Y-%m-%d %H:%M:%S"; /* strftime */
 char *grab_infofile = NULL;
@@ -92,11 +99,11 @@ write_file(int fd, char *data, int width, int height)
 /* ---------------------------------------------------------------------- */
 /* capture stuff                                                          */
 
-const struct ng_driver    *drv;
-void                      *h_drv;
-struct ng_video_fmt       fmt,gfmt;
-struct ng_video_conv      *conv;
-void                      *hconv;
+const struct ng_vid_driver  *drv;
+void                        *h_drv;
+struct ng_video_fmt         fmt,gfmt;
+struct ng_video_conv        *conv;
+void                        *hconv;
 
 static void
 grab_init(void)
@@ -104,7 +111,7 @@ grab_init(void)
     struct ng_attribute *attr;
     int val,i;
     
-    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -340,6 +347,30 @@ compare_images(unsigned char *last, unsigned char *current,
 
 /* ---------------------------------------------------------------------- */
 
+static void ssh_upload(char *filename)
+{
+    unsigned char ssh_buf[4096];
+    FILE *sshp, *imgdata;
+    int len;
+    
+    if ((sshp=popen(ssh_cmd, "w")) == NULL) {
+	perror("open");
+	exit(1);
+    }
+    if ((imgdata = fopen(filename,"rb"))==NULL) {
+	perror("fopen");
+	exit(1);
+    }
+    for (;;) {
+	len = fread(ssh_buf,1,sizeof(ssh_buf),imgdata);
+	if (len <= 0)
+	    break;
+	fwrite(ssh_buf,1,len,sshp);
+    }
+    fclose(imgdata);
+    pclose(sshp);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -376,7 +407,11 @@ main(int argc, char *argv[])
     if (-1 != (i = cfg_get_int("ftp","debug")))
 	ftp_debug = i;
     if (-1 != (i = cfg_get_int("ftp","local")))
-	ftp_local = i;
+	if (i)
+	    ftp_mode = LOCAL;
+    if (-1 != (i = cfg_get_int("ftp","ssh")))
+	if (i)
+	    ftp_mode = SSH;
 
     if (NULL != (val = cfg_get_str("grab","device")))
 	ng_dev.video = val;
@@ -420,25 +455,32 @@ main(int argc, char *argv[])
     if ( grab_top >= grab_bottom ) grab_top = 0;
     if ( grab_left >= grab_right ) grab_left = 0;
 
-    if ( ftp_local ) {
-	if ( ftp_dir != NULL && ftp_dir[0] != '\0' ) {
+    /* init everything */
+    grab_init();
+    tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
+    switch (ftp_mode) {
+    case LOCAL:
+	if (ftp_dir != NULL && ftp_dir[0] != '\0' ) {
 	    char * t = malloc(strlen(ftp_tmp)+strlen(ftp_dir)+2);
 	    sprintf(t, "%s/%s", ftp_dir, ftp_tmp);
 	    ftp_tmp = t;
-	
+	    
 	    t = malloc(strlen(ftp_file)+strlen(ftp_dir)+2);
 	    sprintf(t, "%s/%s", ftp_dir, ftp_file);
 	    ftp_file = t;
 	}
-    }
-
-    /* init everything */
-    grab_init();
-    if (!ftp_local) {
+	break;
+    case FTP:
 	ftp_init(ftp_auto,ftp_passive);
 	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
+	break;
+    case SSH:
+	ssh_cmd = malloc(strlen(ftp_user)+strlen(ftp_host)+
+			 strlen(ftp_tmp)*2+strlen(ftp_dir)+strlen(ftp_file)+32);
+	sprintf(ssh_cmd, "ssh %s@%s \"cat >%s && mv %s %s/%s\"",
+		ftp_user,ftp_host,ftp_tmp,ftp_tmp,ftp_dir,ftp_file);
+	break;
     }
-    tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
 
     /* print config */
     fprintf(stderr,"video4linux webcam v1.3 - (c) 1998-2001 Gerd Knorr\n");
@@ -448,13 +490,20 @@ main(int argc, char *argv[])
 	    grab_input,grab_norm, grab_quality);
     fprintf(stderr,"  rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
 	   grab_rotate, grab_top, grab_left, grab_bottom, grab_right);
-
-    if (ftp_local)
-	fprintf(stderr,"ftp config:\n  local transfer %s => %s\n",
+    switch (ftp_mode) {
+    case LOCAL:
+	fprintf(stderr,"write config:\n  local transfer %s => %s\n",
 		ftp_tmp,ftp_file);
-    else 
+	break;
+    case FTP:
 	fprintf(stderr,"ftp config:\n  %s@%s:%s\n  %s => %s\n",
 		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
+	break;
+    case SSH:
+	fprintf(stderr,"ssh config:\n  %s@%s:%s\n  %s => %s\n",
+		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
+	break;
+    }
 
     /* main loop */
     for (;;) {
@@ -477,7 +526,8 @@ main(int argc, char *argv[])
 
 	/* ok, label it and upload */
 	add_text(image,width,height);
-	if (ftp_local) {
+	switch (ftp_mode) {
+	case LOCAL:
 	    if (-1 == (fh = open(ftp_tmp,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
 		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
 		exit(1);
@@ -486,17 +536,24 @@ main(int argc, char *argv[])
 	    if (rename(ftp_tmp, ftp_file) ) {
 		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
 	    }
-	} else {
+	    break;
+	case FTP:
+	case SSH:
 	    sprintf(filename,"%s/webcamXXXXXX",tmpdir);
 	    if (-1 == (fh = mkstemp(filename))) {
 		perror("mkstemp");
 		exit(1);
 	    }
 	    write_file(fh, image, width, height);
-	    if (!ftp_connected)
-		ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
-	    ftp_upload(filename,ftp_file,ftp_tmp);
+	    if (FTP == ftp_mode) {
+		if (!ftp_connected)
+		    ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
+		ftp_upload(filename,ftp_file,ftp_tmp);
+	    }
+	    if (SSH == ftp_mode)
+		ssh_upload(filename);
 	    unlink(filename);
+	    break;
 	}
 	if (archive) {
 	    time_t      t;
@@ -517,7 +574,7 @@ main(int argc, char *argv[])
 	if (grab_delay > 0)
 	    sleep(grab_delay);
     }
-    if (!ftp_local) {
+    if (FTP == ftp_mode) {
 	ftp_send(1,"bye");
 	ftp_recv();
     }

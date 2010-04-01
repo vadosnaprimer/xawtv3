@@ -1,4 +1,22 @@
 
+3.66 => 3.67
+============
+
+ * NOTE: take this one a bit with care, it isn't tested that much and
+   rushed out (after x-max + newyear holidays) because it has various
+   build fixes.  Also various patches from other people are integrated,
+   I don't have anything pending in my inbox now.  If I missed / broke
+   something, please resend patches against this version.
+ * more plugin support in libng.
+ * some libng stuff is now implemented as plugin.
+ * build plugins with -fPIC.
+ * fixed FreeBSD build problems (due * to new plugins).
+ * fixed bugs in fbdev code.
+ * moved OSS code to libng.
+ * avevtd patches (Gerald Schnabel <etk20835@stud.uni-stuttgart.de>).
+ * ssh support for webcam.
+
+
 3.65 => 3.66
 ============
 

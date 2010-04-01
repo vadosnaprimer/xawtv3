@@ -35,7 +35,7 @@ static int fast;
 static void
 grabber_init(void)
 {
-    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -215,7 +215,7 @@ main(int argc, char **argv)
     /* init mixer */
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
-	if (NULL != (attr = mixer_open(mixerdev,mixerctl)))
+	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
 	    add_attrs(attr);
     }
 
