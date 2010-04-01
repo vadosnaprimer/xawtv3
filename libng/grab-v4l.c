@@ -428,6 +428,7 @@ v4l_open(char *device)
     inputs[i].nr  = -1;
     inputs[i].str = NULL;
     v4l_add_attr(h,ATTR_ID_INPUT,ATTR_TYPE_CHOICE,0,inputs);
+    h->input = -1;
     
     /* audios */
     if (ng_debug)

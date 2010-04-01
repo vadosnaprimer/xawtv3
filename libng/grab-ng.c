@@ -396,6 +396,11 @@ ng_conv_find(int out, int *i)
     if (*i)
 	(*i)++;
     for (; *i < ng_nconv; (*i)++) {
+#if 0
+	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
+		ng_vfmt_to_desc[ng_conv[*i].fmtid_in],
+		ng_vfmt_to_desc[ng_conv[*i].fmtid_out]);
+#endif
 	if (ng_conv[*i].fmtid_out == out)
 	    return &ng_conv[*i];
     }

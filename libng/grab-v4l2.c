@@ -668,7 +668,7 @@ static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
 	}
 	
     } else if (attr->id == ATTR_ID_NORM) {
-	/* FIXME */
+	value = -1; /* FIXME */
 	
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_G_INPUT,&value,0);

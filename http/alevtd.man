@@ -13,6 +13,9 @@ start it and point your browser to http://localhost:5654/
 .B -h
 print a short \fBh\fPelp text and the default values for all options.
 .TP
+.B -v dev
+set \fBv\fPbi device (default: /dev/vbi).
+.TP
 .B -d
 enable \fBd\fPebug output.
 .TP

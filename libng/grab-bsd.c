@@ -419,22 +419,25 @@ static struct ng_attribute* bsd_attrs(void *handle)
 /* ---------------------------------------------------------------------- */
 
 static int
-bsd_get_range(int id, int *min, int *max, int *set)
+bsd_get_range(int id, int *min, int *max, int *get, int *set)
 {
     switch (id) {
     case ATTR_ID_HUE:
 	*min = BT848_HUEREGMIN;
 	*max = BT848_HUEREGMAX;
+	*get = BT848_GHUE;
 	*set = BT848_SHUE;
 	break;
     case ATTR_ID_BRIGHT:
 	*min = BT848_BRIGHTREGMIN;
 	*max = BT848_BRIGHTREGMAX;
+	*get = BT848_GBRIG;
 	*set = BT848_SBRIG;
 	break;
     case ATTR_ID_CONTRAST:
 	*min = BT848_CONTRASTREGMIN;
 	*max = BT848_CONTRASTREGMAX;
+	*get = BT848_GCONT;
 	*set = BT848_SCONT;
 	break;
     default:
@@ -445,40 +448,64 @@ bsd_get_range(int id, int *min, int *max, int *set)
 
 static int bsd_read_attr(void *handle, struct ng_attribute *attr)
 {
-#if 0
     struct bsd_handle *h = handle;
-#endif
-    int value = 0;
+    int arg, min, max, get, set, i;
+    int value = -1;
 
-    /* FIXME */
-    
+    switch (attr->id) {
+    case ATTR_ID_NORM:
+	if (-1 != xioctl(h->fd,BT848GFMT,&arg))
+	    for (i = 0; i < sizeof(norms_map)/sizeof(int); i++)
+		if (arg == norms_map[i])
+		    value = i;
+	break;
+    case ATTR_ID_INPUT:
+	if (-1 != xioctl(h->fd,METEORGINPUT,&arg))
+	    for (i = 0; i < sizeof(inputs_map)/sizeof(int); i++)
+		if (arg == inputs_map[i])
+		    value = i;
+	break;
+    case ATTR_ID_MUTE:
+	if (-1 != xioctl(h->tfd, BT848_GAUDIO, &arg))
+	    value = (arg == AUDIO_MUTE) ? 1 : 0;
+	break;
+    case ATTR_ID_HUE:
+    case ATTR_ID_BRIGHT:
+    case ATTR_ID_CONTRAST:
+	bsd_get_range(attr->id,&min,&max,&get,&set);
+	if (-1 != xioctl(h->tfd,get,&arg)) {
+	    value = (arg + min) * 65536 / (max - min);
+	    if (value < 0)      value = 0;
+	    if (value > 65535)  value = 65535;
+	}
+	break;
+    default:
+	break;
+    }
     return value;
 }
 
 static void bsd_write_attr(void *handle, struct ng_attribute *attr, int value)
 {
     struct bsd_handle *h = handle;
-    int arg, min, max, set;
+    int arg, min, max, get, set;
 
     switch (attr->id) {
     case ATTR_ID_NORM:
-	if (-1 == ioctl(h->fd,BT848SFMT,&norms_map[value]))
-	    perror("ioctl BT848SFMT");
+	xioctl(h->fd,BT848SFMT,&norms_map[value]);
 	break;
     case ATTR_ID_INPUT:
-	if (-1 == ioctl(h->fd,METEORSINPUT,&inputs_map[value]))
-	    perror("ioctl METEORSINPUT");
+	xioctl(h->fd,METEORSINPUT,&inputs_map[value]);
 	break;
     case ATTR_ID_MUTE:
 	h->muted = value;
 	arg = h->muted ? AUDIO_MUTE : AUDIO_UNMUTE;
-	if (-1 == ioctl(h->tfd, BT848_SAUDIO, &arg))
-	    perror("ioctl BT848_SAUDIO");
+	xioctl(h->tfd, BT848_SAUDIO, &arg);
 	break;
     case ATTR_ID_HUE:
     case ATTR_ID_BRIGHT:
     case ATTR_ID_CONTRAST:
-	bsd_get_range(attr->id,&min,&max,&set);
+	bsd_get_range(attr->id,&min,&max,&get,&set);
 	arg = value * (max - min) / 65536 + min;
 	if (arg < min)  value = min;
 	if (arg > max)  value = max;

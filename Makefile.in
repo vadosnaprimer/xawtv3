@@ -3,7 +3,7 @@ SUBDIRS=libvbi libng src man radio font tools webcam http #i2c vtx
 
 all build dep depend install clean distclean realclean::
 	set -ex; for dir in $(SUBDIRS); do	\
-		cd $$dir; $(MAKE) $@; cd ..;	\
+		(cd $$dir; $(MAKE) $@);		\
 	done
 
 distclean realclean::

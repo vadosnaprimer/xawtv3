@@ -1,4 +1,13 @@
 
+3.38 => 3.39
+============
+
+  * fixed a bug in color space conversion.
+  * fixed minor initialization bugs in grab-v4l.c + grab-v4l2.c
+  * added attribute reading for BSD.
+  * added a switch to alevtd to set the vbi device.
+
+ 
 3.37 => 3.38
 ============
 

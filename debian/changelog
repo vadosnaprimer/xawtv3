@@ -1,3 +1,10 @@
+xawtv (3.39) unstable; urgency=low
+
+  * new release.
+  * added xbase-clients to build-depends (closes: #89522).
+
+ -- Gerd Knorr <kraxel@debian.org>  Tue, 13 Mar 2001 21:30:12 +0100
+
 xawtv (3.38) unstable; urgency=low
 
   * new release (closes: #88396).

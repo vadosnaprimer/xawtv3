@@ -264,7 +264,7 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 	    lut_blue[i] = (i >> (8 - rgb_blue_bits)) << rgb_blue_shift;
 
     switch (ng_vfmt_to_depth[fmtid]) {
-    case 2:
+    case 16:
 	if (swap) {
 	    for (i = 0; i < 256; i++) {
 		lut_red[i] = SWAP2(lut_red[i]);
@@ -276,7 +276,7 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 	    lut2_list[i].fmtid_out = fmtid;
 	ng_conv_register(lut2_list,nconv2);
 	break;
-    case 4:
+    case 32:
 	if (swap) {
 	    for (i = 0; i < 256; i++) {
 		lut_red[i] = SWAP4(lut_red[i]);

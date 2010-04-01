@@ -46,6 +46,7 @@ char    *listen_port   = "5654";
 char    server_host[256];
 char    user[17];
 char    group[17];
+char    *vbidev        = "/dev/vbi";
 char    *logfile       = NULL;
 FILE    *log           = NULL;
 int     flushlog       = 0;
@@ -105,6 +106,7 @@ usage(char *name)
 	    "\n"
 	    "Options:\n"
 	    "  -h       print this text\n"
+	    "  -v dev   vbi device                          [%s]\n"
 	    "  -6       16 vbi lines  (depending on the bttv version\n"
 	    "  -9       19 vbi lines   one of these two should work)\n"
 	    "  -d       enable debug output                 [%s]\n"
@@ -118,6 +120,7 @@ usage(char *name)
 	    "  -l log   write access log to file >log<      [%s]\n"
 	    "  -L log   same as above + flush every line\n",
 	    h ? h+1 : name,
+	    vbidev,
  	    debug     ?  "on" : "off",
  	    dontdetach ?  "on" : "off",
 	    usesyslog ?  "on" : "off",
@@ -526,7 +529,7 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc,argv,"69hsdFp:n:i:t:c:u:g:l:L:")))
+	if (-1 == (c = getopt(argc,argv,"69hsdFp:n:i:t:c:u:g:l:L:v:")))
 	    break;
 	switch (c) {
 	case 'h':
@@ -574,6 +577,9 @@ main(int argc, char *argv[])
 	case 'l':
 	    logfile = optarg;
 	    break;
+	case 'v':
+	    vbidev = optarg;
+	    break;
 	default:
 	    exit(1);
 	}
@@ -583,9 +589,9 @@ main(int argc, char *argv[])
 
     /* open vbi device */
     fdset_init(fds);
-    vbi = vbi_open("/dev/vbi", cache_open(), 0, bttv);
+    vbi = vbi_open(vbidev, cache_open(), 0, bttv);
     if (vbi == 0) {
-	xperror(LOG_ERR,"cannot open /dev/vbi",NULL);
+	xperror(LOG_ERR,"cannot open vbi device",NULL);
 	exit(1);
     }
     fmt = export_open("ascii");
