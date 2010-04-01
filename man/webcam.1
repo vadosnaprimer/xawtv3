@@ -11,9 +11,40 @@ and and uploads them to a webserver using ftp in a endless loop.
 At startup
 .B webcam
 reads the configuration from the given config file or ~/.webcamrc if
-none is specified in the command line.  It looks like this (the given
-values are the defaults):
+none is specified in the command line.
+.P
+The config file has at least two sections.  The "grab" section holds
+the capture parameters.  Any other section describes where the image
+should be uploaded.  Older versions used "ftp" as name for that
+section.  Recently the webcam utility got support for multiple
+connections, thus any section name is accepted and you can have more
+than one ftp section (you have to use another name for each section
+througth, name them by upload servers for example).
+.P
+Here is an sample config file (the given values are the defaults):
 .nf
+
+[grab]
+device = /dev/video0
+text = "webcam %Y-%m-%d %H:%M:%S"
+infofile = filename
+fg_red = 255
+fg_green = 255
+fg_blue = 255
+width = 320
+height = 240
+delay = 3
+wait = 0
+input = composite1
+norm = pal
+rotate = 0
+top = 0
+left = 0
+bottom = -1
+right = -1
+quality = 75
+trigger = 0
+once = 0
 
 [ftp]
 host = www
@@ -28,24 +59,6 @@ auto = 0
 local = 0
 ssh = 0
 
-[grab]
-device = /dev/video0
-text = "webcam %Y-%m-%d %H:%M:%S"
-infofile = filename
-width = 320
-height = 240
-delay = 3
-input = composite1
-norm = pal
-rotate = 0
-top = 0
-left = 0
-bottom = -1
-right = -1
-quality = 75
-trigger = 0
-once = 0
-
 .fi
 The annotation
 .B text
@@ -53,33 +66,32 @@ is processed with strftime.  Check the strftime(3) or date(1) manpage
 to see how you can format the timestamps.  The text can also be read
 from a extern file (use
 .B infofile
-for that).
+for that).  The default color for the text overlay is white
+(RGB=255,255,255). Entries in the range of 0 through 255 for
+.B fg_red,
+.B fg_green,
+and
+.B fg_blue
+can be used to define a different color.  Likewise
+.B bg_red,
+.B bg_green,
+and
+.B bg_blue
+can be used to set the background color (which defaults to
+transparent).
+.P
 .B input
 is the video source (TV/composite/whatever),
 .B norm
 the TV norm.
 .B delay
 is the delay between two images in seconds.
+.B wait
+is the initial delay before the first image is grabbed (some cameras
+need some time for adapting to lightning, thus don't return images with
+reasonable quality within the first few seconds ...).
 .B quality
 is the JPEG quality for the stored images.
-.P
-If
-.B debug
-in the ftp section is set to 1 the complete communication between
-webcam and the ftp utility is printed to stderr.
-.B auto
-enables autologin via ~/.netrc (starts the ftp utility without the '-n'
-switch).
-If
-.B local
-in the ftp section is non-zero, files will be stored locally (using
-the 
-.B dir, tmp,
-and
-.B file
-parameters) rather than ftped.
-.B ssh
-set to non-zero makes webcam use ssh instead of ftp.
 .P
 .B top, bottom, left,
 and 
@@ -108,10 +120,28 @@ Just specify a the filename for the files as argument.  The
 filename will be processed with strftime(3), so you can use
 the place the usual time format controls into the string to
 get unique filenames.
+.P
+If
+.B debug
+in the ftp section is set to 1 the complete communication between
+webcam and the ftp utility is printed to stderr.
+.B auto
+enables autologin via ~/.netrc (starts the ftp utility without the '-n'
+switch, check the ftp(1) man page for more info about the ~/.netrc file).
+If
+.B local
+in the ftp section is non-zero, files will be stored locally (using
+the 
+.B dir, tmp,
+and
+.B file
+parameters) rather than ftped.
+.B ssh
+set to non-zero makes webcam use ssh instead of ftp.
 .SH AUTHOR
 Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
-Copyright (C) 1997-2001 Gerd Knorr
+Copyright (C) 1997-2002 Gerd Knorr
 .br
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

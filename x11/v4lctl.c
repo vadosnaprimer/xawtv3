@@ -23,6 +23,7 @@
 #include "channel.h"
 #include "frequencies.h"
 #include "commands.h"
+#include "atoms.h"
 #include "xv.h"
 
 int debug = 0;
@@ -89,8 +90,10 @@ int main(int argc, char *argv[])
 #ifdef HAVE_LIBXV
     if (NULL != getenv("DISPLAY"))
 	dpy = XOpenDisplay(NULL);
-    if (dpy)
+    if (dpy) {
+	init_atoms(dpy);
 	xv_init(xvideo,0,0,0);
+    }
 #endif
     if (NULL == drv)
 	grabber_init();

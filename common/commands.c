@@ -28,8 +28,13 @@
 /* feedback for the user */
 void (*update_title)(char *message);
 void (*display_message)(char *message);
-void (*vtx_message)(struct TEXTELEM *tt);
 void (*rec_status)(char *message);
+#if TT
+void (*vtx_message)(struct TEXTELEM *tt);
+#endif
+#ifdef HAVE_ZVBI
+void (*vtx_subtitle)(struct vbi_page *pg, struct vbi_rect *rect);
+#endif
 
 /* for updating GUI elements / whatever */
 void (*attr_notify)(struct ng_attribute *attr, int val);
@@ -86,7 +91,9 @@ static int movie_handler(char *name, int argc, char **argv);
 static int fullscreen_handler(char *name, int argc, char **argv);
 static int msg_handler(char *name, int argc, char **argv);
 static int showtime_handler(char *name, int argc, char **argv);
+#if TT
 static int vtx_handler(char *name, int argc, char **argv);
+#endif
 static int exit_handler(char *name, int argc, char **argv);
 
 static int keypad_handler(char *name, int argc, char **argv);
@@ -120,7 +127,9 @@ static struct COMMANDS {
     { "movie",      1, movie_handler      },
     { "fullscreen", 0, fullscreen_handler },
     { "msg",        1, msg_handler        },
+#if 0
     { "vtx",        0, vtx_handler        },
+#endif
     { "message",    0, msg_handler        },
     { "exit",       0, exit_handler       },
     { "quit",       0, exit_handler       },
@@ -1146,6 +1155,7 @@ exit_handler(char *name, int argc, char **argv)
 
 /* ----------------------------------------------------------------------- */
 
+#if TT
 static struct TEXTELEM*
 parse_vtx(int lines, char **text)
 {
@@ -1251,6 +1261,7 @@ vtx_handler(char *name, int argc, char **argv)
     }
     return 0;
 }
+#endif
 
 /* ----------------------------------------------------------------------- */
 

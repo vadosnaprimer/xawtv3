@@ -567,6 +567,7 @@ main(int argc, char *argv[])
     gl_init(view);
 
     XtAppAddWorkProc(app_context,idle,NULL);
+    XtAppAddWorkProc(app_context,idle,NULL);
     XtAppMainLoop(app_context);
     return 0;
 }

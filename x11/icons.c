@@ -9,6 +9,7 @@
 #include <Xm/Xm.h>
 
 #include "icons.h"
+#include "xpm/home.xpm"
 #include "xpm/prev.xpm"
 #include "xpm/next.xpm"
 #include "xpm/movie.xpm"
@@ -47,6 +48,7 @@ add_pixmap(Display *dpy, unsigned long bg,
 void
 x11_icons_init(Display *dpy, unsigned long bg)
 {
+    add_pixmap(dpy, bg,  "home",   NULL,      home_xpm);
     add_pixmap(dpy, bg,  "prev",   NULL,      prev_xpm);
     add_pixmap(dpy, bg,  "next",   NULL,      next_xpm);
     add_pixmap(dpy, bg,  "movie",  NULL,      movie_xpm);

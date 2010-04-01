@@ -14,11 +14,12 @@ MoTV.tv.translations:		#replace			\n\
 	<Btn2Down>:		Ipc(drag)			\n\
 	<Btn3Up>:		Popup(control)			\n\
 	~Alt ~Ctrl <Key>C:	Popup(control)			\n\
-	Ctrl <Key>C:		Ipc(primary)			\n\
-	Alt <Key>C:		Ipc(primary)			\n\
+	Ctrl <Key>C:		Ipc(clipboard)			\n\
+	Alt <Key>C:		Ipc(clipboard)			\n\
 	<Key>R:			Popup(streamer)			\n\
 	<Key>S:			Popup(scale)			\n\
 	<Key>L:			Popup(levels)			\n\
+	<Key>T:			StayOnTop()			\n\
 	<Key>H:			man(motv)			\n\
 	<Key>F1:		man(motv)			\n\
 	\

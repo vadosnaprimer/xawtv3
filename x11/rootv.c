@@ -1,6 +1,7 @@
 #include "config.h"
 #ifndef HAVE_LIBXV
 #include "stdio.h"
+#include "stdlib.h"
 int main(void)
 {puts("Compiled without Xvideo extention support, sorry.");exit(0);}
 #else
@@ -12,6 +13,7 @@ int main(void)
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -23,11 +25,11 @@ int main(void)
 #include <X11/extensions/Xvlib.h>
 
 #include "vroot.h"
+#include "atoms.h"
 #include "parseconfig.h"
 
 int     port=-1,bye=0,termsig=0,verbose=0;
 GC      gc;
-Atom    mute, XA_WM_PROTOCOLS, XA_WM_DELETE_WINDOW;
 
 XvAdaptorInfo        *ai;
 XvEncodingInfo       *ei;
@@ -167,13 +169,16 @@ main(int argc, char *argv[])
 
     int ver, rel, req, ev, err, dummy;
     int adaptors,attributes;
-    int i,stop,bg,newwin,do_mute,grab;
+    int i,stop,bg,newwin,do_mute,have_mute,grab;
 
     dpy = XOpenDisplay(NULL);
     scr = DefaultScreenOfDisplay(dpy);
+    init_atoms(dpy);
+
     stop = 0;
     bg = 0;
     do_mute = 1;
+    have_mute = 0;
     newwin = 1;
 
     while (argc > 1) {
@@ -235,16 +240,14 @@ main(int argc, char *argv[])
     }
 
     /* init X11 */
-    XA_WM_PROTOCOLS     = XInternAtom (dpy, "WM_PROTOCOLS", False);
-    XA_WM_DELETE_WINDOW = XInternAtom (dpy, "WM_DELETE_WINDOW", False);
     if (newwin) {
 	win = XCreateSimpleWindow(dpy,RootWindowOfScreen(scr),
 				  0,0,640,480,1,
 				  BlackPixelOfScreen(scr),
 				  BlackPixelOfScreen(scr));
-	XChangeProperty(dpy, win, XA_WM_PROTOCOLS, XA_ATOM, 32,
+	XChangeProperty(dpy, win, WM_PROTOCOLS, XA_ATOM, 32,
 			PropModeReplace,
-			(unsigned char *) &XA_WM_DELETE_WINDOW, 1);
+			(unsigned char *) &WM_DELETE_WINDOW, 1);
     }
     XGetWindowAttributes (dpy, win, &wts);
     XSelectInput(dpy, win, wts.your_event_mask |
@@ -306,20 +309,9 @@ main(int argc, char *argv[])
     at = XvQueryPortAttributes(dpy,port,&attributes);
     for (i = 0; i < attributes; i++) {
 	if (0 == strcmp("XV_MUTE",at[i].name))
-	    mute = XInternAtom(dpy, "XV_MUTE", False);
+	    have_mute = 1;
     }
     gc = XCreateGC(dpy,win,0,NULL);
-
-#if 0
-    if (stop) {
-	/* stop video */
-	XvStopVideo(dpy,port,win);
-	if (mute)
-	    XvSetPortAttribute(dpy,port,mute,1);
-	XCloseDisplay(dpy);
-	exit(0);
-    }
-#endif
 
     /* fork into background, but keep tty */
     if (bg)
@@ -340,8 +332,8 @@ main(int argc, char *argv[])
     if (verbose)
 	fprintf(stderr,"starting video\n");
     video_blit(dpy,win);
-    if (do_mute && mute)
-	XvSetPortAttribute(dpy,port,mute,0);
+    if (do_mute && have_mute)
+	XvSetPortAttribute(dpy,port,XV_MUTE,0);
 
     /* receive events */
     XvSelectPortNotify(dpy, port, 1);
@@ -405,8 +397,8 @@ main(int argc, char *argv[])
 		}
 		break;
 	    case ClientMessage:
-		if (event.xclient.message_type == XA_WM_PROTOCOLS &&
-		    event.xclient.data.l[0]    == XA_WM_DELETE_WINDOW)
+		if (event.xclient.message_type == WM_PROTOCOLS &&
+		    event.xclient.data.l[0]    == WM_DELETE_WINDOW)
 		    bye = 1;
 		break;
 	    case Expose:
@@ -429,8 +421,8 @@ main(int argc, char *argv[])
     if (verbose && termsig)
 	fprintf(stderr,"exiting on signal %d [%s]\n",
 		termsig,sys_siglist[termsig]);
-    if (do_mute && mute)
-	XvSetPortAttribute(dpy,port,mute,1);
+    if (do_mute && have_mute)
+	XvSetPortAttribute(dpy,port,XV_MUTE,1);
     XvStopVideo(dpy,port,win);
     XvUngrabPort(dpy,port,CurrentTime);
     XClearArea(dpy,win,0,0,0,0,True);

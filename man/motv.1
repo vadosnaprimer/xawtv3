@@ -82,7 +82,7 @@ Resource: motv.remote (bool).
 force xawtv into
 .B n
 bpp color depth.  Works for switching between 15/16 and 24/32 bpp.
-This gets just passed through to v4l-conf(1).
+This gets just passed through to v4l-conf(8).
 .br
 Resource: motv.bpp (int).
 .TP
@@ -91,7 +91,7 @@ Shift the video display by
 .B n
 bytes.  Try this if your video display is'nt within the xawtv window,
 some older matrox cards show this problem.  This gets passed through
-to v4l-conf(1) too.
+to v4l-conf(8) too.
 .br
 Resource: motv.shift (int).
 .TP
@@ -216,7 +216,7 @@ motv depends on a correct driver configuration.  If you can't tune TV
 stations even if the settings in the options window are correct it is
 very likely a driver issue.
 .SH SEE ALSO
-xawtvrc(5), xawtv(1), fbtv(1), v4l-conf(1)
+xawtvrc(5), xawtv(1), fbtv(1), v4l-conf(8)
 .br
 http://bytesex.org/xawtv/ (homepage)
 .SH AUTHOR

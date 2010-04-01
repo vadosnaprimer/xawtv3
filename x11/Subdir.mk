@@ -1,5 +1,5 @@
 
-# variables
+# targets to build
 TARGETS-x11 :=
 
 ifeq ($(FOUND_X11),yes)
@@ -14,81 +14,95 @@ ifeq ($(FOUND_MOTIF),yes)
 TARGETS-x11 += \
 	x11/motv
 endif
+ifeq ($(FOUND_MOTIF)$(FOUND_ZVBI),yesyes)
+TARGETS-x11 += \
+	x11/mtt
+endif
 
-OBJS-xawtv := \
-	x11/wmhooks.o \
+# objects for targets
+x11/xawtv: \
 	x11/xawtv.o \
+	x11/wmhooks.o \
+	x11/atoms.o \
 	x11/x11.o \
 	x11/xt.o \
 	x11/xv.o \
 	x11/toolbox.o \
 	x11/conf.o \
 	x11/complete-xaw.o \
+	x11/vbi-x11.o \
 	jwz/remote.o \
 	common/channel.o \
+	common/vbi-data.o \
 	$(OBJS-common-input) \
-	$(OBJS-common-capture) \
-	libvbi/libvbi.a
-LIBS-xawtv := \
-	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(ATHENA_LIBS) -ljpeg -lm
+	$(OBJS-common-capture)
 
-OBJS-motv := \
+x11/motv: \
 	x11/motv.o \
 	x11/man.o \
 	x11/icons.o \
 	x11/wmhooks.o \
+	x11/atoms.o \
 	x11/x11.o \
 	x11/xt.o \
 	x11/xv.o \
 	x11/complete-motif.o \
+	x11/vbi-x11.o \
 	jwz/remote.o \
 	common/RegEdit.o \
 	common/channel-no-x11.o \
+	common/vbi-data.o \
 	$(OBJS-common-input) \
-	$(OBJS-common-capture) \
-	libvbi/libvbi.a
-LIBS-motv := \
-	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(MOTIF_LIBS) -ljpeg -lm
+	$(OBJS-common-capture)
 
-OBJS-v4lctl := \
+x11/mtt: \
+	x11/mtt.o \
+	x11/icons.o \
+	x11/atoms.o \
+	x11/vbi-x11.o \
+	x11/vbi-gui.o \
+	console/vbi-tty.o \
+	common/vbi-data.o \
+	common/RegEdit.o
+
+x11/v4lctl: \
 	x11/v4lctl.o \
+	x11/atoms.o \
 	x11/xv.o \
 	common/channel-no-x11.o \
 	$(OBJS-common-capture)
-LIBS-v4lctl := \
-	$(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
 
-OBJS-rootv := \
+x11/rootv: \
 	x11/rootv.o \
+	x11/atoms.o \
 	common/parseconfig.o
-LIBS-rootv := \
-	$(ATHENA_LIBS)
 
-LANGUAGES := de it
+x11/xawtv-remote: x11/xawtv-remote.o
+x11/propwatch:    x11/propwatch.o
+
+# libraries to link
+x11/xawtv        : LDLIBS  := \
+	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
+	$(ATHENA_LIBS) $(VBI_LIBS) -ljpeg -lm
+x11/motv         : LDLIBS  := \
+	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
+	$(MOTIF_LIBS) $(VBI_LIBS) -ljpeg -lm
+x11/mtt          : LDLIBS  := $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS)
+x11/v4lctl       : LDLIBS  := $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
+x11/rootv        : LDLIBS  := $(ATHENA_LIBS)
+x11/xawtv-remote : LDLIBS  := $(ATHENA_LIBS)
+x11/propwatch    : LDLIBS  := $(ATHENA_LIBS)
+
+# linker flags
+x11/xawtv        : LDFLAGS := $(DLFLAGS)
+x11/motv         : LDFLAGS := $(DLFLAGS)
+x11/v4lctl       : LDFLAGS := $(DLFLAGS)
+
+# i18n
+LANGUAGES := de it fr
 MOTV-app  := $(patsubst %,x11/MoTV.%.ad,$(LANGUAGES))
 
-
 # local targets
-x11/xawtv-remote: x11/xawtv-remote.o
-	$(CC) $(CFLAGS) -o $@  $< $(ATHENA_LIBS)
-
-x11/propwatch: x11/propwatch.o
-	$(CC) $(CFLAGS) -o $@  $< $(ATHENA_LIBS)
-
-x11/rootv: $(OBJS-rootv)
-	$(CC) $(CFLAGS) -o $@  $(OBJS-rootv) $(LIBS-rootv) $(DLFLAGS)
-
-x11/v4lctl: $(OBJS-v4lctl)
-	$(CC) $(CFLAGS) -o $@  $(OBJS-v4lctl) $(LIBS-v4lctl) $(DLFLAGS)
-
-x11/xawtv: $(OBJS-xawtv)
-	$(CC) $(CFLAGS) -o $@  $(OBJS-xawtv) $(LIBS-xawtv) $(DLFLAGS)
-
-x11/motv: $(OBJS-motv)
-	$(CC) $(CFLAGS) -o $@  $(OBJS-motv) $(LIBS-motv) $(DLFLAGS)
-
 x11/complete-xaw.o:: x11/complete.c
 	$(CC) $(CFLAGS) -DATHENA=1 -Wp,-MD,$*.dep -c -o $@ $<
 	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
@@ -99,9 +113,7 @@ x11/complete-motif.o:: x11/complete.c
 
 
 # global targets
-ifeq ($(FOUND_X11),yes)
 all:: $(TARGETS-x11)
-endif
 ifeq ($(FOUND_MOTIF),yes)
 all:: $(MOTV-app)
 endif
@@ -124,11 +136,12 @@ endif
 
 distclean::
 	rm -f $(TARGETS-x11)
-	rm -f $(MOTV-app) x11/MoTV.ad x11/MoTV.h x11/Xawtv.h
+	rm -f $(MOTV-app) x11/MoTV.ad x11/MoTV.h x11/Xawtv.h x11/mtt.h
 
 # special dependences / rules
 x11/xawtv.o:: x11/xawtv.c x11/Xawtv.h
 x11/motv.o:: x11/motv.c x11/MoTV.h
+x11/mtt.o:: x11/mtt.c x11/mtt.h
 
 x11/MoTV.ad: $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed
 	cat $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed > x11/MoTV.ad

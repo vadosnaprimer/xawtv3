@@ -1,5 +1,5 @@
 /*
- * (c) 1998-2000 Gerd Knorr
+ * (c) 1998-2002 Gerd Knorr
  *
  *   functions to handle ftp uploads using the ftp utility
  *
@@ -14,20 +14,23 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <signal.h>
 
 #include "ftp.h"
 
 /* ---------------------------------------------------------------------- */
 /* FTP stuff                                                              */
 
-int ftp_connected;
-int ftp_debug;
-
-static int ftp_pty, ftp_pid;
-static char tty_name[32];
+struct ftp_state {
+    char *name;
+    int connected;
+    int debug;
+    int pty, pid;
+    char tty_name[32];
+};
 
 static
-int open_pty(void)
+int open_pty(struct ftp_state *s)
 {
 #ifdef HAVE_GETPT
     int master;
@@ -41,7 +44,7 @@ int open_pty(void)
 	close(master);
 	return -1;
     }
-    strcpy(tty_name,slave);
+    strcpy(s->tty_name,slave);
     return master;
 #else
     static char pty_name[32];
@@ -54,8 +57,8 @@ int open_pty(void)
     for (p1 = s1; *p1; p1++) {
         for (p2 = s2; *p2; p2++) {
             sprintf(pty_name,"/dev/pty%c%c",*p1,*p2);
-            sprintf(tty_name,"/dev/tty%c%c",*p1,*p2);
-	    if (-1 == access(tty_name,R_OK|W_OK))
+            sprintf(s->tty_name,"/dev/tty%c%c",*p1,*p2);
+	    if (-1 == access(s->tty_name,R_OK|W_OK))
 		continue;
             if (-1 != (pty = open(pty_name,O_RDWR)))
                 return pty;
@@ -65,31 +68,33 @@ int open_pty(void)
 #endif
 }
 
-void
-ftp_init(int autologin, int passive)
+struct ftp_state* ftp_init(char *name, int autologin, int passive, int debug)
 {
     static char *doauto[] = { "ftp", NULL }; /* allow autologin via ~/.netrc */
     static char *noauto[] = { "ftp", "-n", NULL };
+    struct ftp_state *s;
 
-    if (-1 == (ftp_pty = open_pty())) {
+    s = malloc(sizeof(*s));
+    memset(s,0,sizeof(*s));
+    s->name  = name;
+    s->debug = debug;
+    if (-1 == (s->pty = open_pty(s))) {
 	fprintf(stderr,"can't grab pty\n");
         exit(1);
     }
-    switch (ftp_pid = fork()) {
+    switch (s->pid = fork()) {
     case -1:
         perror("fork");
 	exit(1);
     case 0:
         /* child */
-	close(ftp_pty);
+	close(s->pty);
         close(0); close(1); close(2);
 	setsid();
-        open(tty_name,O_RDWR); dup(0); dup(0);
+        open(s->tty_name,O_RDWR); dup(0); dup(0);
 
 	/* need english messages from ftp */
-	unsetenv("LANG");
-	unsetenv("LC_ALL");
-	unsetenv("LC_MESSAGES");
+	setenv("LC_ALL","C",1);
 
 	if (autologin)
 	    execvp(doauto[0],doauto);
@@ -101,18 +106,18 @@ ftp_init(int autologin, int passive)
         /* parent */
         break;
     }
-    ftp_recv();
+    ftp_recv(s);
 
     /* initialisation */
     if (passive) {
-	ftp_send(1,"pass");
-	ftp_recv();
+	ftp_send(s,1,"pass");
+	ftp_recv(s);
     }
-    return;
+    return s;
 }
 
 void
-ftp_send(int argc, ...)
+ftp_send(struct ftp_state *s, int argc, ...)
 {
     va_list ap;
     char line[256],*arg;
@@ -131,16 +136,16 @@ ftp_send(int argc, ...)
     line[length++] = '\n';
     va_end (ap);
 
-    if (ftp_debug)
-	fprintf(stderr,">> %s",line);
-    if (length != write(ftp_pty,line,length)) {
+    if (s->debug)
+	fprintf(stderr,"[%s]>> %s",s->name,line);
+    if (length != write(s->pty,line,length)) {
 	fprintf(stderr,"ftp: write error\n");
 	exit(1);
     }
 }
 
 int
-ftp_recv()
+ftp_recv(struct ftp_state *s)
 {
     char line[512],*p,*n;
     int length, done, status, ret=0;
@@ -148,10 +153,10 @@ ftp_recv()
 
     for (done = 0; !done;) {
 	FD_ZERO(&set);
-	FD_SET(ftp_pty,&set);
-	select(ftp_pty+1,&set,NULL,NULL,NULL);
+	FD_SET(s->pty,&set);
+	select(s->pty+1,&set,NULL,NULL,NULL);
 	
-	switch (length = read(ftp_pty,line,511)) {
+	switch (length = read(s->pty,line,511)) {
 	case -1:
 	    perror("ftp: read error");
 	    exit(1);
@@ -167,8 +172,8 @@ ftp_recv()
 		*(n++) = 0;
 	    else
 		n = NULL;
-	    if (ftp_debug)
-		fprintf(stderr,"<< %s\n",p);
+	    if (s->debug)
+		fprintf(stderr,"[%s]<< %s\n",s->name,p);
 
 	    /* prompt? */
 	    if (NULL != strstr(p,"ftp>")) {
@@ -178,12 +183,12 @@ ftp_recv()
 	    /* line dropped ? */
 	    if (NULL != strstr(p,"closed connection")) {
 		fprintf(stderr,"ftp: lost connection\n");
-		ftp_connected = 0;
+		s->connected = 0;
 	    }
 	    if (NULL != strstr(p,"Not connected")) {
 		if (ftp_connected)
 		    fprintf(stderr,"ftp: lost connection\n");
-		ftp_connected = 0;
+		s->connected = 0;
 	    }
 
 	    /* status? */
@@ -196,7 +201,7 @@ ftp_recv()
 }
 
 void
-ftp_connect(char *host, char *user, char *pass, char *dir)
+ftp_connect(struct ftp_state *s, char *host, char *user, char *pass, char *dir)
 {
     int delay = 0, status;
 
@@ -213,24 +218,24 @@ ftp_connect(char *host, char *user, char *pass, char *dir)
 	}
 
 	/* (re-) connect */
-	ftp_send(1,"close");
-	ftp_recv();
-	ftp_send(2,"open",host);
-	status = ftp_recv();
+	ftp_send(s,1,"close");
+	ftp_recv(s);
+	ftp_send(s,2,"open",host);
+	status = ftp_recv(s);
 	if (230 == status) {
 	    fprintf(stderr,"ftp: connected to %s, login ok\n",host);
-	    ftp_connected = 1;
+	    s->connected = 1;
 	    goto login_ok;
 	}
 	if (220 != status && 530 != status)
 	    continue;
 
 	fprintf(stderr,"ftp: connected to %s\n",host);
-	ftp_connected = 1;
+	s->connected = 1;
 
 	/* login */
-	ftp_send(3,"user",user,pass);
-	if (230 != ftp_recv()) {
+	ftp_send(s,3,"user",user,pass);
+	if (230 != ftp_recv(s)) {
 	    if (!ftp_connected)
 		continue;
 	    fprintf(stderr,"ftp: login incorrect\n");
@@ -239,30 +244,44 @@ ftp_connect(char *host, char *user, char *pass, char *dir)
 	
     login_ok:
 	/* set directory */
-	ftp_send(2,"cd",dir);
-	if (250 != ftp_recv()) {
-	    if (!ftp_connected)
+	ftp_send(s,2,"cd",dir);
+	if (250 != ftp_recv(s)) {
+	    if (!s->connected)
 		continue;
 	    fprintf(stderr,"ftp: cd %s failed\n",dir);
 	    exit(1);
 	}
 
 	/* initialisation */
-	ftp_send(1,"bin");
-	ftp_recv();
-	ftp_send(1,"umask 022");
-	ftp_recv();
+	ftp_send(s,1,"bin");
+	ftp_recv(s);
+	ftp_send(s,1,"umask 022");
+	ftp_recv(s);
 
 	/* ok */
 	break;
     }
 }
 
-void
-ftp_upload(char *local, char *remote, char *tmp)
+int ftp_connected(struct ftp_state *s)
 {
-    ftp_send(3,"put",local,tmp);
-    ftp_recv();
-    ftp_send(3,"rename",tmp,remote);
-    ftp_recv();
+    return s->connected;
+}
+
+void
+ftp_upload(struct ftp_state *s, char *local, char *remote, char *tmp)
+{
+    ftp_send(s,3,"put",local,tmp);
+    ftp_recv(s);
+    ftp_send(s,3,"rename",tmp,remote);
+    ftp_recv(s);
+}
+
+void ftp_fini(struct ftp_state *s)
+{
+    ftp_send(s,1,"bye");
+    ftp_recv(s);
+    kill(s->pid,SIGTERM);
+    close(s->pty);
+    free(s);
 }

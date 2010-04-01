@@ -1,2 +1,3 @@
 usr/bin/v4l-conf
 usr/share/man/man8/v4l-conf.8
+usr/share/man/*/man8/v4l-conf.8

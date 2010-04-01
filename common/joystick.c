@@ -81,6 +81,8 @@ int joystick_tv_init(char *dev)
     event_register_list(joy_events);
     return fd;
 #else
+    if (debug)
+	fprintf(stderr,"joystick: not enabled at compile time\n");
     return -1;
 #endif
 }

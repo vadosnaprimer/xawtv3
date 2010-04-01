@@ -49,6 +49,10 @@ make distclean
 ./configure --disable-alsa && make				|| exit 1
 make distclean
 
+# no zvbi
+./configure --disable-zvbi && make				|| exit 1
+make distclean
+
 # no X11
 ./configure --without-x && make					|| exit 1
 make distclean

@@ -60,6 +60,7 @@
 #include "frequencies.h"
 #include "capture.h"
 #include "wmhooks.h"
+#include "atoms.h"
 #include "xt.h"
 #include "x11.h"
 #include "xv.h"
@@ -69,6 +70,9 @@
 #include "sound.h"
 #include "complete.h"
 #include "writefile.h"
+#include "list.h"
+#include "vbi-data.h"
+#include "vbi-x11.h"
 
 /*----------------------------------------------------------------------*/
 
@@ -79,11 +83,14 @@ int jpeg_quality, mjpeg_quality, debug;
 static void PopupAction(Widget, XEvent*, String*, Cardinal*);
 static void DebugAction(Widget, XEvent*, String*, Cardinal*);
 static void IpcAction(Widget, XEvent*, String*, Cardinal*);
+static void ontop_ac(Widget, XEvent*, String*, Cardinal*);
 static void chan_makebutton(struct CHANNEL *channel);
 static void channel_menu(void);
 
+#ifdef HAVE_ZVBI
 static void chscan_cb(Widget widget, XtPointer clientdata,
 		      XtPointer call_data);
+#endif
 static void pref_manage_cb(Widget widget, XtPointer clientdata,
 			   XtPointer call_data);
 static void add_cmd_callback(Widget widget, String callback,char *command,
@@ -100,10 +107,13 @@ static XtActionsRec actionTable[] = {
     { "man",         man_action        },
     { "Ratio",       RatioAction       },
     { "Launch",      LaunchAction      },
+#ifdef HAVE_ZVBI
     { "Vtx",         VtxAction         },
+#endif
     { "Complete",    CompleteAction    },
     { "Ipc",         IpcAction         },
     { "Filter",      FilterAction      },
+    { "StayOnTop",   ontop_ac          },
 };
 
 static String fallback_ressources[] = {
@@ -116,11 +126,12 @@ XtIntervalId audio_timer;
 static Widget st_menu1,st_menu2;
 static Widget control_shell,str_shell,levels_shell,levels_toggle;
 static Widget launch_menu,opt_menu,cap_menu,freq_menu;
-static Widget vtx_shell,vtx_label;
 static Widget chan_viewport,chan_box;
 static Widget st_freq,st_chan,st_name,st_key;
 static Widget scale_shell,filter_shell;
 static Widget w_full;
+static Widget b_ontop;
+static struct vbi_window *vtx;
 
 /* properties */
 static Widget prop_dlg,prop_name,prop_key,prop_channel,prop_button;
@@ -130,14 +141,6 @@ static Widget pref_dlg,pref_fs_toggle,pref_fs_menu,pref_fs_option;
 static Widget pref_osd,pref_ntsc,pref_partial,pref_quality;
 static Widget pref_mix_toggle,pref_mix1_menu,pref_mix1_option;
 static Widget pref_mix2_menu,pref_mix2_option;
-
-/* atoms */
-static Atom TARGETS, _MOTIF_CLIPBOARD_TARGETS, _MOTIF_EXPORT_TARGETS;
-static Atom _MOTIF_LOSE_SELECTION;
-static Atom XA_FILE_NAME, XA_FILE, _NETSCAPE_URL;
-static Atom XA_PIXEL, XA_BACKGROUND, XA_FOREGROUND;
-static Atom MIME_IMAGE_PPM,MIME_IMAGE_JPEG;
-static Atom MIME_TEXT_PLAIN,MIME_TEXT_URI_LIST;
 
 /* streamer */
 static Widget driver_menu, driver_option;
@@ -281,22 +284,36 @@ new_channel(void)
 }
 
 static void
-ontop_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+do_ontop(Boolean state)
 {
-    XmToggleButtonCallbackStruct *tb = call_data;
     int i;
 
-    if (tb->reason != XmCR_VALUE_CHANGED)
-	return;
     if (!wm_stay_on_top)
 	return;
 
-    stay_on_top = tb->set ? 1 : 0;
+    stay_on_top = state;
     wm_stay_on_top(dpy,XtWindow(app_shell),stay_on_top);
     wm_stay_on_top(dpy,XtWindow(on_shell),stay_on_top);
     for (i = 0; i < TOPLEVELS; i++)
 	wm_stay_on_top(dpy,XtWindow(*(my_toplevels[i].shell)),
 		       (stay_on_top == -1) ? 0 : stay_on_top);
+    XmToggleButtonSetState(b_ontop,state,False);
+}
+
+static void
+ontop_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    XmToggleButtonCallbackStruct *tb = call_data;
+
+    if (tb->reason != XmCR_VALUE_CHANGED)
+	return;
+    do_ontop(tb->set);
+}
+
+static void
+ontop_ac(Widget widget, XEvent *event, String *params, Cardinal *num_params)
+{
+    do_ontop(stay_on_top ? False : True);
 }
 
 /*----------------------------------------------------------------------*/
@@ -416,6 +433,7 @@ action_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
 /*--- videotext ----------------------------------------------------------*/
 
+#if TT
 static void
 rend_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
@@ -445,21 +463,30 @@ rend_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     arg->render_table = XmRenderTableAddRenditions
 	(arg->render_table,&rend,1,XmMERGE_NEW);
 }
+#endif
 
 static void create_vtx(void)
 {
-    vtx_shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
-				 app_shell,
-				 XtNoverrideRedirect,True,
-				 XtNvisual,vinfo.visual,
-				 XtNcolormap,colormap,
-				 XtNdepth,vinfo.depth,
-				 NULL);
-    vtx_label = XtVaCreateManagedWidget("label", xmLabelWidgetClass, vtx_shell,
-					NULL);
+    Widget shell,label;
+    
+    shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
+			     app_shell,
+			     XtNoverrideRedirect,True,
+			     XtNvisual,vinfo.visual,
+			     XtNcolormap,colormap,
+			     XtNdepth,vinfo.depth,
+			     NULL);
+    label = XtVaCreateManagedWidget("label", xmLabelWidgetClass, shell,
+				    NULL);
+#if TT
     XtAddCallback(XmGetXmDisplay(dpy),XmNnoRenditionCallback,rend_cb,NULL);
+#endif
+#ifdef HAVE_ZVBI
+    vtx = vbi_render_init(shell,label,NULL);
+#endif
 }
 
+#if TT
 static void
 display_vtx(struct TEXTELEM *tt)
 {
@@ -509,6 +536,40 @@ display_vtx(struct TEXTELEM *tt)
 	XDefineCursor(dpy, XtWindow(vtx_label), left_ptr);
     }
 }
+#endif
+
+#ifdef HAVE_ZVBI
+static void
+display_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
+{
+    static int first = 1;
+    static Pixmap pix;
+    Dimension x,y,w,h,sw,sh;
+
+    if (NULL == pg) {
+	XtPopdown(vtx->shell);
+	return;
+    }
+
+    if (pix)
+	XFreePixmap(dpy,pix);
+    pix = vbi_export_pixmap(vtx,pg,rect);
+    XtVaSetValues(vtx->tt,XmNlabelPixmap,pix,XmNlabelType,XmPIXMAP,NULL);
+    
+    XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,XtNwidth,&w,XtNheight,&h,NULL);
+    XtVaGetValues(vtx->shell,XtNwidth,&sw,XtNheight,&sh,NULL);
+    XtVaSetValues(vtx->shell,XtNx,x+(w-sw)/2,XtNy,y+h-10-sh,NULL);
+    XtPopup(vtx->shell, XtGrabNone);
+    if (wm_stay_on_top && stay_on_top > 0)
+	wm_stay_on_top(dpy,XtWindow(vtx->shell),1);
+
+    if (first) {
+	first = 0;
+	XDefineCursor(dpy, XtWindow(vtx->shell), left_ptr);
+	XDefineCursor(dpy, XtWindow(vtx->tt), left_ptr);
+    }
+}
+#endif
 
 /*----------------------------------------------------------------------*/
 
@@ -870,7 +931,7 @@ create_filter_prop(void)
 				      XmNdeleteResponse,XmDO_NOTHING,
 				      NULL);
     XmdRegisterEditres(filter_shell);
-    XmAddWMProtocolCallback(filter_shell,wm_delete_window,
+    XmAddWMProtocolCallback(filter_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,filter_shell);
     
     rc1 = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, filter_shell,
@@ -1129,7 +1190,7 @@ create_control(void)
 				       XmNdeleteResponse,XmDO_NOTHING,
 				       NULL);
     XmdRegisterEditres(control_shell);
-    XmAddWMProtocolCallback(control_shell,wm_delete_window,
+    XmAddWMProtocolCallback(control_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,control_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, control_shell,
 				   NULL);
@@ -1183,7 +1244,7 @@ create_control(void)
 				XmNsubMenuId,menu,NULL);
 	push = XtVaCreateManagedWidget("copy",xmPushButtonWidgetClass,menu,
 				       NULL);
-	XtAddCallback(push,XmNactivateCallback,action_cb,"Ipc(primary)");
+	XtAddCallback(push,XmNactivateCallback,action_cb,"Ipc(clipboard)");
     }
 #endif
 
@@ -1203,6 +1264,7 @@ create_control(void)
 		  "Command(fullscreen)");
     push = XtVaCreateManagedWidget("ontop",xmToggleButtonWidgetClass,menu,
 				   NULL);
+    b_ontop = push;
     XtAddCallback(push,XmNvalueChangedCallback,ontop_cb,NULL);
     push = XtVaCreateManagedWidget("levels",xmPushButtonWidgetClass,menu,
 				   NULL);
@@ -1284,8 +1346,10 @@ create_control(void)
 			    XmNsubMenuId,menu,NULL);
     push = XtVaCreateManagedWidget("add",xmPushButtonWidgetClass,menu,NULL);
     XtAddCallback(push,XmNactivateCallback,chan_add_cb,NULL);
+#ifdef HAVE_ZVBI
     push = XtVaCreateManagedWidget("scan",xmPushButtonWidgetClass,menu,NULL);
     XtAddCallback(push,XmNactivateCallback,chscan_cb,NULL);
+#endif
 #if 1
     push = XtVaCreateManagedWidget("pref",xmPushButtonWidgetClass,menu,NULL);
     XtAddCallback(push,XmNactivateCallback,pref_manage_cb,NULL);
@@ -1483,7 +1547,7 @@ create_scale(void)
 				     XmNdeleteResponse,XmDO_NOTHING,
 				     NULL);
     XmdRegisterEditres(scale_shell);
-    XmAddWMProtocolCallback(scale_shell,wm_delete_window,
+    XmAddWMProtocolCallback(scale_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,scale_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, scale_shell,
 				   NULL);
@@ -1705,7 +1769,7 @@ create_strwin(void)
 				   XmNdeleteResponse,XmDO_NOTHING,
 				   NULL);
     XmdRegisterEditres(str_shell);
-    XmAddWMProtocolCallback(str_shell,wm_delete_window,
+    XmAddWMProtocolCallback(str_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,str_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, str_shell,
 				   NULL);
@@ -2036,6 +2100,7 @@ do_rec_status(char *message)
 
 /*----------------------------------------------------------------------*/
 
+#ifdef HAVE_ZVBI
 #define CHSCAN 250
 static int chscan;
 static int chvbi;
@@ -2048,7 +2113,6 @@ chscan_timeout(XtPointer client_data, XtIntervalId *id)
     struct CHANNEL *c;
     char title[32];
     XmString xmstr;
-    int i;
 
     if (!x11_vbi_tuned()) {
 	if (debug)
@@ -2056,13 +2120,11 @@ chscan_timeout(XtPointer client_data, XtIntervalId *id)
 	goto next_station;
     }
 
-    if (0 != vbi_xpacket[0]) {
-	for (i = 19; i > 0 && vbi_xpacket[i] == ' '; i--)
-	    vbi_xpacket[i] = 0;
+    if (0 != x11_vbi_station[0]) {
 	if (debug)
 	    fprintf(stderr,"scan [%s]: %s\n",chanlist[chscan].name,
-		    vbi_xpacket);
-	c = add_channel(vbi_xpacket);
+		    x11_vbi_station);
+	c = add_channel(x11_vbi_station);
 	c->cname   = strdup(chanlist[chscan].name);
 	c->channel = chscan;
 	cur_sender = count-1;
@@ -2107,7 +2169,7 @@ chscan_timeout(XtPointer client_data, XtIntervalId *id)
     XmStringFree(xmstr);
     XmScaleSetValue(chscale,chscan);
     do_va_cmd(2,"setchannel",chanlist[chscan]);
-    vbi_xpacket[0] = 0;
+    x11_vbi_station[0] = 0;
     chtimer = XtAppAddTimeOut(app_context, CHSCAN, chscan_timeout,NULL);
     return;
 }
@@ -2140,7 +2202,7 @@ chscan_start_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     XmStringFree(xmstr);
     XmScaleSetValue(chscale,chscan);
     do_va_cmd(2,"setchannel",chanlist[chscan]);
-    vbi_xpacket[0] = 0;
+    x11_vbi_station[0] = 0;
     chtimer = XtAppAddTimeOut(app_context, CHSCAN, chscan_timeout,NULL);
 }
     
@@ -2176,6 +2238,7 @@ chscan_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     XtAddCallback(chdlg,XmNcancelCallback,chscan_cancel_cb,NULL);
     XtManageChild(chdlg);
 }
+#endif
 
 /*----------------------------------------------------------------------*/
 
@@ -2513,12 +2576,15 @@ scale_rgb_buffer(struct ng_video_buf *in, int scale)
 }
 
 struct ipc_data {
-    struct ng_video_buf *buf;
-    char *filename;
-    Pixmap pix;
-    Pixmap icon_pixmap;
-    Widget icon_widget;
-} ipc_pri,ipc_dnd;
+    struct list_head     list;
+    Atom                 atom;
+    struct ng_video_buf  *buf;
+    char                 *filename;
+    Pixmap               pix;
+    Pixmap               icon_pixmap;
+    Widget               icon_widget;
+};
+struct list_head ipc_selections;
 
 static void
 ipc_iconify(Widget widget, struct ipc_data *ipc)
@@ -2554,9 +2620,24 @@ ipc_iconify(Widget widget, struct ipc_data *ipc)
     ng_release_video_buf(small);
 }
 
-static void
-ipc_init(struct ipc_data *ipc)
+static struct ipc_data*
+ipc_find(Atom selection)
 {
+    struct list_head   *item;
+    struct ipc_data    *ipc;
+    
+    list_for_each(item,&ipc_selections) {
+	ipc = list_entry(item, struct ipc_data, list);
+	if (ipc->atom == selection)
+	    return ipc;
+    }
+    return NULL;
+}
+
+static struct ipc_data*
+ipc_init(Atom selection)
+{
+    struct ipc_data *ipc;
     struct ng_video_fmt fmt;
     struct ng_video_buf *buf;
     
@@ -2566,11 +2647,17 @@ ipc_init(struct ipc_data *ipc)
     fmt.fmtid = VIDEO_RGB24;
     buf = ng_grabber_get_image(&fmt);
     buf = ng_filter_single(cur_filter,buf);
+    ipc = malloc(sizeof(*ipc));
+    memset(ipc,0,sizeof(*ipc));
     ipc->buf = ng_malloc_video_buf(&buf->fmt,buf->size);
+    ipc->atom = selection;
     ipc->buf->info = buf->info;
     memcpy(ipc->buf->data,buf->data,buf->size);
     ng_release_video_buf(buf);
     video_gd_restart();
+
+    list_add_tail(&ipc->list,&ipc_selections);
+    return ipc;
 }
 
 static void
@@ -2614,8 +2701,14 @@ ipc_pixmap(struct ipc_data *ipc)
 }
 
 static void
-ipc_fini(struct ipc_data *ipc)
+ipc_fini(Atom selection)
 {
+    struct ipc_data *ipc;
+
+    ipc = ipc_find(selection);
+    if (NULL == ipc)
+	return;
+
     /* free stuff */
     if (ipc->buf)
 	ng_release_video_buf(ipc->buf);
@@ -2629,7 +2722,24 @@ ipc_fini(struct ipc_data *ipc)
 	XFreePixmap(dpy,ipc->icon_pixmap);
     if (ipc->pix)
 	XFreePixmap(dpy,ipc->pix);
-    memset(ipc,0,sizeof(*ipc));
+
+    list_del(&ipc->list);
+    free(ipc);
+}
+
+static Atom ipc_unique_atom(Widget widget)
+{
+    char id_name[32];
+    Atom id;
+    int i;
+
+    for (i = 0;; i++) {
+	sprintf(id_name,"_MOTV_IMAGE_%lX_%d",XtWindow(widget),i);
+	id = XInternAtom(XtDisplay(widget),id_name,False);
+	if (NULL == ipc_find(id))
+	    break;
+    }
+    return id;
 }
 
 static void
@@ -2653,34 +2763,77 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	if (t) XFree(t);
 	if (s) XFree(s);
     }
-    ipc = ccs->selection == XA_PRIMARY ? &ipc_pri : &ipc_dnd;
     
-    if ((ccs->target == TARGETS) ||
+    /* tell which formats we can handle */
+    if ((ccs->target == XA_TARGETS) ||
 	(ccs->target == _MOTIF_CLIPBOARD_TARGETS) ||
+	(ccs->target == _MOTIF_DEFERRED_CLIPBOARD_TARGETS) ||
 	(ccs->target == _MOTIF_EXPORT_TARGETS)) {
-	/* tell which formats we can handle */
 	n = 0;
 	targs = (Atom*)XtMalloc(sizeof(Atom)*12);
-	targs[n++] = TARGETS;
-	targs[n++] = MIME_IMAGE_PPM;
-	targs[n++] = XA_PIXMAP;
-	targs[n++] = XA_FOREGROUND;
-	targs[n++] = XA_BACKGROUND;
-	targs[n++] = XA_COLORMAP;
-	targs[n++] = MIME_IMAGE_JPEG;
-	targs[n++] = XA_FILE_NAME;
-	targs[n++] = XA_FILE;
-	targs[n++] = MIME_TEXT_URI_LIST;
-	targs[n++] = _NETSCAPE_URL;
+	if (ccs->target != _MOTIF_CLIPBOARD_TARGETS) {
+	    targs[n++] = XA_TARGETS;
+	    targs[n++] = MIME_IMAGE_PPM;
+	    targs[n++] = XA_PIXMAP;
+	    targs[n++] = XA_FOREGROUND;
+	    targs[n++] = XA_BACKGROUND;
+	    targs[n++] = XA_COLORMAP;
+	    targs[n++] = MIME_IMAGE_JPEG;
+	    targs[n++] = XA_FILE_NAME;
+	    targs[n++] = XA_FILE;
+	    targs[n++] = MIME_TEXT_URI_LIST;
+	    targs[n++] = _NETSCAPE_URL;
+	}
+	if (ccs->target == _MOTIF_EXPORT_TARGETS) {
+	    /* save away drag'n'drop data */
+	    ipc_init(ccs->selection);
+	}
 	ccs->value  = targs;
 	ccs->length = n;
 	ccs->type   = XA_ATOM;
 	ccs->format = 32;
 	ccs->status = XmCONVERT_DONE;
-	
-    } else if (ccs->target == XA_BACKGROUND ||
-	       ccs->target == XA_FOREGROUND ||
-	       ccs->target == XA_COLORMAP) {
+	return;
+
+    } else if (ccs->target == _MOTIF_SNAPSHOT) {
+	/* save away clipboard data */
+	n = 0;
+	targs = (Atom*)XtMalloc(sizeof(Atom));
+	targs[n++] = ipc_unique_atom(widget);
+	ipc_init(targs[0]);
+	ccs->value  = targs;
+	ccs->length = n;
+	ccs->type   = XA_ATOM;
+	ccs->format = 32;
+	ccs->status = XmCONVERT_DONE;
+	return;
+    }
+    
+    /* find data */
+    ipc = ipc_find(ccs->selection);
+    if (NULL == ipc) {
+	/* shouldn't happen */
+	fprintf(stderr,"oops: selection data not found\n");
+	ccs->status = XmCONVERT_REFUSE;
+	return;
+    }
+    
+    if (ccs->target == _MOTIF_LOSE_SELECTION ||
+	ccs->target == XA_DONE) {
+	/* cleanup */
+	ipc_fini(ccs->selection);
+	ccs->value  = NULL;
+	ccs->length = 0;
+	ccs->type   = XA_INTEGER;
+	ccs->format = 32;
+	ccs->status = XmCONVERT_DONE;
+	return;
+    }
+
+    /* convert data */
+    if (ccs->target == XA_BACKGROUND ||
+	ccs->target == XA_FOREGROUND ||
+	ccs->target == XA_COLORMAP) {
 	n = 0;
 	ldata = (Atom*)XtMalloc(sizeof(Atom)*8);
 	if (ccs->target == XA_BACKGROUND) {
@@ -2764,11 +2917,9 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	ccs->format = 8;
 	ccs->status = XmCONVERT_DONE;
 
-    } else if (ccs->target == _MOTIF_LOSE_SELECTION) {
-	/* lost (primary) selection */
-	ipc_fini(ipc);
-	
     } else {
+	/* shouldn't happen */
+	fprintf(stderr,"oops: unknown target\n");
 	ccs->status = XmCONVERT_REFUSE;
     }
 }
@@ -2776,17 +2927,14 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 static void
 ipc_finish(Widget widget, XtPointer ignore, XtPointer call_data)
 {
-#if 0
-    XmDragDropFinishCallbackStruct *fin = call_data;
-#endif
-
     if (debug)
 	fprintf(stderr,"conv: transfer finished\n");
-    ipc_fini(&ipc_dnd);
+    ipc_fini(_MOTIF_DROP);
 }
 
 void IpcAction(Widget widget, XEvent *event, String *argv, Cardinal *argc)
 {
+    struct    ipc_data *ipc;
     Widget    drag;
     Arg       args[4];
     Cardinal  n=0;
@@ -2802,19 +2950,26 @@ void IpcAction(Widget widget, XEvent *event, String *argv, Cardinal *argc)
     if (debug)
 	fprintf(stderr,"ipc: %s\n",argv[0]);
     if (0 == strcmp(argv[0],"drag")) {
-	ipc_fini(&ipc_dnd);
-	ipc_init(&ipc_dnd);
-	ipc_iconify(widget,&ipc_dnd);
+	ipc_fini(_MOTIF_DROP);
+	ipc = ipc_init(_MOTIF_DROP);
+	ipc_iconify(widget,ipc);
 	n = 0;
 	XtSetArg(args[n], XmNdragOperations, XmDROP_COPY); n++;
-	XtSetArg(args[n], XmNsourcePixmapIcon, ipc_dnd.icon_widget); n++;
+	XtSetArg(args[n], XmNsourcePixmapIcon, ipc->icon_widget); n++;
 	drag = XmeDragSource(tv, NULL, event, args, n);
 	XtAddCallback(drag, XmNdragDropFinishCallback, ipc_finish, NULL);
     }
     if (0 == strcmp(argv[0],"primary")) {
-	ipc_fini(&ipc_pri);
-	ipc_init(&ipc_pri);
+#if 0
+	ipc_fini(XA_PRIMARY);
+	ipc_init(XA_PRIMARY);
 	XmePrimarySource(tv,XtLastTimestampProcessed(dpy));
+#else
+	fprintf(stderr,"FIXME [primary called]\n");
+#endif
+    }
+    if (0 == strcmp(argv[0],"clipboard")) {
+	XmeClipboardSource(tv,XmCOPY,XtLastTimestampProcessed(dpy));
     }
 }
 
@@ -2890,7 +3045,7 @@ create_levels(void)
 				      XmNdeleteResponse,XmDO_NOTHING,
 				      NULL);
     XmdRegisterEditres(levels_shell);
-    XmAddWMProtocolCallback(levels_shell,wm_delete_window,
+    XmAddWMProtocolCallback(levels_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,levels_shell);
     rc = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, levels_shell,
 				 NULL);
@@ -3002,23 +3157,7 @@ main(int argc, char *argv[])
     XmdRegisterEditres(app_shell);
     dpy = XtDisplay(app_shell);
     x11_icons_init(dpy,0);
-    _MOTIF_CLIPBOARD_TARGETS = XInternAtom
-	(dpy,"_MOTIF_CLIPBOARD_TARGETS", False);
-    _MOTIF_EXPORT_TARGETS = XInternAtom
-	(dpy,"_MOTIF_EXPORT_TARGETS", False);
-    _MOTIF_LOSE_SELECTION = XInternAtom
-	(dpy,"_MOTIF_LOSE_SELECTION", False);
-    TARGETS            = XInternAtom(dpy, "TARGETS",        False);
-    XA_FILE_NAME       = XInternAtom(dpy, "FILE_NAME",      False);
-    XA_FILE            = XInternAtom(dpy, "FILE",           False);
-    XA_BACKGROUND      = XInternAtom(dpy, "BACKGROUND",     False);
-    XA_FOREGROUND      = XInternAtom(dpy, "FOREGROUND",     False);
-    XA_PIXEL           = XInternAtom(dpy, "PIXEL",          False);
-    MIME_TEXT_PLAIN    = XInternAtom(dpy, "text/plain",     False);
-    MIME_TEXT_URI_LIST = XInternAtom(dpy, "text/uri-list",  False);
-    MIME_IMAGE_PPM     = XInternAtom(dpy, "image/ppm",      False);
-    MIME_IMAGE_JPEG    = XInternAtom(dpy, "image/jpeg",     False);
-    _NETSCAPE_URL      = XInternAtom(dpy, "_NETSCAPE_URL",  False);
+    init_atoms(dpy);
 
     /* handle command line args */
     ng_init();
@@ -3044,7 +3183,7 @@ main(int argc, char *argv[])
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
     x11_misc_init();
-    XmAddWMProtocolCallback(app_shell,wm_delete_window,ExitCB,NULL);
+    XmAddWMProtocolCallback(app_shell,WM_DELETE_WINDOW,ExitCB,NULL);
     if (debug)
 	fprintf(stderr,"main: dga extention...\n");
     xfree_dga_init();
@@ -3058,7 +3197,12 @@ main(int argc, char *argv[])
     /* set hooks (command.c) */
     update_title        = new_title;
     display_message     = new_message;
+#if TT
     vtx_message         = display_vtx;
+#endif
+#ifdef HAVE_ZVBI
+    vtx_subtitle        = display_subtitle;
+#endif
     set_capture_hook    = do_capture;
     fullscreen_hook     = do_motif_fullscreen;
     attr_notify         = new_attr;
@@ -3142,6 +3286,7 @@ main(int argc, char *argv[])
     init_movie_menus();
     create_scale();
     create_attr_widgets();
+    INIT_LIST_HEAD(&ipc_selections);
     
     if (fs_width && fs_height && !args.vidmode) {
 	if (debug)

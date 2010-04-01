@@ -1,4 +1,21 @@
 
+3.74 => 3.75
+============
+
+ * fixed fullscreen code.
+ * webcam has a new option (wait=, see manpage).
+ * selection / dnd / cut+paste fixes.
+ * french translation (jose.jorge@cpam-auch.cnamts.fr)
+ * webcam: support multiple ftp connections (idea from "D. Brian
+   Larkins" <brian@sysd.com>).
+ * webcam: config options for text color (based on a patch from
+   Bill Marr <marr@shianet.org>)
+ * lots of VBI changes: dropped libvbi directory, using libzvbi
+   instead (http://zapping.ft.net, version 0.2.1 or newer).
+ * unbundled the fonts, there is another tarball with all the fonts
+   now.
+
+
 3.73 => 3.74
 ============
 

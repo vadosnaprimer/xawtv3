@@ -11,7 +11,7 @@
 #include <termios.h>
 #include <signal.h>
 #include <errno.h>
-#include <signal.h>
+#include <setjmp.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -460,29 +460,42 @@ fb_cleanup(void)
     close(tty);
 }
 
-void
-fb_cleanup_fork()
+/* -------------------------------------------------------------------- */
+/* handle fatal errors                                                  */
+
+static jmp_buf fb_fatal_cleanup;
+
+static void
+fb_catch_exit_signal(int signal)
 {
-    int status;
-    
-    switch (fork()) {
-    case -1:
-	fb_cleanup();
-	perror("fork");
-	exit(1);
-    case 0:
+    siglongjmp(fb_fatal_cleanup,signal);
+}
+
+void
+fb_catch_exit_signals(void)
+{
+    struct sigaction act,old;
+    int termsig;
+
+    memset(&act,0,sizeof(act));
+    act.sa_handler = fb_catch_exit_signal;
+    sigemptyset(&act.sa_mask);
+    sigaction(SIGINT, &act,&old);
+    sigaction(SIGQUIT,&act,&old);
+    sigaction(SIGTERM,&act,&old);
+
+    sigaction(SIGABRT,&act,&old);
+    sigaction(SIGTSTP,&act,&old);
+
+    sigaction(SIGBUS, &act,&old);
+    sigaction(SIGILL, &act,&old);
+    sigaction(SIGSEGV,&act,&old);
+
+    if (0 == (termsig = sigsetjmp(fb_fatal_cleanup,0)))
 	return;
-    }
 
-    signal(SIGINT, SIG_IGN);
-    signal(SIGTSTP,SIG_IGN);
-    signal(SIGTERM,SIG_IGN);
-    signal(SIGUSR1,SIG_IGN);
-    signal(SIGUSR2,SIG_IGN);
-
-    wait(&status);
+    /* cleanup */
     fb_cleanup();
-    if (WIFSIGNALED(status))
-	fprintf(stderr,"Oops: %s\n",sys_siglist[WTERMSIG(status)]);
-    exit(status);
+    fprintf(stderr,"Oops: %s\n",sys_siglist[termsig]);
+    exit(42);
 }

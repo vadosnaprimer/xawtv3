@@ -67,6 +67,7 @@ Status DPMSDisable(Display*);
 #include "sound.h"
 #include "toolbox.h"
 #include "xv.h"
+#include "atoms.h"
 #include "xt.h"
 #include "x11.h"
 #include "wmhooks.h"
@@ -75,15 +76,7 @@ Status DPMSDisable(Display*);
 #include "midictrl.h"
 #include "lirc.h"
 #include "joystick.h"
-
-/* libvbi */
-#include "vt.h"
-#include "misc.h"
-#include "fdset.h"
-#include "vbi.h"
-#include "lang.h"
-#include "dllist.h"
-#include "export.h"
+#include "vbi-data.h"
 
 /* jwz */
 #include "remote.h"
@@ -94,8 +87,6 @@ XtAppContext      app_context;
 Widget            app_shell, tv;
 Widget            on_shell;
 Display           *dpy;
-Atom              wm_protocols,wm_delete_window;
-Atom              xawtv_remote,xawtv_station;
 int               stay_on_top = 0;
 
 XVisualInfo       vinfo;
@@ -112,7 +103,12 @@ XtIntervalId      zap_timer,scan_timer;
 
 #ifdef HAVE_LIBXXF86VM
 int               vm_count;
+static int        vm_switched;
 XF86VidModeModeInfo **vm_modelines;
+XF86VidModeModeLine vm_line;
+int                 vm_dot;
+XF86VidModeModeInfo *vm_current;
+XF86VidModeModeInfo *vm_fullscreen;
 #endif
 #ifdef HAVE_LIBXINERAMA
 XineramaScreenInfo *xinerama;
@@ -341,7 +337,7 @@ CloseMainAction(Widget widget, XEvent *event,
 	if (debug)
 	    fprintf(stderr,"CloseMainAction: received %s message\n",
 		    XGetAtomName(dpy,event->xclient.data.l[0]));
-	if (event->xclient.data.l[0] == wm_delete_window) {
+	if (event->xclient.data.l[0] == WM_DELETE_WINDOW) {
 	    /* fall throuth -- popdown window */
 	} else {
 	    /* whats this ?? */
@@ -365,7 +361,7 @@ RemoteAction(Widget widget, XEvent * event,
 	if (debug > 1)
 	    fprintf(stderr,"PropertyNotify %s\n",
 		    XGetAtomName(dpy,event->xproperty.atom));
-	if (event->xproperty.atom == xawtv_remote &&
+	if (event->xproperty.atom == _XAWTV_REMOTE &&
 	    Success == XGetWindowProperty(dpy,
 					  event->xproperty.window,
 					  event->xproperty.atom,
@@ -736,20 +732,20 @@ xt_siginit(void)
 /*----------------------------------------------------------------------*/
 
 static XtIntervalId xscreensaver_timer;
-static Atom XA_DEACTIVATE;
 
 static void
 xscreensaver_timefunc(XtPointer clientData, XtIntervalId *id)
 {
+    static int first = 1;
     int status;
     char *err;
 
     if (debug)
 	fprintf(stderr,"xscreensaver_timefunc\n");
     xscreensaver_timer = 0;
-    if (!XA_DEACTIVATE) {
+    if (first) {
 	xscreensaver_init(dpy);
-	XA_DEACTIVATE = XInternAtom(dpy,"DEACTIVATE",False);
+	first = 0;
     }
     status = xscreensaver_command(dpy,XA_DEACTIVATE,0,debug,&err);
     if (0 != status) {
@@ -778,7 +774,7 @@ vidmode_timer(XtPointer clientData, XtIntervalId *id)
 }
 
 static void
-set_vidmode(int nr)
+set_vidmode(XF86VidModeModeInfo *mode)
 {
     if (CAPTURE_OVERLAY == cur_capture) {
 	do_va_cmd(2,"capture", "off");
@@ -787,17 +783,17 @@ set_vidmode(int nr)
     /* usleep(VIDMODE_DELAY*1000); */
     if (debug)
 	fprintf(stderr,"switching mode: %d  %d %d %d %d  %d %d %d %d  %d\n",
-		vm_modelines[nr]->dotclock,
-		vm_modelines[nr]->hdisplay,
-		vm_modelines[nr]->hsyncstart,
-		vm_modelines[nr]->hsyncend,
-		vm_modelines[nr]->htotal,
-		vm_modelines[nr]->vdisplay,
-		vm_modelines[nr]->vsyncstart,
-		vm_modelines[nr]->vsyncend,
-		vm_modelines[nr]->vtotal,
-		vm_modelines[nr]->flags);
-    XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),vm_modelines[nr]);
+		mode->dotclock,
+		mode->hdisplay,
+		mode->hsyncstart,
+		mode->hsyncend,
+		mode->htotal,
+		mode->vdisplay,
+		mode->vsyncstart,
+		mode->vsyncend,
+		mode->vtotal,
+		mode->flags);
+    XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),mode);
 }
 #endif
 
@@ -807,9 +803,6 @@ do_fullscreen(void)
     static Dimension x,y,w,h;
     static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy;
     static int warp_pointer;
-#ifdef HAVE_LIBXXF86VM
-    static int vm_switched;
-#endif
 #ifdef HAVE_LIBXDPMS
     static BOOL dpms_on;
     CARD16 dpms_state;
@@ -824,7 +817,7 @@ do_fullscreen(void)
 	    fprintf(stderr,"turning fs off (%dx%d+%d+%d)\n",w,h,x,y);
 #ifdef HAVE_LIBXXF86VM
 	if (have_vm && vm_switched) {
-	    set_vidmode(0);
+	    set_vidmode(vm_current);
 	    vm_switched = 0;
 	}
 #endif
@@ -873,21 +866,37 @@ do_fullscreen(void)
 #ifdef HAVE_LIBXXF86VM
 	if (have_vm) {
 	    int i;
+	    XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
 	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
 				       &vm_count,&vm_modelines);
-	    for (i = 0; i < vm_count; i++)
+	    vm_fullscreen = NULL;
+	    for (i = 0; i < vm_count; i++) {
 		if (fs_width  == vm_modelines[i]->hdisplay &&
 		    fs_height == vm_modelines[i]->vdisplay)
-		    break;
-	    if (i != 0 && i != vm_count) {
-		set_vidmode(i);
+		    vm_fullscreen = vm_modelines[i];
+		if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
+		    vm_line.vdisplay == vm_modelines[i]->vdisplay)
+		    vm_current = vm_modelines[i];
+	    }
+	    if (debug) {
+		fprintf(stderr,"vm: current=%dx%d",
+			vm_current->hdisplay,vm_current->vdisplay);
+		if (vm_fullscreen)
+		    fprintf(stderr,"fullscreen=%dx%d",
+			    vm_fullscreen->hdisplay,vm_fullscreen->vdisplay);
+		fprintf(stderr,"\n");
+	    }
+	    if (vm_current && vm_fullscreen &&
+		vm_fullscreen->hdisplay != vm_current->hdisplay &&
+		vm_fullscreen->vdisplay != vm_current->vdisplay) {
+		set_vidmode(vm_fullscreen);
 		vm_switched = 1;
-		vp_width = vm_modelines[i]->hdisplay;
-		vp_height = vm_modelines[i]->vdisplay;
+		vp_width  = vm_fullscreen->hdisplay;
+		vp_height = vm_fullscreen->vdisplay;
 	    } else {
 		vm_switched = 0;
-		vp_width = vm_modelines[0]->hdisplay;
-		vp_height = vm_modelines[0]->vdisplay;
+		vp_width  = vm_current->hdisplay;
+		vp_height = vm_current->vdisplay;
 	    }
 	    if (vp_width < sheight || vp_width < swidth) {
 		/* move viewpoint, make sure the pointer is in there */
@@ -896,9 +905,6 @@ do_fullscreen(void)
 			     0, 0, 0, 0, vp_width/2, vp_height/2);
 		XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
 	    }
-	    if (debug)
-		fprintf(stderr,"viewport: %dx%d+%d+%d\n",
-			vp_width,vp_height,vp_x,vp_y);
 	}
 #endif
 	XtVaGetValues(app_shell,
@@ -926,6 +932,9 @@ do_fullscreen(void)
 	    }
 	}
 #endif
+	if (debug)
+	    fprintf(stderr,"viewport: %dx%d+%d+%d\n",
+		    vp_width,vp_height,vp_x,vp_y);
 
 	XtVaSetValues(app_shell,
 		      XtNwidthInc,   1,
@@ -1048,7 +1057,7 @@ set_property(int freq, char *channel, char *name)
     len += sprintf(line+len,"%s",channel ? channel : "?") +1;
     len += sprintf(line+len,"%s",name    ? name    : "?") +1;
     XChangeProperty(dpy, XtWindow(app_shell),
-                    xawtv_station, XA_STRING,
+                    _XAWTV_STATION, XA_STRING,
                     8, PropModeReplace,
                     line, len);
 }
@@ -1347,10 +1356,6 @@ x11_check_remote()
 void x11_misc_init()
 {
     fcntl(ConnectionNumber(dpy),F_SETFD,FD_CLOEXEC);
-    wm_protocols     = XInternAtom(dpy, "WM_PROTOCOLS", False);
-    wm_delete_window = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-    xawtv_station    = XInternAtom(dpy, "_XAWTV_STATION", False);
-    xawtv_remote     = XInternAtom(dpy, "_XAWTV_REMOTE", False);
 }
 
 /*----------------------------------------------------------------------*/
@@ -1536,20 +1541,18 @@ mouse_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 
 /*----------------------------------------------------------------------*/
 
+#if TT
 static char *vtx_colors[8] = { "black", "red", "green", "yellow",
 			       "blue", "magenta", "cyan", "white" };
+#endif
 
+#ifdef HAVE_ZVBI
 static XtInputId x11_vbi_input;
-static struct vbi *x11_vbi;
-static struct export *fmt;
+static struct vbi_state *x11_vbi;
 static int x11_vbi_page;
-char vbi_header[64];
-char vbi_xpacket[64];
+char x11_vbi_station[64];
 
-/* libvbi */
-void vbi_handler(struct vbi *vbi, int fd);
-void fmt_page(struct export *e, struct fmt_page *pg, struct vt_page *vtp);
-
+#if 0
 static struct TEXTELEM*
 vtx_to_tt(struct vt_page *vtp)
 {
@@ -1645,7 +1648,6 @@ tt_pick_subtitle(struct TEXTELEM *tt)
 	    i--;
 	tt[i].len = 0;
     }
-	
     
     return tt;
 }
@@ -1668,62 +1670,42 @@ dump_tt(struct TEXTELEM *tt)
     }
     fprintf(stderr,"\n");
 }
+#endif
 
 static void
-x11_vbi_event(struct dl_head *reqs, struct vt_event *ev)
+x11_vbi_event(struct vbi_event *ev, void *user)
 {
-    unsigned char *p;
-    struct vt_page *vtp;
-    struct TEXTELEM *tt;
+    struct vbi_page pg;
+    struct vbi_rect rect;
     
     switch (ev->type) {
-    case EV_HEADER:
-	p = ev->p1;
-	if (debug > 1)
-	    fprintf(stderr,"vbi header: %.32s \r", p+8);
-	memcpy(vbi_header,p+8,32);
-	vbi_header[32] = 0;
+    case VBI_EVENT_NETWORK:
+	strcpy(x11_vbi_station,ev->ev.network.name);
 	break;
-    case EV_PAGE:
-	vtp = ev->p1;
-	if (debug > 1)
-	    fprintf(stderr,"vbi page: %03x.%02x \r", vtp->pgno, vtp->subno);
-	if (vtp->pgno == x11_vbi_page) {
+    case VBI_EVENT_TTX_PAGE:
+	if (ev->ev.ttx_page.pgno == x11_vbi_page) {
 	    if (debug)
-		fprintf(stderr,"got vtx page %03x\n",vtp->pgno);
-	    if (vtx_message) {
-		tt = vtx_to_tt(vtp);
-		tt = tt_pick_subtitle(tt);
-		if (debug)
-		    dump_tt(tt);
-		if (vtx_message)
-		    vtx_message(tt->len ? tt : NULL);
+		fprintf(stderr,"got vtx page %03x\n",ev->ev.ttx_page.pgno);
+	    if (vtx_subtitle) {
+		vbi_fetch_vt_page(x11_vbi->dec,&pg,
+				  ev->ev.ttx_page.pgno,
+				  ev->ev.ttx_page.subno,
+				  VBI_WST_LEVEL_1p5,25,1);
+		vbi_find_subtitle(&pg,&rect);
+		if (25 == rect.y1)
+		    vtx_subtitle(NULL,NULL);
+		else
+		    vtx_subtitle(&pg,&rect);
 	    }
 	}
-	break;
-    case EV_XPACKET:
-	p = ev->p1;
-	if (debug > 1)
-	    fprintf(stderr,"vbi xpacket: %x %x %x %x - %.20s\n",
-		    p[0],p[1],p[3],p[5],p+20);
-	if (0 != memcmp(vbi_xpacket,p+20,20)) {
-	    memcpy(vbi_xpacket,p+20,20);
-	    vbi_xpacket[20] = 0;
-	    if (debug)
-		fprintf(stderr,"vbi station: %s\n",vbi_xpacket);
-	}
-	break;
-    default:
-	if (debug)
-	    fprintf(stderr,"vbi unknown: type=%d\n",ev->type);
 	break;
     }
 }
 
-static void
-x11_vbi_data(XtPointer data, int *fd, XtInputId *iproc)
+static void x11_vbi_data(XtPointer data, int *fd, XtInputId *iproc)
 {
-    vbi_handler(x11_vbi,x11_vbi->fd);
+    struct vbi_state *vbi = data;
+    vbi_hasdata(vbi);
 }
 
 int
@@ -1735,17 +1717,15 @@ x11_vbi_start(char *device)
     if (NULL == device)
 	device = ng_dev.vbi;
 
-    fdset_init(fds);
-    x11_vbi = vbi_open(device, NULL, 0, -1);
+    x11_vbi = vbi_open(device, debug, 0);
     if (NULL == x11_vbi) {
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	return -1;
     }
-    fmt = export_open("ascii");
-    vbi_add_handler(x11_vbi, x11_vbi_event, NULL);
+    vbi_event_handler_add(x11_vbi->dec,~0,x11_vbi_event,x11_vbi);
     x11_vbi_input = XtAppAddInput(app_context,x11_vbi->fd,
 				  (XtPointer) XtInputReadMask,
-				  x11_vbi_data,NULL);
+				  x11_vbi_data,x11_vbi);
     if (debug)
 	fprintf(stderr,"x11_vbi_start\n");
     return 0;
@@ -1762,12 +1742,10 @@ x11_vbi_tuned(void)
     if (NULL == x11_vbi)
 	return drv->is_tuned(h_drv);
     memset(&tuner,0,sizeof(tuner));
-    if (-1 == ioctl(x11_vbi->fd,VIDIOCGTUNER,&tuner))
-	return drv->is_tuned(h_drv);
-    return tuner.signal ? 1 : 0;
-#else
-    return drv->is_tuned(h_drv);
+    if (-1 != ioctl(x11_vbi->fd,VIDIOCGTUNER,&tuner))
+	return tuner.signal ? 1 : 0;
 #endif
+    return drv->is_tuned(h_drv);
 }
 
 void
@@ -1776,10 +1754,9 @@ x11_vbi_stop(void)
     if (NULL == x11_vbi)
 	return;
     XtRemoveInput(x11_vbi_input);
+    vbi_event_handler_remove(x11_vbi->dec,x11_vbi_event);
     vbi_close(x11_vbi);
     x11_vbi = NULL;
-    export_close(fmt);
-    fmt = NULL;
     if (debug)
 	fprintf(stderr,"x11_vbi_stop\n");
 }
@@ -1800,10 +1777,17 @@ VtxAction(Widget widget, XEvent *event,
     if (0 == strcasecmp(params[0],"stop")) {
 	x11_vbi_page = 0;
 	x11_vbi_stop();
+#if TT
 	if (vtx_message)
 	    vtx_message(NULL);
+#endif
+#ifdef HAVE_ZVBI
+	if (vtx_subtitle)
+	    vtx_subtitle(NULL,NULL);
+#endif
     }
 }
+#endif
 
 /* ---------------------------------------------------------------------- */
 /* control via lirc / midi / joystick                                     */

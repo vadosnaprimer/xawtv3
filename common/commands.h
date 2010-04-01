@@ -1,4 +1,7 @@
+#include "vbi-data.h"
 
+#define TT 0
+#if TT
 #define VTX_COUNT 256
 #define VTX_LEN   64
 
@@ -10,14 +13,20 @@ struct TEXTELEM {
     int   line;
     int   x,y;
 };
+#endif
 
 /*------------------------------------------------------------------------*/
 
 /* feedback for the user */
 extern void (*update_title)(char *message);
 extern void (*display_message)(char *message);
-extern void (*vtx_message)(struct TEXTELEM *tt);
 extern void (*rec_status)(char *message);
+#if TT
+extern void (*vtx_message)(struct TEXTELEM *tt);
+#endif
+#ifdef HAVE_ZVBI
+extern void (*vtx_subtitle)(struct vbi_page *pg, struct vbi_rect *rect);
+#endif
 
 /* for updating GUI elements / whatever */
 extern void (*attr_notify)(struct ng_attribute *attr, int val);

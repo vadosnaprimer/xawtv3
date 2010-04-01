@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,20 +28,12 @@
 
 #include "httpd.h"
 #include "devices.h"
-
-/* libvbi */
-#include "vt.h"
-#include "misc.h"
-#include "fdset.h"
-#include "vbi.h"
-#include "lang.h"
-#include "dllist.h"
-#include "export.h"
+#include "vbi-data.h"
 
 /* ---------------------------------------------------------------------- */
 /* public variables - server configuration                                */
 
-char    *server_name   = "alevt/1.6.0";
+char    *server_name   = "alevtd/2.0";
 
 int     debug          = 0;
 int     dontdetach     = 0;
@@ -64,25 +58,7 @@ int     cachereset     = 0;
 time_t  now,start;
 int     slisten;
 
-struct vbi *vbi;
-struct export *fmt;
-void vbi_handler(struct vbi *vbi, int fd);
-
-static void
-dummy_client(struct dl_head *reqs, struct vt_event *ev)
-{
-    struct vt_page *vtp;
-
-    if (!debug)
-	return;
-
-    switch (ev->type) {
-    case EV_PAGE:
-	vtp = ev->p1;
-	fprintf(stderr,"page %x.%02x  \r", vtp->pgno, vtp->subno);
-	break;
-    }
-}
+struct vbi_state *vbi;
 
 /* ---------------------------------------------------------------------- */
 
@@ -116,8 +92,6 @@ usage(char *name)
 	    "Options:\n"
 	    "  -h       print this text\n"
 	    "  -v dev   vbi device                          [%s]\n"
-	    "  -6       16 vbi lines  (depending on the bttv version\n"
-	    "  -9       19 vbi lines   one of these two should work)\n"
 	    "  -d       enable debug output                 [%s]\n"
 	    "  -F       do not fork into background         [%s]\n"
 	    "  -s       enable syslog (start/stop/errors)   [%s]\n"
@@ -129,9 +103,12 @@ usage(char *name)
 	    "  -i ip    bind to IP-address >ip<             [%s]\n"
 	    "  -l log   write access log to file >log<      [%s]\n"
 	    "  -L log   same as above + flush every line\n"
+#if 0
             "  -r       poll tv frequency and clear cache\n"
 	    "           on station changes                  [%s]\n"
-	    "  -a       use ascii art for block graphics    [%s]\n",
+	    "  -a       use ascii art for block graphics    [%s]\n"
+#endif
+	    "",
 	    h ? h+1 : name,
 	    ng_dev.vbi,
  	    debug     ?  "on" : "off",
@@ -141,9 +118,12 @@ usage(char *name)
 	    listen_port,
 	    server_host,
 	    listen_ip ? listen_ip : "any",
+	    logfile ? logfile : "none");
+#if 0
 	    logfile ? logfile : "none",
-	    cachereset ?  "on" : "off",
-	    ascii_art ? "on" : "off");
+	    cachereset ? "on" : "off",
+	    ascii_art  ? "on" : "off");
+#endif
     if (getuid() == 0) {
 	pw = getpwuid(0);
 	gr = getgrgid(getgid());
@@ -320,7 +300,7 @@ mainloop(void)
 
     struct REQUEST      *req,*prev,*tmp;
     struct timeval      tv;
-    int                 max,length,freq,lastfreq = 0;
+    int                 max,length;
     fd_set              rd,wr;
 
     for (;!termsig;) {
@@ -334,12 +314,14 @@ mainloop(void)
 	    }
 	    got_sighup = 0;
 	}
+#if 0
 	if (got_sigusr1) {
 	    if (debug)
 		fprintf(stderr,"got SIGUSR1, reset cached vbi pages\n");
 	    vbi->cache->op->reset(vbi->cache);
 	    got_sigusr1 = 0;
 	}
+#endif
 
 	FD_ZERO(&rd);
 	FD_ZERO(&wr);
@@ -379,7 +361,7 @@ mainloop(void)
 
 	/* vbi data? */
 	if (FD_ISSET(vbi->fd,&rd)) {
-#ifdef __linux__
+#if 0 /* def __linux__ */
 	    if (cachereset) {
 		ioctl(vbi->fd, VIDIOCGFREQ, &freq);
 		if (lastfreq != freq) {
@@ -390,7 +372,7 @@ mainloop(void)
 		}
 	    }
 #endif
-	    vbi_handler(vbi,vbi->fd);
+	    vbi_hasdata(vbi);
 	}
 
 	/* new connection ? */
@@ -548,8 +530,7 @@ main(int argc, char *argv[])
 #else
     struct sockaddr ss;
 #endif
-    int                      c, opt, rc, ss_len;
-    int bttv = -1;
+    int                      c, opt, rc, ss_len, v4, v6, simulate;
     char host[INET6_ADDRSTRLEN+1];
     char serv[16];
 
@@ -563,25 +544,31 @@ main(int argc, char *argv[])
     }
     
     /* parse options */
+    v4 = 1; v6 = 1; simulate = 0;
     for (;;) {
-	if (-1 == (c = getopt(argc,argv,"69hasdFr"
+	if (-1 == (c = getopt(argc,argv,"hasdFr46S"
 			      "p:N:n:i:t:c:u:g:l:L:v:")))
 	    break;
 	switch (c) {
 	case 'h':
 	    usage(argv[0]);
 	    break;
-	case '6':
-	    bttv = 0;
+	case '4':
+	    v4 = 1;
+	    v6 = 0;
 	    break;
-	case '9':
-	    bttv = 1;
+	case '6':
+	    v4 = 0;
+	    v6 = 1;
 	    break;
 	case 'a':
 	    ascii_art++;
 	    break;
 	case 's':
 	    usesyslog++;
+	    break;
+	case 'S':
+	    simulate++;
 	    break;
 	case 'd':
 	    debug++;
@@ -633,18 +620,13 @@ main(int argc, char *argv[])
 	syslog_init();
 
     /* open vbi device */
-    fdset_init(fds);
-    vbi = vbi_open(ng_dev.vbi, cache_open(), 0, bttv);
-    if (vbi == 0) {
+    vbi = vbi_open(ng_dev.vbi,debug,simulate);
+    if (NULL == vbi) {
 	xperror(LOG_ERR,"cannot open vbi device",NULL);
 	exit(1);
     }
-    fmt = export_open("ascii");
-    vbi_add_handler(vbi, dummy_client, NULL);
-#if 0
-    if (vbi->cache)
-	vbi->cache->op->mode(vbi->cache, CACHE_MODE_ERC, erc);
-#endif
+    if (debug)
+	vbi_event_handler_add(vbi->dec,~0,vbi_dump_event,vbi);
 
     /* bind to socket */
     slisten = -1;
@@ -655,29 +637,32 @@ main(int argc, char *argv[])
     ask.ai_socktype = SOCK_STREAM;
 
     /* try ipv6 first ... */
-    ask.ai_family = PF_INET6;
-    if (0 != (rc = getaddrinfo(listen_ip, listen_port, &ask, &res))) {
-	if (debug)
-	    fprintf(stderr,"getaddrinfo (ipv6): %s\n",gai_strerror(rc));
-    } else {
-	if (-1 == (slisten = socket(res->ai_family, res->ai_socktype,
-				    res->ai_protocol)) && debug)
-	    xperror(LOG_ERR,"socket (ipv6)",NULL);
+    if (-1 == slisten  &&  v6) {
+	ask.ai_family = PF_INET6;
+	if (0 != (rc = getaddrinfo(listen_ip, listen_port, &ask, &res))) {
+	    if (debug)
+		fprintf(stderr,"getaddrinfo (ipv6): %s\n",gai_strerror(rc));
+	} else {
+	    if (-1 == (slisten = socket(res->ai_family, res->ai_socktype,
+					res->ai_protocol)) && debug)
+		xperror(LOG_ERR,"socket (ipv6)",NULL);
+	}
     }
-
+    
     /* ... failing that try ipv4 */
-    if (-1 == slisten) {
+    if (-1 == slisten  &&  v4) {
 	ask.ai_family = PF_INET;
 	if (0 != (rc = getaddrinfo(listen_ip, listen_port, &ask, &res))) {
 	    fprintf(stderr,"getaddrinfo (ipv4): %s\n",gai_strerror(rc));
-	    exit(1);
-	}
-	if (-1 == (slisten = socket(res->ai_family, res->ai_socktype,
-				    res->ai_protocol))) {
-	    xperror(LOG_ERR,"socket (ipv4)",NULL);
-	    exit(1);
+	} else {
+	    if (-1 == (slisten = socket(res->ai_family, res->ai_socktype,
+					res->ai_protocol)))
+		xperror(LOG_ERR,"socket (ipv4)",NULL);
 	}
     }
+
+    if (-1 == slisten)
+	exit(1);
 
     memcpy(&ss,res->ai_addr,res->ai_addrlen);
     ss_len = res->ai_addrlen;

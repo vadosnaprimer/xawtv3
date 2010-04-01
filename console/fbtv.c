@@ -581,6 +581,8 @@ main(int argc, char *argv[])
     time_t          t;
     char            text[80],event[64],*env,*dst;
     fd_set          set;
+    struct sigaction act,old;
+
 
     if (0 == geteuid() && 0 != getuid()) {
 	fprintf(stderr,"fbtv /must not/ be installed suid root\n");
@@ -659,7 +661,7 @@ main(int argc, char *argv[])
     do_overlay = 1;
     text_init(fontfile);
     fb = fb_init(fbdev,mode,vt);
-    fb_cleanup_fork();
+    fb_catch_exit_signals();
     fb_initcolors(fb,gray);
     fb_switch_init();
     switch_last = fb_switch_state;
@@ -687,9 +689,10 @@ main(int argc, char *argv[])
     fullscreen_hook   = do_fullscreen;
 
     tty_init();
-    atexit(tty_cleanup);
-    signal(SIGINT,ctrlc);
-    signal(SIGTSTP,SIG_IGN);
+    memset(&act,0,sizeof(act));
+    act.sa_handler = ctrlc;
+    sigemptyset(&act.sa_mask);
+    sigaction(SIGINT,&act,&old);
 
     /* init hardware */
     attr_init();
@@ -764,7 +767,7 @@ main(int argc, char *argv[])
 	t1 = time(NULL);
 	fps = 0;
 	message[0] = '\0';
-	for (;;) {
+	for (;!sig;) {
 	    FD_ZERO(&set);
 	    FD_SET(0,&set);
 	    fdmax = 1;
@@ -812,8 +815,10 @@ main(int argc, char *argv[])
 	    err = errno;
 	    if (switch_last != fb_switch_state)
 		console_switch();
-	    if (-1 == rc  &&  EINTR == err)
+	    if (-1 == rc  &&  EINTR == err) {
+		FD_ZERO(&set);
 		continue;
+	    }
 	    if (rc > 0)
 		break;
 	    t2 = time(NULL);
@@ -899,7 +904,9 @@ main(int argc, char *argv[])
     if (mute)
 	audio_off();
     drv->close(h_drv);
-    fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
-    /* parent will clean up */
+    if (fb_switch_state == FB_ACTIVE)
+	fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
+    tty_cleanup();
+    fb_cleanup();
     exit(0);
 }

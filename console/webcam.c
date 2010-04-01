@@ -22,46 +22,38 @@
 #include "jpeglib.h"
 #include "ftp.h"
 #include "parseconfig.h"
-
+#include "list.h"
 
 /* ---------------------------------------------------------------------- */
 /* configuration                                                          */
 
-enum mode {
-    FTP   = 1,
-    SSH   = 2,
-    LOCAL = 3,
-};
+int   daemonize = 0;
+char  *archive  = NULL;
+char  *tmpdir;
+struct list_head connections;
 
-char *ftp_host  = "www";
-char *ftp_user  = "webcam";
-char *ftp_pass  = "xxxxxx";
-char *ftp_dir   = "public_html/images";
-char *ftp_file  = "webcam.jpeg";
-char *ftp_tmp   = "uploading.jpeg";
-char *ssh_cmd;
-int  ftp_passive = 1;
-int  ftp_auto    = 0;
-enum mode ftp_mode = FTP;
-int  daemonize = 0;
-
-char *grab_text   = "webcam %Y-%m-%d %H:%M:%S"; /* strftime */
-char *grab_infofile = NULL;
+char  *grab_text   = "webcam %Y-%m-%d %H:%M:%S"; /* strftime */
+char  *grab_infofile = NULL;
 int   grab_width  = 320;
 int   grab_height = 240;
 int   grab_delay  = 3;
+int   grab_wait   = 0;
 int   grab_rotate = 0;
 int   grab_top    = 0;
 int   grab_left   = 0;
 int   grab_bottom = -1;
 int   grab_right  = -1;
 int   grab_quality= 75;
-int   grab_trigger=  0;
-int   grab_once   =  0;
-char  *archive    = NULL;
-
-char  *grab_input;
-char  *grab_norm;
+int   grab_trigger= 0;
+int   grab_once   = 0;
+int   grab_fg_r   = 255;
+int   grab_fg_g   = 255;
+int   grab_fg_b   = 255;
+int   grab_bg_r   = -1;
+int   grab_bg_g   = -1;
+int   grab_bg_b   = -1;
+char  *grab_input = NULL;
+char  *grab_norm  = NULL;
 
 /* ---------------------------------------------------------------------- */
 /* jpeg stuff                                                             */
@@ -96,6 +88,196 @@ write_file(int fd, char *data, int width, int height)
 
     return 0;
 }
+
+/* ---------------------------------------------------------------------- */
+/* image transfer                                                         */
+
+struct xfer_ops;
+
+struct xfer_state {
+    char              *name;
+    struct list_head  list;
+
+    /* xfer options */
+    char              *host;
+    char              *user;
+    char              *pass;
+    char              *dir;
+    char              *file;
+    char              *tmpfile;
+    int               debug;
+
+    /* ftp options */
+    int               passive,autologin;
+
+    /* function pointers + private date */
+    struct xfer_ops   *ops;
+    void              *data;
+};
+
+struct xfer_ops {
+    int  (*open)(struct xfer_state*);
+    void (*info)(struct xfer_state*);
+    int  (*xfer)(struct xfer_state*, char *image, int width, int height);
+    void (*close)(struct xfer_state*);
+};
+
+static int ftp_open(struct xfer_state *s)
+{
+    s->data = ftp_init(s->name,s->autologin,s->passive,s->debug);
+    ftp_connect(s->data,s->host,s->user,s->pass,s->dir);
+    return 0;
+}
+
+static void ftp_info(struct xfer_state *s)
+{
+    fprintf(stderr,"ftp config [%s]:\n  %s@%s:%s\n  %s => %s\n",
+	    s->name,s->user,s->host,s->dir,s->tmpfile,s->file);
+}
+
+static int ftp_xfer(struct xfer_state *s, char *image, int width, int height)
+{
+    char filename[1024];
+    int fh;
+    
+    sprintf(filename,"%s/webcamXXXXXX",tmpdir);
+    if (-1 == (fh = mkstemp(filename))) {
+	perror("mkstemp");
+	exit(1);
+    }
+    write_file(fh, image, width, height);
+    if (ftp_connected(s->data))
+	ftp_connect(s->data,s->host,s->user,s->pass,s->dir);
+    ftp_upload(s->data,filename,s->file,s->tmpfile);
+    unlink(filename);
+    return 0;
+}
+
+static void ftp_close(struct xfer_state *s)
+{
+    ftp_fini(s->data);
+}
+
+static struct xfer_ops ftp_ops = {
+    open:  ftp_open,
+    info:  ftp_info,
+    xfer:  ftp_xfer,
+    close: ftp_close,
+};
+
+static int ssh_open(struct xfer_state *s)
+{
+    s->data = malloc(strlen(s->user)+strlen(s->host)+strlen(s->tmpfile)*2+
+		     strlen(s->dir)+strlen(s->file)+32);
+    sprintf(s->data, "ssh %s@%s \"cat >%s && mv %s %s/%s\"",
+	    s->user,s->host,s->tmpfile,s->tmpfile,s->dir,s->file);
+    return 0;
+}
+
+static void ssh_info(struct xfer_state *s)
+{
+    fprintf(stderr,"ssh config [%s]:\n  %s@%s:%s\n  %s => %s\n",
+	    s->name,s->user,s->host,s->dir,s->tmpfile,s->file);
+}
+
+static int ssh_xfer(struct xfer_state *s, char *image, int width, int height)
+{
+    char filename[1024];
+    char *cmd = s->data;
+    unsigned char buf[4096];
+    FILE *sshp, *imgdata;
+    int len,fh;
+    
+    sprintf(filename,"%s/webcamXXXXXX",tmpdir);
+    if (-1 == (fh = mkstemp(filename))) {
+	perror("mkstemp");
+	exit(1);
+    }
+    write_file(fh, image, width, height);
+
+    if ((sshp=popen(cmd, "w")) == NULL) {
+	perror("popen");
+	exit(1);
+    }
+    if ((imgdata = fopen(filename,"rb"))==NULL) {
+	perror("fopen");
+	exit(1);
+    }
+    for (;;) {
+	len = fread(buf,1,sizeof(buf),imgdata);
+	if (len <= 0)
+	    break;
+	fwrite(buf,1,len,sshp);
+    }
+    fclose(imgdata);
+    pclose(sshp);
+
+    unlink(filename);
+    return 0;
+}
+
+static void ssh_close(struct xfer_state *s)
+{
+    char *cmd = s->data;
+    free(cmd);
+}
+
+static struct xfer_ops ssh_ops = {
+    open:  ssh_open,
+    info:  ssh_info,
+    xfer:  ssh_xfer,
+    close: ssh_close,
+};
+
+static int local_open(struct xfer_state *s)
+{
+    char *t;
+    
+    if (s->dir != NULL && s->dir[0] != '\0' ) {
+	t = malloc(strlen(s->tmpfile)+strlen(s->dir)+2);
+	sprintf(t, "%s/%s", s->dir, s->tmpfile);
+	s->tmpfile = t;
+	
+	t = malloc(strlen(s->file)+strlen(s->dir)+2);
+	sprintf(t, "%s/%s", s->dir, s->file);
+	s->file = t;
+    }
+    return 0;
+}
+
+static void local_info(struct xfer_state *s)
+{
+    fprintf(stderr,"write config [%s]:\n  local transfer %s => %s\n",
+	    s->name,s->tmpfile,s->file);
+}
+
+static int local_xfer(struct xfer_state *s, char *image, int width, int height)
+{
+    int fh;
+    
+    if (-1 == (fh = open(s->tmpfile,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
+	fprintf(stderr,"open %s: %s\n",s->tmpfile,strerror(errno));
+	exit(1);
+    }
+    write_file(fh, image, width, height);
+    if (rename(s->tmpfile, s->file) ) {
+	fprintf(stderr, "can't move %s -> %s\n", s->tmpfile, s->file);
+	exit(1);
+    }
+    return 0;
+}
+
+static void local_close(struct xfer_state *s)
+{
+    /* nothing */
+}
+
+static struct xfer_ops local_ops = {
+    open:  local_open,
+    info:  local_info,
+    xfer:  local_xfer,
+    close: local_close,
+};
 
 /* ---------------------------------------------------------------------- */
 /* capture stuff                                                          */
@@ -244,9 +426,13 @@ add_text(char *image, int width, int height)
 	    f = fontdata[line[x] * CHAR_HEIGHT + y];
 	    for (i = CHAR_WIDTH-1; i >= 0; i--) {
 		if (f & (CHAR_START << i)) {
-		    ptr[0] = 255;
-		    ptr[1] = 255;
-		    ptr[2] = 255;
+		    ptr[0] = grab_fg_r;
+		    ptr[1] = grab_fg_g;
+		    ptr[2] = grab_fg_b;
+		} else if (grab_bg_r != -1) {
+		    ptr[0] = grab_bg_r;
+		    ptr[1] = grab_bg_g;
+		    ptr[2] = grab_bg_b;
 		}
 		ptr += 3;
 	    }
@@ -350,36 +536,15 @@ compare_images(unsigned char *last, unsigned char *current,
 
 /* ---------------------------------------------------------------------- */
 
-static void ssh_upload(char *filename)
-{
-    unsigned char ssh_buf[4096];
-    FILE *sshp, *imgdata;
-    int len;
-    
-    if ((sshp=popen(ssh_cmd, "w")) == NULL) {
-	perror("open");
-	exit(1);
-    }
-    if ((imgdata = fopen(filename,"rb"))==NULL) {
-	perror("fopen");
-	exit(1);
-    }
-    for (;;) {
-	len = fread(ssh_buf,1,sizeof(ssh_buf),imgdata);
-	if (len <= 0)
-	    break;
-	fwrite(ssh_buf,1,len,sshp);
-    }
-    fclose(imgdata);
-    pclose(sshp);
-}
-
 int
 main(int argc, char *argv[])
 {
     unsigned char *image,*val,*gimg,*lastimg = NULL;
-    char filename[1024], *tmpdir;
     int width, height, i, fh;
+    char filename[1024];
+    char **sections;
+    struct list_head *item;
+    struct xfer_state *s;
 
     /* read config */
     if (argc > 1) {
@@ -390,31 +555,6 @@ main(int argc, char *argv[])
     fprintf(stderr,"reading config file: %s\n",filename);
     cfg_parse_file(filename);
     ng_init();
-
-    if (NULL != (val = cfg_get_str("ftp","host")))
-	ftp_host = val;
-    if (NULL != (val = cfg_get_str("ftp","user")))
-	ftp_user = val;
-    if (NULL != (val = cfg_get_str("ftp","pass")))
-	ftp_pass = val;
-    if (NULL != (val = cfg_get_str("ftp","dir")))
-	ftp_dir = val;
-    if (NULL != (val = cfg_get_str("ftp","file")))
-	ftp_file = val;
-    if (NULL != (val = cfg_get_str("ftp","tmp")))
-	ftp_tmp = val;
-    if (-1 != (i = cfg_get_int("ftp","passive")))
-	ftp_passive = i;
-    if (-1 != (i = cfg_get_int("ftp","auto")))
-	ftp_auto = i;
-    if (-1 != (i = cfg_get_int("ftp","debug")))
-	ftp_debug = i;
-    if (-1 != (i = cfg_get_int("ftp","local")))
-	if (i)
-	    ftp_mode = LOCAL;
-    if (-1 != (i = cfg_get_int("ftp","ssh")))
-	if (i)
-	    ftp_mode = SSH;
 
     if (NULL != (val = cfg_get_str("grab","device")))
 	ng_dev.video = val;
@@ -432,6 +572,8 @@ main(int argc, char *argv[])
 	grab_height = i;
     if (-1 != (i = cfg_get_int("grab","delay")))
 	grab_delay = i;
+    if (-1 != (i = cfg_get_int("grab","wait")))
+	grab_wait = i;
     if (-1 != (i = cfg_get_int("grab","rotate")))
 	grab_rotate = i;
     if (-1 != (i = cfg_get_int("grab","top")))
@@ -449,6 +591,25 @@ main(int argc, char *argv[])
     if (NULL != (val = cfg_get_str("grab","archive")))
 	archive = val;
 
+    if (-1 != (i = cfg_get_int("grab","fg_red")))
+	if (i >= 0 && i <= 255)
+	    grab_fg_r = i;
+    if (-1 != (i = cfg_get_int("grab","fg_green")))
+	if (i >= 0 && i <= 255)
+	    grab_fg_g = i;
+    if (-1 != (i = cfg_get_int("grab","fg_blue")))
+	if (i >= 0 && i <= 255)
+	    grab_fg_b = i;
+    if (-1 != (i = cfg_get_int("grab","bg_red")))
+	if (i >= 0 && i <= 255)
+	    grab_bg_r = i;
+    if (-1 != (i = cfg_get_int("grab","bg_green")))
+	if (i >= 0 && i <= 255)
+	    grab_bg_g = i;
+    if (-1 != (i = cfg_get_int("grab","bg_blue")))
+	if (i >= 0 && i <= 255)
+	    grab_bg_b = i;
+
     if ( grab_top < 0 ) grab_top = 0;
     if ( grab_left < 0 ) grab_left = 0;
     if ( grab_bottom > grab_height ) grab_bottom = grab_height;
@@ -458,58 +619,79 @@ main(int argc, char *argv[])
     if ( grab_top >= grab_bottom ) grab_top = 0;
     if ( grab_left >= grab_right ) grab_left = 0;
 
+    INIT_LIST_HEAD(&connections);
+    for (sections = cfg_list_sections(); *sections != NULL; sections++) {
+	if (0 == strcasecmp(*sections,"grab"))
+	    continue;
+
+	/* init + set defaults */
+	s = malloc(sizeof(*s));
+	memset(s,0,sizeof(*s));
+	s->name      = *sections;
+	s->host      = "www";
+	s->user      = "webcam";
+	s->pass      = "xxxxxx";
+	s->dir       = "public_html/images";
+	s->file      = "webcam.jpeg";
+	s->tmpfile   = "uploading.jpeg";
+	s->passive   = 1;
+	s->autologin = 0;
+	s->ops       = &ftp_ops;
+
+	/* from config */
+	if (NULL != (val = cfg_get_str(*sections,"host")))
+	    s->host = val;
+	if (NULL != (val = cfg_get_str(*sections,"user")))
+	    s->user = val;
+	if (NULL != (val = cfg_get_str(*sections,"pass")))
+	    s->pass = val;
+	if (NULL != (val = cfg_get_str(*sections,"dir")))
+	    s->dir = val;
+	if (NULL != (val = cfg_get_str(*sections,"file")))
+	    s->file = val;
+	if (NULL != (val = cfg_get_str(*sections,"tmp")))
+	    s->tmpfile = val;
+	if (-1 != (i = cfg_get_int(*sections,"passive")))
+	    s->passive = i;
+	if (-1 != (i = cfg_get_int(*sections,"auto")))
+	    s->autologin = i;
+	if (-1 != (i = cfg_get_int(*sections,"debug")))
+	    s->debug = i;
+	if (-1 != (i = cfg_get_int(*sections,"local")))
+	    if (i)
+		s->ops = &local_ops;
+	if (-1 != (i = cfg_get_int(*sections,"ssh")))
+	    if (i)
+		s->ops = &ssh_ops;
+
+	/* all done */
+	list_add_tail(&s->list,&connections);
+    }
+
     /* init everything */
     grab_init();
+    sleep(grab_wait);
     tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
-    switch (ftp_mode) {
-    case LOCAL:
-	if (ftp_dir != NULL && ftp_dir[0] != '\0' ) {
-	    char * t = malloc(strlen(ftp_tmp)+strlen(ftp_dir)+2);
-	    sprintf(t, "%s/%s", ftp_dir, ftp_tmp);
-	    ftp_tmp = t;
-	    
-	    t = malloc(strlen(ftp_file)+strlen(ftp_dir)+2);
-	    sprintf(t, "%s/%s", ftp_dir, ftp_file);
-	    ftp_file = t;
-	}
-	break;
-    case FTP:
-	ftp_init(ftp_auto,ftp_passive);
-	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
-	break;
-    case SSH:
-	ssh_cmd = malloc(strlen(ftp_user)+strlen(ftp_host)+strlen(ftp_tmp)*2+
-			 strlen(ftp_dir)+strlen(ftp_file)+32);
-	sprintf(ssh_cmd, "ssh %s@%s \"cat >%s && mv %s %s/%s\"",
-		ftp_user,ftp_host,ftp_tmp,ftp_tmp,ftp_dir,ftp_file);
-	break;
+    list_for_each(item,&connections) {
+	s = list_entry(item, struct xfer_state, list);
+	s->ops->open(s);
     }
 
     /* print config */
-    fprintf(stderr,"video4linux webcam v1.4 - (c) 1998-2002 Gerd Knorr\n");
+    fprintf(stderr,"video4linux webcam v1.5 - (c) 1998-2002 Gerd Knorr\n");
     fprintf(stderr,"grabber config:\n  size %dx%d [%s]\n",
 	    fmt.width,fmt.height,ng_vfmt_to_desc[gfmt.fmtid]);
     fprintf(stderr,"  input %s, norm %s, jpeg quality %d\n",
 	    grab_input,grab_norm, grab_quality);
     fprintf(stderr,"  rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
 	   grab_rotate, grab_top, grab_left, grab_bottom, grab_right);
-    switch (ftp_mode) {
-    case LOCAL:
-	fprintf(stderr,"write config:\n  local transfer %s => %s\n",
-		ftp_tmp,ftp_file);
-	break;
-    case FTP:
-	fprintf(stderr,"ftp config:\n  %s@%s:%s\n  %s => %s\n",
-		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
-	break;
-    case SSH:
-	fprintf(stderr,"ssh config:\n  %s@%s:%s\n  %s => %s\n",
-		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
-	break;
+    list_for_each(item,&connections) {
+	s = list_entry(item, struct xfer_state, list);
+	s->ops->info(s);
     }
 
     /* run as daemon - detach from terminal */
-    if (!ftp_debug && daemonize) {
+    if (daemonize) {
         switch (fork()) {
         case -1:
 	    perror("fork");
@@ -543,34 +725,9 @@ main(int argc, char *argv[])
 
 	/* ok, label it and upload */
 	add_text(image,width,height);
-	switch (ftp_mode) {
-	case LOCAL:
-	    if (-1 == (fh = open(ftp_tmp,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
-		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
-		exit(1);
-	    }
-	    write_file(fh, image, width, height);
-	    if (rename(ftp_tmp, ftp_file) ) {
-		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
-	    }
-	    break;
-	case FTP:
-	case SSH:
-	    sprintf(filename,"%s/webcamXXXXXX",tmpdir);
-	    if (-1 == (fh = mkstemp(filename))) {
-		perror("mkstemp");
-		exit(1);
-	    }
-	    write_file(fh, image, width, height);
-	    if (FTP == ftp_mode) {
-		if (!ftp_connected)
-		    ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
-		ftp_upload(filename,ftp_file,ftp_tmp);
-	    }
-	    if (SSH == ftp_mode)
-		ssh_upload(filename);
-	    unlink(filename);
-	    break;
+	list_for_each(item,&connections) {
+	    s = list_entry(item, struct xfer_state, list);
+	    s->ops->xfer(s,image,width,height);
 	}
 	if (archive) {
 	    time_t      t;
@@ -580,7 +737,7 @@ main(int argc, char *argv[])
 	    tm = localtime(&t);
 	    strftime(filename,sizeof(filename)-1,archive,tm);
 	    if (-1 == (fh = open(filename,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
-		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
+		fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
 		exit(1);
 	    }
 	    write_file(fh, image, width, height);
@@ -591,9 +748,9 @@ main(int argc, char *argv[])
 	if (grab_delay > 0)
 	    sleep(grab_delay);
     }
-    if (FTP == ftp_mode) {
-	ftp_send(1,"bye");
-	ftp_recv();
+    list_for_each(item,&connections) {
+	s = list_entry(item, struct xfer_state, list);
+	s->ops->close(s);
     }
     return 0;
 }

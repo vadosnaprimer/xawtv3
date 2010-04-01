@@ -5,10 +5,17 @@
  *
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <alsa/asoundlib.h>
+
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+# include <alsa/asoundlib.h>
+#else
+# include <sys/asoundlib.h>
+#endif
 
 #include "grab-ng.h"
 

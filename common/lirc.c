@@ -108,6 +108,8 @@ int lirc_tv_init()
     
     return fd;
 #else
+    if (debug)
+	fprintf(stderr,"lirc: not enabled at compile time\n");
     return -1;
 #endif
 }

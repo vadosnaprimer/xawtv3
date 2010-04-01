@@ -1,26 +1,21 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <wchar.h>
+#include <wctype.h>
+#include <iconv.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <libzvbi.h>
 
 #include "httpd.h"
-
-/* libvbi */
-#include "vt.h"
-#include "misc.h"
-#include "fdset.h"
-#include "vbi.h"
-#include "lang.h"
-#include "dllist.h"
-#include "export.h"
-
-void fmt_page(struct export *e, struct fmt_page *pg, struct vt_page *vtp);
-
-#define BUFSIZE 4096
+#include "vbi-data.h"
 
 /* ---------------------------------------------------------------------- */
 
@@ -32,287 +27,293 @@ static char page_about[] =
 #include "about.html.h"
 ;
 
-static char page_top[] =
+static wchar_t page_top[] = L""
 #include "top.html.h"
 ;
 
-static char page_bottom[] =
+static wchar_t page_bottom[] = L""
 #include "bottom.html.h"
 ;
 
+#if 0
 /*                          01234567890123456789012345678901 */
 static char graphic1[32] = " °°¯·'²²·°°°-°°°.:::.;;;.}/}.÷/#";
 /*                          012345 6789 0123 456789012345678901 */
 static char graphic2[32] = ".:::.\\{{.\\||.\\÷#_:::.¿¿[.||].###";
+#endif
+
+enum mime_type {
+    TYPE_TEXT = 1,
+    TYPE_HTML = 2,
+};
+
+#define CHARSET "utf-8"
+#define TXTBUF  (25*41*8)
+#define HTMLBUF (25*1024)
 
 /* ---------------------------------------------------------------------- */
 
-/* fix bcd issues ... */
-static int calc_page(int pagenr, int offset)
+static int vbi_export_html(wchar_t *dest, int size,
+			   struct vbi_state *vbi, struct vbi_page *pg,
+			   int pagenr, int subnr)
 {
-    int result;
-    
-    result = pagenr + offset;
-    if (offset < 0) {
-	while ((result & 0x0f) > 0x09)
-	    result -= 0x01;
-	while ((result & 0xf0) > 0x90)
-	    result -= 0x10;
-	if (result < 0x100)
-	    result = 0x100;
+    int x,y,i,link;
+    int fg,bg,len=0;
+    vbi_char *ch;
+    wchar_t wch,*obuf;
+    struct vbi_page dummy;
+
+    obuf = dest;
+    link = -1;
+    len  = swprintf(obuf,size,page_top,pagenr,subnr);
+    obuf += len; size -= len;
+    for (y = 0; y < 25; y++) {
+	ch = pg->text + 41*y;
+	fg = -1;
+	bg = -1;
+	for (x = 0; x <= 40; x++) {
+	    /* close link tags */
+	    if (link >= 0) {
+		if (0 == link) {
+		    len = swprintf(obuf,size,L"</a>");
+		    obuf += len; size -= len;
+		}
+		link--;
+	    }
+	    
+	    /* this char */
+	    wch = ch[x].unicode;
+	    if (ch[x].size > VBI_DOUBLE_SIZE)
+		wch = ' ';
+	    if (ch[x].conceal)
+		wch = ' ';
+
+	    /* handle colors */
+	    if (fg != ch[x].foreground || bg != ch[x].background) {
+		if (-1 != fg) {
+		    len = swprintf(obuf,size,L"</span>");
+		    obuf += len; size -= len;
+		}
+		fg  = ch[x].foreground;
+		bg  = ch[x].background;
+		len = swprintf(obuf,size,L"<span class=\"c%02d\">",
+			       fg * 10 + bg);
+		obuf += len;
+		size -= len;
+	    }
+
+	    /* check for references to other pages */
+	    if (y > 0 && -1 == link && x > 0 && x < 39 &&
+		iswdigit(ch[x+0].unicode)  &&
+		iswdigit(ch[x+1].unicode)  &&
+		iswdigit(ch[x+2].unicode)  &&
+		!iswdigit(ch[x-1].unicode) &&
+		!iswdigit(ch[x+3].unicode)) {
+		len = swprintf(obuf,size,L"<a href=\"/%lc%lc%lc/00.html\">",
+			       (wchar_t)ch[x+0].unicode,
+			       (wchar_t)ch[x+1].unicode,
+			       (wchar_t)ch[x+2].unicode);
+		obuf += len; size -= len;
+		link = 2;
+	    }
+	    if (y > 0 && -1 == link && x > 0 && x < 40 &&
+		'>' == ch[x+0].unicode &&
+		'>' == ch[x+1].unicode) {
+		len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">",
+			       vbi_calc_page(pagenr, +0x01));
+		link = 1;
+	    }
+	    if (y > 0 && -1 == link && x > 0 && x < 40 &&
+		'<' == ch[x+0].unicode &&
+		'<' == ch[x+1].unicode) {
+		len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">",
+			       vbi_calc_page(pagenr, -0x01));
+		link = 1;
+	    }
+
+	    /* check for references to other subpages */
+	    if (subnr > 0 && y > 0 && -1 == link && x > 0 && x < 39 &&
+		iswdigit(ch[x+0].unicode)  &&
+		'/' == ch[x+1].unicode     &&
+		iswdigit(ch[x+2].unicode)  &&
+		!iswdigit(ch[x-1].unicode) &&
+		!iswdigit(ch[x+3].unicode)) {
+		if (ch[x+0].unicode == ch[x+2].unicode) {
+		    len = swprintf(obuf,size,L"<a href=\"01.html\">");
+		} else {
+		    len = swprintf(obuf,size,L"<a href=\"%02x.html\">",
+				   ch[x+0].unicode-'0' +1);
+		}
+		len = swprintf(obuf,size,L"<a href=\"/%lc%lc%lc/00.html\">",
+			       (wchar_t)ch[x+0].unicode,
+			       (wchar_t)ch[x+1].unicode,
+			       (wchar_t)ch[x+2].unicode);
+		obuf += len; size -= len;
+		link = 2;
+	    }
+
+#if 0
+	    /* check for references to WWW pages */
+	    if (html && y > 0 && -1 == link && x < W-9 &&
+		(((tolower(L[x+0].ch) == 'w') &&
+		  (tolower(L[x+1].ch) == 'w') &&
+		  (tolower(L[x+2].ch) == 'w') &&
+		  (L[x+3].ch == '.')) ||
+		 ((tolower(L[x+0].ch) == 'h') &&
+		  (tolower(L[x+1].ch) == 't') &&
+		  (tolower(L[x+2].ch) == 't') &&
+		  (tolower(L[x+3].ch) == 'p')))) {
+		int offs = 0;
+		
+		len += sprintf(out+len,"<a href=\"");
+		if(tolower(L[x].ch == 'w'))
+		    len += sprintf(out+len,"http://");
+		while ((L[x+offs].ch!=' ') && (x+offs < W)) {
+		    len += sprintf(out+len,"%c",tolower(L[x+offs].ch));
+		    offs++;
+		}
+		while ( (*(out+len-1)<'a') || (*(out+len-1)>'z') ) {
+		    len--;
+		    offs--;
+		}
+		len += sprintf(out+len,"\">");
+		link = offs - 1;
+	    }
+#endif
+	    /* FIXME: fasttext links */
+	    
+	    if (size > 0) {
+		*obuf = wch;
+		obuf++;
+		size--;
+	    }
+	}
+	if (-1 != fg) {
+	    len   = swprintf(obuf,size,L"</span>");
+	    obuf += len;
+	    size -= len;
+	}
+	if (size > 0) {
+	    *obuf = '\n';
+	    obuf++;
+	    size--;
+	}
     }
-    if (offset > 0) {
-	while ((result & 0x0f) > 0x09)
-	    result += 0x01;
-	while ((result & 0xf0) > 0x90)
-	    result += 0x10;
-	if (result > 0x899)
-	    result = 0x899;
+    len = swprintf(obuf,size,L"</pre>\n<div class=quick>\n");
+    obuf += len; size -= len;
+
+    if (0 != subnr) {
+	/* link all subpages */
+	for (i = 1; i <= VBI_MAX_SUBPAGES; i++) {
+	    if (!vbi_fetch_vt_page(vbi->dec,&dummy,pagenr,i,
+				   VBI_WST_LEVEL_1p5,0,0))
+		continue;
+	    if (i != subnr) {
+		len = swprintf(obuf,size,L" <a href=\"/%03x/%02x.html\">%02x</a>",
+			       pagenr, i, i);
+	    } else {
+		len = swprintf(obuf,size,L" %02x", i);
+	    }
+	    obuf += len; size -= len;
+	    len = swprintf(obuf,size,L"<br>\n");
+	    obuf += len; size -= len;
+	}
     }
-    return result;
+    /* page navigation links */
+    len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">&lt;&lt;</a> &nbsp;",
+		   vbi_calc_page(pagenr, -0x10));
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">&lt;</a> &nbsp;",
+		   vbi_calc_page(pagenr, -0x01));
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,L"<a href=\"/%03x/%02x.html\">o</a> &nbsp;",
+		   pagenr, subnr);
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">&gt;</a> &nbsp;",
+		   vbi_calc_page(pagenr, +0x01));
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,L"<a href=\"/%03x/00.html\">&gt;&gt;</a>",
+		   vbi_calc_page(pagenr, +0x10));
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,L"<br>\n") ;
+    obuf += len; size -= len;
+    len = swprintf(obuf,size,page_bottom);
+    obuf += len; size -= len;
+    *obuf = 0;
+    return obuf - dest;
 }
 
-static void vbipage(struct REQUEST *req, struct vt_page *page,
-		    int pagenr, int subnr, int html)
+static int wchar_to_charset(wchar_t *istr, int ilen, char *charset,
+			     char **ostr, int *olen)
 {
-    char *out;
-    int size,len,x,y;
-    int color,lcolor,link;
-    struct fmt_page pg[1];
+    size_t   il,ol;
+    wchar_t  *err;
+    char     *ib,*ob;
+    iconv_t  ic;
+    int      rc;
 
-    struct fmt_char l[W+2];
-#define L (l+1)
-
-    fmt_page(fmt,pg,page);
-    size = 2*BUFSIZE;
-    out = malloc(size);
-    len = 0;
-
-    if (html)
-	len += sprintf(out+len,page_top,page->pgno,page->subno);
-    for (y = 0; y < H; y++) {
-	if (~pg->hid & (1 << y)) {  /* !hidden */
-	    for (x = 0; x < W; ++x) {
-		struct fmt_char c = pg->data[y][x];
-		switch (c.ch) {
-		case 0x00:
-		case 0xa0:
-		    c.ch = ' ';
-		    break;
-		case 0x7f:
-		    c.ch = '*';
-		    break;
-		case BAD_CHAR:
-		    c.ch = '?';
-		    break;
-		default:
-		    if (c.attr & EA_GRAPHIC) {
-			if (ascii_art) {
-			    if (!(c.ch & 128))
-				c.ch = graphic1[c.ch];
-			    else
-				c.ch = graphic2[c.ch-128];
-			} else {
-			    c.ch = '#';
-			}
-		    }
-		    break;
-		}
-		L[x] = c;
-	    }
-
-	    /* delay fg and attr changes as far as possible */
-	    for (x = 0; x < W; ++x)
-		if (L[x].ch == ' ') {
-		    L[x].fg = L[x-1].fg;
-		    L[x].attr = L[x-1].attr;
-		}
-
-	    /* move fg and attr changes to prev bg change point */
-	    for (x = W-1; x >= 0; x--)
-		if (L[x].ch == ' ' && L[x].bg == L[x+1].bg) {
-		    L[x].fg = L[x+1].fg;
-		    L[x].attr = L[x+1].attr;
-		}
-
-	    /* now emit the whole line */
-	    lcolor = -1; link = -1;
-	    for (x = 0; x < W; ++x) {
-		/* close link tags */
-		if (html && link >= 0) {
-		    if (0 == link)
-			len += sprintf(out+len,"</a>");
-		    link--;
-		}
-
-		/* color handling */
-		color = (L[x].fg&0x0f) * 10 + (L[x].bg&0x0f);
-		if (html && color != lcolor) {
-		    if (-1 != lcolor)
-			len += sprintf(out+len,"</span>");
-		    len += sprintf(out+len,"<span class=\"c%02d\">",color);
-		    lcolor = color;
-		}
-
-		/* check for references to other pages */
-		if (html && y > 0 && -1 == link && x < W-2 &&
-		    isdigit(L[x].ch) &&
-		    isdigit(L[x+1].ch) &&
-		    isdigit(L[x+2].ch) &&
-		    !isdigit(L[x+3].ch) &&
-		    !isdigit(L[x-1].ch)) {
-		    len += sprintf(out+len,"<a href=\"/%c%c%c/\">",
-				   L[x].ch, L[x+1].ch, L[x+2].ch);
-		    link = 2;
-		}
-		if (html && y > 0 && -1 == link && x < W-1 &&
-		    '>' == L[x].ch &&
-		    '>' == L[x+1].ch) {
-		    len += sprintf(out+len,"<a href=\"/%03x/\">",
-				   page->pgno+1);
-		    link = 1;
-		}
-		if (html && y > 0 && -1 == link && x < W-1 &&
-		    '<' == L[x].ch &&
-		    '<' == L[x+1].ch) {
-		    len += sprintf(out+len,"<a href=\"/%03x/\">",
-				   page->pgno-1);
-		    link = 1;
-		}
-
-		/* check for references to WWW pages */
-		if (html && y > 0 && -1 == link && x < W-9 &&
-		    (((tolower(L[x+0].ch) == 'w') &&
-		      (tolower(L[x+1].ch) == 'w') &&
-		      (tolower(L[x+2].ch) == 'w') &&
-		      (L[x+3].ch == '.')) ||
-		     ((tolower(L[x+0].ch) == 'h') &&
-		      (tolower(L[x+1].ch) == 't') &&
-		      (tolower(L[x+2].ch) == 't') &&
-		      (tolower(L[x+3].ch) == 'p')))) {
-		    int offs = 0;
-
-		    len += sprintf(out+len,"<a href=\"");
-		    if(tolower(L[x].ch == 'w'))
-			len += sprintf(out+len,"http://");
-		    while ((L[x+offs].ch!=' ') && (x+offs < W)) {
-			len += sprintf(out+len,"%c",tolower(L[x+offs].ch));
-			offs++;
-		    }
-		    while ( (*(out+len-1)<'a') || (*(out+len-1)>'z') ) {
-			len--;
-			offs--;
-		    }
-		    len += sprintf(out+len,"\">");
-		    link = offs - 1;
-		}
-
-		/* check for references to other subpages */
-		if (html && y > 0 && -1 == link && x < W-2 &&
-		    page->subno > 0 &&
-		    isdigit(L[x].ch) &&
-		    '/' == L[x+1].ch &&
-		    isdigit(L[x+2].ch) &&
-		    !isdigit(L[x+3].ch) &&
-		    !isdigit(L[x-1].ch)) {
-		    if (L[x].ch == L[x+2].ch) {
-			len += sprintf(out+len,"<a href=\"01.html\">");
-		    } else {
-			len += sprintf(out+len,"<a href=\"%02x.html\">",
-				       L[x].ch+1-'0');
-		    }
-		    link = 2;
-		}
-		/* check for FastText links */
-		if (html && page->flof && -1 == link && x<W-2 &&
-		    24 == y &&
-		    L[x].fg>0 &&
-		    L[x].fg<8 &&
-		    x>0 &&
-		    !isspace(L[x].ch)) {
-	            link=(L[x].fg==6?3:L[x].fg-1);
-		    if(page->link[link].subno == ANY_SUB)
-	            {
-		        len+=sprintf(out+len,"<a href=\"/%03x/\">",
-		            page->link[link].pgno);
-		    }
-		    else
-	            {
-		        len+=sprintf(out+len,"<a href=\"/%03x/%02x.html\">",
-		            page->link[link].pgno,
-			    page->link[link].subno);
-		    }
-		    link=0;
-		    while((L[x+link].fg == L[x].fg) && (x+link<W))
-		    {
-		        link++;
-		    }
-		    link--;
-		    if(link<1)
-		    {
-	                link=1;
-		    }
-		}
-	        out[len++] = L[x].ch;
-	    }
-	    /* close any tags + put newline */
-	    if (html && link >= 0)
-		len += sprintf(out+len,"</a>");
-	    if (html && -1 != lcolor)
-		len += sprintf(out+len,"</span>");
-	    out[len++] = '\n';
-
-	    /* check bufsize */
-	    if (len + BUFSIZE > size) {
-		size += BUFSIZE;
-		out = realloc(out,size);
-	    }
-	}
+    ic = iconv_open(CHARSET,"WCHAR_T");
+    if (NULL == ic) {
+	if (debug)
+	    fprintf(stderr,"iconf_open failed on %s => %s\n",
+		    CHARSET,"WCHAR_T");
+	return -1;
     }
-    if (html) {
-#define MAXSUBPAGES    32
-        int subpage;
+    ib  = (char*)istr;
+    il  = ilen * sizeof(wchar_t);
+    ob  = malloc(ilen * 8);
+    ol  = ilen * 8;
+    *ostr = ob;
 
-	/* close preformatted text header */
-	len+=sprintf(out+len,"</pre>\n<div class=quick>\n") ;
-	if (vbi->cache->op->get(vbi->cache,pagenr,1)) {
-	    /* link all subpages */
-	    len += sprintf(out+len,"Subpages:");
-	    for (subpage = 1; subpage <= MAXSUBPAGES; subpage++) {
-		if (NULL == vbi->cache->op->get(vbi->cache,pagenr,subpage))
-		    continue;
-		if (subpage != subnr) {
-		    len += sprintf(out+len," <a href=\"/%03x/%02x.html\">%02x</a>",
-				   pagenr, subpage, subpage);
-		} else {
-		    len += sprintf(out+len," %02x", subpage);
-		}
-	    }
-	    len += sprintf(out+len,"<br>\n") ;
+    for (;;) {
+	rc = iconv(ic,&ib,&il,&ob,&ol);
+	if (rc >= 0) {
+	    /* done */
+	    break;
 	}
-	len += sprintf(out+len,"<a href=\"/%03x/\"><<</a> &nbsp;",
-		       calc_page(pagenr, -0x10));
-	len += sprintf(out+len,"<a href=\"/%03x/\"><</a> &nbsp;",
-		       calc_page(pagenr, -0x01));
-	if (!subnr)
-	    len += sprintf(out+len,"<a href=\"/%03x/\">o</a> &nbsp;", pagenr);
-	else
-	    len += sprintf(out+len,"<a href=\"/%03x/%02x.html\">o</a> &nbsp;", pagenr, subnr);
-	len += sprintf(out+len,"<a href=\"/%03x/\">></a> &nbsp;",
-		       calc_page(pagenr, +0x01));
-	len += sprintf(out+len,"<a href=\"/%03x/\">>></a>",
-		       calc_page(pagenr, +0x10));
-	len += sprintf(out+len,"<br>\n") ;
-	len += sprintf(out+len,"%s",page_bottom);
-	req->mime = "text/html; charset=\"iso-8859-1\"";
-    } else {
-	req->mime = "text/plain; charset=\"iso-8859-1\"";
+	/* handle errors */
+	err = (wchar_t*)ib;
+	if (EILSEQ == errno && *err != '?') {
+	    *err = '?';
+	    continue;
+	}
+	/* unknown error */
+	if (debug)
+	    fprintf(stderr,"unknown iconv error\n");
+	return -1;
+    }
+    iconv_close(ic);
+    *olen = ob - *ostr;
+    return 0;
+}
+
+static int vbi_render_page(struct REQUEST *req,
+			   struct vbi_state *vbi, struct vbi_page *pg,
+			   int pagenr, int subnr, enum mime_type type)
+{
+    wchar_t  *wpage;
+    int      wlen;
+
+    switch (type) {
+    case TYPE_TEXT:
+	req->body  = malloc(TXTBUF);
+	req->lbody = vbi_export_txt(req->body, CHARSET, TXTBUF, pg,
+				    &vbi_fullrect, 0);
+	req->mime  = "text/plain; charset=" CHARSET;
+	break;
+    case TYPE_HTML:
+	wpage = malloc(HTMLBUF*sizeof(wchar_t));
+	wlen  = vbi_export_html(wpage,HTMLBUF,vbi,pg,pagenr,subnr);
+	if (-1 == wchar_to_charset(wpage,wlen,CHARSET,&req->body,&req->lbody))
+	    return -1;
+	free(wpage);
+	req->mime  = "text/html; charset=" CHARSET;
+	break;
     }
 
-    req->body  = out;
-    req->lbody = len;
     req->free_the_mallocs = 1;
     mkheader(req,200,-1);
+    return 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -320,12 +321,13 @@ static void vbipage(struct REQUEST *req, struct vt_page *page,
 void buildpage(struct REQUEST *req)
 {
     int pagenr, subpage;
-    char type;
-    struct vt_page *page;
+    char type[10];
+    struct vbi_page page;
+    enum mime_type t;
 
     /* style sheet */
     if (0 == strcmp(req->path,"/alevt.css")) {
-	req->mime  = "text/css";
+	req->mime  = "text/css; charset=us-ascii";
 	req->body  = stylesheet;
 	req->lbody = sizeof(stylesheet);
 	mkheader(req,200,start);
@@ -334,7 +336,7 @@ void buildpage(struct REQUEST *req)
 
     /* about */
     if (0 == strcmp(req->path,"/about.html")) {
-	req->mime  = "text/html; charset=\"iso-8859-1\"";
+	req->mime  = "text/html; charset=utf-8";
 	req->body  = page_about;
 	req->lbody = sizeof(page_about);
 	mkheader(req,200,start);
@@ -343,46 +345,45 @@ void buildpage(struct REQUEST *req)
 
     /* entry page */
     if (0 == strcmp(req->path,"/")) {
-	strcpy(req->path,"/100/");
+	strcpy(req->path,"/100/00.html");
 	mkredirect(req);
 	return;
     }
 
-    /* page with subpages */
-    if (3 == sscanf(req->path,"/%3x/%2x.%c",&pagenr,&subpage,&type)) {
-	if (debug)
-	    fprintf(stderr,"trying %03x/%02x\n",pagenr,subpage);
-	page = vbi->cache->op->get(vbi->cache,pagenr,subpage);
-	if (NULL != page) {
-	    vbipage(req,page,pagenr,subpage,type=='h');
+    /* pages */
+    if (3 == sscanf(req->path,"/%3x/%2x.%8s",&pagenr,&subpage,type)) {
+	t = 0;
+	if (0 == strcmp(type,"html"))
+	    t = TYPE_HTML;
+	if (0 == strcmp(type,"txt"))
+	    t = TYPE_TEXT;
+	if (0 == t) {
+	    mkerror(req,404,1);
 	    return;
 	}
-	mkerror(req,404,1);
-	return;
-    }
-
-    /* ... without subpage */
-    if (1 == sscanf(req->path,"/%3x/",&pagenr)) {
 	if (debug)
-	    fprintf(stderr,"trying %03x\n",pagenr);
-	page = vbi->cache->op->get(vbi->cache,pagenr,0);
-	if (NULL != page) {
-	    vbipage(req,page,pagenr,0,1);
-	    return;
-	}
-	page = vbi->cache->op->get(vbi->cache,pagenr,ANY_SUB);
-	if (NULL != page) {
-	    sprintf(req->path,"/%03x/%02x.html",pagenr,page->subno);
+	    fprintf(stderr,"%03d: lookup %03x/%02x [%s]\n",
+		    req->fd,pagenr,subpage,type);
+	memset(&page,0,sizeof(page));
+	if (!vbi_fetch_vt_page(vbi->dec,&page,pagenr,subpage,
+			       VBI_WST_LEVEL_1p5,25,1)) {
+	    if (!vbi_fetch_vt_page(vbi->dec,&page,pagenr,VBI_ANY_SUBNO,
+				   VBI_WST_LEVEL_1p5,25,1)) {
+		mkerror(req,404,1);
+		return;
+	    }
+	    sprintf(req->path,"/%03x/%02x.html",pagenr,page.subno);
 	    mkredirect(req);
 	    return;
 	}
-	mkerror(req,404,1);
+	if (-1 == vbi_render_page(req,vbi,&page,pagenr,subpage,t))
+	    mkerror(req,500,1);
 	return;
     }
 
     /* goto form */
     if (1 == sscanf(req->path,"/goto/?p=%d",&pagenr)) {
-	sprintf(req->path,"/%d/",pagenr);
+	sprintf(req->path,"/%d/00.html",pagenr);
 	mkredirect(req);
 	return;
     }

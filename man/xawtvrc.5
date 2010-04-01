@@ -87,7 +87,8 @@ capture mode: off, overlay (default, TV card => video, 0% cpu) or
 grabdisplay (TV card => main memory => X-Server => video, frame rate
 depends on load and picture size).  Default is overlay.  If it is not
 possible to use overlay for some reason (remote display, not supported
-by the hardware, whatever) the applications will automatically fallback to 
+by the hardware, whatever) the applications will automatically fallback
+to grabdisplay.
 .TP
 .B input = Television | Composite1 | Composite2 | SVHS
 input source.  The valid choices depend on the hardware driver, the

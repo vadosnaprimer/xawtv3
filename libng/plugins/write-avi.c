@@ -347,6 +347,38 @@ avi_bigfile(struct avi_handle *h, int last)
 
 /* ----------------------------------------------------------------------- */
 
+static void
+avi_write_header(struct avi_handle *h)
+{
+    off_t curpos;
+
+    /* fill in some statistic values ... */
+    h->avi_hdr.riff_size         = AVI_SWAP4(h->hdr_size+h->data_size+h->idx_size);
+    h->avi_hdr.hdrl_size         = AVI_SWAP4(h->hdr_size - 4*5);
+    h->avi_hdr.avih.frames       = AVI_SWAP4(h->frames);
+    if (h->video.fmtid != VIDEO_NONE)
+	h->avi_hdr_video.strh.length = AVI_SWAP4(h->frames);
+    if (h->audio.fmtid != AUDIO_NONE)
+	h->avi_hdr_audio.strh.length =
+	    AVI_SWAP4(h->audio_size/h->avi_hdr_audio.strh.scale);
+    h->avi_data.data_size        = AVI_SWAP4(h->data_size);
+    
+    /* ... and write header again */
+    curpos = lseek(h->fd,0,SEEK_CUR);
+    lseek(h->fd,0,SEEK_SET);
+    write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
+    if (h->video.fmtid != VIDEO_NONE)
+	write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
+    if (h->audio.fmtid != AUDIO_NONE)
+	write(h->fd,&h->avi_hdr_audio,sizeof(struct AVI_HDR_AUDIO));
+    if (h->video.fmtid != VIDEO_NONE) {
+	h->avi_hdr_odml.total_frames = h->frames_total;
+	write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
+    }
+    write(h->fd,&h->avi_data,sizeof(struct AVI_DATA));
+    lseek(h->fd,curpos,SEEK_SET);
+}
+
 static void*
 avi_open(char *filename, char *dummy,
 	 struct ng_video_fmt *video, const void *priv_video, int fps,
@@ -468,6 +500,7 @@ avi_open(char *filename, char *dummy,
     h->idx_index  = 0;
     h->idx_offset = h->hdr_size + sizeof(struct AVI_DATA);
 
+    avi_write_header(h);
     return h;
 }
 
@@ -559,31 +592,8 @@ avi_close(void *handle)
 	    h->idx_size = 0;
 	}
     }
-    
-    /* fill in some statistic values ... */
-    h->avi_hdr.riff_size         = AVI_SWAP4(h->hdr_size+h->data_size+h->idx_size);
-    h->avi_hdr.hdrl_size         = AVI_SWAP4(h->hdr_size - 4*5);
-    h->avi_hdr.avih.frames       = AVI_SWAP4(h->frames);
-    if (h->video.fmtid != VIDEO_NONE)
-	h->avi_hdr_video.strh.length = AVI_SWAP4(h->frames);
-    if (h->audio.fmtid != AUDIO_NONE)
-	h->avi_hdr_audio.strh.length =
-	    AVI_SWAP4(h->audio_size/h->avi_hdr_audio.strh.scale);
-    h->avi_data.data_size        = AVI_SWAP4(h->data_size);
-    
-    /* ... and write header again */
-    lseek(h->fd,0,SEEK_SET);
-    write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
-    if (h->video.fmtid != VIDEO_NONE)
-	write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
-    if (h->audio.fmtid != AUDIO_NONE)
-	write(h->fd,&h->avi_hdr_audio,sizeof(struct AVI_HDR_AUDIO));
-    if (h->video.fmtid != VIDEO_NONE) {
-	h->avi_hdr_odml.total_frames = h->frames_total;
-	write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
-    }
-    write(h->fd,&h->avi_data,sizeof(struct AVI_DATA));
 
+    avi_write_header(h);
     close(h->fd);
     free(h->vec);
     free(h);

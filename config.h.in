@@ -5,6 +5,9 @@
 /* lirc lib */
 #undef HAVE_LIBLIRC_CLIENT
 
+/* libzvbi */
+#undef HAVE_ZVBI
+
 /* alsa */
 #undef HAVE_ALSA
 

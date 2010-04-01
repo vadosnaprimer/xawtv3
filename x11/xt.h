@@ -43,8 +43,6 @@ extern XtAppContext      app_context;
 extern Widget            app_shell, tv;
 extern Widget            on_shell;
 extern Display           *dpy;
-extern Atom              wm_protocols,wm_delete_window;
-extern Atom              xawtv_remote,xawtv_station;
 extern int               stay_on_top;
 
 extern XVisualInfo       vinfo;
@@ -152,8 +150,7 @@ void mouse_event(Widget widget, XtPointer client_data,
 
 /*----------------------------------------------------------------------*/
 
-extern char vbi_header[];
-extern char vbi_xpacket[];
+extern char x11_vbi_station[];
 
 int x11_vbi_start(char *device);
 int x11_vbi_tuned(void);

@@ -29,7 +29,10 @@ translate documentation
 
 The applications come with a manual page as documentation.  Most manual
 pages are in the man/ subdirectory.  Translated manual pages are very
-welcome, I can easily add them to the distribution tarball.
+welcome, I can easily add them to the distribution tarball.  It is a
+good idea to add your email address to the translated page, so people
+can reach you directly with spell fixes and stuff like that.  I can't
+proof-read pages in foreign languages ...
 
 
 other stuff

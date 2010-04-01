@@ -35,8 +35,7 @@ static struct HTTP_STATUS {
 #define RESPONSE_START			\
 	"HTTP/1.1 %s\r\n"		\
 	"Server: %s\r\n"		\
-	"Connection: %s\r\n"		\
-	"Accept-Ranges: bytes\r\n"
+	"Connection: %s\r\n"
 #define RFCTIME				\
 	"%a, %d %b %Y %H:%M:%S GMT"
 #define BOUNDARY			\

@@ -22,6 +22,8 @@ AC_ARG_ENABLE(aa,
   [  --enable-aa             enable aalib support])
 AC_ARG_ENABLE(alsa,
   [  --enable-alsa           enable alsa support])
+AC_ARG_ENABLE(zvbi,
+  [  --enable-zvbi           enable vbi support (via libzvbi)])
 
 
 dnl ---------------------------------------------------------------------
@@ -43,13 +45,14 @@ AC_SUBST(FOUND_MOTIF)
 AC_SUBST(FOUND_OS)
 AC_SUBST(FOUND_X11)
 AC_SUBST(FOUND_GL)
+AC_SUBST(FOUND_ZVBI)
 FOUND_AALIB="no"
 FOUND_ALSA="no"
 FOUND_LQT="no"
 FOUND_MOTIF="no"
 FOUND_OS="unknown"
 FOUND_X11="no"
-FOUND_GL="no"
+FOUND_ZVBI="no"
 
 case "`uname -s`" in
 	Linux)
@@ -155,6 +158,15 @@ if test "$enable_lirc" != "no"; then
 	AC_DEFINE(HAVE_LIBLIRC_CLIENT) LIRC="-llirc_client",,)
 else
     echo "*** lirc disabled"
+fi
+
+AC_SUBST(LIBZVBI)
+LIBZVBI=""
+if test "$enable_zvbi" != "no"; then
+    AC_CHECK_LIB(zvbi, vbi_capture_fd,
+        AC_DEFINE(HAVE_ZVBI) FOUND_ZVBI="yes"; LIBZVBI="-lzvbi",,)
+else
+    echo "*** zvbi disabled"
 fi
 
 AC_SUBST(AALIBS)

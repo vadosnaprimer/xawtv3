@@ -68,12 +68,15 @@
 #include "frequencies.h"
 #include "xv.h"
 #include "capture.h"
+#include "atoms.h"
 #include "xt.h"
 #include "x11.h"
 #include "toolbox.h"
 #include "complete.h"
 #include "wmhooks.h"
 #include "conf.h"
+#include "vbi-data.h"
+#include "vbi-x11.h"
 
 #define LABEL_WIDTH         "16"
 #define BOOL_WIDTH          "24"
@@ -86,12 +89,12 @@ static String fallback_ressources[] = {
 };
 
 Widget            opt_shell, opt_paned, chan_shell, conf_shell, str_shell;
-Widget            vtx_shell, vtx_label;
 Widget            launch_shell, launch_paned;
 Widget            c_freq,c_cap;
 Widget            s_bright,s_color,s_hue,s_contrast,s_volume;
 Widget            chan_viewport, chan_box;
 Pixmap            tv_pix;
+struct vbi_window *vtx;
 
 int               have_config = 0;
 XtIntervalId      audio_timer;
@@ -222,7 +225,9 @@ static XtActionsRec actionTable[] = {
     { "Command",     CommandAction },
     { "Autoscroll",  offscreen_scroll_AC },
     { "Ratio",       RatioAction },
+#ifdef HAVE_ZVBI
     { "Vtx",         VtxAction },
+#endif
 };
 
 static struct STRTAB cap_list[] = {
@@ -265,7 +270,7 @@ PopupAction(Widget widget, XEvent *event,
 	    fprintf(stderr,"%s: received %s message\n",
 		    my_toplevels[i].name,
 		    XGetAtomName(dpy,event->xclient.data.l[0]));
-	if (event->xclient.data.l[0] == wm_delete_window) {
+	if (event->xclient.data.l[0] == WM_DELETE_WINDOW) {
 	    /* fall throuth -- popdown window */
 	} else {
 	    /* whats this ?? */
@@ -290,7 +295,7 @@ PopupAction(Widget widget, XEvent *event,
 	if (!my_toplevels[i].first) {
 	    XSetWMProtocols(XtDisplay(*(my_toplevels[i].shell)),
 			    XtWindow(*(my_toplevels[i].shell)),
-			    &wm_delete_window, 1);
+			    &WM_DELETE_WINDOW, 1);
 	    mh = h = 0;
 	    XtVaGetValues(*(my_toplevels[i].shell),
 			  XtNmaxHeight,&mh,
@@ -320,31 +325,25 @@ void toolkit_set_label(Widget widget, char *str)
 
 /*--- videotext ----------------------------------------------------------*/
 
-#if 0
-#define VTX_COUNT 25*8
-
-struct TEXTELEM {
-    char  str[40];
-    int   len;
-    int   nl;
-    int   x,y;
-    Pixel fg,bg;
-};
-#endif
-
 static void create_vtx(void)
 {
-    vtx_shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
-				 app_shell,
-				 XtNoverrideRedirect,True,
-				 XtNvisual,vinfo.visual,
-				 XtNcolormap,colormap,
-				 XtNdepth,vinfo.depth,
-				 NULL);
-    vtx_label = XtVaCreateManagedWidget("label", labelWidgetClass, vtx_shell,
-					NULL);
+    Widget shell,label;
+
+    shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
+			     app_shell,
+			     XtNoverrideRedirect,True,
+			     XtNvisual,vinfo.visual,
+			     XtNcolormap,colormap,
+			     XtNdepth,vinfo.depth,
+			     NULL);
+    label = XtVaCreateManagedWidget("label", labelWidgetClass, shell,
+				    NULL);
+#ifdef HAVE_ZVBI
+    vtx = vbi_render_init(shell,label,NULL);
+#endif
 }
 
+#if TT
 static void
 display_vtx(struct TEXTELEM *tt)
 {
@@ -438,6 +437,40 @@ display_vtx(struct TEXTELEM *tt)
 	XDefineCursor(dpy, XtWindow(vtx_label), left_ptr);
     }
 }
+#endif
+
+#ifdef HAVE_ZVBI
+static void
+display_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
+{
+    static int first = 1;
+    static Pixmap pix;
+    Dimension x,y,w,h,sw,sh;
+
+    if (NULL == pg) {
+	XtPopdown(vtx->shell);
+	return;
+    }
+
+    if (pix)
+	XFreePixmap(dpy,pix);
+    pix = vbi_export_pixmap(vtx,pg,rect);
+    XtVaSetValues(vtx->tt,XtNbitmap,pix,XtNlabel,NULL,NULL);
+
+    XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,XtNwidth,&w,XtNheight,&h,NULL);
+    XtVaGetValues(vtx->shell,XtNwidth,&sw,XtNheight,&sh,NULL);
+    XtVaSetValues(vtx->shell,XtNx,x+(w-sw)/2,XtNy,y+h-10-sh,NULL);
+    XtPopup(vtx->shell, XtGrabNone);
+    if (wm_stay_on_top && stay_on_top > 0)
+	wm_stay_on_top(dpy,XtWindow(vtx->shell),1);
+
+    if (first) {
+	first = 0;
+	XDefineCursor(dpy, XtWindow(vtx->shell), left_ptr);
+	XDefineCursor(dpy, XtWindow(vtx->tt), left_ptr);
+    }
+}
+#endif
 
 /*--- tv -----------------------------------------------------------------*/
 
@@ -775,10 +808,9 @@ StayOnTop(Widget widget, XEvent *event,
     if (!wm_stay_on_top)
 	return;
 
-    stay_on_top++;
-    if (stay_on_top == 2)
-	stay_on_top = -1;
-    fprintf(stderr,"layer: %d\n",stay_on_top);
+    stay_on_top = stay_on_top ? 0 : 1;
+    if (debug)
+	fprintf(stderr,"stay_on_top: %d\n",stay_on_top);
 	
     wm_stay_on_top(dpy,XtWindow(app_shell),stay_on_top);
     wm_stay_on_top(dpy,XtWindow(on_shell),stay_on_top);
@@ -959,6 +991,8 @@ menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	    do_va_cmd(3,"movie","fps",m_movie_fps[j].str);
 	break;
     default:
+	/* nothing */
+	break;
     }
 }
 
@@ -1532,6 +1566,7 @@ main(
 				  fallback_ressources,
 				  NULL);
     dpy = XtDisplay(app_shell);
+    init_atoms(dpy);
 
     /* command line args */
     ng_init();
@@ -1570,7 +1605,12 @@ main(
     /* set hooks (command.c) */
     update_title        = new_title;
     display_message     = new_message;
+#if TT
     vtx_message         = display_vtx;
+#endif
+#ifdef HAVE_ZVBI
+    vtx_subtitle        = display_subtitle;
+#endif
     attr_notify         = new_attr;
     volume_notify       = new_volume;
     freqtab_notify      = new_freqtab;
@@ -1681,7 +1721,7 @@ main(
     create_bitmaps(app_shell);
     XDefineCursor(dpy, XtWindow(app_shell), left_ptr);
     XSetWMProtocols(XtDisplay(app_shell), XtWindow(app_shell),
-		    &wm_delete_window, 1);
+		    &WM_DELETE_WINDOW, 1);
 
     XtVaSetValues(app_shell,
 		  XtNwidthInc,  WIDTH_INC,
@@ -1744,6 +1784,7 @@ main(
     XtAddEventHandler(tv,ExposureMask, True, tv_expose_event, NULL);
 
     if (args.fullscreen) {
+	XSync(dpy,False);
 	do_fullscreen();
     } else {
 	XtAppAddWorkProc(app_context,MyResize,NULL);

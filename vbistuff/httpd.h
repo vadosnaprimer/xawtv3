@@ -52,18 +52,16 @@ struct REQUEST {
     struct REQUEST *next;
 };
 
-/* --- main.c --------------------------------------------------- */
+/* --- alevtd.c ------------------------------------------------- */
 
 extern int    debug;
 extern int    tcp_port;
-extern int    ascii_art;
 extern char   *server_name;
 extern int    canonicalhost;
 extern char   server_host[];
 extern time_t now,start;
 
-extern struct vbi *vbi;
-extern struct export *fmt;
+extern struct vbi_state *vbi;
 
 void xperror(int loglevel, char *txt, char *peerhost);
 void xerror(int loglevel, char *txt, char *peerhost);
