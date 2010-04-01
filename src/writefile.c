@@ -4,6 +4,7 @@
  *  (c) 1998-2000 Gerd Knorr <kraxel@bytesex.org>
  *
  */
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include <fcntl.h>
 #include <sys/param.h>
 #include <jpeglib.h>
+#include <pthread.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif

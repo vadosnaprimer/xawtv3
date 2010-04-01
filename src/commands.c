@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdarg.h>
 #include <time.h>
+#include <pthread.h>
 
 #include <X11/Intrinsic.h>
 

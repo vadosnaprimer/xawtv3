@@ -18,6 +18,7 @@
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
+#include <pthread.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>

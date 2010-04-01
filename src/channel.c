@@ -27,6 +27,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <pthread.h>
 
 #include <X11/Intrinsic.h>
 #ifndef NO_X11

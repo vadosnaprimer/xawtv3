@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/param.h>
+#include <pthread.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif

@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 #include <quicktime/quicktime.h>
 
 #include "grab-ng.h"

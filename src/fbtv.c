@@ -23,6 +23,7 @@
 #include <curses.h>
 #include <math.h>
 #include <endian.h>
+#include <pthread.h>
 
 #include <linux/kd.h>
 #include <linux/fb.h>

@@ -6,6 +6,7 @@
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
+#include <pthread.h>
 
 #include "config.h"
 

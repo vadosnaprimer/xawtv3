@@ -13,6 +13,7 @@
 #ifdef HAVE_SYS_SOUNDCARD_H
 # include <sys/soundcard.h>
 #endif
+#include <pthread.h>
 
 #include "grab-ng.h"
 #include "sound.h"

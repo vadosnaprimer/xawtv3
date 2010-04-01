@@ -22,6 +22,7 @@
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
+#include <pthread.h>
 
 #include <X11/Intrinsic.h>
 
