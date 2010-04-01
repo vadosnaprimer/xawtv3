@@ -1097,7 +1097,7 @@ else
 fi
 done
 
-for ac_func in ftello fseeko getpt getnameinfo getopt_long dlopen
+for ac_func in ftello fseeko getpt getnameinfo getopt_long strcasestr dlopen
 do
 echo $ac_n "checking for $ac_func""... $ac_c" 1>&6
 echo "configure:1104: checking for $ac_func" >&5

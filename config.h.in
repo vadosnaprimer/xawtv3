@@ -36,6 +36,9 @@
 /* Define if you have the getpt function.  */
 #undef HAVE_GETPT
 
+/* Define if you have the strcasestr function.  */
+#undef HAVE_STRCASESTR
+
 /* Define if you have the <alsa/asoundlib.h> header file.  */
 #undef HAVE_ALSA_ASOUNDLIB_H
 

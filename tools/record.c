@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <curses.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>
@@ -118,15 +119,26 @@ static int
 sound_read(void)
 {
     struct  timeval now;
-    int     i,rc;
+    int     i,rc,have;
     short  *v;
 
     /* read */
-    rc = read(sound_fd,sound_buffer,sound_blksize);
-    if (sound_blksize != rc) {
-	fprintf(stderr,"read %s: %s (rc=%d,bs=%d)\n",
-		audio_dev,strerror(errno),rc,sound_blksize);
-	return -1;
+    for (have = 0;have < sound_blksize;) {
+	rc = read(sound_fd,sound_buffer+have,sound_blksize-have);
+	switch (rc) {
+	case -1:
+	    if (EINTR != errno) {
+		perror("read sound");
+		exit(1);
+	    }
+	    break;
+	case 0:
+	    fprintf(stderr,"Huh? got 0 bytes from sound device?\n");
+	    exit(1);
+	default:
+	    have += rc;
+
+	}
     }
 
     /* look for peaks */
@@ -291,7 +303,8 @@ typedef struct WAVEHDR {
 /* -------------------------------------------------------------------- */
 
 static WAVEHDR  fileheader;
-static int      wav_size;
+static off_t    wav_size;
+static off_t    done_size;
 
 static void
 wav_init_header(int rate)
@@ -351,6 +364,7 @@ wav_stop_write(int fd)
     fileheader.chkData.dwSize = cpu_to_le32(wav_size);
     lseek(fd,0,SEEK_SET);
     write(fd,&fileheader,sizeof(WAVEHDR));
+    done_size += wav_size;
 }
 
 /* -------------------------------------------------------------------- */
@@ -366,6 +380,12 @@ static char empty[] =
 "--------------------------------------------------"
 "--------------------------------------------------"
 "--------------------------------------------------";
+
+static char blank[] =
+"                                                  "
+"                                                  "
+"                                                  "
+"                                                  ";
 
 static void
 print_bar(int line, char *name, int val1, int val2, int max)
@@ -384,47 +404,117 @@ print_bar(int line, char *name, int val1, int val2, int max)
 
 /* -------------------------------------------------------------------- */
 
-#define NCURSES 0
-#define CONSOLE 1
+enum MODE {
+    NCURSES = 1,
+    CONSOLE = 2,
+};
 
 char      *progname;
-int       sig,verbose;
+int       stop,verbose;
 char      *input    = "line";
 char      *filename = "new";
-int       mode = NCURSES;
+enum MODE mode = NCURSES;
 int       rate = 44100;
 
 static void
 ctrlc(int signal)
 {
-    fprintf(stderr,"^C catched -- exiting\n");
-    sig=1;
+    if (verbose)
+	fprintf(stderr,"%s - exiting \n",
+		sys_siglist[signal]);
+    stop = 1;
 }
 
 static void
-usage(void)
+usage(FILE *fp)
 {
-    fprintf(stderr,
+    fprintf(fp,
 	    "%s records sound in CD-Quality (44100/16bit/stereo).\n"
 	    "It has a nice ascii-art input-level meter.  It is a\n"
 	    "interactive curses application.  You'll need a fast\n"
 	    "terminal, don't try this on a 9600 bps vt100...\n"
 	    "\n"
 	    "%s has seven options:\n"
-	    "  -h       this text\n"
-	    "  -c       console only mode\n"
-	    "  -i dev   mixer device [%s].  This should be the one\n"
-	    "           where you can adjust the record level for\n"
-	    "           your audio source.\n"
-	    "  -o file  output file name [%s], a number and the .wav\n"
-	    "           extention are added by %s.\n"
-	    "  -d dev   set audio device [%s]\n"
-	    "  -m dev   set mixer device [%s]\n"
-	    "  -r rate  set sample rate  [%d]\n"
+	    "  -h        this text\n"
+	    "  -o file   output file name [%s], a number and the .wav\n"
+	    "            extention are added by %s.\n"
+	    "  -i ctrl   mixer control [%s].  This should be the one\n"
+	    "            where you can adjust the record level for\n"
+	    "            your audio source, line and igain are good\n"
+	    "            candidates.\n"
+	    "  -d dev    set audio device [%s]\n"
+	    "  -m dev    set mixer device [%s]\n"
+	    "  -r rate   set sample rate  [%d]\n"
+	    "\n"
+	    "for non-interactive usage only:\n"
+	    "  -c        enable console (non-interactive) mode\n"
+	    "  -v        be verbose (show progress)\n"
+	    "  -t mm:ss  limit the time to record.  By default it records\n"
+	    "            until stopped by a signal (^C)\n"
+	    "  -s size   set max file size [2GB]. You have to give number\n"
+	    "            and unit without space inbetween, i.e. \"100mb\".\n"
 	    "\n",
-	    progname,progname,input,filename,progname,
+	    progname,progname,filename,progname,input,
 	    audio_dev,mixer_dev,
 	    rate);
+}
+
+static int
+record_start(char *outfile, int *nr)
+{
+    int wav;
+    
+    do {
+	sprintf(outfile,"%s%02d.wav",filename,(*nr)++);
+	wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
+    } while ((-1 == wav) && (EEXIST == errno));
+    if (-1 == wav) {
+	perror("open");
+	exit(1);
+    }
+    wav_start_write(wav,rate);
+    return wav;
+}
+
+static off_t
+parse_size(const char *arg)
+{
+    int value;
+    char mul[4];
+    off_t retval = -1;
+
+    if (2 != sscanf(arg,"%d%3s",&value,mul))
+	return -1;
+    if (0 == strcasecmp(mul,"g") ||
+	0 == strcasecmp(mul,"gb"))
+	retval = (off_t)value * 1024 * 1024 * 1024;
+    if (0 == strcasecmp(mul,"m") ||
+	0 == strcasecmp(mul,"mb"))
+	retval = (off_t)value * 1024 * 1024;
+    if (0 == strcasecmp(mul,"k") ||
+	0 == strcasecmp(mul,"kb"))
+	retval = (off_t)value * 1024;
+    return retval;
+}
+
+static char*
+str_mb(off_t value)
+{
+    static char buf[32];
+
+    if (value > 1000000000) {
+	value = (value * 10) >> 30;
+	sprintf(buf,"%d.%d GB",(int)(value/10),(int)(value%10));
+	return buf;
+    }
+    if (value > 1000000) {
+	value = (value * 10) >> 20;
+	sprintf(buf,"%d.%d MB",(int)(value/10),(int)(value%10));
+	return buf;
+    }
+    value >>= 10;
+    sprintf(buf,"%3d kB",(int)value);
+    return buf;
 }
 
 int
@@ -434,14 +524,17 @@ main(int argc, char *argv[])
     int             record,nr,wav=0;
     char            *outfile;
     fd_set          s;
-    int             sec;
+    int             sec,maxhour,maxmin,maxsec;
+    off_t           maxsize;
 
     progname = strrchr(argv[0],'/');
     progname = progname ? progname+1 : argv[0];
 
     /* parse options */
+    maxsec  = 0;
+    maxsize = parse_size("2G");
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "vhci:o:d:m:r:")))
+	if (-1 == (c = getopt(argc, argv, "vhci:o:d:m:r:t:s:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -465,9 +558,29 @@ main(int argc, char *argv[])
 	case 'r':
 	    rate = atoi(optarg);
 	    break;
+	case 't':
+	    if (3 != sscanf(optarg,"%d:%d:%d",&maxhour,&maxmin,&maxsec)) {
+		maxhour = 0;
+		if (2 != sscanf(optarg,"%d:%d",&maxmin,&maxsec)) {
+		    fprintf(stderr,"time parse error\n");
+		    exit(1);
+		}
+	    }
+	    maxsec += maxmin  * 60;
+	    maxsec += maxhour * 60 * 60;
+	    break;
+	case 's':
+	    maxsize = parse_size(optarg);
+	    if (-1 == maxsize) {
+		fprintf(stderr,"size parse error\n");
+		exit(1);
+	    }
+	    break;
 	case 'h':
+	    usage(stdout);
+	    exit(0);
 	default:
-	    usage();
+	    usage(stderr);
 	    exit(1);
 	}
     }
@@ -496,11 +609,13 @@ main(int argc, char *argv[])
 	mvprintw( 8,0,"space       starts/stops recording");
 	/* line 9 is printed later */
 	mvprintw(10,0,"            auto-adjust reduces the record level on overruns");
-	mvprintw(11,0,"'Q'         quit");
+	mvprintw(11,0,"'N'         next file (same as space twice, but without break)");
+	mvprintw(12,0,"'Q'         quit");
 	mvprintw(LINES-3,0,"--");
-	mvprintw(LINES-2,0,"(c) 1999-2001 Gerd Knorr <kraxel@bytesex.org>");
+	mvprintw(LINES-2,0,"(c) 1999-2002 Gerd Knorr <kraxel@bytesex.org>");
 	
-	for (;!sig;) {
+	for (;!stop;) {
+	    refresh();
 	    FD_ZERO(&s);
 	    FD_SET(0,&s);
 	    FD_SET(sound_fd,&s);
@@ -533,14 +648,13 @@ main(int argc, char *argv[])
 		mvprintw(9,0,"'A'         toggle auto-adjust [%s] ",
 			 auto_adjust ? "on" : "off");
 		if (record) {
-		    sec = wav_size / (rate*4);
-		    mvprintw(3,0,"%s: %3d:%02d (%d MB) ",outfile,
-			     sec/60,sec%60,wav_size/(1024*1024));
 		    wav_write_audio(wav,sound_buffer,sound_blksize);
+		    sec = wav_size / (rate*4);
+		    mvprintw(3,0,"%s: %3d:%02d (%s) ",outfile,
+			     sec/60,sec%60,str_mb(wav_size));
 		} else {
 		    mvprintw(3,0,"");
 		}
-		refresh();
 	    }
 	    
 	    if (FD_ISSET(0,&s)) {
@@ -548,27 +662,26 @@ main(int argc, char *argv[])
 		switch (key = getch()) {
 		case 'Q':
 		case 'q':
-		    sig=1;
+		    stop = 1;
 		    break;
 		case 'A':
 		case 'a':
 		    auto_adjust = !auto_adjust;
+		    break;
+		case 'N':
+		case 'n':
+		    if (record) {
+			wav_stop_write(wav);
+			close(wav);
+			wav = record_start(outfile,&nr);
+		    }
 		    break;
 		case ' ':
 		    if (!filename)
 			break;
 		    if (!record) {
 			/* start */
-			do {
-			    sprintf(outfile,"%s%02d.wav",filename,nr++);
-			    wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT,
-				       0666);
-			} while ((-1 == wav) && (EEXIST == errno));
-			if (-1 == wav) {
-			    perror("open");
-			    exit(1);
-			}
-			wav_start_write(wav,rate);
+			wav = record_start(outfile,&nr);
 			record=1;
 			auto_adjust=0;
 		    } else {
@@ -576,7 +689,7 @@ main(int argc, char *argv[])
 			wav_stop_write(wav);
 			close(wav);
 			record=0;
-			mvprintw(3,0,"                                        ");
+			mvprintw(3,0,"%*.*s",COLS-1,COLS-1,blank);
 		    }
 		    break;
 		case KEY_RIGHT:
@@ -599,41 +712,38 @@ main(int argc, char *argv[])
     }
 
     if (mode == CONSOLE) {
-	do {
-	    sprintf(outfile,"%s%02d.wav",filename,nr++);
-	    wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
-	} while ((-1 == wav) && (EEXIST == errno));
-	if (-1 == wav) {
-	    perror("open");
-	    exit(1);
-	}
-	wav_start_write(wav,rate);
+	wav = record_start(outfile,&nr);
 	record=1;
-	auto_adjust=1;
 
-	for (;!sig;) {
+	for (;!stop;) {
 	    if (-1 == sound_read())
 		break;
-#if 0
-	    if (delay)
-		delay--;
-	    if (auto_adjust && (0 == delay) &&
-		(maxl >= 32767 || maxr >= 32767)) {
-		/* auto-adjust */
-		vol = mixer_get_volume();
-		vol--;
-		if (vol < 0)
-		    vol = 0;
-		mixer_set_volume(vol);
-		delay = 3;
+            sec = (done_size + wav_size) / (rate*4);
+	    if (maxsec && sec >= maxsec)
+		break;
+	    if (wav_size + sound_blksize + sizeof(WAVEHDR) > maxsize) {
+		wav_stop_write(wav);
+		close(wav);
+		wav = record_start(outfile,&nr);
 	    }
-#endif
-            sec = wav_size / (rate*4);
-            printf("%s: %3d:%02d (%d MB)\r",outfile,sec/60,sec%60,
-		   wav_size/(1024*1024));
-            fflush(stdout);
             wav_write_audio(wav,sound_buffer,sound_blksize);
+	    if (verbose) {
+		int total = 10;
+		int len   = (maxl+maxr)*total/32768/2;
+		printf("|%*.*s%*.*s|  %s  %d:%02d",
+		       len,len,full, total-len,total-len,empty,
+		       outfile,sec/60,sec%60);
+		if (maxsec)
+		    printf("/%d:%02d",maxsec/60,maxsec%60);
+		printf(" (%s",str_mb(wav_size));
+		if (done_size)
+		    printf(", %s total",str_mb(done_size + wav_size));
+		printf(")      \r");
+		fflush(stdout);
+	    }
 	}
+	if (verbose)
+	    printf("\n");
     }
     
     if (record) {

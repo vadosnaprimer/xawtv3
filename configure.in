@@ -72,7 +72,7 @@ dnl Checks for functions
 
 AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
 AC_CHECK_HEADERS(endian.h getopt.h soundcard.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
-AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long dlopen)
+AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long strcasestr dlopen)
 
 AC_SUBST(DLFLAGS)
 DLFLAGS=""

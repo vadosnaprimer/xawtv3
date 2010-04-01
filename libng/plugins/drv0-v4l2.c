@@ -1,7 +1,7 @@
 /*
  * interface to the v4l2 driver
  *
- *   (c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>
+ *   (c) 1998-2002 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 #include "config.h"
@@ -674,6 +674,9 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 	xioctl(h->fd,VIDIOC_G_CTRL,&c,0);
 	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
 	    value = v4l2_to_me(ctl,c.value);
+	    if (ng_debug)
+		fprintf(stderr,"v4l2: attr read int %d => %d\n",
+			c.value,value);
 	} else {
 	    value = c.value;
 	}
@@ -688,7 +691,22 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 	memset(&tuner,0,sizeof(tuner));
 	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
 	value = tuner.audmode;
-
+	if (ng_debug) {
+	    fprintf(stderr,"v4l2:   tuner cap:%s%s%s\n",
+		    (tuner.capability&V4L2_TUNER_CAP_STEREO) ? " STEREO" : "",
+		    (tuner.capability&V4L2_TUNER_CAP_LANG1)  ? " LANG1"  : "",
+		    (tuner.capability&V4L2_TUNER_CAP_LANG2)  ? " LANG2"  : "");
+	    fprintf(stderr,"v4l2:   tuner rxs:%s%s%s%s\n",
+		    (tuner.rxsubchans&V4L2_TUNER_SUB_MONO)   ? " MONO"   : "",
+		    (tuner.rxsubchans&V4L2_TUNER_SUB_STEREO) ? " STEREO" : "",
+		    (tuner.rxsubchans&V4L2_TUNER_SUB_LANG1)  ? " LANG1"  : "",
+		    (tuner.rxsubchans&V4L2_TUNER_SUB_LANG2)  ? " LANG2"  : "");
+	    fprintf(stderr,"v4l2:   tuner cur:%s%s%s%s\n",
+		    (tuner.audmode==V4L2_TUNER_MODE_MONO)   ? " MONO"   : "",
+		    (tuner.audmode==V4L2_TUNER_MODE_STEREO) ? " STEREO" : "",
+		    (tuner.audmode==V4L2_TUNER_MODE_LANG1)  ? " LANG1"  : "",
+		    (tuner.audmode==V4L2_TUNER_MODE_LANG2)  ? " LANG2"  : "");
+	}
     }
     return value;
 }
@@ -704,6 +722,9 @@ static void v4l2_write_attr(struct ng_attribute *attr, int value)
 	c.id = ctl->id;
 	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
 	    c.value = me_to_v4l2(ctl,value);
+	    if (ng_debug)
+		fprintf(stderr,"v4l2: attr write int %d => %d\n",
+			value,c.value);
 	} else {
 	    c.value = value;
 	}

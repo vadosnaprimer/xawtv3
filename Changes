@@ -1,4 +1,17 @@
 
+3.67 => 3.68
+============
+
+ * more build/install fixes.
+ * various new switches for the record tool.
+ * fixed channel switching bug, the long delay is gone now ...
+ * xawtv/motv keep track of TV norm and input source per TV
+   station now.
+ * fixed audio mode (mono vs. stereo) handling for v4l2.
+ * increased audio mode check delay to get better results.
+ * replaced rpm specfile
+
+ 
 3.66 => 3.67
 ============
 
@@ -10,7 +23,7 @@
  * more plugin support in libng.
  * some libng stuff is now implemented as plugin.
  * build plugins with -fPIC.
- * fixed FreeBSD build problems (due * to new plugins).
+ * fixed FreeBSD build problems (due to new plugins).
  * fixed bugs in fbdev code.
  * moved OSS code to libng.
  * avevtd patches (Gerald Schnabel <etk20835@stud.uni-stuttgart.de>).

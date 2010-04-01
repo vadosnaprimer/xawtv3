@@ -911,51 +911,27 @@ void
 change_audio(int mode)
 {
     struct ng_attribute *attr;
+    const char *mname;
     char label[64];
-    char mname[10];
-    int val;
 
     attr = ng_attr_byid(attrs,ATTR_ID_AUDIO_MODE);
     if (NULL == attr)
 	return;
 
-#ifdef __linux__
-    if (-1 != mode) {
-	/* set */
+    if (-1 != mode)
 	attr->write(attr,mode);
-    }
-    if (-1 == mode || 0 == mode) {
-	/* read back */
+    if (-1 == mode || 0 == mode)
 	mode = attr->read(attr);
-    }
 
-    if (mode & VIDEO_SOUND_STEREO) {
-	val = VIDEO_SOUND_STEREO;
-	strcpy(mname,"stereo");
-
-    } else if (mode & VIDEO_SOUND_LANG1) {
-	val = VIDEO_SOUND_LANG1;
-	strcpy(mname,"lang1");
-
-    } else if (mode & VIDEO_SOUND_LANG2) {
-	val = VIDEO_SOUND_LANG2;
-	strcpy(mname,"lang2");
-
-    } else if (mode & VIDEO_SOUND_MONO) {
-	val = VIDEO_SOUND_MONO;
-	strcpy(mname,"mono");
-
-    } else {
-	val = 0;
-	strcpy(mname,"???");
-    }
+    mname = ng_attr_getstr(attr,mode);
+    if (NULL == mname)
+	mname = "???";
 
     if (attr_notify)
-	attr_notify(attr,val);
+	attr_notify(attr,mode);
 
     sprintf(label,"%s (%s)",default_title,mname);
     XtVaSetValues(app_shell,XtNtitle,label,NULL);
-#endif
 }
 
 /*----------------------------------------------------------------------*/

@@ -613,6 +613,19 @@ static struct ng_attribute* v4l_attrs(void *handle)
     return h->attr;
 }
 
+static int audio_mode_mask2bit(int mode)
+{
+    if (mode & VIDEO_SOUND_STEREO)
+	return VIDEO_SOUND_STEREO;
+    if (mode & VIDEO_SOUND_LANG1)
+	return VIDEO_SOUND_LANG1;
+    if (mode & VIDEO_SOUND_LANG2)
+	return VIDEO_SOUND_LANG2;
+    if (mode & VIDEO_SOUND_MONO)
+	return VIDEO_SOUND_MONO;
+    return 0;
+}
+
 static int v4l_read_attr(struct ng_attribute *attr)
 {
     struct v4l_handle *h = attr->handle;
@@ -631,7 +644,7 @@ static int v4l_read_attr(struct ng_attribute *attr)
 	return h->audio.volume;
     case ATTR_ID_AUDIO_MODE:
 	xioctl(h->fd, VIDIOCGAUDIO, &h->audio);
-	return h->audio.mode;
+	return audio_mode_mask2bit(h->audio.mode);
     case ATTR_ID_COLOR:
 	xioctl(h->fd, VIDIOCGPICT, &h->pict);
 	return h->pict.colour;

@@ -14,9 +14,6 @@ TV card etc.)
 .B -h
 display help text
 .TP
-.B -c
-console only mode
-.TP
 .B -i dev
 mixer input.  This should be the one where you can
 adjust the record level for your audio source.
@@ -27,12 +24,26 @@ basename for the output file(s), a number and the .wav
 extention are added by record.  Default is "new".
 .TP
 .B -d dev
-set audio device.  Default is "/dev/audio".
+set audio device.  Default is "/dev/dsp".
 .TP
 .B -m dev
 set mixer device.  Default is "/dev/mixer".
 .TP
 .B -r rate
-set sample rate. Default is 44100.
+set sample rate.  Default is 44100.
+.TP
+.B -c
+enable console (non-interactive) mode.
+.TP
+.B -v
+be verbose (console mode only).
+.TP
+.B -t mm:ss
+Limit the record time (console mode only).  By default record records
+until stopped by a signal (by typing ^C for example).
+.TP
+.B -s size
+Limit the file size (console mode only).  record will continue with
+a new file once the limit is reached.
 .SH AUTHOR
 Gerd Knorr <kraxel@bytesex.org>

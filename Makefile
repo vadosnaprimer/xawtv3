@@ -1,3 +1,3 @@
-all checkit diff release port tarball snapshot auto:
+all checkit diff release port tarball rpm snapshot auto:
 	./configure
 	$(MAKE) $@

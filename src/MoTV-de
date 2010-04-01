@@ -153,8 +153,8 @@ control*menubar*s_888.mnemonic:		8
 control*menubar*add.labelString:	Sender hinzufügen ...
 control*menubar*add.mnemonic:		h
 control*menubar*scan.labelString:	Sendersuche ...
-control*menubar*pref.labelString:	Einstellungen ...
-control*menubar*save.labelString:	Konfiguration speichern
+control*menubar*pref.labelString:	Konfiguration ...
+control*menubar*save.labelString:	Einstellungen speichern
 control*menubar*save.mnemonic:		s
 
 control*menubar*capture.labelString:	Capture
@@ -168,7 +168,7 @@ control*menubar*scale.accelerator:	<Key>S
 control*menubar*input.labelString:	Eingang
 control*menubar*input.mnemonic:		E
 control*menubar*norm.labelString:	Fernsehnorm
-control*menubar*norm.mnemonic:		N
+control*menubar*norm.mnemonic:		n
 
 ! filter menu
 control*menubar*none.labelString:	Kein filter

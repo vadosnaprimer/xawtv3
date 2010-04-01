@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "config.h"
 
 #include <stdio.h>
@@ -507,6 +509,7 @@ set_defaults()
 
 /* ----------------------------------------------------------------------- */
 
+#ifndef HAVE_STRCASESTR
 static char* strcasestr(char *haystack, char *needle)
 {
     int hlen = strlen(haystack);
@@ -518,6 +521,7 @@ static char* strcasestr(char *haystack, char *needle)
 	    return haystack+offset;
     return NULL;
 }
+#endif
 
 static int setstation_handler(char *name, int argc, char **argv)
 {
@@ -569,9 +573,9 @@ static int setstation_handler(char *name, int argc, char **argv)
 	return -1;
     
     /* switch ... */
-    set_capture(CAPTURE_OFF,1);
     if (channel_switch_hook)
 	channel_switch_hook();
+    set_capture(CAPTURE_OFF,1);
 
     last_sender = cur_sender;
     cur_sender = i;
@@ -662,9 +666,9 @@ static int setchannel_handler(char *name, int argc, char **argv)
 	}
     }
     
-    set_capture(CAPTURE_OFF,1);
     if (channel_switch_hook)
 	channel_switch_hook();
+    set_capture(CAPTURE_OFF,1);
 
     cur_sender  = -1;
     cur_freq = get_freq(cur_channel)+cur_fine;

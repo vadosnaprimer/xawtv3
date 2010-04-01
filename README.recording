@@ -9,14 +9,21 @@ Audio
 If you don't get sound when recording avi movies, double-check the
 mixer settings first.  The record source defaults to micro on many
 linux sound drivers, you probably have to change this to line-in with
-one of the available mixer tools.  Also keep in mind that ALSA has
-all mixer controls at 0 (i.e. muted) by default.
+one of the available mixer tools.  Some sound cards have a separate
+input gain control which needs to be set to some approximate value.
+Also keep in mind that ALSA has all mixer controls at 0 (i.e. muted)
+by default.
 
 /me uses kmix (because it doesn't need much space on the screen).
 The inputs where the sound cards record from have a red background
 color.  With the right mouse botton you'll get a menu where you can
 change the settings.  FreeBSD has a aumix version with X11 GUI in
 the ports collection which is very nice too (aumix-gtk in debian).
+
+If you want to see something while playing with the mixer settings you
+can use the record utility (ncurses terminal application, in the tools
+subdirectory), it has a nice input level meter.  motv has one build-in
+too (Menu -> Tools -> Record level monitor).
 
 Note on stereo:  xanim seems not be able to playback stereo sound
 correctly.
@@ -55,7 +62,10 @@ to reduce the number of dropped frames.
 If you want to record quicktime movies install the quicktime4linux
 libraries (http://heroines.sourceforge.net/quicktime.php3), then
 (re-)build xawtv.  The configure script should find the library
-automatically.
+automatically.  Note: /me still uses version 1.3.  Tried 1.5 recently,
+it didn't work for me.  The library itself needs a (trivial) fix to
+build (gcc 2.95.4, maybe gcc 3.x is less picky).  "make util" failes
+with unresolved symbols :-(  Waiting for 1.6 ...
 
 
 Known problems (and workarounds)

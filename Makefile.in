@@ -41,7 +41,7 @@ distclean realclean::
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-VERSION=@XAWTV_VERSION@
+VERSION=@VERSION@
 
 checkit: distclean
 	dpkg-buildpackage -tc -us -uc -rfakeroot
@@ -57,6 +57,9 @@ port:
 tarball: distclean
 	(cd ..; tar cvzf xawtv_$(VERSION).tar.gz \
 		xawtv-$(VERSION))
+
+rpm: tarball
+	rpm -ta ../xawtv_$(VERSION).tar.gz
 
 snapshot: distclean
 	(cd ..; tar cvzf xawtv-snap-`date +%Y-%m-%d`.tar.gz \

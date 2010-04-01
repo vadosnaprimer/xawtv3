@@ -273,7 +273,7 @@ new_channel(void)
 	XtRemoveTimeOut(audio_timer);
 	audio_timer = 0;
     }
-    audio_timer = XtAppAddTimeOut(app_context, 2000, watch_audio, NULL);
+    audio_timer = XtAppAddTimeOut(app_context, 5000, watch_audio, NULL);
 }
 
 static void
@@ -1271,6 +1271,13 @@ static void create_attr_widgets(void)
     attr = ng_attr_byid(attrs,ATTR_ID_AUDIO_MODE);
     if (NULL != attr)
 	add_attr_option(opt_menu,attr);
+    for (attr = attrs; attr->name != NULL; attr++) {
+	if (attr->id < ATTR_ID_COUNT)
+	    continue;
+	if (attr->type != ATTR_TYPE_CHOICE)
+	    continue;
+	add_attr_option(opt_menu,attr);
+    }
 
     /* bools */
     attr = ng_attr_byid(attrs,ATTR_ID_MUTE);
@@ -1413,6 +1420,8 @@ pixit(void)
     channels[cur_sender]->bright   = cur_attrs[ATTR_ID_BRIGHT];
     channels[cur_sender]->hue      = cur_attrs[ATTR_ID_HUE];
     channels[cur_sender]->contrast = cur_attrs[ATTR_ID_CONTRAST];
+    channels[cur_sender]->input    = cur_attrs[ATTR_ID_INPUT];
+    channels[cur_sender]->norm     = cur_attrs[ATTR_ID_NORM];
 
     if (0 == pix_width || 0 == pix_height)
 	return;

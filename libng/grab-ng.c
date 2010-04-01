@@ -637,6 +637,7 @@ void
 ng_init(void)
 {
     static int once=0;
+    int count;
 
     if (once++) {
 	fprintf(stderr,"panic: ng_init called twice\n");
@@ -647,8 +648,12 @@ ng_init(void)
     ng_color_yuv2rgb_init();
     ng_writefile_init();
 
-    if (0 == ng_plugins(LIBDIR))
-	ng_plugins("../libng/plugins");  /* nice for development */
+    count = ng_plugins(LIBDIR);
+    if (0 == count)
+	/* nice for development */
+	count = ng_plugins("../libng/plugins");
+    if (0 == count)
+	fprintf(stderr,"WARNING: no plugins found [%s]\n",LIBDIR);
 }
 
 /*
