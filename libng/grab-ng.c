@@ -516,8 +516,8 @@ ng_conv_find_match(int in, int out)
 /* --------------------------------------------------------------------- */
 
 const struct ng_vid_driver*
-ng_vid_open(char *device, struct ng_video_fmt *screen, void *base,
-	    void **handle)
+ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
+	    void *base, void **handle)
 {
     int i;
 
@@ -541,6 +541,8 @@ ng_vid_open(char *device, struct ng_video_fmt *screen, void *base,
     if (NULL == ng_vid_drivers)
 	return NULL;
     for (i = 0; NULL != ng_vid_drivers[i]; i++) {
+	if (driver  &&  0 != strcasecmp(driver, ng_vid_drivers[i]->name))
+	    continue;
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: trying: %s... \n",
 		    ng_vid_drivers[i]->name);
@@ -839,7 +841,7 @@ void
 ng_init(void)
 {
     static int once=0;
-    int count;
+    int count=0;
 
     if (once++) {
 	fprintf(stderr,"panic: ng_init called twice\n");
@@ -850,10 +852,12 @@ ng_init(void)
     ng_color_yuv2rgb_init();
     ng_writefile_init();
 
-    count = ng_plugins(LIBDIR);
-    if (0 == count)
+    count += ng_plugins(LIBDIR);
+    if (0 == count) {
 	/* nice for development */
-	count = ng_plugins("../libng/plugins");
+	count += ng_plugins("../libng/plugins");
+	count += ng_plugins("../libng/contrib-plugins");
+    }
     if (0 == count)
 	fprintf(stderr,"WARNING: no plugins found [%s]\n",LIBDIR);
 }

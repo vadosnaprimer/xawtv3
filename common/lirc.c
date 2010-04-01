@@ -98,7 +98,8 @@ int lirc_tv_init()
 	config = NULL;
     }
     if (debug)
-	fprintf(stderr, "lirc: ~/.lircrc file %sfound\n", config?"":"not ");
+	fprintf(stderr, "lirc: ~/.lircrc file %sfound\n",
+		config ? "" : "not ");
 
     fcntl(fd,F_SETFL,O_NONBLOCK);
     fcntl(fd,F_SETFD,FD_CLOEXEC);

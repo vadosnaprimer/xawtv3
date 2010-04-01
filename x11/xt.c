@@ -1,7 +1,7 @@
 /*
  * common X11 stuff (mostly libXt level) moved here from main.c
  *
- *   (c) 1997-2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1997-2002 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -25,7 +25,7 @@
 
 #if defined(__linux__)
 # include <sys/ioctl.h>
-# include <linux/videodev.h>
+# include "videodev.h"
 #endif
 
 #include "config.h"
@@ -136,6 +136,11 @@ XtResource args_desc[] = {
 	"device",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,device),
+	XtRString, NULL
+    },{
+	"driver",
+	XtCString, XtRString, sizeof(char*),
+	XtOffset(struct ARGS*,driver),
 	XtRString, NULL
     },{
 	"dspdev",
@@ -262,6 +267,7 @@ const int args_count = XtNumber(args_desc);
 XrmOptionDescRec opt_desc[] = {
     { "-c",          "device",      XrmoptionSepArg, NULL },
     { "-device",     "device",      XrmoptionSepArg, NULL },
+    { "-driver",     "driver",      XrmoptionSepArg, NULL },
     { "-C",          "dspdev",      XrmoptionSepArg, NULL },
     { "-dspdev",     "dspdev",      XrmoptionSepArg, NULL },
     { "-vbidev",     "vbidev",      XrmoptionSepArg, NULL },
@@ -824,6 +830,15 @@ do_fullscreen(void)
     Window root,child;
     int    wpx,wpy,mask;
 
+    if (wm_fullscreen) {
+	/* full service for us :-) */
+	fs = !fs;
+	if (debug)
+	    fprintf(stderr,"fullscreen %s via netwm\n", fs ? "on" : "off");
+	wm_fullscreen(dpy,XtWindow(app_shell),fs);
+	return;
+    }
+
     if (fs) {
 	if (debug)
 	    fprintf(stderr,"turning fs off (%dx%d+%d+%d)\n",w,h,x,y);
@@ -1236,7 +1251,7 @@ grabber_init()
     if (!do_overlay) {
 	if (debug)
 	    fprintf(stderr,"x11: remote display (overlay disabled)\n");
-	drv = ng_vid_open(args.device, NULL, base, &h_drv);
+	drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
@@ -1249,7 +1264,7 @@ grabber_init()
 		    screen.bytesperline,
 		    have_dga ? ", DGA"     : "",
 		    have_vm  ? ", VidMode" : "");
-	drv = ng_vid_open(args.device, &screen, base, &h_drv);
+	drv = ng_vid_open(args.device, args.driver, &screen, base, &h_drv);
     }
     if (NULL == drv) {
 	fprintf(stderr,"no video grabber device available\n");
@@ -1283,7 +1298,8 @@ grabber_scan(void)
 	}
 	close(fh);
 
-	driver = ng_vid_open(ng_dev.video_scan[i], NULL, NULL, &handle);
+	driver = ng_vid_open(ng_dev.video_scan[i], args.driver,
+			     NULL, NULL, &handle);
 	if (NULL == driver) {
 	    fprintf(stderr,"%s: initialization failed\n",ng_dev.video_scan[i]);
 	    continue;

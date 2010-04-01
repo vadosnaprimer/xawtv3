@@ -4,12 +4,11 @@
 
 Xawtv*international:		true
 Xawtv*font:			7x13bold
-Xawtv*fontSet:			-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*,fixed
+Xawtv*fontSet:			-*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*,-efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-m-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-c-*-*-*,-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 TopLevelShell*international:	true
 TopLevelShell*font:		7x13bold
-TopLevelShell*fontSet:		-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*,fixed
-
+TopLevelShell*fontSet:		-*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*,-efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-m-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-c-*-*-*,-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 *popup_help.title:		Welcome to xawtv!
 xawtv.tv.help: \

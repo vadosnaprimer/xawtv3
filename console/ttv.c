@@ -35,7 +35,7 @@ static int fast;
 static void
 grabber_init(void)
 {
-    drv = ng_vid_open(ng_dev.video,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);

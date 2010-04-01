@@ -399,7 +399,7 @@ struct ng_video_conv* ng_conv_find_to(int out, int *i);
 struct ng_video_conv* ng_conv_find_from(int out, int *i);
 struct ng_video_conv* ng_conv_find_match(int in, int out);
 
-const struct ng_vid_driver* ng_vid_open(char *device,
+const struct ng_vid_driver* ng_vid_open(char *device, char *driver,
 					struct ng_video_fmt *screen,
 					void *base, void **handle);
 const struct ng_dsp_driver* ng_dsp_open(char *device, struct ng_audio_fmt *fmt,

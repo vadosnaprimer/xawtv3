@@ -116,15 +116,14 @@ static int freq_readlist(struct CHANLIST **list, int n, char *name)
 	    continue;
 	}
 
-	if (1 == sscanf(line," freq = %255[^\n]",value)) {
+	if (1 == sscanf(line," freq = %255[^\n]", value)) {
 	    /* freq =  */
 	    (*list)[n-1].freq = atoi(value);
 	    continue;
 	}
 	
 	/* Huh ? */
-	fprintf(stderr,"%s:%d: syntax error\n",
-		DATADIR "/Index.map",nr);
+	fprintf(stderr,"%s:%d: syntax error\n", filename, nr);
     }
     return n;
 }

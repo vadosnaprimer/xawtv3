@@ -165,7 +165,7 @@ x11/MoTV.%.ad: x11/MoTV-%
 	cat $< $(srcdir)/x11/MoTV-fixed > $@
 
 x11/MoTV.de_DE.UTF-8.ad: x11/MoTV.de.ad
-	recode latin1..utf8 < $< > $@
+	iconv -f iso-8859-1 -t utf-8 < $< > $@
 
 install-motv-%:
 	$(INSTALL_DIR) $(resdir)/$*/app-defaults

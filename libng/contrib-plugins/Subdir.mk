@@ -13,7 +13,8 @@ TARGETS-contrib-plugins += \
 endif
 
 # alsa is c++ and thus we should call g++ for linking ...
-libng/contrib-plugins/snd-alsa.so : CC := $(CXX)
+libng/contrib-plugins/snd-alsa.so : CC     := $(CXX)
+libng/contrib-plugins/snd-alsa.so : LDLIBS := $(ALSA_LIBS)
 
 # linear-blend has mmx support ...
 ifeq ($(USE_MMX),yes)

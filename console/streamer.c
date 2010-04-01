@@ -423,7 +423,7 @@ main(int argc, char **argv)
 		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
 
     if (video.fmtid != VIDEO_NONE) {
-	drv = ng_vid_open(ng_dev.video,NULL,0,&h_drv);
+	drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
 	if (NULL == drv) {
 	    fprintf(stderr,"no grabber device available\n");
 	    exit(1);

@@ -8,7 +8,10 @@ extern Atom WM_DELETE_WINDOW;
 extern Atom _NET_SUPPORTED;
 extern Atom _NET_WM_STATE;
 extern Atom _NET_WM_STATE_STAYS_ON_TOP;
+extern Atom _NET_WM_STATE_ABOVE;
+extern Atom _NET_WM_STATE_FULLSCREEN;
 extern Atom _WIN_SUPPORTING_WM_CHECK;
+extern Atom _WIN_PROTOCOLS;
 extern Atom _WIN_LAYER;
 
 /* ipc: xawtv, xscreensaver */

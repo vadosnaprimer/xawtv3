@@ -23,7 +23,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #ifdef __linux__
-# include <linux/videodev.h>
+# include "videodev.h"
 #endif
 
 #include "httpd.h"

@@ -10,25 +10,6 @@
 
 
 ! ----------------------------------------------------------------------------
-! fonts [i18n]
-
-*renderTable:
-*renderTable.fontType: FONT_IS_FONTSET
-*renderTable.fontName: \
-	-*-helvetica-medium-r-normal--*-120-*-*-*-*, \
-	-*-*-*-r-normal--*-120-*-*-*-*
-
-MoTV.onscreen.label.renderTable:
-MoTV.onscreen.label.renderTable.fontType: FONT_IS_FONTSET
-MoTV.onscreen.label.renderTable.fontName: \
-	-*-ledfixed-medium-r-semicondensed--39-*-*-*-*-*
-
-MoTV.vtx.label.renderTable:
-MoTV.vtx.label.renderTable.fontType: FONT_IS_FONT
-MoTV.vtx.label.renderTable.fontName: 10x20
-
-
-! ----------------------------------------------------------------------------
 ! strings [i18n]
 
 MoTV.about_box_popup.title:		About motv

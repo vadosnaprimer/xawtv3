@@ -2,6 +2,7 @@
 struct ARGS {
     /* char */
     char *device;
+    char *driver;
     char *dspdev;
     char *vbidev;
     char *joydev;

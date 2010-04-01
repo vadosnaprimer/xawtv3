@@ -6,9 +6,9 @@ TARGETS-debug += \
 	debug/xvideo
 endif
 
-debug/xvideo: debug/xvideo.o
+debug/xvideo:  debug/xvideo.o
 
-debug/xvideo : LDLIBS  += $(ATHENA_LIBS)
+debug/xvideo  : LDLIBS  += $(ATHENA_LIBS)
 
 # global targets
 all:: $(TARGETS-debug)

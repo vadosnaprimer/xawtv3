@@ -519,7 +519,7 @@ grabber_init(void)
     screen.width        = fb_var.xres_virtual;
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
-    drv = ng_vid_open(ng_dev.video,&screen,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,NULL,&screen,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);

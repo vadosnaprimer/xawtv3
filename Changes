@@ -1,4 +1,14 @@
 
+3.81 => 3.82
+============
+
+ * still a few compile bug left ...
+ * s/recode/iconv/.  iconv should (unlike recode) be present on almost
+   every system as it comes with glibc ...
+ * wmhooks fixes.
+ * added -driver command line switcht to xawtv/motv.
+
+
 3.80 => 3.81
 ============
 

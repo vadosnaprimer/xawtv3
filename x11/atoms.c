@@ -9,7 +9,10 @@ Atom WM_DELETE_WINDOW;
 Atom _NET_SUPPORTED;
 Atom _NET_WM_STATE;
 Atom _NET_WM_STATE_STAYS_ON_TOP;
+Atom _NET_WM_STATE_ABOVE;
+Atom _NET_WM_STATE_FULLSCREEN;
 Atom _WIN_SUPPORTING_WM_CHECK;
+Atom _WIN_PROTOCOLS;
 Atom _WIN_LAYER;
 
 /* ipc: xawtv, xscreensaver */
@@ -51,36 +54,39 @@ Atom XV_ENCODING;
 Atom XV_FREQ;
 Atom XV_COLORKEY;
 
+#define INIT_ATOM(dpy,atom) atom = XInternAtom(dpy,#atom,False)
+
 void init_atoms(Display *dpy)
 {
-    WM_PROTOCOLS       = XInternAtom(dpy, "WM_PROTOCOLS",     False);
-    WM_DELETE_WINDOW   = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+    INIT_ATOM(dpy, WM_PROTOCOLS);
+    INIT_ATOM(dpy, WM_DELETE_WINDOW);
+    INIT_ATOM(dpy, _NET_SUPPORTED);
+    INIT_ATOM(dpy, _NET_WM_STATE);
+    INIT_ATOM(dpy, _NET_WM_STATE_STAYS_ON_TOP);
+    INIT_ATOM(dpy, _NET_WM_STATE_ABOVE);
+    INIT_ATOM(dpy, _NET_WM_STATE_FULLSCREEN);
+    INIT_ATOM(dpy, _WIN_SUPPORTING_WM_CHECK);
+    INIT_ATOM(dpy, _WIN_PROTOCOLS);
+    INIT_ATOM(dpy, _WIN_LAYER);
     
-    _NET_SUPPORTED     = XInternAtom(dpy, "_NET_SUPPORTED",   False);
-    _NET_WM_STATE      = XInternAtom(dpy, "_NET_WM_STATE",    False);
-    _NET_WM_STATE_STAYS_ON_TOP =
-	XInternAtom(dpy, "_NET_WM_STATE_STAYS_ON_TOP",        False);
-    _WIN_SUPPORTING_WM_CHECK =
-	XInternAtom(dpy, "_WIN_SUPPORTING_WM_CHECK",          False);
-    _WIN_LAYER         = XInternAtom(dpy, "_WIN_LAYER",       False);
+    INIT_ATOM(dpy, _NETSCAPE_URL);
+
+    INIT_ATOM(dpy, _XAWTV_STATION);
+    INIT_ATOM(dpy, _XAWTV_REMOTE);
     
-    _XAWTV_STATION     = XInternAtom(dpy, "_XAWTV_STATION",   False);
-    _XAWTV_REMOTE      = XInternAtom(dpy, "_XAWTV_REMOTE",    False);
+    INIT_ATOM(dpy, XV_MUTE);
+    INIT_ATOM(dpy, XV_ENCODING);
+    INIT_ATOM(dpy, XV_FREQ);
+    INIT_ATOM(dpy, XV_COLORKEY);
+
+    INIT_ATOM(dpy, _MOTIF_CLIPBOARD_TARGETS);
+    INIT_ATOM(dpy, _MOTIF_DEFERRED_CLIPBOARD_TARGETS);
+    INIT_ATOM(dpy, _MOTIF_SNAPSHOT);
+    INIT_ATOM(dpy, _MOTIF_DROP);
+    INIT_ATOM(dpy, _MOTIF_EXPORT_TARGETS);
+    INIT_ATOM(dpy, _MOTIF_LOSE_SELECTION);
     
     XA_DEACTIVATE      = XInternAtom(dpy, "DEACTIVATE",       False);
-    
-    _MOTIF_CLIPBOARD_TARGETS =
-	XInternAtom(dpy,"_MOTIF_CLIPBOARD_TARGETS",           False);
-    _MOTIF_DEFERRED_CLIPBOARD_TARGETS =
-	XInternAtom(dpy,"_MOTIF_DEFERRED_CLIPBOARD_TARGETS",  False);
-    _MOTIF_SNAPSHOT =
-	XInternAtom(dpy,"_MOTIF_SNAPSHOT",                    False);
-    _MOTIF_DROP =
-	XInternAtom(dpy,"_MOTIF_DROP",                        False);
-    _MOTIF_EXPORT_TARGETS =
-	XInternAtom(dpy,"_MOTIF_EXPORT_TARGETS",              False);
-    _MOTIF_LOSE_SELECTION =
-	XInternAtom(dpy,"_MOTIF_LOSE_SELECTION",              False);
     
     XA_TARGETS         = XInternAtom(dpy, "TARGETS",          False);
     XA_DONE            = XInternAtom(dpy, "DONE",             False);
@@ -101,10 +107,4 @@ void init_atoms(Display *dpy)
     MIME_IMAGE_JPEG    = XInternAtom(dpy, "image/jpeg",       False);
 
     MIME_TEXT_URI_LIST = XInternAtom(dpy, "text/uri-list",    False);
-    _NETSCAPE_URL      = XInternAtom(dpy, "_NETSCAPE_URL",    False);
-
-    XV_MUTE            = XInternAtom(dpy, "XV_MUTE",          False);
-    XV_ENCODING        = XInternAtom(dpy, "XV_ENCODING",      False);
-    XV_FREQ            = XInternAtom(dpy, "XV_FREQ",          False);
-    XV_COLORKEY        = XInternAtom(dpy, "XV_COLORKEY",      False);
 }
