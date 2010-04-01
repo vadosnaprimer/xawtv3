@@ -657,7 +657,7 @@ save_config()
     /* write channels */
     for (i = 0; i < count; i++) {
 	fprintf(fp,"[%s]\n",channels[i]->name);
-	if (0 != strcmp(channels[i]->cname,"none")) {
+	if (NULL != channels[i]->cname) {
 	    fprintf(fp,"channel = %s\n",chanlist[channels[i]->channel].name);
 	    if (0 != channels[i]->fine)
 		fprintf(fp,"fine = %+d\n", channels[i]->fine);

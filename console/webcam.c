@@ -48,7 +48,7 @@ int   grab_bottom = -1;
 int   grab_right  = -1;
 int   grab_quality= 75;
 int   grab_trigger= 0;
-int   grab_once   = 0;
+int   grab_times  = -1;
 int   grab_fg_r   = 255;
 int   grab_fg_g   = 255;
 int   grab_fg_b   = 255;
@@ -686,7 +686,9 @@ main(int argc, char *argv[])
     if (-1 != (i = cfg_get_int("grab","trigger")))
 	grab_trigger = i;
     if (-1 != (i = cfg_get_int("grab","once")))
-	grab_once = i;
+	grab_times = 1;
+    if (-1 != (i = cfg_get_int("grab","times")))
+	grab_times = i;
     if (NULL != (val = cfg_get_str("grab","archive")))
 	archive = val;
 
@@ -882,7 +884,7 @@ main(int argc, char *argv[])
 	    write_file(fh, image, width, height);
 	}
 
-	if (grab_once)
+	if (-1 != grab_times && --grab_times == 0)
 	    break;
 	if (grab_delay > 0)
 	    sleep(grab_delay);

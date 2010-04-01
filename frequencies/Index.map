@@ -43,8 +43,10 @@ file = pal-bcast-za.list
 [argentina]
 file = argentina.list
 
-[canada-cable]
-file = ntsc-cable-ca.list
+# canada + us use the same tables, likely this just works due
+# to a broken tuner configuration ...
+#[canada-cable]
+#file = ntsc-cable-ca.list
 
 [australia-optus]
 file = pal-australia-optus.list

@@ -299,6 +299,27 @@ fb_setvt(int vtno)
     }
 }
 
+/* Hmm. radeonfb needs this. matroxfb doesn't. */
+static int fb_activate_current(int tty)
+{
+    struct vt_stat vts;
+    
+    if (-1 == ioctl(tty,VT_GETSTATE, &vts)) {
+	perror("ioctl VT_GETSTATE");
+	return -1;
+    } else {
+	if (-1 == ioctl(tty,VT_ACTIVATE, vts.v_active)) {
+	    perror("ioctl VT_ACTIVATE");
+	    return -1;
+	}
+	if (-1 == ioctl(tty,VT_WAITACTIVE, vts.v_active)) {
+	    perror("ioctl VT_WAITACTIVE");
+	    return -1;
+	}
+    }
+    return 0;
+}
+
 int fb_probe(void)
 {
     struct fb_con2fbmap c2m;
@@ -453,6 +474,7 @@ fb_init(char *device, char *mode, int vt)
 	perror("ioctl KDSETMODE");
 	goto err;
     }
+    fb_activate_current(tty);
 
     /* cls */
     fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
@@ -482,8 +504,10 @@ fb_cleanup(void)
 	perror("ioctl KDSETMODE");
     if (-1 == ioctl(tty,VT_SETMODE, &vt_omode))
 	perror("ioctl VT_SETMODE");
-    if (orig_vt_no && -1 == ioctl(tty,VT_ACTIVATE, orig_vt_no))
+    if (orig_vt_no && -1 == ioctl(tty, VT_ACTIVATE, orig_vt_no))
 	perror("ioctl VT_ACTIVATE");
+    if (orig_vt_no && -1 == ioctl(tty, VT_WAITACTIVE, orig_vt_no))
+	perror("ioctl VT_WAITACTIVE");
     tcsetattr(tty, TCSANOW, &term);
     close(tty);
 }

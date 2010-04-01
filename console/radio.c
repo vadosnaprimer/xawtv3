@@ -27,7 +27,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 
-#include <linux/videodev.h>
+#include "videodev.h"
 
 /* JMMV: WINDOWS for radio */
 int ncurses = 0;

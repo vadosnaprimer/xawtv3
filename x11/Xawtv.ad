@@ -79,7 +79,7 @@ Config*modify.label:		Update
 Config*save.label:		Save
 Config*close.label:		Close
 
-Streamer.title:			record a movies
+Streamer.title:			record a movie
 Streamer*vlabel.label:		movie/images filename
 Streamer*alabel.label:		*.wav filename
 Streamer*streamer.label:	start/stop recording

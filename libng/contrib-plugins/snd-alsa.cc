@@ -223,12 +223,12 @@ extern "C" void ng_plugin_init( void )
 {
 	static struct ng_mix_driver mixer_info =
 	{
-		name:      "alsa",
-		probe:     alsa_mixer::probe,
-		channels:  alsa_mixer::channels,
-		open:      alsa_mixer::open,
-		volctl:    alsa_mixer::volctl,
-		close:     alsa_mixer::close,
+	    /* name */      "alsa",
+	    /* probe */     alsa_mixer::probe,
+	    /* channels */  alsa_mixer::channels,
+	    /* open */      alsa_mixer::open,
+	    /* volctl */    alsa_mixer::volctl,
+	    /* close */     alsa_mixer::close,
 	};
 
 	ng_mix_driver_register( NG_PLUGIN_MAGIC, __FILE__, &mixer_info );

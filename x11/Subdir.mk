@@ -115,7 +115,7 @@ x11/complete-motif.o : CFLAGS += -DMOTIF=1
 
 
 # i18n
-LANGUAGES := de it fr
+LANGUAGES := de it fr de_DE.UTF-8
 MOTV-app  := $(patsubst %,x11/MoTV.%.ad,$(LANGUAGES))
 
 
@@ -144,14 +144,9 @@ install::
 	$(INSTALL_DATA) $(srcdir)/x11/Xawtv.ad $(resdir)/app-defaults/Xawtv
 endif
 ifeq ($(FOUND_MOTIF),yes)
-install::
+install:: $(patsubst %,install-motv-%,$(LANGUAGES))
 	$(INSTALL_DATA) $(srcdir)/x11/mtt.ad $(resdir)/app-defaults/mtt
 	$(INSTALL_DATA) x11/MoTV.ad $(resdir)/app-defaults/MoTV
-	for lang in $(LANGUAGES); do \
-	    $(INSTALL_DIR) $(resdir)/$$lang/app-defaults; \
-	    $(INSTALL_DATA) x11/MoTV.$$lang.ad \
-		$(resdir)/$$lang/app-defaults/MoTV; \
-	done
 endif
 
 distclean::
@@ -168,3 +163,10 @@ x11/MoTV.ad: $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed
 
 x11/MoTV.%.ad: x11/MoTV-%
 	cat $< $(srcdir)/x11/MoTV-fixed > $@
+
+x11/MoTV.de_DE.UTF-8.ad: x11/MoTV.de.ad
+	recode latin1..utf8 < $< > $@
+
+install-motv-%:
+	$(INSTALL_DIR) $(resdir)/$*/app-defaults
+	$(INSTALL_DATA) x11/MoTV.$*.ad $(resdir)/$*/app-defaults/MoTV

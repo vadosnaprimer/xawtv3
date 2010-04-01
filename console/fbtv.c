@@ -704,7 +704,8 @@ main(int argc, char *argv[])
     parse_config();
     channel_menu();
 
-    do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
+    do_va_cmd(2,"setfreqtab",(-1 != chantab)
+              ? chanlist_names[chantab].str : "europe-west");
     cur_capture = 0;
     do_va_cmd(2,"capture","overlay");
     if (optind+1 == argc) {

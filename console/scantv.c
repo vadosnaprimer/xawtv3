@@ -194,6 +194,7 @@ main(int argc, char **argv)
 
     attr_init();
     audio_init();
+    freq_init();
 
     /* ask the user some questions ... */
     attr = ng_attr_byid(attrs,ATTR_ID_NORM);

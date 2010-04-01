@@ -1,4 +1,12 @@
 
+3.80 => 3.81
+============
+
+ * even more compile fixes.
+ * fixed some core dumps (freqtab changes init bugs in fbtv + ttv).
+ * new config option for webcam (times=, much like once).
+
+
 3.79 => 3.80
 ============
 
