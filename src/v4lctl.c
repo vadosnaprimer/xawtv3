@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	    break;
 	switch (c) {
 	case 'v':
-	    debug = atoi(optarg);
+	    ng_debug = debug = atoi(optarg);
 	    break;
 	case 'c':
 	    device = optarg;
@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 	usage();
 	exit(1);
     }
+    ng_init();
 
     if (NULL != getenv("DISPLAY"))
 	dpy = XOpenDisplay(NULL);

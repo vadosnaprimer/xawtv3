@@ -28,16 +28,19 @@ xawtv/streamer handle video recording with multiple threads:
  - one thread calls sync frequently to make the writeouts more
    smoothly (more smaller chunks instead of few very big ones).
 
+
 There are buffer fifo's between the recording threads and the disk
 writer to avoid recording overruns due to a temporarely busy hard
 disk.
 
-If you see messages about a full fifo it is very likely that your hard
-disk is too slow, especially it you try to record uncompressed video.
+If you see messages about a full fifo or about v4l(2) waiting for
+free buffers it is very likely that your hard disk is too slow,
+especially if you try to record uncompressed video.
 
 bttv 0.7.x allows you to use more than just two video buffers, you can
 configure the number at insmod time (gbuffers option).  Using more
-buffers (say 4-8) should help to reduce the number of dropped frames.
+buffers (say 4-8 instead of just two which is the default) should help
+to reduce the number of dropped frames.
 
 If you want to record quicktime movies install the quicktime4linux
 libraries (http://heroines.sourceforge.net/quicktime.php3), then

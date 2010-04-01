@@ -5,8 +5,8 @@
  *
  */
 
-extern int ng_debug;
-extern int ng_mjpeg_quality;
+extern int  ng_debug;
+extern int  ng_mjpeg_quality;
 extern char ng_v4l_conf[256];
 
 /* --------------------------------------------------------------------- */
@@ -106,14 +106,19 @@ struct ng_video_buf {
      * buffer (can be used by the release callback)
      */
     pthread_mutex_t      lock;
+    pthread_cond_t       cond;
     int                  refcount;
     void                 (*release)(struct ng_video_buf *buf);
     void                 *priv;
 };
 
+void ng_init_video_buf(struct ng_video_buf *buf);
 void ng_release_video_buf(struct ng_video_buf *buf);
 struct ng_video_buf* ng_malloc_video_buf(struct ng_video_fmt *fmt,
 					 int size);
+void ng_wakeup_video_buf(struct ng_video_buf *buf);
+void ng_waiton_video_buf(struct ng_video_buf *buf);
+
 
 /* --------------------------------------------------------------------- */
 /* audio data structures                                                 */

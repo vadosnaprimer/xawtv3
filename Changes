@@ -1,4 +1,12 @@
 
+3.36 => 3.37
+============
+
+  * minor fixes and tweaks in the capture code.
+  * added missing libng initialization to fbtv, streamer
+    and v4lctl (Oops...).
+
+
 3.35 => 3.36
 ============
 

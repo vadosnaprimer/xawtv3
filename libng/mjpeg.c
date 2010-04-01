@@ -12,8 +12,6 @@
 
 /* ---------------------------------------------------------------------- */
 
-int ng_mjpeg_quality;
-
 struct mjpeg_handle {
     struct jpeg_destination_mgr  mjpg_dest; /* must be first */
     struct jpeg_compress_struct  mjpg_cinfo;

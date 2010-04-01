@@ -877,7 +877,8 @@ static int webcam_handler(char *hname, int argc, char **argv)
     fmt.fmtid = VIDEO_RGB24;
     ng_grabber_setparams(&fmt,0);
     buf = ng_grabber_capture(NULL,1);
-    ng_release_video_buf(buf);
+    if (buf)
+	ng_release_video_buf(buf);
     if (capture_rel_hook)
 	capture_rel_hook();
     return 0;

@@ -1,3 +1,9 @@
+xawtv (3.37) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@debian.org>  Wed, 28 Feb 2001 19:56:30 +0100
+
 xawtv (3.36) unstable; urgency=low
 
   * new release (closes: #87429).

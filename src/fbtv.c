@@ -544,6 +544,7 @@ main(int argc, char *argv[])
 	    exit(1);
 	}
     }
+    ng_init();
 
     do_overlay = 1;
     fb = fb_init(fbdev,fontfile,mode,vt);

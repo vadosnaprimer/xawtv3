@@ -233,6 +233,7 @@ main(int argc, char **argv)
 	    break;
 	case 'd':
 	    debug++;
+	    ng_debug++;
 	    break;
 	case 'w':
 	    wait_seconds = atoi(optarg);
@@ -295,6 +296,7 @@ main(int argc, char **argv)
 	    exit(1);
 	}
     }
+    ng_init();
     find_formats();
 
     /* sanity checks */

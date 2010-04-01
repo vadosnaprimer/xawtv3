@@ -550,7 +550,10 @@ v4l_open(char *device)
 	    h->buf_v4l = malloc(h->nbuf * sizeof(struct video_mmap));
 	    memset(h->buf_v4l,0,h->nbuf * sizeof(struct video_mmap));
 	    h->buf_me = malloc(h->nbuf * sizeof(struct ng_video_buf));
-	    memset(h->buf_me,0,h->nbuf * sizeof(struct ng_video_buf));
+	    for (i = 0; i < h->nbuf; i++) {
+		ng_init_video_buf(h->buf_me+i);
+		h->buf_me[i].release = ng_wakeup_video_buf;
+	    }
 	} else {
 	    if (ng_debug)
 		fprintf(stderr,"  v4l: using read() for capture\n");
@@ -921,9 +924,10 @@ mm_queue(struct v4l_handle *h)
     int rc;
 
     if (0 != h->buf_me[frame].refcount) {
-	if (0 == h->queue - h->waiton)
-	    fprintf(stderr,"v4l: oops: out of free buffers\n");
-	return -1;
+	if (0 != h->queue - h->waiton)
+	    return -1;
+	fprintf(stderr,"v4l: waiting for a free buffer\n");
+	ng_waiton_video_buf(h->buf_me+frame);
     }
 
     rc = xioctl(h->fd,VIDIOCMCAPTURE,h->buf_v4l+frame);

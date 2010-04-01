@@ -17,8 +17,9 @@
 #include "config.h"
 #include "grab-ng.h"
 
-int ng_debug = 0;
-char ng_v4l_conf[256] = "v4l-conf";
+int  ng_debug          = 0;
+int  ng_mjpeg_quality  = 50;
+char ng_v4l_conf[256]  = "v4l-conf";
 
 /* --------------------------------------------------------------------- */
 
@@ -99,6 +100,13 @@ const char* ng_attr_to_desc[] = {
 
 /* --------------------------------------------------------------------- */
 
+void ng_init_video_buf(struct ng_video_buf *buf)
+{
+    memset(buf,0,sizeof(*buf));
+    pthread_mutex_init(&buf->lock,NULL);    
+    pthread_cond_init(&buf->cond,NULL);
+}
+
 void ng_release_video_buf(struct ng_video_buf *buf)
 {
     int release;
@@ -109,6 +117,33 @@ void ng_release_video_buf(struct ng_video_buf *buf)
     pthread_mutex_unlock(&buf->lock);
     if (release && NULL != buf->release)
 	buf->release(buf);
+}
+
+void ng_wakeup_video_buf(struct ng_video_buf *buf)
+{
+    pthread_cond_signal(&buf->cond);
+#if 0
+    pthread_mutex_lock(&mut);
+    /* modify x and y */
+    if (x > y) pthread_cond_broadcast(&cond);
+    pthread_mutex_unlock(&mut);
+#endif
+}
+
+void ng_waiton_video_buf(struct ng_video_buf *buf)
+{
+    pthread_mutex_lock(&buf->lock);
+    while (buf->refcount)
+	pthread_cond_wait(&buf->cond, &buf->lock);
+    pthread_mutex_unlock(&buf->lock);
+#if 0
+     pthread_mutex_lock(&mut);
+     while (x <= y) {
+             pthread_cond_wait(&cond, &mut);
+     }
+     /* operate on x and y */
+     pthread_mutex_unlock(&mut);
+#endif
 }
 
 static void ng_free_video_buf(struct ng_video_buf *buf)
@@ -125,7 +160,7 @@ ng_malloc_video_buf(struct ng_video_fmt *fmt, int size)
     buf = malloc(sizeof(*buf));
     if (NULL == buf)
 	return NULL;
-    memset(buf,0,sizeof(*buf));
+    ng_init_video_buf(buf);
     buf->fmt  = *fmt;
     buf->size = size;
     buf->data = malloc(size);
@@ -135,7 +170,6 @@ ng_malloc_video_buf(struct ng_video_fmt *fmt, int size)
     }
     buf->refcount = 1;
     buf->release  = ng_free_video_buf;
-    pthread_mutex_init(&buf->lock,NULL);
     return buf;
 }
 
@@ -363,6 +397,12 @@ ng_conv_find(int out, int *i)
 void
 ng_init(void)
 {
+    static int once=0;
+
+    if (once++) {
+	fprintf(stderr,"panic: ng_init called twice\n");
+	exit(1);
+    }
     ng_color_packed_init();
     ng_mjpg_init();
 }

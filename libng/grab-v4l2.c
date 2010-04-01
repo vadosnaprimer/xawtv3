@@ -736,6 +736,12 @@ v4l2_open(char *device)
 	v4l2_add_attr(h, &h->ctl[i], 0, NULL);
     }
 
+    /* capture buffers */
+    for (i = 0; i < WANTED_BUFFERS; i++) {
+    	ng_init_video_buf(h->buf_me+i);
+	h->buf_me[i].release = ng_wakeup_video_buf;
+    }
+
     return h;
 
  err:
@@ -943,9 +949,10 @@ v4l2_queue_buffer(struct v4l2_handle *h)
     int rc;
 
     if (0 != h->buf_me[frame].refcount) {
-	if (0 == h->queue - h->waiton)
-	    fprintf(stderr,"v4l2: oops: out of free buffers\n");
-	return -1;
+	if (0 != h->queue - h->waiton)
+	    return -1;
+	fprintf(stderr,"v4l2: waiting for a free buffer\n");
+	ng_waiton_video_buf(h->buf_me+frame);
     }
 
     rc = xioctl(h->fd,VIDIOC_QBUF,&h->buf_v4l2[frame], 0);
@@ -1025,7 +1032,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 	    print_bufinfo(&h->buf_v4l2[i]);
     }
 
-    /* queue up all but one buffers */
+    /* queue up all buffers */
     v4l2_queue_all(h);
 
  try_again:

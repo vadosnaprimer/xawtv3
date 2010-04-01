@@ -205,6 +205,7 @@ void
 ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 	    unsigned long blue_mask, int fmtid, int swap)
 {
+    static int      once=0;
     int             rgb_red_bits = 0;
     int             rgb_red_shift = 0;
     int             rgb_green_bits = 0;
@@ -213,6 +214,11 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
     int             rgb_blue_shift = 0;
     unsigned int    i;
     unsigned int    mask;
+
+    if (once++) {
+	fprintf(stderr,"panic: ng_lut_init called twice\n");
+	exit(1);
+    }
 
     for (i = 0; i < 32; i++) {
         mask = (1 << i);
