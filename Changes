@@ -1,4 +1,18 @@
 
+3.85 => 3.86
+============
+
+ * tweaked font sets.
+ * some FreeBSD fixes.
+ * various minor build fixes
+
+
+3.84 => 3.85
+============
+
+ * added UYVY support.
+
+
 3.83 => 3.84
 ============
 

@@ -51,12 +51,13 @@ extern char ng_v4l_conf[256];
 #define VIDEO_RGB32         10  /* -rgb-rgb-rgb (BE) */
 #define VIDEO_LUT2          11  /* lookup-table 2 byte depth */
 #define VIDEO_LUT4          12  /* lookup-table 4 byte depth */
-#define VIDEO_YUV422	    13  /* YUV 4:2:2 */
+#define VIDEO_YUYV	    13  /* 4:2:2 */
 #define VIDEO_YUV422P       14  /* YUV 4:2:2 (planar) */
 #define VIDEO_YUV420P	    15  /* YUV 4:2:0 (planar) */
 #define VIDEO_MJPEG	    16  /* MJPEG (AVI) */
 #define VIDEO_JPEG	    17  /* JPEG (JFIF) */
-#define VIDEO_FMT_COUNT	    18
+#define VIDEO_UYVY	    18  /* 4:2:2 */
+#define VIDEO_FMT_COUNT	    19
 
 #define AUDIO_NONE           0
 #define AUDIO_U8_MONO        1
@@ -103,14 +104,14 @@ extern char ng_v4l_conf[256];
 
 /* --------------------------------------------------------------------- */
 
-extern const unsigned int   ng_vfmt_to_depth[];
-extern const char*          ng_vfmt_to_desc[];
+extern const unsigned int   ng_vfmt_to_depth[VIDEO_FMT_COUNT];
+extern const char*          ng_vfmt_to_desc[VIDEO_FMT_COUNT];
 
-extern const unsigned int   ng_afmt_to_channels[];
-extern const unsigned int   ng_afmt_to_bits[];
-extern const char*          ng_afmt_to_desc[];
+extern const unsigned int   ng_afmt_to_channels[AUDIO_FMT_COUNT];
+extern const unsigned int   ng_afmt_to_bits[AUDIO_FMT_COUNT];
+extern const char*          ng_afmt_to_desc[AUDIO_FMT_COUNT];
 
-extern const char*          ng_attr_to_desc[];
+extern const char*          ng_attr_to_desc[ATTR_ID_COUNT];
 
 /* --------------------------------------------------------------------- */
 

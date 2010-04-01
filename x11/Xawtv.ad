@@ -4,11 +4,25 @@
 
 Xawtv*international:		true
 Xawtv*font:			7x13bold
-Xawtv*fontSet:			-*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*,-efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-m-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-c-*-*-*,-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+Xawtv*fontSet:			\
+ -*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
+          -*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
+         -gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*, \
+       -efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*, \
+                -*-*-bold-r-normal-*-16-*-*-*-m-*-*-*, \
+                -*-*-bold-r-normal-*-16-*-*-*-c-*-*-*, \
+                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*, *
 
 TopLevelShell*international:	true
 TopLevelShell*font:		7x13bold
-TopLevelShell*fontSet:		-*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*,-gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*,-efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-m-*-*-*,-*-*-bold-r-normal-*-16-*-*-*-c-*-*-*,-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+TopLevelShell*fontSet:		\
+ -*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
+          -*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
+         -gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*, \
+       -efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*, \
+                -*-*-bold-r-normal-*-16-*-*-*-m-*-*-*, \
+                -*-*-bold-r-normal-*-16-*-*-*-c-*-*-*, \
+                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 *popup_help.title:		Welcome to xawtv!
 xawtv.tv.help: \
@@ -368,8 +382,13 @@ xawtv.onscreen*background:		black
 xawtv.onscreen*borderColor:		black
 xawtv.onscreen*foreground:		lightgreen
 xawtv.onscreen.label.justify:		left
-xawtv.onscreen.label.font: -*-ledfixed-medium-r-semicondensed--39-*
-xawtv.onscreen.label.fontSet: -*-ledfixed-medium-r-semicondensed--39-*,-*-*-*-R-*-*-*-120-*-*-*-*
+xawtv.onscreen.label.font:		-*-ledfixed-medium-r-*--39-*-*-*-c-*-*-*
+xawtv.onscreen.label.fontSet:		\
+     -*-ledfixed-medium-r-semicondensed--39-*-*-*-c-*-*-*, \
+ -*-bitstream vera sans-medium-r-normal--39-*-*-*-*-*-*-*, \
+           -*-luxi sans-medium-r-normal--39-*-*-*-*-*-*-*, \
+                          -*-*-r-normal--39-*-*-*-*-*-*-*, \
+                               -*-*-*-*--39-*-*-*-*-*-*-*,*
 
 xawtv.vtx.allowShellResize:		true
 xawtv.vtx.label.resize:			true

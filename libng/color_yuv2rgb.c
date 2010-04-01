@@ -384,12 +384,12 @@ ng_yuv422p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 static struct ng_video_conv conv_list[] = {
     {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUV422,
+	fmtid_in:	VIDEO_YUYV,
 	fmtid_out:	VIDEO_RGB24,
 	priv:		yuv422_to_rgb24,
     },{
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUV422,
+	fmtid_in:	VIDEO_YUYV,
 	fmtid_out:	VIDEO_GRAY,
 	priv:		yuv422_to_gray,
     },{

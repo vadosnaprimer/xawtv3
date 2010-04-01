@@ -181,7 +181,7 @@ static struct ng_video_conv lut2_list[] = {
 	priv:		gray_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUV422,
+	fmtid_in:	VIDEO_YUYV,
 	priv:		ng_yuv422_to_lut2,
     },{
 	init:           ng_conv_nop_init,
@@ -219,7 +219,7 @@ static struct ng_video_conv lut4_list[] = {
 	priv:		gray_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUV422,
+	fmtid_in:	VIDEO_YUYV,
 	priv:		ng_yuv422_to_lut4,
     },{
 	init:           ng_conv_nop_init,

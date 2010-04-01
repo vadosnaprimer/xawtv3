@@ -17,7 +17,7 @@
 static int fmtid_to_cmodel[VIDEO_FMT_COUNT] = {
     [ VIDEO_RGB24    ] = BC_RGB888,
     [ VIDEO_BGR24    ] = BC_BGR888,
-    [ VIDEO_YUV422   ] = BC_YUV422,
+    [ VIDEO_YUYV     ] = BC_YUV422,
     [ VIDEO_YUV420P  ] = BC_YUV420P,
 };
 

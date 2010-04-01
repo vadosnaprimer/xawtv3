@@ -86,7 +86,7 @@ static int   bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 static void catchsignal(int signal);
 static void siginit(void);
 static int bsd_setformat(void *handle, struct ng_video_fmt *fmt);
-static int bsd_startvideo(void *handle, int fps, int buffers);
+static int bsd_startvideo(void *handle, int fps, unsigned int buffers);
 static void bsd_stopvideo(void *handle);
 static struct ng_video_buf* bsd_nextframe(void *handle);
 static struct ng_video_buf* bsd_getimage(void *handle);
@@ -154,8 +154,27 @@ static int norms_map[] = {
     BT848_IFORM_F_RSVD,
 };
 
+static struct STRTAB audio[] = {
+    {  0, "Tuner"   },
+    {  1, "Extern"   },
+    {  2, "Intern"      },
+    { -1, NULL }
+};
+static int audio_map[] = {
+    AUDIO_TUNER,
+    AUDIO_EXTERN,
+    AUDIO_INTERN,
+};
+
 static struct ng_attribute bsd_attr[] = {
     {
+	id:       ATTR_ID_COUNT+1,
+	name:     "audio",
+	type:     ATTR_TYPE_CHOICE,
+	choices:  audio,
+	read:     bsd_read_attr,
+	write:    bsd_write_attr,
+    },{
 	id:       ATTR_ID_NORM,
 	name:     "norm",
 	type:     ATTR_TYPE_CHOICE,
@@ -511,6 +530,12 @@ static int bsd_read_attr(struct ng_attribute *attr)
 	if (-1 != xioctl(h->tfd,get,&arg))
 	    value = arg;
 	break;
+    case ATTR_ID_COUNT+1: /* AUDIO */
+	if (-1 != xioctl(h->tfd, BT848_GAUDIO, &arg))
+	    for (i = 0; i < sizeof(audio_map)/sizeof(int); i++)
+		if (arg == audio_map[i])
+		    value = i;
+	break;
     default:
 	break;
     }
@@ -541,6 +566,9 @@ static void bsd_write_attr(struct ng_attribute *attr, int value)
 	bsd_get_range(attr->id,&get,&set);
 	arg = value;
 	xioctl(h->tfd,set,&arg);
+	break;
+    case ATTR_ID_COUNT+1: /* audio */
+	xioctl(h->tfd, BT848_SAUDIO,&audio_map[value]);
 	break;
     default:
 	break;
@@ -741,7 +769,7 @@ set_capture(struct bsd_handle *h, int state)
     }
 }
 
-static int bsd_startvideo(void *handle, int fps, int buffers)
+static int bsd_startvideo(void *handle, int fps, unsigned int buffers)
 {
     struct bsd_handle *h = handle;
 

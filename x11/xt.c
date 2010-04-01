@@ -739,6 +739,9 @@ xt_siginit(void)
     act.sa_handler  = termsig;
     sigaction(SIGINT,&act,&old);
     sigaction(SIGTERM,&act,&old);
+
+    act.sa_handler  = SIG_IGN;
+    sigaction(SIGPIPE,&act,&old);
     
     if (debug) {
 	act.sa_handler  = segfault;
@@ -777,14 +780,6 @@ xscreensaver_timefunc(XtPointer clientData, XtIntervalId *id)
 
 /*----------------------------------------------------------------------*/
 
-Boolean
-MyResize(XtPointer client_data)
-{
-    /* needed for program-triggered resizes (fullscreen mode) */
-    video_new_size();
-    return TRUE;
-}
-
 #ifdef HAVE_LIBXXF86VM
 static void
 vidmode_timer(XtPointer clientData, XtIntervalId *id)
@@ -815,6 +810,72 @@ set_vidmode(XF86VidModeModeInfo *mode)
     XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),mode);
 }
 #endif
+
+static void
+do_modeswitch(int fs_state, int *vp_width, int *vp_height)
+{
+    if (fs_state) {
+	/* enter fullscreen mode */
+	*vp_width  = swidth;
+	*vp_height = sheight;
+
+#ifdef HAVE_LIBXXF86VM
+	if (have_vm) {
+	    int i;
+	    XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
+	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
+				       &vm_count,&vm_modelines);
+	    vm_fullscreen = NULL;
+	    for (i = 0; i < vm_count; i++) {
+		if (fs_width  == vm_modelines[i]->hdisplay &&
+		    fs_height == vm_modelines[i]->vdisplay)
+		    vm_fullscreen = vm_modelines[i];
+		if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
+		    vm_line.vdisplay == vm_modelines[i]->vdisplay)
+		    vm_current = vm_modelines[i];
+	    }
+	    if (debug) {
+		fprintf(stderr,"vm: current=%dx%d",
+			vm_current->hdisplay,vm_current->vdisplay);
+		if (vm_fullscreen)
+		    fprintf(stderr,"fullscreen=%dx%d",
+			    vm_fullscreen->hdisplay,vm_fullscreen->vdisplay);
+		fprintf(stderr,"\n");
+	    }
+	    if (vm_current && vm_fullscreen &&
+		vm_fullscreen->hdisplay != vm_current->hdisplay &&
+		vm_fullscreen->vdisplay != vm_current->vdisplay) {
+		set_vidmode(vm_fullscreen);
+		vm_switched = 1;
+		*vp_width   = vm_fullscreen->hdisplay;
+		*vp_height  = vm_fullscreen->vdisplay;
+	    } else {
+		vm_switched = 0;
+		*vp_width   = vm_current->hdisplay;
+		*vp_height  = vm_current->vdisplay;
+	    }
+	}
+#endif
+    } else {
+	/* leave fullscreen mode */
+#ifdef HAVE_LIBXXF86VM
+	if (have_vm && vm_switched) {
+	    set_vidmode(vm_current);
+	    vm_switched = 0;
+	}
+#endif
+    }
+}
+
+/*----------------------------------------------------------------------*/
+
+Boolean
+MyResize(XtPointer client_data)
+{
+    /* needed for program-triggered resizes (fullscreen mode) */
+    video_new_size();
+    return TRUE;
+}
 
 static void
 do_screensaver(int fs_state)
@@ -863,12 +924,16 @@ do_fullscreen(void)
 
     Window root,child;
     int    wpx,wpy,mask;
+    unsigned int vp_width, vp_height;
 
     if (use_wm_fullscreen && wm_fullscreen) {
 	/* full service for us, next to nothing to do */
 	fs = !fs;
 	if (debug)
 	    fprintf(stderr,"fullscreen %s via netwm\n", fs ? "on" : "off");
+	
+	do_modeswitch(fs,&vp_width,&vp_height);
+	XSync(dpy,False);
 	wm_fullscreen(dpy,XtWindow(app_shell),fs);
 
 	if (0 == fs  &&  on_timer) {
@@ -883,13 +948,8 @@ do_fullscreen(void)
     if (fs) {
 	if (debug)
 	    fprintf(stderr,"turning fs off (%dx%d+%d+%d)\n",w,h,x,y);
-#ifdef HAVE_LIBXXF86VM
-	if (have_vm && vm_switched) {
-	    set_vidmode(vm_current);
-	    vm_switched = 0;
-	}
-#endif
-
+	do_modeswitch(0,&vp_width,&vp_height);
+	
 	if (on_timer) {
 	    XtPopdown(on_shell);
 	    XtRemoveTimeOut(on_timer);
@@ -911,62 +971,23 @@ do_fullscreen(void)
 			 0, 0, 0, 0, rpx, rpy);
 	fs = 0;
     } else {
-	unsigned int vp_width, vp_height;
 	int vp_x, vp_y;
 
 	if (debug)
 	    fprintf(stderr,"turning fs on\n");
-	vp_x = 0;
-	vp_y = 0;
-	vp_width  = swidth;
-	vp_height = sheight;
 	XQueryPointer(dpy, RootWindowOfScreen(XtScreen(tv)),
 		      &root, &child, &rpx, &rpy, &wpx, &wpy, &mask);
 
-#ifdef HAVE_LIBXXF86VM
-	if (have_vm) {
-	    int i;
-	    XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
-	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
-				       &vm_count,&vm_modelines);
-	    vm_fullscreen = NULL;
-	    for (i = 0; i < vm_count; i++) {
-		if (fs_width  == vm_modelines[i]->hdisplay &&
-		    fs_height == vm_modelines[i]->vdisplay)
-		    vm_fullscreen = vm_modelines[i];
-		if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
-		    vm_line.vdisplay == vm_modelines[i]->vdisplay)
-		    vm_current = vm_modelines[i];
-	    }
-	    if (debug) {
-		fprintf(stderr,"vm: current=%dx%d",
-			vm_current->hdisplay,vm_current->vdisplay);
-		if (vm_fullscreen)
-		    fprintf(stderr,"fullscreen=%dx%d",
-			    vm_fullscreen->hdisplay,vm_fullscreen->vdisplay);
-		fprintf(stderr,"\n");
-	    }
-	    if (vm_current && vm_fullscreen &&
-		vm_fullscreen->hdisplay != vm_current->hdisplay &&
-		vm_fullscreen->vdisplay != vm_current->vdisplay) {
-		set_vidmode(vm_fullscreen);
-		vm_switched = 1;
-		vp_width  = vm_fullscreen->hdisplay;
-		vp_height = vm_fullscreen->vdisplay;
-	    } else {
-		vm_switched = 0;
-		vp_width  = vm_current->hdisplay;
-		vp_height = vm_current->vdisplay;
-	    }
-	    if (vp_width < sheight || vp_width < swidth) {
-		/* move viewpoint, make sure the pointer is in there */
-		warp_pointer = 1;
-		XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
-			     0, 0, 0, 0, vp_width/2, vp_height/2);
-		XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
-	    }
+	vp_x = 0;
+	vp_y = 0;
+	do_modeswitch(1,&vp_width,&vp_height);
+	if (vp_width < sheight || vp_width < swidth) {
+	    /* move viewpoint, make sure the pointer is in there */
+	    warp_pointer = 1;
+	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
+			 0, 0, 0, 0, vp_width/2, vp_height/2);
+	    XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
 	}
-#endif
 	XtVaGetValues(app_shell,
 		      XtNx,          &x,
 		      XtNy,          &y,

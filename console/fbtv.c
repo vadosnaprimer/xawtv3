@@ -449,7 +449,7 @@ static void do_capture(int from, int to, int tmp_switch)
 	    off.bytesperline = fb_fix.line_length;
 	    if (off.width*2 > off.bytesperline)
 		off.width = off.bytesperline/2;
-	    off.fmtid = VIDEO_YUV422;
+	    off.fmtid = VIDEO_YUYV;
 	    drv->overlay(h_drv,&off,0,starty,NULL,0,0);
 	    gfx_scaler_on(starty*off.bytesperline,off.bytesperline,
 			  off.width,off.height,

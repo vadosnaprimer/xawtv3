@@ -2244,7 +2244,8 @@ chscan_timeout(XtPointer client_data, XtIntervalId *id)
 	/* all done */
 	x11_vbi_stop();
 	chtimer = 0;
-	do_va_cmd(2,"setchannel",channels[0]->name);
+	if (count)
+	    do_va_cmd(2,"setchannel",channels[0]->name);
 	XtDestroyWidget(chdlg);
 	chdlg = NULL;
 	return;
@@ -2438,7 +2439,7 @@ pref_mix1(void)
 
     on = XmToggleButtonGetState(pref_mix_toggle);
     if (!list_empty(&ng_mix_drivers)) {
-	mix = list_entry(&ng_mix_drivers.next,struct ng_mix_driver,list);
+	mix = list_entry(ng_mix_drivers.next,struct ng_mix_driver,list);
 	info = mix->probe();
     }
     if (NULL != info && on) {

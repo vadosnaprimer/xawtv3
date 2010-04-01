@@ -46,7 +46,7 @@ struct dv_handle {
 
 static enum color_space_e fmtid_to_colorspace[VIDEO_FMT_COUNT] = {
     [ 0 ... VIDEO_FMT_COUNT-1 ] = UNSET,
-    [ VIDEO_YUV422 ] = e_dv_color_yuv,
+    [ VIDEO_YUYV   ] = e_dv_color_yuv,
     [ VIDEO_RGB24  ] = e_dv_color_rgb,
     [ VIDEO_BGR32  ] = e_dv_color_bgr0,
 };
@@ -211,7 +211,7 @@ static struct ng_video_buf* dv_vdata(void *handle, unsigned int drop)
 
     buf = ng_malloc_video_buf(&h->vfmt,h->vfmt.bytesperline*h->vfmt.height);
     switch (h->vfmt.fmtid) {
-    case VIDEO_YUV422:
+    case VIDEO_YUYV:
 	pixels[0]  = buf->data;
 	pitches[0] = buf->fmt.width*2;
 	break;

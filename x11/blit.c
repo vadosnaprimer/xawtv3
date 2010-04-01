@@ -24,7 +24,6 @@
 
 #if HAVE_GL
 # include <GL/gl.h>
-# include <GL/glu.h>
 # include <GL/glx.h>
 #endif
 
@@ -378,9 +377,14 @@ void xv_image_init(Display *dpy)
 		    (fo[i].id >> 24) & 0xff,
 		    (fo[i].format == XvPacked) ? "packed" : "planar");
 	if (0x32595559 == fo[i].id) {
-	    im_formats[VIDEO_YUV422] = fo[i].id;
+	    im_formats[VIDEO_YUYV] = fo[i].id;
 	    if (debug)
-		fprintf(stderr," [ok: %s]",ng_vfmt_to_desc[VIDEO_YUV422]);
+		fprintf(stderr," [ok: %s]",ng_vfmt_to_desc[VIDEO_YUYV]);
+	}
+	if (0x59565955 == fo[i].id) {
+	    im_formats[VIDEO_UYVY] = fo[i].id;
+	    if (debug)
+		fprintf(stderr," [ok: %s]",ng_vfmt_to_desc[VIDEO_UYVY]);
 	}
 	if (0x30323449 == fo[i].id) {
 	    im_formats[VIDEO_YUV420P] = fo[i].id;
@@ -594,7 +598,7 @@ static int gl_resize(int iw, int ih, int ww, int wh,
     glViewport(0, 0, ww, wh);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(0.0, ww, 0.0, wh);
+    glOrtho(0.0, ww, 0.0, wh, -1, 1);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 

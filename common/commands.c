@@ -1269,9 +1269,10 @@ vdr_handler(char *name, int argc, char **argv)
 {
     char line[80];
     struct addrinfo ask;
-    int i;
+    int i,rc;
     unsigned int l,len;
 
+ reconnect:
     if (-1 == vdr_sock) {
 	memset(&ask,0,sizeof(ask));
 	ask.ai_family = PF_UNSPEC;
@@ -1279,6 +1280,8 @@ vdr_handler(char *name, int argc, char **argv)
 	vdr_sock = tcp_connect(&ask,"localhost","2001");
 	if (-1 == vdr_sock)
 	    return -1;
+	if (debug)
+	    fprintf(stderr,"vdr: connected\n");
 
 	/* skip greeting line */
 	if (-1 == tcp_readbuf(vdr_sock,3,line,sizeof(line)))
@@ -1302,7 +1305,14 @@ vdr_handler(char *name, int argc, char **argv)
     }
     strcpy(line+len,"\r\n");
     len += 2;
-    if (len != write(vdr_sock,line,len)) {
+    if (len != (rc = write(vdr_sock,line,len))) {
+ 	if (-1 == rc  &&  EPIPE == errno) {
+	    if (debug)
+		fprintf(stderr,"tcp: write: broken pipe, trying reconnect\n");
+	    close(vdr_sock);
+	    vdr_sock = -1;
+	    goto reconnect;
+	}
 	if (debug)
 	    perror("tcp: write");
 	goto oops;
@@ -1315,6 +1325,14 @@ vdr_handler(char *name, int argc, char **argv)
 	goto oops;
     if (debug)
 	fprintf(stderr,"vdr: << %s",line);
+
+#if 0
+    /* play nicely and close the handle -- vdr can handle only one
+     * connection at the same time.  Drawback is that it increases
+     * latencies ... */
+    close(vdr_sock);
+    vdr_sock = -1;
+#endif
     return 0;
 
 oops:

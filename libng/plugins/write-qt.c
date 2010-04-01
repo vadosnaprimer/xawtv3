@@ -187,7 +187,7 @@ qt_close(void *handle)
 static int cmodels[] = {
     [BC_BGR888]  = VIDEO_BGR24,
     [BC_RGB888]  = VIDEO_RGB24,
-    [BC_YUV422]  = VIDEO_YUV422,
+    [BC_YUV422]  = VIDEO_YUYV,
     [BC_YUV422P] = VIDEO_YUV422P,
     [BC_YUV420P] = VIDEO_YUV420P,
 };
@@ -219,7 +219,7 @@ static const struct ng_format_list qt_vformats[] = {
     },{
 	name:  "yuv2",
 	ext:   "mov",
-	fmtid: VIDEO_YUV422,
+	fmtid: VIDEO_YUYV,
 	priv:  &qt_yuv2,
     },{
 	name:  "yv12",

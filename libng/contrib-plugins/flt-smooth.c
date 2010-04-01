@@ -484,7 +484,8 @@ frame(void *h, struct ng_video_buf *in)
 	    break;
 	case VIDEO_BGR32:
 	case VIDEO_RGB32:
-	case VIDEO_YUV422:
+	case VIDEO_YUYV:
+	case VIDEO_UYVY:
 	    smooth_native_32bit((unsigned int*)last,
 				(unsigned int*)dst,
 				(unsigned int*)src,
@@ -589,7 +590,8 @@ static struct ng_filter filter = {
     (1 << VIDEO_RGB24)        |
     (1 << VIDEO_BGR32)        |
     (1 << VIDEO_RGB32)        |
-    (1 << VIDEO_YUV422),
+    (1 << VIDEO_YUYV)         |
+    (1 << VIDEO_UYVY),
     init:    init,
     frame:   frame,
     fini:    fini,

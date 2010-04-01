@@ -139,6 +139,8 @@ static void mp3_enc_fini(void *handle)
     free(h);
 }
 
+/* ---------------------------------------------------------------------- */
+
 static struct ng_audio_conv mp3_list[] = {
     {
 	/* --- compress --- */

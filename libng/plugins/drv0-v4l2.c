@@ -129,22 +129,19 @@ struct ng_vid_driver v4l2_driver = {
 };
 
 static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {
-    0,                    /* unused   */
-    V4L2_PIX_FMT_HI240,   /* RGB8     */
-    V4L2_PIX_FMT_GREY,    /* GRAY8    */
-    V4L2_PIX_FMT_RGB555,  /* RGB15_LE */
-    V4L2_PIX_FMT_RGB565,  /* RGB16_LE */
-    V4L2_PIX_FMT_RGB555X, /* RGB15_BE */
-    V4L2_PIX_FMT_RGB565X, /* RGB16_BE */
-    V4L2_PIX_FMT_BGR24,   /* BGR24    */
-    V4L2_PIX_FMT_BGR32,   /* BGR32    */
-    V4L2_PIX_FMT_RGB24,   /* RGB24    */
-    0,                    /* RGB32    */
-    0,                    /* LUT 2    */
-    0,                    /* LUT 4    */
-    V4L2_PIX_FMT_YUYV,    /* YUV422   */
-    V4L2_PIX_FMT_YUV422P, /* YUV422P  */
-    V4L2_PIX_FMT_YUV420,  /* YUV420P  */
+    [ VIDEO_RGB08 ]    = V4L2_PIX_FMT_HI240,
+    [ VIDEO_GRAY ]     = V4L2_PIX_FMT_GREY,
+    [ VIDEO_RGB15_LE ] = V4L2_PIX_FMT_RGB555,
+    [ VIDEO_RGB16_LE ] = V4L2_PIX_FMT_RGB565,
+    [ VIDEO_RGB15_BE ] = V4L2_PIX_FMT_RGB555X,
+    [ VIDEO_RGB16_BE ] = V4L2_PIX_FMT_RGB565X,
+    [ VIDEO_BGR24 ]    = V4L2_PIX_FMT_BGR24,
+    [ VIDEO_BGR32 ]    = V4L2_PIX_FMT_BGR32,
+    [ VIDEO_RGB24 ]    = V4L2_PIX_FMT_RGB24,
+    [ VIDEO_YUYV ]     = V4L2_PIX_FMT_YUYV,
+    [ VIDEO_UYVY ]     = V4L2_PIX_FMT_UYVY,
+    [ VIDEO_YUV422P ]  = V4L2_PIX_FMT_YUV422P,
+    [ VIDEO_YUV420P ]  = V4L2_PIX_FMT_YUV420,
 };
 
 static struct STRTAB stereo[] = {

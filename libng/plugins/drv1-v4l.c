@@ -101,22 +101,16 @@ static struct STRTAB norms_bttv[] = {
 };
 
 static unsigned short format2palette[VIDEO_FMT_COUNT] = {
-    0,				/* unused    */
-    VIDEO_PALETTE_HI240,	/* RGB8      */
-    VIDEO_PALETTE_GREY,		/* GRAY8     */
-    VIDEO_PALETTE_RGB555,	/* RGB15_LE  */
-    VIDEO_PALETTE_RGB565,	/* RGB16_LE  */
-    0,
-    0,
-    VIDEO_PALETTE_RGB24,	/* BGR24     */
-    VIDEO_PALETTE_RGB32,	/* BGR32     */
-    0,
-    0,
-    0,                          /* LUT 2     */
-    0,                          /* LUT 4     */
-    VIDEO_PALETTE_YUV422,       /* YUV422    */
-    VIDEO_PALETTE_YUV422P,      /* YUV422P   */
-    VIDEO_PALETTE_YUV420P,      /* YUV420P   */
+    [ VIDEO_RGB08 ]    = VIDEO_PALETTE_HI240,
+    [ VIDEO_GRAY ]     = VIDEO_PALETTE_GREY,
+    [ VIDEO_RGB15_LE ] = VIDEO_PALETTE_RGB555,
+    [ VIDEO_RGB16_LE ] = VIDEO_PALETTE_RGB565,
+    [ VIDEO_BGR24 ]    = VIDEO_PALETTE_RGB24,
+    [ VIDEO_BGR32 ]    = VIDEO_PALETTE_RGB32,
+    [ VIDEO_YUYV ]     = VIDEO_PALETTE_YUV422,
+    [ VIDEO_UYVY ]     = VIDEO_PALETTE_UYVY,
+    [ VIDEO_YUV422P ]  = VIDEO_PALETTE_YUV422P,
+    [ VIDEO_YUV420P ]  = VIDEO_PALETTE_YUV420P,
 };
 
 /* pass 0/1 by reference */
@@ -957,6 +951,10 @@ static int
 mm_setparams(struct v4l_handle *h, struct ng_video_fmt *fmt)
 {
     unsigned int i;
+
+    /* buffers available ? */
+    if (h->mbuf.frames < 1)
+	return -1;
     
     /* verify parameters */
     xioctl(h->fd,VIDIOCGCAP,&h->capability);

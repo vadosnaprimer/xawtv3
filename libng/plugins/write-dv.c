@@ -146,7 +146,7 @@ dv_video(void *handle, struct ng_video_buf *buf)
     frame = dv_get_frame(h,h->fvideo);
     pixels[0] = buf->data;
     switch (buf->fmt.fmtid) {
-    case VIDEO_YUV422:
+    case VIDEO_YUYV:
 	dv_encode_full_frame(h->enc,pixels,e_dv_color_yuv,frame->obuf);
 	break;
     case VIDEO_RGB24:
@@ -191,7 +191,7 @@ static const struct ng_format_list dv_vformats[] = {
 	name:  "dv",
 	ext:   "dv",
 	desc:  "digital video",
-	fmtid: VIDEO_YUV422,
+	fmtid: VIDEO_YUYV,
     },{
 	/* EOF */
     }

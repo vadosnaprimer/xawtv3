@@ -253,7 +253,7 @@ AC_SUBST(LIBGL)
 LIBGL=""
 if test "$enable_gl" != "no"; then
     AC_CHECK_LIB(GL, glXChooseVisual,
-        AC_DEFINE(HAVE_GL,1,"have opengl") FOUND_GL="yes"; LIBGL="-lGLU -lGL -lm",,
+        AC_DEFINE(HAVE_GL,1,"have opengl") FOUND_GL="yes"; LIBGL="-lGL -lm",,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS -lm)
 else
     echo "*** OpenGL disabled"

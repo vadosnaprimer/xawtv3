@@ -1,15 +1,15 @@
 Source: xawtv
 Section: graphics
 Priority: extra
-Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), liblircclient-dev, debhelper, xutils, xbase-clients, aalib1-dev, libasound2-dev, libzvbi-dev (>= 0.2.1), libquicktime-dev, libxaw7-dev
+Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), liblircclient-dev, debhelper (>= 2.0), xutils, xbase-clients, aalib1-dev, libasound2-dev, libzvbi-dev (>= 0.2.1), libquicktime-dev, libxaw7-dev
 Maintainer: Gerd Knorr <kraxel@debian.org>
 Standards-Version: 3.5.7.1
 
 Package: xawtv
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version}), tv-fonts, pia
-Suggests: xawtv-plugin-qt (=${Source-Version}), xawtv-plugin-alsa (=${Source-Version})
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version}), pia
+Suggests: xawtv-plugin-qt (=${Source-Version}), tv-fonts
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.
@@ -97,26 +97,23 @@ Description: quicktime plugin for xawtv and motv
  this plugin is needed to record quicktime movies with
  xawtv and motv.
 
-Package: xawtv-plugin-alsa
-Architecture: any
-Depends: ${shlibs:Depends}
-Description: alsa plugin for xawtv and motv
- this plugin adds alsa mixer support to xawtv and motv.
-
 Package: xawtv-plugins
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: plugins for xawtv and motv
- a few image processing plugins.
+ A number of plugins for xawtv and motv: driver interfaces for
+ hardware access (video4linux API, ...), plugins for reading/writing
+ movie files and some image processing filters.
 
 Package: webcam
 Section: net
 Architecture: any
-Depends: ${shlibs:Depends}, ftp, xawtv-plugins (=${Source-Version})
+Depends: ${shlibs:Depends}, xawtv-plugins (=${Source-Version})
+Reommends: ftp, ssh
 Description: capture and upload images
  webcam captures images from a video4linux device like
  bttv, annotates them and and uploads them to a webserver
- using ftp in a endless loop.
+ using ftp or ssh in a endless loop.
 
 Package: alevtd
 Section: net

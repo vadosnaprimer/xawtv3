@@ -6049,7 +6049,7 @@ if test $ac_cv_lib_GL_glXChooseVisual = yes; then
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_GL 1
 _ACEOF
- FOUND_GL="yes"; LIBGL="-lGLU -lGL -lm"
+ FOUND_GL="yes"; LIBGL="-lGL -lm"
 fi
 
 else

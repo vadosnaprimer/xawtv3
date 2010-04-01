@@ -52,11 +52,12 @@ const unsigned int ng_vfmt_to_depth[] = {
     32,              /* RGB32    */
     16,              /* LUT2     */
     32,              /* LUT4     */
-    16,		     /* YUV422   */
+    16,		     /* YUYV     */
     16,		     /* YUV422P  */
     12,		     /* YUV420P  */
     0,		     /* MJPEG    */
     0,		     /* JPEG     */
+    16,		     /* UYVY     */
 };
 
 const char* ng_vfmt_to_desc[] = {
@@ -73,11 +74,12 @@ const char* ng_vfmt_to_desc[] = {
     "32 bit TrueColor (BE: -rgb)",
     "16 bit TrueColor (lut)",
     "32 bit TrueColor (lut)",
-    "16 bit YUV 4:2:2 (packed)",
+    "16 bit YUV 4:2:2 (packed, YUYV)",
     "16 bit YUV 4:2:2 (planar)",
     "12 bit YUV 4:2:0 (planar)",
     "MJPEG (AVI)",
     "JPEG (JFIF)",
+    "16 bit YUV 4:2:2 (packed, UYVY)",
 };
 
 /* --------------------------------------------------------------------- */

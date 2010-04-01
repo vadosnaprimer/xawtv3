@@ -106,13 +106,14 @@ static struct ng_filter filter = {
   name:"cubic interpolation",
   fmts:
     (1 << VIDEO_GRAY)			|
-    (1 << VIDEO_RGB15_NATIVE)	|
-    (1 << VIDEO_RGB16_NATIVE)	|
+    (1 << VIDEO_RGB15_NATIVE)		|
+    (1 << VIDEO_RGB16_NATIVE)		|
     (1 << VIDEO_BGR24)			|
     (1 << VIDEO_RGB24)			|
-	(1 << VIDEO_BGR32)			|
-	(1 << VIDEO_RGB32)			|
-	(1 << VIDEO_YUV422),
+    (1 << VIDEO_BGR32)			|
+    (1 << VIDEO_RGB32)			|
+    (1 << VIDEO_YUYV)			|
+    (1 << VIDEO_UYVY),
   init:		init,
   frame:	frame,
   fini:		fini,

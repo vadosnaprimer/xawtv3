@@ -580,7 +580,7 @@ static const struct ng_format_list raw_vformats[] = {
     },{
 	name:  "422",
 	ext:   "raw",
-	fmtid: VIDEO_YUV422,
+	fmtid: VIDEO_YUYV,
     },{
 	name:  "422p",
 	ext:   "raw",
