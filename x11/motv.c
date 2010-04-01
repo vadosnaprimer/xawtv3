@@ -1959,13 +1959,11 @@ update_movie_menus(void)
 	    XmStringFree(str);
 	    add_cmd_callback(push,XmNactivateCallback,
 			     "movie","driver",writer->name);
-	    if (NULL != mov_driver) {
-		if (NULL == movie_driver ||
-		    0 == strcasecmp(mov_driver,writer->name)) {
-		    movie_driver = writer;
-		    i_movie_driver = i;
-		    XtVaSetValues(driver_option,XmNmenuHistory,push,NULL);
-		}
+	    if (NULL == movie_driver ||
+		(NULL != mov_driver && 0 == strcasecmp(mov_driver,writer->name))) {
+		movie_driver = writer;
+		i_movie_driver = i;
+		XtVaSetValues(driver_option,XmNmenuHistory,push,NULL);
 	    }
 	    i++;
 	}

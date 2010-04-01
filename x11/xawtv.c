@@ -854,12 +854,11 @@ update_movie_menus(void)
 	    writer = list_entry(item, struct ng_writer, list);
 	    m_movie_driver[i].nr  = i;
 	    m_movie_driver[i].str = writer->desc;
-	    if (NULL != mov_driver)
-		if (NULL == movie_driver ||
-		    0 == strcasecmp(mov_driver,writer->name)) {
-		    movie_driver = writer;
-		    i_movie_driver = i;
-		}
+	    if (NULL == movie_driver ||
+		(NULL != mov_driver && 0 == strcasecmp(mov_driver,writer->name))) {
+		movie_driver = writer;
+		i_movie_driver = i;
+	    }
 	    i++;
 	}
 	m_movie_driver[i].nr  = i;

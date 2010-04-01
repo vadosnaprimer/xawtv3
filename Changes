@@ -2,6 +2,12 @@
 3.83 => 3.84
 ============
 
+ * fix startup segfault in xawtv + motv.
+
+
+3.83 => 3.84
+============
+
  * fixed a number of gcc 3.3 warnings, also did some other cleanups
    while being at it.
  * Multimedia keyboard support.
