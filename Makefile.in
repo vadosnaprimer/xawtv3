@@ -174,7 +174,7 @@ dsc source ../$(DSC): clean
 
 debs pbuild $(PRESULT)/$(CHANGES): ../$(DSC)
 	sudo /usr/sbin/pbuilder build ../$(DSC)
-	lintian -i $(PRESULT)/$(CHANGES)
+	-lintian -i $(PRESULT)/$(CHANGES)
 
 release: $(PRESULT)/$(CHANGES)
 	debsign $(PRESULT)/$(CHANGES)

@@ -801,8 +801,8 @@ static void
 do_vidmode_modeswitch(int fs_state, int *vp_width, int *vp_height)
 {
     static int                  vm_switched;
-    static XF86VidModeModeInfo  *vm_current;
-    static XF86VidModeModeInfo  *vm_fullscreen;
+    static XF86VidModeModeInfo  *vm_current    = NULL;
+    static XF86VidModeModeInfo  *vm_fullscreen = NULL;
     int i;
     
     if (fs_state) {
@@ -813,10 +813,12 @@ do_vidmode_modeswitch(int fs_state, int *vp_width, int *vp_height)
 	vm_fullscreen = NULL;
 	for (i = 0; i < vm_count; i++) {
 	    if (fs_width  == vm_modelines[i]->hdisplay &&
-		fs_height == vm_modelines[i]->vdisplay)
+		fs_height == vm_modelines[i]->vdisplay &&
+		vm_fullscreen == NULL)
 		vm_fullscreen = vm_modelines[i];
 	    if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
-		vm_line.vdisplay == vm_modelines[i]->vdisplay)
+		vm_line.vdisplay == vm_modelines[i]->vdisplay &&
+		vm_current == NULL)
 		vm_current = vm_modelines[i];
 	}
 	if (debug) {

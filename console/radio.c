@@ -29,30 +29,25 @@
 
 #include "videodev.h"
 
+#define FREQ_MIN    87500000
+#define FREQ_MAX   108000000
+#define FREQ_STEP      50000
+
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
+
 /* JMMV: WINDOWS for radio */
 int ncurses = 0;
 int debug = 0;
 char *device = "/dev/radio";
 WINDOW *wfreq, *woptions, *wstations, *wcommand;
-
-/* Determine and return the appropriate frequency multiplier for
-   the first tuner on the open video device with handle FD. */
-static int get_freq_fact(int fd)
-{
-    struct video_tuner tuner;
-
-    tuner.tuner = 0;
-    if (ioctl (fd, VIDIOCGTUNER, &tuner) < 0)
-	return 16;
-    if ((tuner.flags & VIDEO_TUNER_LOW) == 0)
-	return 16;
-    return 16000;
-}
+int freqfact = 16;
 
 static int
 radio_setfreq(int fd, float freq)
 {
-    int ifreq = (freq+1.0/32)*get_freq_fact(fd);
+    int ifreq = (freq + .5/freqfact) * freqfact;
     return ioctl(fd, VIDIOCSFREQ, &ifreq);
 }
 
@@ -63,7 +58,7 @@ static int radio_getfreq(int fd, float *freq)
     ioctl_status = ioctl(fd,VIDIOCGFREQ, &ifreq);
     if (ioctl_status == -1)
         return ioctl_status;
-    *freq = (float) ifreq / get_freq_fact(fd);
+    *freq = (float) ifreq / freqfact;
     return 0;
 }
 
@@ -98,6 +93,9 @@ radio_getstereo(int fd)
 {
     struct video_audio va;
     va.mode=-1;
+
+    if (!ncurses)
+	return;
     
     if (ioctl (fd, VIDIOCGAUDIO, &va) < 0)
 	mvwprintw(wfreq,2,1,"     ");
@@ -114,6 +112,9 @@ radio_getsignal(int fd)
     memset(&vt,0,sizeof(vt));
     ioctl (fd, VIDIOCGTUNER, &vt);
     signal=vt.signal>>13;
+
+    if (!ncurses)
+	return signal;
 
     for(i=0;i<8;i++)
         mvwprintw(wfreq,3,i+1,"%s", signal>i ? "*":" ");
@@ -258,17 +259,17 @@ maxi(int m)
 	    break;
     l=i;
     if (debug)
-	fprintf(stderr,"Links i %d %f %f\n",i,87.5+i*0.05,g[i]);
+	fprintf(stderr,"Left   i %d %f %f\n",i,87.5+i*0.05,g[i]);
     
     for(i=m;i<411;i++)
 	if(g[i]< halbwert)
 	    break;
     if (debug)
-	fprintf(stderr,"Rechts i %d %f %f\n",i,87.5+i*0.05,g[i]);
+	fprintf(stderr,"Right  i %d %f %f\n",i,87.5+i*0.05,g[i]);
     r=i;
     m=(l+r)/2;
     if (debug)
-	fprintf(stderr,"Mitte %d %f %f\n",m,87.5+m*0.05,g[m]);
+	fprintf(stderr,"Middle %d %f %f\n",m,87.5+m*0.05,g[m]);
     foundone(m);
 }
 
@@ -277,8 +278,8 @@ findmax(void)
 {
     int i;
     
-    for(i=0;i<411;i++){
-        if(g[i+1]<g[i])
+    for (i = 0; i < ARRAY_SIZE(g)-1; i++){
+        if (g[i+1] < g[i])
 	    maxi(i);
     }
 }
@@ -294,8 +295,8 @@ get_baseline(float ming, float maxg)
 	fprintf(stderr,"get_baseline:  min=%f max=%f\n",ming,maxg);
     for(u=ming;u<maxg; u+=0.1) {
 	unt=0;
-	for(i=0;i<411;i++)
-	    if (g[i]<u) {
+	for (i=0; i< ARRAY_SIZE(g); i++)
+	    if (g[i] < u) {
 		unt++;
 	    }
 	if(unt>300 && !nullfound) {
@@ -315,9 +316,9 @@ findstations(void)
     float maxg=0,ming=8;
     int i;
 
-    for(i=0;i<411;i++) {
-	if(g[i]<ming) ming=g[i];
-	if(g[i]>maxg) maxg=g[i];
+    for (i=0; i< ARRAY_SIZE(g); i++) {
+	if (g[i]<ming) ming=g[i];
+	if (g[i]>maxg) maxg=g[i];
     }
 
     if (write_config)
@@ -334,18 +335,17 @@ static void do_scan(int fd,int scan)
 
     if(scan > 1)
 	fmap=fopen("radio.fmmap","w");
-    for(i=0;i<411;i++) {
-	freq = 87.50+i*0.05;
+    for (i=0; i< ARRAY_SIZE(g); i++) {
+	freq = (FREQ_MIN + i * FREQ_STEP)/1e6;
 	s = 0;
 	radio_setfreq(fd,freq);
 	usleep(10000); /* give the tuner some time to settle */
-	for(j=1;j<5;j++) {
+	for(j=0;j<5;j++) {
 	    s+=radio_getsignal(fd);
 	    radio_getstereo(fd);
 	    usleep(1000);
 	}
-	s=s/5; // average
-	g[i]=s;
+	g[i]=s/5; // average
 	if (scan > 1)
 	    fprintf(fmap,"%f %f\n", freq,s);
 	fprintf(stderr,"scanning: %6.2f MHz - %.2f\r", freq,s);
@@ -396,6 +396,7 @@ main(int argc, char *argv[])
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
     int    quit=0, scan=0, arg_mute=0;
+    struct video_tuner tuner;
 
     /* parse args */
     for (;;) {
@@ -426,8 +427,8 @@ main(int argc, char *argv[])
 	case 'f':
 	    if (1 == sscanf(optarg,"%f",&ffreq)) {
 		ifreq = (int)(ffreq * 1000000);
-		ifreq += 25000;
-		ifreq -= ifreq % 50000;
+		ifreq += FREQ_STEP/2;
+		ifreq -= ifreq % FREQ_STEP;
 	    }
 	    break;
 	case 'c':
@@ -447,12 +448,17 @@ main(int argc, char *argv[])
 	exit(1);
     }
 
+    memset(&tuner,0,sizeof(tuner));
+    if (0 == ioctl(fd, VIDIOCGTUNER, &tuner) &&
+	(tuner.flags & VIDEO_TUNER_LOW))
+	freqfact = 16000;
+
     /* non-interactive stuff */
     if (scan) {
 	do_scan(fd,scan);
 	if (!ifreq  &&  max_astation) {
 	    current_astation = 0;
-            ifreq=87500000+astation[current_astation]*50000;
+            ifreq = FREQ_MIN + astation[current_astation]*50000;
 	}
     }
     if (ifreq) {
@@ -586,22 +592,22 @@ main(int argc, char *argv[])
 	    noecho();
 	    curs_set(0);
 	    wrefresh(wcommand);
-	    if ( (newfreq >= 87.5) && (newfreq <= 108) )
+	    if ((newfreq >= FREQ_MIN/1e6) && (newfreq <= FREQ_MAX/1e6) )
 		ifreq = newfreq * 1000000;
 	    else
 		mvwprintw(wcommand, 1, 2,
 			  "Frequency out of range (87.5-108 MHz)");
 	    break;
 	case KEY_UP:
-            ifreq += 50000;
-            if (ifreq > 108000000)
-              ifreq = 87500000;
+            ifreq += FREQ_STEP;
+            if (ifreq > FREQ_MAX)
+		ifreq = FREQ_MIN;
 	    mvwprintw(wcommand, 1, 2, "Increment frequency");
 	    break;
 	case KEY_DOWN:
-            ifreq -= 50000;
-            if (ifreq < 87500000)
-              ifreq = 108000000;
+            ifreq -= FREQ_STEP;
+            if (ifreq < FREQ_MIN)
+		ifreq = FREQ_MAX;
 	    mvwprintw(wcommand, 1, 2, "Decrease frequency");
 	    break;
 	case KEY_PPAGE:
@@ -613,7 +619,7 @@ main(int argc, char *argv[])
 		    current_astation=max_astation;
 		if(current_astation>max_astation)
 		    current_astation=0;
-		ifreq=87500000+astation[current_astation]*50000;
+		ifreq=FREQ_MIN+astation[current_astation]*FREQ_STEP;
 	    } else {
 		for (i = 0; i < stations; i++) {
 		    if (ifreq == freqs[i])
