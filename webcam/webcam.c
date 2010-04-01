@@ -16,8 +16,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
-#include <asm/types.h>
-#include "videodev.h"	/* change this to "videodev2.h" for v4l2 */
+#include <linux/videodev.h>	/* change this to "videodev2.h" for v4l2 */
 
 #include "jpeglib.h"
 #include "ftp.h"

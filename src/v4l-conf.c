@@ -23,7 +23,7 @@
 #include <linux/fb.h>
 
 #include "config.h"
-#include "videodev.h"
+#include <linux/videodev.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>

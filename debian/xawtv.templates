@@ -2,6 +2,7 @@ Template: xawtv/makedev
 Type: boolean
 Default: true
 Description: Create video4linux (/dev/video*) special files?
+Description-de: Sollen Geräte-Dateien (/dev/video*) für video4linux erstellt werden?
 
 Template: xawtv/build-config
 Type: boolean
@@ -15,18 +16,21 @@ Description: Create a default configuration for xawtv?
  It is not required to have a global configuration
  file, but it will be more comfortable for your
  users if they find a working default configuration.
-
-Template: xawtv/overwrite-config
-Type: boolean
-Default: false
-Description: overwrite the existing config file?
- I've found there is already a system-wide configuration
- file.  It was probably created during a previous install.
+Description-de: Soll eine Standard-Konfiguration für xawtv erstellt werden?
+ Sie können für xawtv eine systemweite Konfigurationsdatei
+ erstellen, die vernünftige Voreinstellungen für ihr Land
+ enthält (z.B. welche TV-Norm benutzt wird).
+ .
+ Eine globale Konfigurationsdatei ist nicht unbedingt
+ erforderlich, aber es ist für die Benutzer sicherlich
+ angenehm, gleich eine funktionierende Konfiguration
+ vorzufinden.
 
 Template: xawtv/tvnorm
 Type: select
 Choices: PAL, SECAM, NTSC
 Description: Which TV norm is used in your country?
+Description-de: Welche TV-Norm benutzt man in ihrem Land?
 
 Template: xawtv/freqtab
 Type: select
@@ -36,6 +40,11 @@ Description: Which frequency table should be used?
  names/numbers and the corresponding broadcast
  frequencies for these channels.  Different regions
  use different standards here...
+Description-de: Welche Frequenzen-Tabelle soll benutzt werden?
+ Eine Frequenzen-Tabelle ist einfach nur eine Liste der
+ TV-Kanäle (Namen oder Nummern) mit dazugehörigen
+ Frequenzen. Verschiedene Regionen verwenden unterschiedliche
+ Standards.
 
 Template: xawtv/channel-scan
 Type: boolean
@@ -49,4 +58,15 @@ Description: scan for TV stations?
  .
  I'll try to pick up the channel names from videotext.
  This will work with PAL only.
+Description-de: Soll nach TV-Stationen gesucht werden?
+ Ich kann einen Suche nach Kanälen durchführen und
+ eine Liste der gefundenen TV-Stationen in die
+ Konfigurationsdatei schreiben.
+ .
+ Dafür ist ein funktionierender BTTV-Treiber erforderlich.
+ Wenn BTTV nicht richtig eingerichtet ist, werde ich keine
+ Stationen finden können.
+ .
+ Ich werde versuchen, die Namen der Kanäle aus dem
+ Videotext herauszulesen. Dies funktioniert nur mit PAL.
 

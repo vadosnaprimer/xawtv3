@@ -1,4 +1,21 @@
 
+3.31 => 3.32 [non-public release]
+=================================
+
+  * fixed a few bugs in the new v4l code, re-added capture using
+    read().
+  * removed videodev.h from the tarball, using the kernel's header
+    file instead.  This means xawtv will not build on 2.0.x kernels
+    any more.
+  * made v4l2 support working again, added ioctl tracking for easier
+    debugging.  I have no audio yet, althrouth this might be a bttv2
+    problem as bttv2 + v4l interface doesn't work either but bttv
+    0.7.x is fine.
+  * It builds cleanly on FreeBSD, bktr support working again.  Sort
+    of.  Overlay has some intresting clipping issues, capture works
+    without rate control and 12 fps max.  No yuv capture yet.
+
+
 3.30 => 3.31 [non-public release]
 =================================
 

@@ -6,7 +6,7 @@ Widget  add_pulldown_menu(Widget,char*);
 Widget  add_menu_entry(Widget, const char*, XtCallbackProc, XtPointer);
 Widget  add_menu_sep(Widget menu,char *name);
 
-int popup_menu(Widget,char*,struct STRTAB*);
+int popup_menu(Widget,char*, struct STRTAB*);
 void popdown_CB(Widget widget, XtPointer client_data, XtPointer calldata);
 void destroy_CB(Widget widget, XtPointer client_data, XtPointer calldata);
 void center_under_mouse(Widget shell,int,int);

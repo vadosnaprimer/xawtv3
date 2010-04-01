@@ -1,7 +1,7 @@
 /*
  * interface to the bsd bktr driver
  *
- *   (c) 2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 2000,01 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 #include "config.h"
@@ -29,8 +29,8 @@
 #include "grab-ng.h"
 #include "colorspace.h"
 
-#if !defined(__OpenBSD__)
-struct ng_driver bktr_driver;
+#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
+struct ng_driver bsd_driver;
 #else /* BSD */
 
 #include <machine/ioctl_bt848.h>
@@ -39,59 +39,89 @@ struct ng_driver bktr_driver;
 /* ---------------------------------------------------------------------- */
 /* global variables                                                       */
 
-static int fd = -1;
-static int tfd = -1;
+struct bsd_handle {
+    int fd;
+    int tfd;
 
-static int pf_count;
-static struct meteor_pixfmt pf[64];
-static int xawtv2pf[VIDEO_FMT_MAX];
-static unsigned char *mmap_buf;
+    /* formats */
+    int                   pf_count;
+    struct meteor_pixfmt  pf[64];
+    int                   xawtv2pf[VIDEO_FMT_MAX];
+    unsigned char         *map;
 
-static int muted;
+    /* attributes */
+    int muted;
 
-#if 0
-static struct V4L2_ATTR {
-    int id;
-    int v4l2;
-} v4l2_attr[] = {
-    { GRAB_ATTR_VOLUME,   V4L2_CID_AUDIO_VOLUME },
-    { GRAB_ATTR_MUTE,     V4L2_CID_AUDIO_MUTE   },
-    { GRAB_ATTR_COLOR,    V4L2_CID_SATURATION   },
-    { GRAB_ATTR_BRIGHT,   V4L2_CID_BRIGHTNESS   },
-    { GRAB_ATTR_HUE,      V4L2_CID_HUE          },
-    { GRAB_ATTR_CONTRAST, V4L2_CID_CONTRAST     },
+    /* overlay */
+    struct meteor_video   fb,pos;
+    struct meteor_geomet  ovgeo;
+    struct meteor_pixfmt  *ovfmt;
+    struct bktr_clip      clip[BT848_MAX_CLIP_NODE];
+    int                   ov_enabled,ov_on;
+
+    /* capture */
+    int                   fps,frames;
+    struct timeval        start;
+    struct ng_video_fmt   fmt;
+    struct meteor_video   nofb;
+    struct meteor_geomet  capgeo;
+    struct meteor_pixfmt  *capfmt;
 };
-#define NUM_ATTR (sizeof(v4l2_attr)/sizeof(struct V4L2_ATTR))
-#endif
 
 /* ---------------------------------------------------------------------- */
 /* prototypes                                                             */
 
 /* open/close */
-static int bsd_open(char *filename);
-static int bsd_close(void);
+static void*   bsd_open(char *device);
+static int     bsd_close(void *handle);
 
-/* control */
-static int bsd_input(int input, int norm);
-static int bsd_hasattr(int id);
-static int bsd_getattr(int id);
-static int bsd_setattr(int id, int vol);
+/* attributes */
+static int     bsd_flags(void *handle);
+static struct ng_attribute* bsd_attrs(void *handle);
+static int     bsd_read_attr(void *handle, struct ng_attribute*);
+static void    bsd_write_attr(void *handle, struct ng_attribute*, int val);
 
-static unsigned long bsd_tune(unsigned long freq, int sat);
-#if 0
-static int bsd_tuned(void);
-#endif
+static int   bsd_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
+static int   bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
+			 struct OVERLAY_CLIP *oc, int count);
 
 /* capture */
-static int   bsd_setparm(int format, int *width, int *height, int *linelength);
-static void  bsd_start(int fps, int buffers);
-static void* bsd_capture(void);
-static void  bsd_stop(void);
+static void sigusr1(int signal);
+static void siginit(void);
+static int bsd_setformat(void *handle, struct ng_video_fmt *fmt);
+static int bsd_startvideo(void *handle, int fps, int buffers);
+static void bsd_stopvideo(void *handle);
+static struct ng_video_buf* bsd_nextframe(void *handle);
+static struct ng_video_buf* bsd_getimage(void *handle);
 
-/* overlay */
-static int bsd_setupfb(int sw, int sh, int format, void *base, int bpl);
-static int bsd_overlay(int x, int y, int width, int height, int format,
-		       struct OVERLAY_CLIP *oc, int count);
+/* tuner */
+static unsigned long bsd_getfreq(void *handle);
+static void bsd_setfreq(void *handle, unsigned long freq);
+static int bsd_tuned(void *handle);
+
+const struct ng_driver bsd_driver = {
+    name:          "bktr",
+    open:          bsd_open,
+    close:         bsd_close,
+
+    capabilities:  bsd_flags,
+    list_attrs:    bsd_attrs,
+    read_attr:     bsd_read_attr,
+    write_attr:    bsd_write_attr,
+
+    setupfb:       bsd_setupfb,
+    overlay:       bsd_overlay,
+
+    setformat:     bsd_setformat,
+    startvideo:    bsd_startvideo,
+    stopvideo:     bsd_stopvideo,
+    nextframe:     bsd_nextframe,
+    getimage:      bsd_getimage,
+    
+    getfreq:       bsd_getfreq,
+    setfreq:       bsd_setfreq,
+    is_tuned:      bsd_tuned,
+};
 
 /* ---------------------------------------------------------------------- */
 
@@ -129,25 +159,33 @@ static int norms_map[] = {
     BT848_IFORM_F_RSVD,
 };
 
-struct GRABBER grab_bsd = {
-    name:          "bktr",
-    norms:         norms,
-    inputs:        inputs,
-
-    grab_open:     bsd_open,
-    grab_close:    bsd_close,
-
-    grab_setupfb:  bsd_setupfb,
-
-    grab_input:    bsd_input,
-    grab_hasattr:  bsd_hasattr,
-    grab_getattr:  bsd_getattr,
-    grab_setattr:  bsd_setattr,
+static struct ng_attribute bsd_attr[] = {
+    {
+	id:       ATTR_ID_NORM,
+	name:     "norm",
+	type:     ATTR_TYPE_CHOICE,
+	choices:  norms,
+    },{
+	id:       ATTR_ID_INPUT,
+	name:     "input",
+	type:     ATTR_TYPE_CHOICE,
+	choices:  inputs,
+    },{
+	id:       ATTR_ID_MUTE,
+	name:     "mute",
+	type:     ATTR_TYPE_BOOL,
+    },{
+	/* end of list */
+    }
 };
 
+static const int single     = METEOR_CAP_SINGLE;
+static const int start      = METEOR_CAP_CONTINOUS;
+static const int stop       = METEOR_CAP_STOP_CONT;
+static const int signal_on  = SIGUSR1;
+static const int signal_off = METEOR_SIG_MODE_MASK;
 
 /* ---------------------------------------------------------------------- */
-/* debug output                                                           */
 
 void
 bsd_print_format(struct meteor_pixfmt *pf, int format)
@@ -174,61 +212,59 @@ bsd_print_format(struct meteor_pixfmt *pf, int format)
     fprintf(stderr," (fmt=%d)\n",format);
 }
 
-
 /* ---------------------------------------------------------------------- */
 
-static int
+static void*
 bsd_open(char *filename)
 {
+    struct bsd_handle *h;
     int format;
 
-    if (-1 != fd)
-	goto err;
-
-#if 0
-    if (NULL == filename)
-#endif
-	filename = "/dev/bktr0";
-    if (-1 == (fd = open(filename,O_RDONLY))) {
+    h = malloc(sizeof(*h));
+    if (NULL == h)
+	return NULL;
+    memset(h,0,sizeof(*h));
+    
+    if (-1 == (h->fd = open(filename,O_RDONLY))) {
 	fprintf(stderr,"open %s: %s\n", filename,strerror(errno));
 	goto err;
     }
 
     /* video formats */
     for (format = 0; format < VIDEO_FMT_MAX; format++)
-	xawtv2pf[format] = -1;
+	h->xawtv2pf[format] = -1;
 
-    for (pf_count = 0; pf_count < 64; pf_count++) {
-	pf[pf_count].index = pf_count;
-	if (-1 == ioctl(fd, METEORGSUPPIXFMT,pf+pf_count)) {
+    for (h->pf_count = 0; h->pf_count < 64; h->pf_count++) {
+	h->pf[h->pf_count].index = h->pf_count;
+	if (-1 == ioctl(h->fd, METEORGSUPPIXFMT,h->pf+h->pf_count)) {
 	    perror("ioctl METEORGSUPPIXFMT");
-	    if (0 == pf_count)
+	    if (0 == h->pf_count)
 		goto err;
 	    break;
 	}
 	format = -1;
-	switch (pf[pf_count].type) {
+	switch (h->pf[h->pf_count].type) {
 	case METEOR_PIXTYPE_RGB:
-	    switch(pf[pf_count].masks[0]) {
+	    switch(h->pf[h->pf_count].masks[0]) {
 	    case 31744: /* 15 bpp */
-	        format = pf[pf_count].swap_bytes
+	        format = h->pf[h->pf_count].swap_bytes
 		    ? VIDEO_RGB15_LE : VIDEO_RGB15_BE;
 		break;
 	    case 63488: /* 16 bpp */
-	        format = pf[pf_count].swap_bytes
+	        format = h->pf[h->pf_count].swap_bytes
 		    ? VIDEO_RGB16_LE : VIDEO_RGB16_BE;
 		break;
 	    case 16711680: /* 24/32 bpp */
-		if (pf[pf_count].Bpp == 3 &&
-		    pf[pf_count].swap_bytes == 1) {
+		if (h->pf[h->pf_count].Bpp == 3 &&
+		    h->pf[h->pf_count].swap_bytes == 1) {
 		    format = VIDEO_BGR24;
-		} else if (pf[pf_count].Bpp == 4 &&
-			   pf[pf_count].swap_bytes == 1 &&
-			   pf[pf_count].swap_shorts == 1) {
+		} else if (h->pf[h->pf_count].Bpp == 4 &&
+			   h->pf[h->pf_count].swap_bytes == 1 &&
+			   h->pf[h->pf_count].swap_shorts == 1) {
 		    format = VIDEO_BGR32;
-		} else if (pf[pf_count].Bpp == 4 &&
-			   pf[pf_count].swap_bytes == 0 &&
-			   pf[pf_count].swap_shorts == 0) {
+		} else if (h->pf[h->pf_count].Bpp == 4 &&
+			   h->pf[h->pf_count].swap_bytes == 0 &&
+			   h->pf[h->pf_count].swap_shorts == 0) {
 		    format = VIDEO_RGB32;
 		}
 	    }
@@ -244,339 +280,358 @@ bsd_open(char *filename)
 	    break;
 	}
 	if (-1 != format)
-	    xawtv2pf[format] = pf_count;
+	    h->xawtv2pf[format] = h->pf_count;
 
-	bsd_print_format(pf+pf_count,format);
+	bsd_print_format(h->pf+h->pf_count,format);
     }
 
-    mmap_buf = mmap(0,768*576*4, PROT_READ, MAP_SHARED, fd, 0);
-    if ((unsigned char*)-1 == mmap_buf) {
+    h->map = mmap(0,768*576*4, PROT_READ, MAP_SHARED, h->fd, 0);
+    if ((unsigned char*)-1 == h->map) {
 	perror("bktr: mmap");
-    } else {
-	grab_bsd.grab_setparams = bsd_setparm;
-	grab_bsd.grab_start     = bsd_start;
-	grab_bsd.grab_capture   = bsd_capture;
-	grab_bsd.grab_stop      = bsd_stop;
+	h->map = NULL;
     }
 
-    if (-1 == (tfd = open("/dev/tuner0",O_RDONLY))) {
-	fprintf(stderr,"open %s: %s\n", "/dev/tuner",strerror(errno));	
-    } else {
-	grab_bsd.grab_tune = bsd_tune;
+    if (-1 == (h->tfd = open("/dev/tuner0",O_RDONLY))) {
+	fprintf(stderr,"open %s: %s\n", "/dev/tuner0",strerror(errno));
     }
+    siginit();
 
-    return fd;
+    return h;
 
  err:
-    if (fd != -1) {
-	close(fd);
-	fd = -1;
-    }
-    return -1;
+    if (-1 != h->fd)
+	close(h->fd);
+    if (-1 != h->tfd)
+	close(h->tfd);
+    if (h)
+	free(h);
+    return NULL;
 }
 
 static int
-bsd_close()
+bsd_close(void *handle)
 {
-    if (-1 == fd)
-	return 0;
+    struct bsd_handle *h = handle;
 
     if (debug)
 	fprintf(stderr, "bktr: close\n");
 
-    close(fd);
-    fd = -1;
-    if (-1 != tfd) {
-	close(tfd);
-	tfd = -1;
-    }
+    close(h->fd);
+    if (-1 != h->tfd)
+	close(h->tfd);
+    if (NULL != h->map)
+	munmap(h->map,768*576*4);
+    free(h);
     return 0;
+}
+
+static int bsd_flags(void *handle)
+{
+    int ret = 0;
+
+    ret |= CAN_OVERLAY;
+    ret |= CAN_CAPTURE;
+    ret |= CAN_TUNE;
+    return ret;
+}
+
+static struct ng_attribute* bsd_attrs(void *handle)
+{
+    return bsd_attr;
 }
 
 /* ---------------------------------------------------------------------- */
 
-static int bsd_input(int input, int norm)
+static int bsd_read_attr(void *handle, struct ng_attribute *attr)
 {
-    if (-1 != norm)
-	if (-1 == ioctl(fd,BT848SFMT,&norms_map[norm]))
-	    perror("BT848SFMT");
-    if (-1 != input)
-	if (-1 == ioctl(fd,METEORSINPUT,&inputs_map[input]))
-	    perror("METEORSINPUT");
-    return 0;
+#if 0
+    struct bsd_handle *h = handle;
+#endif
+    int value = 0;
+
+    /* FIXME */
+    
+    return value;
 }
 
-static unsigned long bsd_tune(unsigned long freq, int sat)
+static void bsd_write_attr(void *handle, struct ng_attribute *attr, int value)
 {
-    if (-1 == freq) {
-	if (-1 == ioctl(tfd, TVTUNER_GETFREQ, &freq))
-	    perror("ioctl TVTUNER_GETFREQ");
-	if (debug)
-	    fprintf(stderr,"bktr: get freq: %.3f\n",(float)freq/16);
-	return 0;
+    struct bsd_handle *h = handle;
+    int arg;
+
+    switch (attr->id) {
+    case ATTR_ID_NORM:
+	if (-1 == ioctl(h->fd,BT848SFMT,&norms_map[value]))
+	    perror("ioctl BT848SFMT");
+	break;
+    case ATTR_ID_INPUT:
+	if (-1 == ioctl(h->fd,METEORSINPUT,&inputs_map[value]))
+	    perror("ioctl METEORSINPUT");
+	break;
+    case ATTR_ID_MUTE:
+	h->muted = value;
+	arg = h->muted ? AUDIO_MUTE : AUDIO_UNMUTE;
+	if (-1 == ioctl(h->tfd, BT848_SAUDIO, &arg))
+	    perror("ioctl BT848_SAUDIO");
+	break;
+    default:
+	break;
     }
+}
+
+static unsigned long bsd_getfreq(void *handle)
+{
+    struct bsd_handle *h = handle;
+    unsigned long freq = 0;
+
+    if (-1 == ioctl(h->tfd, TVTUNER_GETFREQ, &freq))
+	perror("ioctl TVTUNER_GETFREQ");
+    if (debug)
+	fprintf(stderr,"bktr: get freq: %.3f\n",(float)freq/16);
+    return freq;
+}
+
+static void bsd_setfreq(void *handle, unsigned long freq)
+{
+    struct bsd_handle *h = handle;
+
     if (debug)
 	fprintf(stderr,"bktr: set freq: %.3f\n",(float)freq/16);
-    if (-1 == ioctl(tfd, TVTUNER_SETFREQ, &freq))
+    if (-1 == ioctl(h->tfd, TVTUNER_SETFREQ, &freq))
 	perror("ioctl TVTUNER_SETFREQ");
+}
+
+static int bsd_tuned(void *handle)
+{
     return 0;
-}
-
-static int
-bsd_hasattr(int id)
-{
-    switch (id) {
-    case GRAB_ATTR_MUTE:
-	return 1;
-    default:
-	return 0;
-    }
-}
-
-static
-int bsd_getattr(int id)
-{
-    switch (id) {
-    case GRAB_ATTR_MUTE:
-	return muted;
-    default:
-	return -1;
-    }
-}
-
-static
-int bsd_setattr(int id, int val)
-{
-    int arg;
-    
-    switch (id) {
-    case GRAB_ATTR_MUTE:
-	muted = val;
-	arg = val ? AUDIO_MUTE : AUDIO_UNMUTE;
-	if (-1 == ioctl(tfd, BT848_SAUDIO, &arg)) {
-	    perror("ioctl BT848_SAUDIO");
-	    return -1;
-	}
-	return 0;
-    default:
-	return -1;
-    }
 }
 
 /* ---------------------------------------------------------------------- */
 /* overlay                                                                */
 
-static const int start  = METEOR_CAP_CONTINOUS;
-static const int single = METEOR_CAP_SINGLE;
-static const int stop   = METEOR_CAP_STOP_CONT;
-
-static struct meteor_video   fb,pos;
-static struct meteor_geomet  ovgeo;
-static struct meteor_pixfmt  *ovfmt;
-static struct bktr_clip      clip[BT848_MAX_CLIP_NODE];
-static int                   overlay;
-
-static int
-bsd_setupfb(int sw, int sh, int format, void *base, int bpl)
+static void
+set_overlay(struct bsd_handle *h, int state)
 {
-    /* if error
-    return -1;
-    */
+    if (h->ov_on == state)
+	return;
+    h->ov_on = state;
+    
+    if (state) {
+	/* enable */
+	if (-1 == ioctl(h->fd, METEORSVIDEO, &h->pos))
+	    perror("ioctl METEORSVIDEO");
+	if (-1 == ioctl(h->fd, METEORSETGEO, &h->ovgeo))
+	    perror("ioctl METEORSETGEO");
+	if (-1 == ioctl(h->fd, METEORSACTPIXFMT, h->ovfmt))
+	    perror("ioctl METEORSACTPIXFMT");
+	if (-1 == ioctl(h->fd, BT848SCLIP, &h->clip))
+	    perror("ioctl BT848SCLIP");
+	if (-1 == ioctl(h->fd, METEORCAPTUR, &start))
+	    perror("ioctl METEORCAPTUR(start)");
+    } else {
+	/* disable */
+	if (-1 == ioctl(h->fd, METEORCAPTUR, &stop))
+	    perror("ioctl METEORCAPTUR(stop)");
+    }
+}
 
-    fb.addr     = (long)base;
-    fb.width    = bpl;
-    fb.banksize = bpl * sh;
-    fb.ramsize  = bpl * sh / 1024;
+static int bsd_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
+{
+    struct bsd_handle *h = handle;
 
-    grab_bsd.grab_overlay = bsd_overlay;
+    h->fb.addr     = (long)base;
+    h->fb.width    = fmt->bytesperline;
+    h->fb.banksize = fmt->bytesperline * fmt->height;
+    h->fb.ramsize  = fmt->bytesperline * fmt->height / 1024;
     return 0;
 }
 
-static int bsd_overlay(int x, int y, int width, int height, int format,
-			struct OVERLAY_CLIP *oc, int count)
+static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
+		       struct OVERLAY_CLIP *oc, int count)
 {
+    struct bsd_handle *h = handle;
     int i,xadjust=0,yadjust=0,win_width,win_height,win_x,win_y;
-    
-    if (-1 == ioctl(fd, METEORCAPTUR, &stop))
-	perror("ioctl METEORCAPTUR(stop)");
-    overlay = 0;
-    if (width == 0 || height == 0)
+
+    h->ov_enabled = 0;
+    set_overlay(h,h->ov_enabled);
+    if (NULL == fmt)
 	return 0;
 
-    if (-1 == xawtv2pf[format])
+    if (-1 == h->xawtv2pf[fmt->fmtid])
 	return -1;
 
     /* fixups - fixme: no fixed max size */
     win_x      = x;
     win_y      = y;
-    win_width  = width;
-    win_height = height;
+    win_width  = fmt->width;
+    win_height = fmt->height;
     if (win_width > 768) {
 	win_width = 768;
-	win_x += (width - win_width)/2;
+	win_x += (fmt->width - win_width)/2;
     }
     if (win_height > 576) {
 	win_height = 576;
-	win_y +=  (height - win_height)/2;
+	win_y +=  (fmt->height - win_height)/2;
     }
     grabber_fix_ratio(&win_width,&win_height,&win_x,&win_y);
     xadjust = win_x - x;
     yadjust = win_y - y;
 
     /* fill data */
-    pos           = fb;
-    pos.addr     += win_y*pos.width;
-    pos.addr     += win_x*format2depth[format]>>3;
-    ovgeo.rows    = win_height;
-    ovgeo.columns = win_width;
-    ovgeo.frames  = 1;
-    ovgeo.oformat = 0x10000;
+    h->pos           = h->fb;
+    h->pos.addr     += win_y*h->pos.width;
+    h->pos.addr     += win_x*ng_vfmt_to_depth[fmt->fmtid]>>3;
+    h->ovgeo.rows    = win_height;
+    h->ovgeo.columns = win_width;
+    h->ovgeo.frames  = 1;
+    h->ovgeo.oformat = 0x10000;
 
     if (debug)
 	fprintf(stderr,"bktr: overlay win=%dx%d+%d+%d, %d clips\n",
 		win_width,win_height,win_x,win_y,count);
 
     /* clipping */
-    memset(clip,0,sizeof(clip));
+    memset(h->clip,0,sizeof(h->clip));
     for (i = 0; i < count; i++) {
 #if 0
 	/* This way it *should* work IMHO ... */
-	clip[i].x_min      = oc[i].x1 - xadjust;
-	clip[i].x_max      = oc[i].x2 - xadjust;
-	clip[i].y_min      = oc[i].y1 - yadjust;
-	clip[i].y_max      = oc[i].y2 - yadjust;
+	h->clip[i].x_min      = oc[i].x1 - xadjust;
+	h->clip[i].x_max      = oc[i].x2 - xadjust;
+	h->clip[i].y_min      = oc[i].y1 - yadjust;
+	h->clip[i].y_max      = oc[i].y2 - yadjust;
 #else
 	/* This way it does work.  Sort of ... */
-	clip[i].x_min      = (oc[i].y1 - yadjust) >> 1;
-	clip[i].x_max      = (oc[i].y2 - yadjust) >> 1;
-	clip[i].y_min      = oc[i].x1 - xadjust;
-	clip[i].y_max      = oc[i].x2 - xadjust;
+	h->clip[i].x_min      = (oc[i].y1 - yadjust) >> 1;
+	h->clip[i].x_max      = (oc[i].y2 - yadjust) >> 1;
+	h->clip[i].y_min      = oc[i].x1 - xadjust;
+	h->clip[i].y_max      = oc[i].x2 - xadjust;
 #endif
 	if (debug)
 	    fprintf(stderr,"bktr:   clip x=%d-%d y=%d-%d\n",
-		    clip[i].x_min,clip[i].x_max,
-		    clip[i].y_min,clip[i].y_max);
+		    h->clip[i].x_min,h->clip[i].x_max,
+		    h->clip[i].y_min,h->clip[i].y_max);
     }
-    ovfmt = pf+xawtv2pf[format];
+    h->ovfmt = h->pf+h->xawtv2pf[fmt->fmtid];
 
-    if (-1 == ioctl(fd, METEORSVIDEO, &pos))
-	perror("ioctl METEORSVIDEO");
-    if (-1 == ioctl(fd, METEORSETGEO, &ovgeo))
-	perror("ioctl METEORSETGEO");
-    if (-1 == ioctl(fd, METEORSACTPIXFMT, ovfmt))
-	perror("ioctl METEORSACTPIXFMT");
-    if (-1 == ioctl(fd, BT848SCLIP, &clip))
-	perror("ioctl BT848SCLIP");
-    if (-1 == ioctl(fd, METEORCAPTUR, &start))
-	perror("ioctl METEORCAPTUR(start)");
-    overlay = 1;
-
+    h->ov_enabled = 1;
+    set_overlay(h,h->ov_enabled);
     return 0;
 }
 
 /* ---------------------------------------------------------------------- */
 /* capture                                                                */
 
-static struct meteor_video   nofb;
-static struct meteor_geomet  capgeo;
-static struct meteor_pixfmt  *capfmt;
-static int                   reenable_overlay,capfps;
+static int got_usr1;
 
-static int
-bsd_setparm(int format, int *width, int *height, int *linelength)
+static void
+sigusr1(int signal)
 {
-    if (-1 == xawtv2pf[format])
+    if (debug > 1)
+	fprintf(stderr,"bktr: sigusr1\n");
+    got_usr1 = 1;
+}
+
+static void
+siginit(void)
+{
+    struct sigaction act,old;
+    
+    memset(&act,0,sizeof(act));
+    act.sa_handler  = sigusr1;
+    sigemptyset(&act.sa_mask);
+    sigaction(SIGUSR1,&act,&old);
+}
+
+static int bsd_setformat(void *handle, struct ng_video_fmt *fmt)
+{
+    struct bsd_handle *h = handle;
+
+    if (-1 == h->xawtv2pf[fmt->fmtid])
 	return -1;
 
-    if (*width > 768)
-	*width = 768;
-    if (*height > 576)
-	*height = 576;
-    capgeo.rows    = *height;
-    capgeo.columns = *width;
-    capgeo.frames  = 1;
-    capgeo.oformat = 0x10000;
-    capfmt = pf+xawtv2pf[format];
+    if (fmt->width > 768)
+	fmt->width = 768;
+    if (fmt->height > 576)
+	fmt->height = 576;
+    h->capgeo.rows    = fmt->height;
+    h->capgeo.columns = fmt->width;
+    h->capgeo.frames  = 1;
+    h->capgeo.oformat = 0x10000;
+    h->capfmt = h->pf+h->xawtv2pf[fmt->fmtid];
+    h->fmt = *fmt;
     return 0;
 }
 
-static void
-bsd_setcapture(int on)
+static int bsd_startvideo(void *handle, int fps, int buffers)
 {
-    if (on) {
-	/* switch to capture */
-	if (overlay) {
-	    reenable_overlay = 1;
-	    if (-1 == ioctl(fd, METEORCAPTUR, &stop))
-		perror("ioctl METEORCAPTUR(stop)");
-	    overlay = 0;
-	}
-	
-	if (-1 == ioctl(fd, METEORSVIDEO, &nofb))
-	    perror("ioctl METEORSVIDEO");
-	if (-1 == ioctl(fd, METEORSETGEO, &capgeo))
-	    perror("ioctl METEORSETGEO");
-	if (-1 == ioctl(fd, METEORSACTPIXFMT, capfmt))
-	    perror("ioctl METEORSACTPIXFMT");
+    struct bsd_handle *h = handle;
 
-    } else {
-	/* switch to overlay */
-	if (reenable_overlay) {
-	    reenable_overlay = 0;
-	    if (-1 == ioctl(fd, METEORSVIDEO, &pos))
-		perror("ioctl METEORSVIDEO");
-	    if (-1 == ioctl(fd, METEORSETGEO, &ovgeo))
-		perror("ioctl METEORSETGEO");
-	    if (-1 == ioctl(fd, METEORSACTPIXFMT, ovfmt))
-		perror("ioctl METEORSACTPIXFMT");
-	    if (-1 == ioctl(fd, BT848SCLIP, &clip))
-		perror("ioctl BT848SCLIP");
-	    if (-1 == ioctl(fd, METEORCAPTUR, &start))
-		perror("ioctl METEORCAPTUR(start)");
-	    overlay = 1;
-	}
-    }
+    set_overlay(h,0);
+    h->fps = fps;
+    h->frames = 0;
+    gettimeofday(&h->start,NULL);
+    if (-1 == ioctl(h->fd, METEORSVIDEO, &h->nofb))
+	perror("ioctl METEORSVIDEO");
+    if (-1 == ioctl(h->fd, METEORSETGEO, &h->capgeo))
+	perror("ioctl METEORSETGEO");
+    if (-1 == ioctl(h->fd, METEORSACTPIXFMT, h->capfmt))
+	perror("ioctl METEORSACTPIXFMT");
+    if (-1 == ioctl(h->fd, METEORSSIGNAL, &signal_on))
+	perror("ioctl METEORSSIGNAL");
+    return 0;
 }
-    
-static void
-bsd_start(int fps, int buffers)
+
+static void bsd_stopvideo(void *handle)
 {
-    bsd_setcapture(1);
-    capfps = fps;
+    struct bsd_handle *h = handle;
+
+    h->fps = 0;
+    if (-1 == ioctl(h->fd, METEORCAPTUR, &stop))
+	perror("ioctl METEORCAPTUR(single)");
+    if (-1 == ioctl(h->fd, METEORSSIGNAL, &signal_off))
+	perror("ioctl METEORSSIGNAL");
+    set_overlay(h,h->ov_enabled);
+}
+
+static struct ng_video_buf* bsd_nextframe(void *handle)
+{
+    struct bsd_handle *h = handle;
+    struct ng_video_buf *buf;
+    int size;
 #if 0
-    gettimeofday(&grab_start,NULL);
+    sigset_t sa_mask;
 #endif
-}
 
-static void*
-bsd_capture(void)
-{
-    if (0 == capfps) {
-	/* grab one buffer */
-	bsd_setcapture(1);
-	if (-1 == ioctl(fd, METEORCAPTUR, &single))
-	    perror("ioctl METEORCAPTUR(single)");
-	usleep(100*1000); /* FIXME: use SIGUSR1 instead */
-	bsd_setcapture(0);
-	return mmap_buf;
-    }
-
+    size = h->fmt.bytesperline * h->fmt.height;
+    buf = ng_malloc_video_buf(&h->fmt,size);
+    if (debug > 1)
+	fprintf(stderr,"bktr: cap(single)...\n");
+    if (-1 == ioctl(h->fd, METEORCAPTUR, &single))
+	perror("ioctl METEORCAPTUR(single)");
+    if (debug > 1)
+	fprintf(stderr,"bktr: ...ret\n");
 #if 0
-    /* rate control */
-    rc = grabber_sw_rate(&grab_start,grab_fps,grab_frames);
-    if (rc <= 0)
-	goto next_frame;
-    grab_frames++;
+    sigemptyset(&sa_mask);
+    sigaddset(&sa_mask,SIGUSR1);
+    fprintf(stderr,"bktr: suspend...\n");
+    sigsuspend(&sa_mask);
+    fprintf(stderr,"bktr: ...ret\n");
 #endif
-    return NULL;
+    memcpy(buf->data,h->map,size);
+
+    /* FIXME: add rate control */
+    return buf;
 }
 
-static void
-bsd_stop(void)
+static struct ng_video_buf* bsd_getimage(void *handle)
 {
-    bsd_setcapture(0);
-    capfps = 0;
-}
+    struct bsd_handle *h = handle;
+    struct ng_video_buf *buf;
 
+    bsd_startvideo(h,-1,1);
+    buf = bsd_nextframe(h);
+    bsd_stopvideo(h);
+    return buf;
+}
 
 #endif /* BSD */

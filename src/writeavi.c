@@ -500,7 +500,7 @@ avi_video(void *handle, struct ng_video_buf *buf)
 	h->datax_size += size + sizeof(struct CHUNK_HDR);
 	h->framesx    += 1;
     }
-    if ((h->bigfile ? h->datax_size : h->data_size) > 1024*1024*1000)
+    if ((h->bigfile ? h->datax_size : h->data_size) > 1024*1024*2000)
 	avi_bigfile(h,0);
     return 0;
 }

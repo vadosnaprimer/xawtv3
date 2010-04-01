@@ -82,9 +82,28 @@ const char* ng_afmt_to_desc[] = {
 
 /* --------------------------------------------------------------------- */
 
+const char* ng_attr_to_desc[] = {
+    "none",
+    "norm",
+    "input",
+    "volume",
+    "mute",
+    "audio mode",
+    "color",
+    "bright",
+    "hue",
+    "contrast",
+};
+
+/* --------------------------------------------------------------------- */
+
 extern const struct ng_driver v4l_driver;
+extern const struct ng_driver v4l2_driver;
+extern const struct ng_driver bsd_driver;
 const struct ng_driver *ng_drivers[] = {
+    &v4l2_driver,
     &v4l_driver,
+    &bsd_driver,
     NULL
 };
 
@@ -229,8 +248,9 @@ ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
     if (debug)
 	fprintf(stderr,"init: ok: %s\n",ng_drivers[i]->name);
     if (NULL != screen &&
-	ng_drivers[i]->capabilities(*handle) & CAN_OVERLAY)
+	ng_drivers[i]->capabilities(*handle) & CAN_OVERLAY) {
 	ng_drivers[i]->setupfb(*handle,screen,base);
+    }
     return ng_drivers[i];
 }
 

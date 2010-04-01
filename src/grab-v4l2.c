@@ -1,7 +1,7 @@
 /*
  * interface to the v4l2 driver
  *
- *   (c) 1998,99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 #include "config.h"
@@ -28,8 +28,7 @@
 
 #include "grab-ng.h"
 
-/* #ifndef __linux__ */
-#if 1
+#ifndef __linux__
 struct ng_driver v4l2_driver;
 #else /* __linux__ */
 
@@ -37,96 +36,105 @@ struct ng_driver v4l2_driver;
 #include "videodev2.h"
 
 /* ---------------------------------------------------------------------- */
-/* global variables                                                       */
 
-#define WANTED_BUFFERS 8
+/* open+close */
+static void*   v4l2_open(char *device);
+static int     v4l2_close(void *handle);
 
-static int fd = -1;
-
-static int    ninputs,nstds,nfmts;
-static struct v4l2_capability	cap;
-static struct v4l2_streamparm	streamparm;
-static struct v4l2_input	inp[16];
-static struct v4l2_enumstd	std[16];
-static struct v4l2_fmtdesc	fmt[64];
-static struct v4l2_queryctrl	ctl[32];
-
-static int                           str_fps = 0;
-static struct v4l2_format            str_format;
-static struct v4l2_requestbuffers    str_bufdesc;
-static struct v4l2_buffer            str_buffers[WANTED_BUFFERS];
-static unsigned char                *str_bufdata[WANTED_BUFFERS];
-static unsigned char                *read_buf;
-static int                           str_lastdequeued;
-
-static int                           preview_state;
-static int                           preview_reenable;
-static int                           preview_and_streaming_works = 1;
-
-static struct V4L2_ATTR {
-    int id;
-    int v4l2;
-} v4l2_attr[] = {
-    { GRAB_ATTR_VOLUME,   V4L2_CID_AUDIO_VOLUME },
-    { GRAB_ATTR_MUTE,     V4L2_CID_AUDIO_MUTE   },
-    { GRAB_ATTR_COLOR,    V4L2_CID_SATURATION   },
-    { GRAB_ATTR_BRIGHT,   V4L2_CID_BRIGHTNESS   },
-    { GRAB_ATTR_HUE,      V4L2_CID_HUE          },
-    { GRAB_ATTR_CONTRAST, V4L2_CID_CONTRAST     },
-};
-
-#define NUM_ATTR (sizeof(v4l2_attr)/sizeof(struct V4L2_ATTR))
-
-/* ---------------------------------------------------------------------- */
-/* prototypes                                                             */
-
-/* open/close */
-static int v4l2_open(char *filename);
-static int v4l2_close(void);
-
-/* control */
-static int v4l2_input(int input, int norm);
-static int v4l2_hasattr(int id);
-static int v4l2_getattr(int id);
-static int v4l2_setattr(int id, int vol);
-
-static unsigned long v4l2_tune(unsigned long freq, int sat);
-static int v4l2_tuned(void);
-
-
-/* capture */
-static int   v4l2_setparm(int format, int *width, int *height, int *linelength);
-static void  v4l2_start(int fps, int buffers);
-static void* v4l2_capture(void);
-static void* v4l2_streaming(void);
-static void  v4l2_stop(void);
-static void  v4l2_stop_streaming(void);
+/* attributes */
+static int     v4l2_flags(void *handle);
+static struct ng_attribute* v4l2_attrs(void *handle);
+static int     v4l2_read_attr(void *handle, struct ng_attribute*);
+static void    v4l2_write_attr(void *handle, struct ng_attribute*, int val);
 
 /* overlay */
-static int v4l2_setupfb(int sw, int sh, int format, void *base, int bpl);
-static int v4l2_overlay(int x, int y, int width, int height, int format,
-			struct OVERLAY_CLIP *oc, int count);
+static int   v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
+static int   v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
+			  struct OVERLAY_CLIP *oc, int count);
+
+/* capture video */
+static int v4l2_setformat(void *handle, struct ng_video_fmt *fmt);
+static int v4l2_startvideo(void *handle, int fps, int buffers);
+static void v4l2_stopvideo(void *handle);
+static struct ng_video_buf* v4l2_nextframe(void *handle);
+static struct ng_video_buf* v4l2_getimage(void *handle);
+
+/* tuner */
+static unsigned long v4l2_getfreq(void *handle);
+static void v4l2_setfreq(void *handle, unsigned long freq);
+static int v4l2_tuned(void *handle);
 
 /* ---------------------------------------------------------------------- */
 
-struct GRABBER grab_v4l2 = {
-    name:           "v4l2",
-    
-    grab_open:      v4l2_open,
-    grab_close:     v4l2_close,
-    
-    grab_setupfb:   v4l2_setupfb,
-    grab_setparams: v4l2_setparm,
-    
-    grab_input:     v4l2_input,
-    grab_hasattr:   v4l2_hasattr,
-    grab_getattr:   v4l2_getattr,
-    grab_setattr:   v4l2_setattr,
+#define WANTED_BUFFERS 16
+
+#define MAX_INPUT   16
+#define MAX_NORM    16
+#define MAX_FORMAT  32
+#define MAX_CTRL    32
+
+struct v4l2_handle {
+    int                         fd;
+
+    /* device descriptions */
+    int                         ninputs,nstds,nfmts;
+    struct v4l2_capability	cap;
+    struct v4l2_streamparm	streamparm;
+    struct v4l2_input		inp[MAX_INPUT];
+    struct v4l2_enumstd		std[MAX_NORM];
+    struct v4l2_fmtdesc		fmt[MAX_FORMAT];
+    struct v4l2_queryctrl	ctl[MAX_CTRL*2];
+
+    /* attributes */
+    int                         nattr;
+    struct ng_attribute         *attr;
+
+    /* capture */
+    int                            fps,frames;
+    struct timeval                 start;
+    struct v4l2_format             fmt_v4l2;
+    struct ng_video_fmt            fmt_me;
+    struct v4l2_requestbuffers     reqbufs;
+    struct v4l2_buffer             buf_v4l2[WANTED_BUFFERS];
+    struct ng_video_buf            buf_me[WANTED_BUFFERS];
+    int                            queue,waiton;
+
+    /* overlay */
+    struct v4l2_framebuffer        ov_fb;
+    struct v4l2_window             ov_win;
+    struct v4l2_clip               ov_clips[256];
+    int                            ov_error;
+    int                            ov_enabled;
+    int                            ov_on;
 };
 
-/* xawtv => v4l */
+/* ---------------------------------------------------------------------- */
 
-static __u32 xawtv_pixelformat[] = {
+const struct ng_driver v4l2_driver = {
+    name:          "v4l2",
+    open:          v4l2_open,
+    close:         v4l2_close,
+
+    capabilities:  v4l2_flags,
+    list_attrs:    v4l2_attrs,
+    read_attr:     v4l2_read_attr,
+    write_attr:    v4l2_write_attr,
+
+    setupfb:       v4l2_setupfb,
+    overlay:       v4l2_overlay,
+
+    setformat:     v4l2_setformat,
+    startvideo:    v4l2_startvideo,
+    stopvideo:     v4l2_stopvideo,
+    nextframe:     v4l2_nextframe,
+    getimage:      v4l2_getimage,
+    
+    getfreq:       v4l2_getfreq,
+    setfreq:       v4l2_setfreq,
+    is_tuned:      v4l2_tuned,
+};
+
+static __u32 xawtv_pixelformat[VIDEO_FMT_MAX+1] = {
     0,                    /* unused   */
     0,                    /* RGB8     */
     V4L2_PIX_FMT_GREY,    /* GRAY8    */
@@ -148,6 +156,142 @@ static __u32 xawtv_pixelformat[] = {
 /* ---------------------------------------------------------------------- */
 /* debug output                                                           */
 
+#define PREFIX "ioctl: "
+
+static const char *io_names[] = {
+    "QUERYCAP", "1", "ENUM_PIXFMT", "ENUM_FBUFFMT", "G_FMT", "S_FMT",
+    "G_COMP", "S_COMP", "REQBUFS", "QUERYBUF", "G_FBUF", "S_FBUF",
+    "G_WIN", "S_WIN", "PREVIEW", "QBUF", "16", "DQBUF", "STREAMON",
+    "STREAMOFF", "G_PERF", "G_PARM", "S_PARM", "G_STD", "S_STD",
+    "ENUMSTD", "ENUMINPUT", "G_CTRL", "S_CTRL", "G_TUNER", "S_TUNER",
+    "G_FREQ", "S_FREQ", "G_AUDIO", "S_AUDIO", "35", "QUERYCTRL",
+    "QUERYMENU", "G_INPUT", "S_INPUT", "ENUMCVT", "41", "42", "43",
+    "44", "45",  "G_OUTPUT", "S_OUTPUT", "ENUMOUTPUT", "G_AUDOUT",
+    "S_AUDOUT", "ENUMFX", "G_EFFECT", "S_EFFECT", "G_MODULATOR",
+    "S_MODULATOR"
+};
+static const int io_count = (sizeof(io_names)/sizeof(char*));
+#define IONAME(cmd)	((cmd & 0xff) < io_count ? \
+			io_names[cmd & 0xff] : "UNKNOWN")
+
+static int
+xioctl(int fd, int cmd, void *arg)
+{
+    int rc;
+
+    rc = ioctl(fd,cmd,arg);
+    if (0 == rc && debug < 2)
+	return 0;
+    switch (cmd) {
+    case VIDIOC_QUERYCAP:
+    {
+	struct v4l2_capability *a = arg;
+	fprintf(stderr,PREFIX "VIDIOC_QUERYCAP(%s,type=0x%x,in=%d,out=%d,"
+		"audio=%d,size=%dx%d-%dx%d,fps=%d,flags=0x%x)",
+		a->name,a->type,a->inputs,a->outputs,a->audios,
+		a->minwidth,a->minheight,a->maxwidth,a->maxheight,
+		a->maxframerate,a->flags);
+	break;
+    }
+    
+    case VIDIOC_G_FMT:
+    case VIDIOC_S_FMT:
+    {
+	struct v4l2_format *a = arg;
+
+	fprintf(stderr,PREFIX "VIDIOC_%s(type=%d,",IONAME(cmd),a->type);
+	switch (a->type) {
+	case V4L2_BUF_TYPE_CAPTURE:
+	    fprintf(stderr,
+		    "%dx%d,depth=%d,%c%c%c%c,flags=0x%x,bpl=%d,size=%d)",
+		    a->fmt.pix.width,a->fmt.pix.height,a->fmt.pix.depth,
+		    a->fmt.pix.pixelformat & 0xff,
+		    (a->fmt.pix.pixelformat >>  8) & 0xff,
+		    (a->fmt.pix.pixelformat >> 16) & 0xff,
+		    (a->fmt.pix.pixelformat >> 24) & 0xff,
+		    a->fmt.pix.depth,a->fmt.pix.bytesperline,
+		    a->fmt.pix.sizeimage);
+	    break;
+	default:
+	    fprintf(stderr,"???)");
+	    break;
+	}
+	break;
+    }
+    case VIDIOC_REQBUFS:
+    {
+	struct v4l2_requestbuffers *a = arg;
+	
+	fprintf(stderr,PREFIX "VIDIOC_REQBUFS(count=%d,type=%d)",
+		a->count,a->type);
+	break;
+    }
+    case VIDIOC_QBUF:
+    case VIDIOC_DQBUF:
+    {
+	struct v4l2_buffer *a = arg;
+	
+	fprintf(stderr,PREFIX "VIDIOC_%s(%d,type=%d,off=%d,len=%d,used=%d,"
+		"flags=0x%x,ts=%Ld,seq=%d)",
+		IONAME(cmd),a->index,a->type,a->offset,a->length,
+		a->bytesused,a->flags,a->timestamp,a->sequence);
+	break;
+    }
+    
+    case VIDIOC_G_WIN:
+    case VIDIOC_S_WIN:
+    {
+	struct v4l2_window *a = arg;
+	
+	fprintf(stderr,PREFIX "VIDIOC_%s(%dx%d+%d+%d,key=0x%x,clips=%d)",
+		IONAME(cmd), a->width, a->height, a->x, a->y,
+		a->chromakey,a->clipcount);
+	break;
+    }
+    case VIDIOC_PREVIEW:
+    {
+	int *a = arg;
+
+	fprintf(stderr,PREFIX "VIDIOC_PREVIEW(%s)",*a ? "on" : "off");
+	break;
+    }
+    
+    case VIDIOC_QUERYCTRL:
+    {
+	struct v4l2_queryctrl *a = arg;
+	
+	fprintf(stderr,PREFIX "VIDIOC_QUERYCTRL(id=%d,%s,%d-%d/%d,def=%d,"
+		"type=%d,flags=0x%x)",
+		a->id,a->name,a->minimum,a->maximum,a->step,
+		a->default_value,a->type,a->flags);
+	break;
+    }
+    case VIDIOC_QUERYMENU:
+    {
+	struct v4l2_querymenu *a = arg;
+
+	fprintf(stderr,PREFIX "VIDIOC_QUERYMENU(id=%d,index=%d,%s)",
+		a->id,a->index,a->name);
+	break;
+    }
+    case VIDIOC_G_CTRL:
+    case VIDIOC_S_CTRL:
+    {
+	struct v4l2_control *a = arg;
+	
+	fprintf(stderr,PREFIX "VIDIOC_%s(id=%d,value=%d)",
+		IONAME(cmd),a->id,a->value);
+	break;
+    }
+    
+    default:
+	fprintf(stderr,PREFIX "VIDIOC_%s(cmd=0x%x)",IONAME(cmd),cmd);
+	break;
+    }
+    fprintf(stderr,": %s\n",(rc == 0) ? "ok" : strerror(errno));
+    return rc;
+}
+
 static void
 print_bits(char *title, char **names, int count, int value)
 {
@@ -159,11 +303,10 @@ print_bits(char *title, char **names, int count, int value)
 	    fprintf(stderr,"%s ",names[i]);
     }
     fprintf(stderr,"\n");
-}
-    
+}    
 
 static void
-print_device_capabilities(void)
+print_device_capabilities(struct v4l2_handle *h)
 {
     static char *cap_type[] = {
 	"capture",
@@ -202,67 +345,67 @@ print_device_capabilities(void)
 
     /* capabilities */
     fprintf(stderr,"type: %s\n",
-	    cap.type < sizeof(cap_type)/sizeof(char*) ?
-	    cap_type[cap.type] : "unknown");
-    print_bits("flags",cap_flags,sizeof(cap_flags)/sizeof(char*),cap.flags);
+	    h->cap.type < sizeof(cap_type)/sizeof(char*) ?
+	    cap_type[h->cap.type] : "unknown");
+    print_bits("flags",cap_flags,sizeof(cap_flags)/sizeof(char*),h->cap.flags);
     fprintf(stderr,"\n");
-    fprintf(stderr,"inputs: %d\naudios: %d\n",cap.inputs,cap.audios);
+    fprintf(stderr,"inputs: %d\naudios: %d\n",h->cap.inputs,h->cap.audios);
     fprintf(stderr,"size: %dx%d => %dx%d\n",
-	    cap.minwidth,cap.minheight,cap.maxwidth,cap.maxheight);
-    fprintf(stderr,"fps: %d max\n",cap.maxframerate);
+	    h->cap.minwidth,h->cap.minheight,h->cap.maxwidth,h->cap.maxheight);
+    fprintf(stderr,"fps: %d max\n",h->cap.maxframerate);
 
     /* inputs */
     fprintf(stderr,"video inputs:\n");
-    for (i = 0; i < ninputs; i++) {
-	printf("  %d: \"%s\", tuner: %s, audio: %s\n", i, inp[i].name,
-	       (inp[i].type       == V4L2_INPUT_TYPE_TUNER) ? "yes" : "no",
-	       (inp[i].capability &  V4L2_INPUT_CAP_AUDIO)  ? "yes" : "no");
+    for (i = 0; i < h->ninputs; i++) {
+	printf("  %d: \"%s\", tuner: %s, audio: %s\n", i, h->inp[i].name,
+	       (h->inp[i].type       == V4L2_INPUT_TYPE_TUNER) ? "yes" : "no",
+	       (h->inp[i].capability &  V4L2_INPUT_CAP_AUDIO)  ? "yes" : "no");
     }
 
     /* video standards */
     fprintf(stderr,"video standards:\n");
-    for (i = 0; i < nstds; i++) {
-	printf("  %d: \"%s\"\n", i, std[i].std.name);
+    for (i = 0; i < h->nstds; i++) {
+	printf("  %d: \"%s\"\n", i, h->std[i].std.name);
     }
 
     /* capture formats */
     fprintf(stderr,"capture formats:\n");
-    for (i = 0; i < nfmts; i++) {
+    for (i = 0; i < h->nfmts; i++) {
 	printf("  %d: %c%c%c%c, depth=%d,%s \"%s\"\n", i,
-	       fmt[i].pixelformat & 0xff,
-	       (fmt[i].pixelformat >>  8) & 0xff,
-	       (fmt[i].pixelformat >> 16) & 0xff,
-	       (fmt[i].pixelformat >> 24) & 0xff,
-	       fmt[i].depth,
-	       (fmt[i].flags & V4L2_FMT_FLAG_COMPRESSED) ? " compressed" : "",
-	       fmt[i].description);
+	       h->fmt[i].pixelformat & 0xff,
+	       (h->fmt[i].pixelformat >>  8) & 0xff,
+	       (h->fmt[i].pixelformat >> 16) & 0xff,
+	       (h->fmt[i].pixelformat >> 24) & 0xff,
+	       h->fmt[i].depth,
+	       (h->fmt[i].flags & V4L2_FMT_FLAG_COMPRESSED) ? " compressed" : "",
+	       h->fmt[i].description);
     }
 
     /* capture parameters */
     fprintf(stderr,"capture parameters:\n");
     print_bits("  cap",cap_parm,sizeof(cap_parm)/sizeof(char*),
-	       streamparm.parm.capture.capability);
+	       h->streamparm.parm.capture.capability);
     print_bits("  cur",cap_parm,sizeof(cap_parm)/sizeof(char*),
-	       streamparm.parm.capture.capturemode);
+	       h->streamparm.parm.capture.capturemode);
     fprintf(stderr,"  timeperframe=%ld\n",
-	    streamparm.parm.capture.timeperframe);
+	    h->streamparm.parm.capture.timeperframe);
 
     /* controls */
     printf("supported controls:\n");
-    for (i = 0; i < 32; i++) {
-	if (ctl[i].id == -1)
+    for (i = 0; i < MAX_CTRL*2; i++) {
+	if (h->ctl[i].id == -1)
 	    continue;
 	fprintf(stderr,"  %2d: \"%s\", [%d .. %d], step=%d, def=%d, type=%s\n",
-		i, ctl[i].name,
-		ctl[i].minimum,ctl[i].maximum,
-		ctl[i].step,ctl[i].default_value,
-		ctl_type[ctl[i].type]);
+		i, h->ctl[i].name,
+		h->ctl[i].minimum,h->ctl[i].maximum,
+		h->ctl[i].step,h->ctl[i].default_value,
+		ctl_type[h->ctl[i].type]);
     }
     fprintf(stderr,"\n");
 }
 
 static void
-print_bufinfo(struct v4l2_buffer *buf, void *addr)
+print_bufinfo(struct v4l2_buffer *buf)
 {
     static char *type[] = {
 	"",
@@ -275,14 +418,11 @@ print_bufinfo(struct v4l2_buffer *buf, void *addr)
 	"video out"
     };
 
-    fprintf(stderr,"v4l2: buf %d: %s 0x%x+%d, used %d",
+    fprintf(stderr,"v4l2: buf %d: %s 0x%x+%d, used %d\n",
 		   buf->index,
 	    	   buf->type < sizeof(type)/sizeof(char*) ?
 			type[buf->type] : "unknown",
 		   buf->offset,buf->length,buf->bytesused);
-    if (NULL != addr)
-	fprintf(stderr,", mapped to: %p",addr);
-    fprintf(stderr,"\n");
 }
 
 static void
@@ -319,54 +459,54 @@ print_fbinfo(struct v4l2_framebuffer *fb)
 /* helpers                                                                */
 
 static void
-get_device_capabilities(void)
+get_device_capabilities(struct v4l2_handle *h)
 {
     int i;
     
-    for (ninputs = 0; ninputs < cap.inputs; ninputs++) {
-	inp[ninputs].index = ninputs;
-	if (-1 == ioctl(fd, VIDIOC_ENUMINPUT, &inp[ninputs]))
+    for (h->ninputs = 0; h->ninputs < h->cap.inputs; h->ninputs++) {
+	h->inp[h->ninputs].index = h->ninputs;
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs]))
 	    break;
     }
-    for (nstds = 0; nstds < 16; nstds++) {
-	std[nstds].index = nstds;
-	if (-1 == ioctl(fd, VIDIOC_ENUMSTD, &std[nstds]))
+    for (h->nstds = 0; h->nstds < MAX_NORM; h->nstds++) {
+	h->std[h->nstds].index = h->nstds;
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMSTD, &h->std[h->nstds]))
 	    break;
     }
-    for (nfmts = 0; nfmts < 64; nfmts++) {
-	fmt[nfmts].index = nfmts;
-	if (-1 == ioctl(fd, VIDIOC_ENUM_PIXFMT, &fmt[nfmts]))
+    for (h->nfmts = 0; h->nfmts < MAX_FORMAT; h->nfmts++) {
+	h->fmt[h->nfmts].index = h->nfmts;
+	if (-1 == xioctl(h->fd, VIDIOC_ENUM_PIXFMT, &h->fmt[h->nfmts]))
 	    break;
     }
 
-    streamparm.type = V4L2_BUF_TYPE_CAPTURE;
-    ioctl(fd,VIDIOC_G_PARM,&streamparm);
+    h->streamparm.type = V4L2_BUF_TYPE_CAPTURE;
+    ioctl(h->fd,VIDIOC_G_PARM,&h->streamparm);
 
     /* controls */
-    for (i = 0; i < 16; i++) {
-	ctl[i].id = V4L2_CID_BASE+i;
-	if (-1 == ioctl(fd, VIDIOC_QUERYCTRL, &ctl[i]) ||
-	    (ctl[i].flags & V4L2_CTRL_FLAG_DISABLED))
-	    ctl[i].id = -1;
+    for (i = 0; i < MAX_CTRL; i++) {
+	h->ctl[i].id = V4L2_CID_BASE+i;
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i]) ||
+	    (h->ctl[i].flags & V4L2_CTRL_FLAG_DISABLED))
+	    h->ctl[i].id = -1;
     }
-    for (i = 0; i < 16; i++) {
-	ctl[i+16].id = V4L2_CID_PRIVATE_BASE+i;
-	if (-1 == ioctl(fd, VIDIOC_QUERYCTRL, &ctl[i+16]) ||
-	    (ctl[i+16].flags & V4L2_CTRL_FLAG_DISABLED))
-	    ctl[i+16].id = -1;
+    for (i = 0; i < MAX_CTRL; i++) {
+	h->ctl[i+MAX_CTRL].id = V4L2_CID_PRIVATE_BASE+i;
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL]) ||
+	    (h->ctl[i+MAX_CTRL].flags & V4L2_CTRL_FLAG_DISABLED))
+	    h->ctl[i+MAX_CTRL].id = -1;
     }
 }
 
 static struct STRTAB *
-build_norms(void)
+build_norms(struct v4l2_handle *h)
 {
     struct STRTAB *norms;
     int i;
 
-    norms = malloc(sizeof(struct STRTAB) * (nstds+1));
-    for (i = 0; i < nstds; i++) {
+    norms = malloc(sizeof(struct STRTAB) * (h->nstds+1));
+    for (i = 0; i < h->nstds; i++) {
 	norms[i].nr  = i;
-	norms[i].str = std[i].std.name;
+	norms[i].str = h->std[i].std.name;
     }
     norms[i].nr  = -1;
     norms[i].str = NULL;
@@ -374,15 +514,15 @@ build_norms(void)
 }
 
 static struct STRTAB *
-build_inputs(void)
+build_inputs(struct v4l2_handle *h)
 {
     struct STRTAB *inputs;
     int i;
 
-    inputs = malloc(sizeof(struct STRTAB) * (ninputs+1));
-    for (i = 0; i < ninputs; i++) {
+    inputs = malloc(sizeof(struct STRTAB) * (h->ninputs+1));
+    for (i = 0; i < h->ninputs; i++) {
 	inputs[i].nr  = i;
-	inputs[i].str = inp[i].name;
+	inputs[i].str = h->inp[i].name;
     }
     inputs[i].nr  = -1;
     inputs[i].str = NULL;
@@ -391,600 +531,677 @@ build_inputs(void)
 
 /* ---------------------------------------------------------------------- */
 
+static struct V4L2_ATTR {
+    int id;
+    int v4l2;
+} v4l2_attr[] = {
+    { ATTR_ID_VOLUME,   V4L2_CID_AUDIO_VOLUME },
+    { ATTR_ID_MUTE,     V4L2_CID_AUDIO_MUTE   },
+    { ATTR_ID_COLOR,    V4L2_CID_SATURATION   },
+    { ATTR_ID_BRIGHT,   V4L2_CID_BRIGHTNESS   },
+    { ATTR_ID_HUE,      V4L2_CID_HUE          },
+    { ATTR_ID_CONTRAST, V4L2_CID_CONTRAST     },
+};
+#define NUM_ATTR (sizeof(v4l2_attr)/sizeof(struct V4L2_ATTR))
+
 static int
-v4l2_open(char *filename)
+v4l2_to_me(const struct v4l2_queryctrl *ctl, int value)
 {
-    if (-1 != fd)
-	goto err;
-
-    grabber_run_v4l_conf();
-    if (-1 == (fd = open(filename ? filename : "/dev/video",O_RDWR))) {
-	fprintf(stderr,"open %s: %s\n",
-		filename ? filename : "/dev/video",strerror(errno));
-	goto err;
+    int me = 65536;
+    int v4l2;
+    
+    v4l2 = ctl->maximum - ctl->minimum;
+    if (v4l2 > 16384) {
+	v4l2 >>= 2;
+	me   >>= 2;
     }
-
-    if (-1 == ioctl(fd,VIDIOC_QUERYCAP,&cap))
-	goto err;
-    if (debug)
-	fprintf(stderr, "v4l2: open\n");
-    fcntl(fd,F_SETFD,FD_CLOEXEC);
-    fprintf(stderr,"v4l2: device is %s\n",cap.name);
-    sprintf(grab_v4l2.name = malloc(strlen(cap.name)+8),"v4l2: %s",cap.name);
-
-    get_device_capabilities();
-    if (debug)
-	print_device_capabilities();
-    grab_v4l2.norms  = build_norms();
-    grab_v4l2.inputs = build_inputs();
-
-    /* setup capture */
-    if (cap.flags & V4L2_FLAG_STREAMING) {
-	grab_v4l2.grab_start   = v4l2_start;
-	grab_v4l2.grab_capture = v4l2_streaming;
-	grab_v4l2.grab_stop    = v4l2_stop;
-    } else if (cap.flags & V4L2_FLAG_READ) {
-	grab_v4l2.grab_start   = v4l2_start;
-	grab_v4l2.grab_capture = v4l2_capture;
-	grab_v4l2.grab_stop    = v4l2_stop;
-    }
-
-    /* setup tuner */
-    if (cap.flags & V4L2_FLAG_TUNER) {
-	grab_v4l2.grab_tune  = v4l2_tune;
-	grab_v4l2.grab_tuned = v4l2_tuned;
-    }
-
-    return fd;
-
- err:
-    if (fd != -1) {
-	close(fd);
-	fd = -1;
-    }
-    return -1;
+    value = (value + ctl->minimum) * me / v4l2;
+    if (value < 0)      value = 0;
+    if (value > 65535)  value = 65535;
+    return value;
 }
 
 static int
-v4l2_close()
+me_to_v4l2(const struct v4l2_queryctrl *ctl, int value)
 {
-    if (-1 == fd)
-	return 0;
-
-    if (str_fps) {
-	if (debug)
-	    fprintf(stderr,"v4l2: stopping streaming capture\n");
-	v4l2_stop_streaming();
-	str_fps = 0;
+    int me = 65536;
+    int v4l2;
+    
+    v4l2 = ctl->maximum - ctl->minimum;
+    if (v4l2 > 16384) {
+	v4l2 >>= 2;
+	me   >>= 2;
     }
-
-    if (debug)
-	fprintf(stderr, "v4l2: close\n");
-
-    close(fd);
-    fd = -1;
-    return 0;
+    value = value * v4l2 / me + ctl->minimum;
+    if (value < ctl->minimum)  value = ctl->minimum;
+    if (value > ctl->maximum)  value = ctl->maximum;
+    return value;
 }
 
-/* ---------------------------------------------------------------------- */
-
-static int
-v4l2_input(int input, int norm)
+static struct STRTAB*
+v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
 {
-    if (norm != -1) {
-	if (debug)
-	    fprintf(stderr,"v4l2: norm %s\n",std[norm].std.name);
-	if (-1 == ioctl(fd,VIDIOC_S_STD,&std[norm].std))
-	    perror("ioctl VIDIOC_S_STD");
+    struct STRTAB *menu;
+    struct v4l2_querymenu item;
+    int i;
+
+    menu = malloc(sizeof(struct STRTAB) * (ctl->maximum-ctl->minimum+2));
+    for (i = ctl->minimum; i <= ctl->minimum; i++) {
+	item.id = ctl->id;
+	item.index = i;
+	if (-1 == xioctl(fd,VIDIOC_QUERYMENU,&item)) {
+	    free(menu);
+	    return NULL;
+	}
+	menu[i-ctl->minimum].nr  = i;
+	menu[i-ctl->minimum].str = strdup(item.name);
     }
-    if (input != -1) {
-	if (debug)
-	    fprintf(stderr,"v4l2: input %s\n",inp[input].name);
-	if (-1 == ioctl(fd,VIDIOC_S_INPUT,&input))
-	    perror("ioctl VIDIOC_S_INPUT");
-    }
-    return 0;
+    menu[i-ctl->minimum].nr  = -1;
+    menu[i-ctl->minimum].str = NULL;
+    return menu;
 }
 
-static int
-v4l2_getcontrol(int i)
+static void
+v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
+	      int id, struct STRTAB *choices)
 {
-    int value;
-    struct v4l2_control c;
-
-    if (-1 == ctl[i].id)
-	return -1;
-    c.id    = ctl[i].id;
-    if (-1 == ioctl(fd,VIDIOC_G_CTRL,&c))
-	perror("ioctl VIDIOC_G_CTRL");
-    if (ctl[i].type == V4L2_CTRL_TYPE_INTEGER) {
-	value = (c.value-ctl[i].minimum)*65536/(ctl[i].maximum-ctl[i].minimum);
-	if (value < 0)     value = 0;
-	if (value > 65535) value = 65535;
+    int i;
+    
+    h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
+    memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
+    if (ctl) {
+	for (i = 0; i < NUM_ATTR; i++)
+	    if (v4l2_attr[i].v4l2 == ctl->id)
+		break;
+	if (i == NUM_ATTR)
+	    return;
+	h->attr[h->nattr].id      = v4l2_attr[i].id;
+	h->attr[h->nattr].name    = ctl->name;
+	h->attr[h->nattr].priv    = ctl;
+	h->attr[h->nattr].defval  = ctl->default_value;
+	switch (ctl->type) {
+	case V4L2_CTRL_TYPE_INTEGER:
+	    h->attr[h->nattr].type    = ATTR_TYPE_INTEGER;
+	    h->attr[h->nattr].defval  = v4l2_to_me(ctl,ctl->default_value);
+	    break;
+	case V4L2_CTRL_TYPE_BOOLEAN:
+	    h->attr[h->nattr].type    = ATTR_TYPE_BOOL;
+	    break;
+	case V4L2_CTRL_TYPE_MENU:
+	    h->attr[h->nattr].type    = ATTR_TYPE_CHOICE;
+	    h->attr[h->nattr].choices = v4l2_menu(h->fd, ctl);
+	    break;
+	default:
+	    return;
+	}
     } else {
-	value = c.value;
+	/* for norms + inputs */
+	h->attr[h->nattr].id      = id;
+	h->attr[h->nattr].defval  = 0;
+	h->attr[h->nattr].type    = ATTR_TYPE_CHOICE;
+	h->attr[h->nattr].choices = choices;
+    }
+    if (h->attr[h->nattr].id <= ATTR_ID_MAX)
+	h->attr[h->nattr].name = ng_attr_to_desc[id];
+    h->nattr++;
+}
+
+static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
+{
+    struct v4l2_handle *h = handle;
+    const struct v4l2_queryctrl *ctl = attr->priv;
+    struct v4l2_control c;
+    int value = 0;
+
+    if (NULL != ctl) {
+	c.id = ctl->id;
+	xioctl(h->fd,VIDIOC_S_CTRL,&c);
+	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
+	    value = v4l2_to_me(ctl,c.value);
+	} else {
+	    value = c.value;
+	}
+	
+    } else if (attr->id == ATTR_ID_NORM) {
+	/* FIXME */
+	
+    } else if (attr->id == ATTR_ID_INPUT) {
+	xioctl(h->fd,VIDIOC_G_INPUT,&value);
+
     }
     return value;
 }
 
-static void
-v4l2_setcontrol(int i, int value)
+static void v4l2_write_attr(void *handle, struct ng_attribute *attr, int value)
 {
+    struct v4l2_handle *h   = handle;
+    const struct v4l2_queryctrl *ctl = attr->priv;
     struct v4l2_control c;
 
-    if (-1 == ctl[i].id)
-	return;
-    c.id    = ctl[i].id;
-    
-    if (ctl[i].type == V4L2_CTRL_TYPE_INTEGER) {
-	c.value = (int)((float)value*(ctl[i].maximum-ctl[i].minimum)
-			/ 65536 + ctl[i].minimum);
-	if (c.value < ctl[i].minimum) c.value = ctl[i].minimum;
-	if (c.value > ctl[i].maximum) c.value = ctl[i].maximum;
-    } else {
-	c.value = value;
+    if (NULL != ctl) {
+	c.id = ctl->id;
+	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
+	    c.value = me_to_v4l2(ctl,value);
+	} else {
+	    c.value = value;
+	}
+	xioctl(h->fd,VIDIOC_S_CTRL,&c);
+	
+    } else if (attr->id == ATTR_ID_NORM) {
+	xioctl(h->fd,VIDIOC_S_STD,&h->std[value].std);
+	
+    } else if (attr->id == ATTR_ID_INPUT) {
+	xioctl(h->fd,VIDIOC_S_INPUT,&value);
+	
     }
-    if (debug)
-	fprintf(stderr,"v4l2: %s = %d [%d..%d]\n",ctl[i].name,
-		c.value,ctl[i].minimum,ctl[i].maximum);
-    if (-1 == ioctl(fd,VIDIOC_S_CTRL,&c))
-	perror("ioctl VIDIOC_S_CTRL");
-}
-
-static int
-v4l2_hasattr(int id)
-{
-    int i;
-
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == v4l2_attr[i].id)
-	    break;
-    if (i == NUM_ATTR)
-	return 0;
-    if (-1 == ctl[v4l2_attr[i].v4l2 - V4L2_CID_BASE].id)
-	return 0;
-    return 1;
-}
-
-static int
-v4l2_getattr(int id)
-{
-    int i;
-
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == v4l2_attr[i].id)
-	    break;
-    if (i == NUM_ATTR)
-	return -1;
-    return v4l2_getcontrol(v4l2_attr[i].v4l2 - V4L2_CID_BASE);
-}
-
-static int
-v4l2_setattr(int id, int val)
-{
-    int i;
-
-    for (i = 0; i < NUM_ATTR; i++)
-	if (id == v4l2_attr[i].id)
-	    break;
-    if (i == NUM_ATTR)
-	return -1;
-    v4l2_setcontrol(v4l2_attr[i].v4l2 - V4L2_CID_BASE, val);
-    return 0;
-}
-
-static unsigned long
-v4l2_tune(unsigned long freq, int sat)
-{
-    if (-1 == freq) {
-	if (-1 == ioctl(fd, VIDIOC_G_FREQ, &freq))
-	    perror("ioctl VIDIOC_G_FREQ");
-	return freq;
-    }
-    if (debug)
-	fprintf(stderr,"v4l2: freq: %.3f\n",(float)freq/16);
-    if (-1 == ioctl(fd, VIDIOC_S_FREQ, &freq))
-	perror("ioctl VIDIOC_S_FREQ");
-    return 0;
-}
-
-static int
-v4l2_tuned()
-{
-    struct v4l2_tuner tuner;
-
-    memset(&tuner,0,sizeof(tuner));
-    if (-1 == ioctl(fd,VIDIOC_G_TUNER,&tuner)) {
-	perror("ioctl VIDIOC_G_TUNER");
-	return 0;
-    }
-    if (debug)
-	fprintf(stderr,"v4l2: tuner.signal=%d\n",tuner.signal);
-    return tuner.signal ? 1 : 0;
 }
 
 /* ---------------------------------------------------------------------- */
-/* capture                                                                */
 
-/* helpers for streaming capture */
-static int
-v4l2_start_streaming(int buffers)
+static void*
+v4l2_open(char *device)
 {
+    struct v4l2_handle *h;
     int i;
-    
-    /* setup buffers */
-    str_bufdesc.count = buffers;
-    str_bufdesc.type  = V4L2_BUF_TYPE_CAPTURE;
-    if (-1 == ioctl(fd, VIDIOC_REQBUFS, &str_bufdesc)) {
-	perror("ioctl VIDIOC_REQBUFS");
-	return -1;
-    }
-#if 0
-    if (str_bufdesc.count < 2) {
-	fprintf(stderr, "error: need >= 2 buffers for streaming capture\n");
-	return -1;
-    }
-#endif
-    for (i = 0; i < str_bufdesc.count; i++) {
-	str_buffers[i].index = i;
-	str_buffers[i].type  = V4L2_BUF_TYPE_CAPTURE;
-	if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &str_buffers[i])) {
-	    perror("ioctl VIDIOC_QUERYBUF");
-	    return -1;
-	}
-	str_bufdata[i] = mmap(NULL, str_buffers[i].length,
-			      PROT_READ | PROT_WRITE, MAP_SHARED,
-			      fd, str_buffers[i].offset);
-	if ((void*)-1 == str_bufdata[i]) {
-	    perror("mmap");
-	    return -1;
-	}
-	if (debug)
-	    print_bufinfo(&str_buffers[i],str_bufdata[i]);
-    }
 
-    /* queue up all but one buffers */
-    for (i = 0; i < str_bufdesc.count-1; i++) {
-	if (-1 == ioctl(fd,VIDIOC_QBUF,&str_buffers[i])) {
-	    perror("ioctl VIDIOC_QBUF");
-	    return -1;
-	}
-    }
-    str_lastdequeued = str_bufdesc.count-1; /* the buffer that isn't queued */
-
- try_again:
-    /* turn off preview (if needed) */
-    if (preview_state && !preview_and_streaming_works) {
-	preview_reenable = 1;
-	preview_state = 0;
-	if (-1 == ioctl(fd, VIDIOC_PREVIEW, &preview_state))
-	    perror("ioctl VIDIOC_PREVIEW");
-	if (debug)
-	    fprintf(stderr,"v4l2: overlay off (start_streaming)\n");
-    }
-
-    /* start capture */
-    if (-1 == ioctl(fd,VIDIOC_STREAMON,&str_format.type)) {
-	if (preview_and_streaming_works && preview_state && errno == EBUSY) {
-	    preview_and_streaming_works = 0;
-	    goto try_again;
-	}
-	perror("ioctl VIDIOC_STREAMON");
-	return -1;
-    }
-    return 0;
-}
-
-static void
-v4l2_stop_streaming()
-{
-    int i;
-    
-    /* stop capture */
-    if (-1 == ioctl(fd,VIDIOC_STREAMOFF,&str_format.type))
-	perror("ioctl VIDIOC_STREAMOFF");
-    
-    /* free buffers */
-    for (i = 0; i < str_bufdesc.count; i++) {
-	if (-1 == munmap(str_bufdata[i],str_buffers[i].length))
-	    perror("munmap");
-    }
-
-    /* turn on preview (if needed) */
-    if (preview_reenable) {
-	preview_reenable = 0;
-	preview_state = 1;
-	if (-1 == ioctl(fd, VIDIOC_PREVIEW, &preview_state))
-	    perror("ioctl VIDIOC_PREVIEW");
-	if (debug)
-	    fprintf(stderr,"v4l2: overlay on (stop_streaming)\n");
-    }
-}
-
-static unsigned char *
-v4l2_get_streaming(int *size)
-{
-    struct v4l2_buffer buf;
-    struct timeval tv;
-    fd_set rdset;
-
-    /* queue up the free buffer */
-    if (-1 == ioctl(fd,VIDIOC_QBUF,&str_buffers[str_lastdequeued])) {
-	perror("ioctl VIDIOC_QBUF");
+    h = malloc(sizeof(*h));
+    if (NULL == h)
 	return NULL;
-    }
-
-    /* wait for the next one */
-    tv.tv_sec  = 1;
-    tv.tv_usec = 0;
-    FD_ZERO(&rdset);
-    FD_SET(fd, &rdset);
-    switch (select(fd + 1, &rdset, NULL, NULL, &tv)) {
-    case -1: perror("v4l2: select"); break;
-    case  0: fprintf(stderr,"v4l2: oops: select timeout\n"); break;
-    }
-
-    /* get it */
-    memset(&buf,0,sizeof(buf));
-    buf.type = V4L2_BUF_TYPE_CAPTURE;
-    if (-1 == ioctl(fd,VIDIOC_DQBUF,&buf)) {
-	perror("ioctl VIDIOC_DQBUF");
-	return NULL;
-    }
-    if (debug > 1)
-	print_bufinfo(&buf,NULL);	
-    *size = buf.bytesused;
-    str_lastdequeued = buf.index; /* queue this one up next time */
-
-    return str_bufdata[buf.index];
-}
-
-/* set capture parameters */
-static int
-v4l2_setparm(int format, int *width, int *height, int *linelength)
-{
-    if (str_fps) {
-	if (debug)
-	    fprintf(stderr,"v4l2: stopping streaming capture\n");
-	v4l2_stop_streaming();
-	str_fps = 0;
-    }
-    if (read_buf)
-	free(read_buf);
-    read_buf = NULL;
+    memset(h,0,sizeof(*h));
     
-    str_format.type = V4L2_BUF_TYPE_CAPTURE;
-    str_format.fmt.pix.pixelformat  = xawtv_pixelformat[format];
-    str_format.fmt.pix.flags        = V4L2_FMT_FLAG_INTERLACED;
-    str_format.fmt.pix.depth        = ng_vfmt_to_depth[format];
-    str_format.fmt.pix.width        = *width;
-    str_format.fmt.pix.height       = *height;
-    str_format.fmt.pix.bytesperline = *linelength;
-
-    if (-1 == ioctl(fd, VIDIOC_S_FMT, &str_format)) {
-	perror("ioctl VIDIOC_S_FMT");
-	return -1;
+    grabber_run_v4l_conf();
+    if (-1 == (h->fd = open(device,O_RDWR))) {
+	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
+	goto err;
     }
-    if (str_format.fmt.pix.pixelformat != xawtv_pixelformat[format])
-	return -1;
-    *width      = str_format.fmt.pix.width;
-    *height     = str_format.fmt.pix.height;
-    *linelength = str_format.fmt.pix.bytesperline;
+
+    if (-1 == ioctl(h->fd,VIDIOC_QUERYCAP,&h->cap))
+	goto err;
     if (debug)
-	fprintf(stderr,"v4l2: new capture params (%dx%d, %c%c%c%c, %d byte)\n",
-		*width,*height,
-		str_format.fmt.pix.pixelformat & 0xff,
-		(str_format.fmt.pix.pixelformat >>  8) & 0xff,
-		(str_format.fmt.pix.pixelformat >> 16) & 0xff,
-		(str_format.fmt.pix.pixelformat >> 24) & 0xff,
-		str_format.fmt.pix.sizeimage);
+	fprintf(stderr, "v4l2: open\n");
+    fcntl(h->fd,F_SETFD,FD_CLOEXEC);
+    fprintf(stderr,"v4l2: device is %s\n",h->cap.name);
+
+    get_device_capabilities(h);
+    if (debug)
+	print_device_capabilities(h);
+
+    /* attributes */
+    v4l2_add_attr(h, NULL, ATTR_ID_NORM,  build_norms(h));
+    v4l2_add_attr(h, NULL, ATTR_ID_INPUT, build_inputs(h));
+    for (i = 0; i < MAX_CTRL*2; i++) {
+	if (h->ctl[i].id == -1)
+	    continue;
+	v4l2_add_attr(h, &h->ctl[i], 0, NULL);
+    }
+
+    return h;
+
+ err:
+    if (h->fd != -1)
+	close(h->fd);
+    if (h)
+	free(h);
+    return NULL;
+}
+
+static int
+v4l2_close(void *handle)
+{
+    struct v4l2_handle *h = handle;
+
+    if (debug)
+	fprintf(stderr, "v4l2: close\n");
+
+    close(h->fd);
+    free(h);
     return 0;
 }
 
-static void
-v4l2_start(int fps, int buffers)
+static int v4l2_flags(void *handle)
 {
-    if (cap.flags & V4L2_FLAG_STREAMING) {
-	if (str_fps) {
-	    fprintf(stderr,"v4l2_start: aiee: str_fps!=0\n");
-	    exit(1);
-	}
-	str_fps = fps;
-	v4l2_start_streaming(buffers);
-    }
+    struct v4l2_handle *h = handle;
+    int ret = 0;
+
+    if (h->cap.flags & V4L2_FLAG_PREVIEW &&
+	!h->ov_error)
+	ret |= CAN_OVERLAY;
+    if (h->cap.flags & V4L2_FLAG_STREAMING ||
+	h->cap.flags & V4L2_FLAG_READ)
+	ret |= CAN_CAPTURE;
+    if (h->cap.flags & V4L2_FLAG_TUNER)
+	ret |= CAN_TUNE;
+    return ret;
 }
 
-/* do simple capture with read() */
-static void*
-v4l2_capture()
+static struct ng_attribute* v4l2_attrs(void *handle)
 {
-    int rc;
-
-    if (NULL == read_buf)
-	read_buf = malloc(str_format.fmt.pix.sizeimage);
-    if (str_format.fmt.pix.sizeimage != 
-	(rc=read(fd,read_buf,str_format.fmt.pix.sizeimage))) {
-	if (-1 == rc) {
-	    perror("read");
-	    return NULL;
-	} else {
-	    fprintf(stderr,"read error: got %d bytes (expected %d)\n",
-		    rc, str_format.fmt.pix.sizeimage);
-	    return NULL;
-	}
-    }
-    return read_buf;
+    struct v4l2_handle *h = handle;
+    return h->attr;
 }
 
-/* do streaming capture */
-static void*
-v4l2_streaming()
-{
-    int  size;
-    char *frame;
+/* ---------------------------------------------------------------------- */
 
-    if (0 == str_fps) {
-	/* single frame */
-	if (NULL == read_buf)
-	    read_buf = malloc(str_format.fmt.pix.sizeimage);
-	v4l2_start_streaming(1);
-	frame = v4l2_get_streaming(&size);
-	memcpy(read_buf,frame,str_format.fmt.pix.sizeimage);
-	v4l2_stop_streaming(); /* this unmaps the memory frame points to */
-	return read_buf;
-    } else {
-	return v4l2_get_streaming(&size);
-    }
+static unsigned long
+v4l2_getfreq(void *handle)
+{
+    struct v4l2_handle *h = handle;
+    unsigned long freq;
+
+    xioctl(h->fd, VIDIOC_G_FREQ, &freq);
+    return freq;
 }
 
 static void
-v4l2_stop()
+v4l2_setfreq(void *handle, unsigned long freq)
 {
-    if (cap.flags & V4L2_FLAG_STREAMING) {
-	if (!str_fps) {
-	    fprintf(stderr,"v4l2_stop: aiee: grab_fps==0\n");
-	    exit(1);
-	}
-	v4l2_stop_streaming();
-	str_fps = 0;
-    }
-    if (read_buf) {
-	free(read_buf);
-	read_buf = NULL;
-    }
+    struct v4l2_handle *h = handle;
+
+    if (debug)
+	fprintf(stderr,"v4l2: freq: %.3f\n",(float)freq/16);
+    xioctl(h->fd, VIDIOC_S_FREQ, &freq);
+}
+
+static int
+v4l2_tuned(void *handle)
+{
+    struct v4l2_handle *h = handle;
+    struct v4l2_tuner tuner;
+
+    usleep(10000);
+    if (-1 == xioctl(h->fd,VIDIOC_G_TUNER,&tuner))
+	return 0;
+    return tuner.signal ? 1 : 0;
 }
 
 /* ---------------------------------------------------------------------- */
 /* overlay                                                                */
 
-static struct v4l2_framebuffer ov_fb;
-static struct v4l2_window      ov_win;
-static struct v4l2_clip        ov_clips[256];
-
 static int
-v4l2_setupfb(int sw, int sh, int format, void *base, int bpl)
+v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 {
-    if (!(cap.flags & V4L2_FLAG_PREVIEW))
-	return -1;
+    struct v4l2_handle *h = handle;
 
-    if (-1 == ioctl(fd, VIDIOC_G_FBUF, &ov_fb)) {
+    if (-1 == ioctl(h->fd, VIDIOC_G_FBUF, &h->ov_fb)) {
 	perror("ioctl VIDIOC_G_FBUF");
 	return -1;
     }
-#if 0
-    /* v4l-conf must do: -EPERM ... */
-    if (have_dga && base)
-	ov_fb.base[0] = base;
-    ov_fb.fmt.width       = sw;
-    ov_fb.fmt.height      = sh;
-    ov_fb.fmt.pixelformat = xawtv_pixelformat[format];
-    ov_fb.fmt.depth       = format2depth[format];
-    if (bpl) {
-	ov_fb.fmt.flags |= V4L2_FMT_FLAG_BYTESPERLINE;
-	ov_fb.fmt.bytesperline = bpl;
-    }
-    /* without X-Server help we can DMA only directly to the screen */
-    ov_fb.flags = V4L2_FBUF_FLAG_PRIMARY;
-    if (-1 == ioctl(fd, VIDIOC_S_FBUF, &ov_fb)) {
-	perror("ioctl VIDIOC_S_FBUF");
-    }
-    if (-1 == ioctl(fd, VIDIOC_G_FBUF, &ov_fb)) {
-	perror("ioctl VIDIOC_G_FBUF");
-	return -1;
-    }
-#endif
     if (1 /* debug */)
-	print_fbinfo(&ov_fb);
+	print_fbinfo(&h->ov_fb);
 
     /* double-check settings */
-    if (have_dga && ov_fb.base[0] != base) {
+    if (have_dga && h->ov_fb.base[0] != base) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer base address mismatch\n");
-	fprintf(stderr,"v4l2: %p %p\n",base,ov_fb.base);
+	fprintf(stderr,"v4l2: %p %p\n",base,h->ov_fb.base);
+	h->ov_error = 1;
 	return -1;
     }
-    if (ov_fb.fmt.width != sw || ov_fb.fmt.height != sh) {
+    if (h->ov_fb.fmt.width  != fmt->width ||
+	h->ov_fb.fmt.height != fmt->height) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer size mismatch\n");
+	h->ov_error = 1;
 	return -1;
     }
-    if ((ov_fb.fmt.flags & V4L2_FMT_FLAG_BYTESPERLINE) &&
-	bpl > 0 && (ov_fb.fmt.bytesperline != bpl)) {
+    if ((h->ov_fb.fmt.flags & V4L2_FMT_FLAG_BYTESPERLINE) &&
+	fmt->bytesperline >  0 &&
+	fmt->bytesperline != h->ov_fb.fmt.bytesperline) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer bpl mismatch\n");
+	h->ov_error = 1;
 	return -1;
     }
-    if (ov_fb.fmt.pixelformat != xawtv_pixelformat[format]) {
+    if (h->ov_fb.fmt.pixelformat != xawtv_pixelformat[fmt->fmtid]) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer format mismatch\n");
+	h->ov_error = 1;
 	return -1;
     }
-
-    grab_v4l2.grab_overlay = v4l2_overlay;
     return 0;
 }
 
-static int v4l2_overlay(int x, int y, int width, int height, int format,
-			struct OVERLAY_CLIP *oc, int count)
+static int
+v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
+	     struct OVERLAY_CLIP *oc, int count)
 {
+    struct v4l2_handle *h = handle;
     int i,xadjust=0,yadjust=0;
+
+    if (h->ov_error)
+	return -1;
     
-    if (width == 0 || height == 0) {
+    if (NULL == fmt) {
 	if (debug)
 	    fprintf(stderr,"v4l2: overlay off\n");
-	preview_state = 0;
-	if (-1 == ioctl(fd, VIDIOC_PREVIEW, &preview_state))
-	    perror("ioctl VIDIOC_PREVIEW");
+	h->ov_enabled = 0;
+	h->ov_on = 0;
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
 	return 0;
     }
 
     if (debug)
 	fprintf(stderr,"v4l2: overlay win=%dx%d+%d+%d, %d clips\n",
-		width,height,x,y,count);
-    ov_win.x          = x;
-    ov_win.y          = y;
-    ov_win.width      = width;
-    ov_win.height     = height;
+		fmt->width,fmt->height,x,y,count);
+    h->ov_win.x          = x;
+    h->ov_win.y          = y;
+    h->ov_win.width      = fmt->width;
+    h->ov_win.height     = fmt->height;
 
     /* check against max. size */
-    ioctl(fd,VIDIOC_QUERYCAP,&cap);
-    if (ov_win.width > cap.maxwidth) {
-	ov_win.width = cap.maxwidth;
-	ov_win.x += (width - ov_win.width)/2;
+    ioctl(h->fd,VIDIOC_QUERYCAP,&h->cap);
+    if (h->ov_win.width > h->cap.maxwidth) {
+	h->ov_win.width = h->cap.maxwidth;
+	h->ov_win.x += (fmt->width - h->ov_win.width)/2;
     }
-    if (ov_win.height > cap.maxheight) {
-	ov_win.height = cap.maxheight;
-	ov_win.y +=  (height - ov_win.height)/2;
+    if (h->ov_win.height > h->cap.maxheight) {
+	h->ov_win.height = h->cap.maxheight;
+	h->ov_win.y +=  (fmt->height - h->ov_win.height)/2;
     }
-    grabber_fix_ratio(&ov_win.width,&ov_win.height,&ov_win.x,&ov_win.y);
+    grabber_fix_ratio(&h->ov_win.width,&h->ov_win.height,
+		      &h->ov_win.x,&h->ov_win.y);
 
     /* fixups */
-    xadjust = ov_win.x - x;
-    yadjust = ov_win.y - y;
+    xadjust = h->ov_win.x - x;
+    yadjust = h->ov_win.y - y;
 
-    if (ov_fb.capability & V4L2_FBUF_CAP_CLIPPING) {
-	ov_win.clips      = ov_clips;
-	ov_win.clipcount  = count;
+    if (h->ov_fb.capability & V4L2_FBUF_CAP_CLIPPING) {
+	h->ov_win.clips      = h->ov_clips;
+	h->ov_win.clipcount  = count;
 	
 	for (i = 0; i < count; i++) {
-	    ov_clips[i].next   = (i+1 == count) ? NULL : &ov_clips[i+1];
-	    ov_clips[i].x      = oc[i].x1 - xadjust;
-	    ov_clips[i].y      = oc[i].y1 - yadjust;
-	    ov_clips[i].width  = oc[i].x2-oc[i].x1;
-	    ov_clips[i].height = oc[i].y2-oc[i].y1;
+	    h->ov_clips[i].next   = (i+1 == count) ? NULL : &h->ov_clips[i+1];
+	    h->ov_clips[i].x      = oc[i].x1 - xadjust;
+	    h->ov_clips[i].y      = oc[i].y1 - yadjust;
+	    h->ov_clips[i].width  = oc[i].x2-oc[i].x1;
+	    h->ov_clips[i].height = oc[i].y2-oc[i].y1;
 	    if (debug)
 		fprintf(stderr,"v4l2: clip=%dx%d+%d+%d\n",
-			ov_clips[i].width,ov_clips[i].height,
-			ov_clips[i].x,ov_clips[i].y);
+			h->ov_clips[i].width,h->ov_clips[i].height,
+			h->ov_clips[i].x,h->ov_clips[i].y);
 	}
     }
-    if (ov_fb.flags & V4L2_FBUF_FLAG_CHROMAKEY) {
-	ov_win.chromakey  = 0;    /* FIXME */
+#if 0
+    if (h->ov_fb.flags & V4L2_FBUF_FLAG_CHROMAKEY) {
+	h->ov_win.chromakey  = 0;    /* FIXME */
     }
-    if (-1 == ioctl(fd, VIDIOC_S_WIN, &ov_win))
-	perror("ioctl VIDIOC_S_WIN");
+#endif
+    xioctl(h->fd, VIDIOC_S_WIN, &h->ov_win);
 
-    preview_state = 1;
-    if (-1 == ioctl(fd, VIDIOC_PREVIEW, &preview_state))
-	perror("ioctl VIDIOC_PREVIEW");
+    h->ov_enabled = 1;
+    h->ov_on = 1;
+    xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
 
     return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* capture helpers                                                        */
+
+static int
+v4l2_queue_buffer(struct v4l2_handle *h)
+{
+    int frame = h->queue % h->reqbufs.count;
+    int rc;
+
+    if (0 != h->buf_me[frame].refcount) {
+	if (0 == h->queue - h->waiton)
+	    fprintf(stderr,"v4l2: oops: out of free buffers\n");
+	return -1;
+    }
+
+    rc = xioctl(h->fd,VIDIOC_QBUF,&h->buf_v4l2[frame]);
+    if (0 == rc)
+	h->queue++;
+    return rc;
+}
+
+static void
+v4l2_queue_all(struct v4l2_handle *h)
+{
+    for (;;) {
+	if (h->queue - h->waiton >= h->reqbufs.count)
+	    return;
+	if (0 != v4l2_queue_buffer(h))
+	    return;
+    }
+}
+
+static int
+v4l2_waiton(struct v4l2_handle *h)
+{
+    struct v4l2_buffer buf;
+    struct timeval tv;
+    fd_set rdset;
+    
+    /* wait for the next frame */
+    tv.tv_sec  = 1;
+    tv.tv_usec = 0;
+    FD_ZERO(&rdset);
+    FD_SET(h->fd, &rdset);
+    switch (select(h->fd + 1, &rdset, NULL, NULL, &tv)) {
+    case -1:
+	perror("v4l2: select");
+	return -1;
+    case  0:
+	fprintf(stderr,"v4l2: oops: select timeout\n");
+	return -1;
+    }
+
+    /* get it */
+    memset(&buf,0,sizeof(buf));
+    buf.type = V4L2_BUF_TYPE_CAPTURE;
+    if (-1 == xioctl(h->fd,VIDIOC_DQBUF,&buf))
+	return -1;
+    h->waiton++;
+    h->buf_v4l2[buf.index] = buf;
+    return buf.index;
+}
+
+static int
+v4l2_start_streaming(struct v4l2_handle *h, int buffers)
+{
+    int disable_overlay = 0;
+    int i;
+    
+    /* setup buffers */
+    h->reqbufs.count = buffers;
+    h->reqbufs.type  = V4L2_BUF_TYPE_CAPTURE;
+    if (-1 == xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs))
+	return -1;
+    for (i = 0; i < h->reqbufs.count; i++) {
+	h->buf_v4l2[i].index = i;
+	h->buf_v4l2[i].type  = V4L2_BUF_TYPE_CAPTURE;
+	if (-1 == ioctl(h->fd, VIDIOC_QUERYBUF, &h->buf_v4l2[i]))
+	    return -1;
+	h->buf_me[i].fmt  = h->fmt_me;
+	h->buf_me[i].size = h->buf_v4l2[i].length;
+	h->buf_me[i].data = mmap(NULL, h->buf_me[i].size,
+				 PROT_READ | PROT_WRITE, MAP_SHARED,
+				 h->fd, h->buf_v4l2[i].offset);
+	if ((void*)-1 == h->buf_me[i].data) {
+	    perror("mmap");
+	    return -1;
+	}
+	if (debug)
+	    print_bufinfo(&h->buf_v4l2[i]);
+    }
+
+    /* queue up all but one buffers */
+    v4l2_queue_all(h);
+
+ try_again:
+    /* turn off preview (if needed) */
+    if (disable_overlay) {
+	h->ov_on = 0;
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+	if (debug)
+	    fprintf(stderr,"v4l2: overlay off (start_streaming)\n");
+    }
+
+    /* start capture */
+    if (-1 == xioctl(h->fd,VIDIOC_STREAMON,&h->fmt_v4l2.type)) {
+	if (h->ov_on && errno == EBUSY) {
+	    disable_overlay = 1;
+	    goto try_again;
+	}
+	return -1;
+    }
+    return 0;
+}
+
+static void
+v4l2_stop_streaming(struct v4l2_handle *h)
+{
+    int i;
+    
+    /* stop capture */
+    if (-1 == ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
+	perror("ioctl VIDIOC_STREAMOFF");
+    
+    /* free buffers */
+    for (i = 0; i < h->reqbufs.count; i++) {
+	if (-1 == munmap(h->buf_me[i].data,h->buf_me[i].size))
+	    perror("munmap");
+    }
+    h->queue = 0;
+    h->waiton = 0;
+
+    /* turn on preview (if needed) */
+    if (h->ov_on != h->ov_enabled) {
+	h->ov_on = h->ov_enabled;
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+	if (debug)
+	    fprintf(stderr,"v4l2: overlay on (stop_streaming)\n");
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* capture interface                                                      */
+
+/* set capture parameters */
+static int
+v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
+{
+    struct v4l2_handle *h = handle;
+    
+    h->fmt_v4l2.type = V4L2_BUF_TYPE_CAPTURE;
+    h->fmt_v4l2.fmt.pix.pixelformat  = xawtv_pixelformat[fmt->fmtid];
+    h->fmt_v4l2.fmt.pix.flags        = V4L2_FMT_FLAG_INTERLACED;
+    h->fmt_v4l2.fmt.pix.depth        = ng_vfmt_to_depth[fmt->fmtid];
+    h->fmt_v4l2.fmt.pix.width        = fmt->width;
+    h->fmt_v4l2.fmt.pix.height       = fmt->height;
+    h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
+
+    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2))
+	return -1;
+    if (h->fmt_v4l2.fmt.pix.pixelformat != xawtv_pixelformat[fmt->fmtid])
+	return -1;
+    fmt->width        = h->fmt_v4l2.fmt.pix.width;
+    fmt->height       = h->fmt_v4l2.fmt.pix.height;
+    fmt->bytesperline = h->fmt_v4l2.fmt.pix.bytesperline;
+    h->fmt_me = *fmt;
+    if (debug)
+	fprintf(stderr,"v4l2: new capture params (%dx%d, %c%c%c%c, %d byte)\n",
+		fmt->width,fmt->height,
+		h->fmt_v4l2.fmt.pix.pixelformat & 0xff,
+		(h->fmt_v4l2.fmt.pix.pixelformat >>  8) & 0xff,
+		(h->fmt_v4l2.fmt.pix.pixelformat >> 16) & 0xff,
+		(h->fmt_v4l2.fmt.pix.pixelformat >> 24) & 0xff,
+		h->fmt_v4l2.fmt.pix.sizeimage);
+    return 0;
+}
+
+/* start/stop video */
+static int
+v4l2_startvideo(void *handle, int fps, int buffers)
+{
+    struct v4l2_handle *h = handle;
+
+    if (0 != h->fps)
+	fprintf(stderr,"v4l2_startvideo: oops: fps!=0\n");
+    h->fps = fps;
+    h->frames = 0;
+    gettimeofday(&h->start,NULL);
+
+    if (h->cap.flags & V4L2_FLAG_STREAMING)
+	v4l2_start_streaming(h,buffers);
+    return 0;
+}
+
+static void
+v4l2_stopvideo(void *handle)
+{
+    struct v4l2_handle *h = handle;
+
+    if (0 == h->fps)
+	fprintf(stderr,"v4l2_stopvideo: oops: fps==0\n");
+    h->fps = 0;
+
+    if (h->cap.flags & V4L2_FLAG_STREAMING)
+	v4l2_stop_streaming(h);
+}
+
+/* read images */
+static struct ng_video_buf*
+v4l2_nextframe(void *handle)
+{
+    struct v4l2_handle *h = handle;
+    struct ng_video_buf *buf = NULL;
+    int size,frame = 0;
+
+    for (;;) {
+	if (h->cap.flags & V4L2_FLAG_STREAMING) {
+	    v4l2_queue_all(h);
+	    frame = v4l2_waiton(h);
+	    if (-1 == frame)
+		return NULL;
+	    h->buf_me[frame].refcount++;
+	    buf = &h->buf_me[frame];
+	} else {
+	    size = h->fmt_me.bytesperline * h->fmt_me.height;
+	    buf = ng_malloc_video_buf(&h->fmt_me,size);
+	    if (size != read(h->fd,buf->data,size)) {
+		ng_release_video_buf(buf);
+		return NULL;
+	    }
+	}
+
+	/* rate control -- FIXME: use timecode instead */
+	if (grabber_sw_rate(&h->start,h->fps,h->frames) > 0)
+	    break;
+	
+	if (h->cap.flags & V4L2_FLAG_STREAMING) {
+	    h->buf_me[frame].refcount--;
+	} else {
+	    ng_release_video_buf(buf);
+	}
+    }
+    h->frames++;
+    return buf;
+}
+
+static struct ng_video_buf*
+v4l2_getimage(void *handle)
+{
+    struct v4l2_handle *h = handle;
+    struct ng_video_buf *buf; 
+    int size,frame;
+
+    size = h->fmt_me.bytesperline * h->fmt_me.height;
+    buf = ng_malloc_video_buf(&h->fmt_me,size);
+    if (h->cap.flags & V4L2_FLAG_READ) {
+	if (size != read(h->fd,buf->data,size)) {
+	    ng_release_video_buf(buf);
+	    return NULL;
+	}
+    } else {
+	v4l2_start_streaming(h,1);
+	frame = v4l2_waiton(h);
+	if (-1 == frame) {
+	    v4l2_stop_streaming(h);
+	    return NULL;
+	}
+	memcpy(buf->data,h->buf_me[0].data,size);
+	v4l2_stop_streaming(h);
+    }
+    return buf;
 }
 
 #endif /* __linux__ */

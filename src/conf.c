@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <pthread.h>
 #include <sys/time.h>
 
 #include "config.h"

@@ -68,6 +68,8 @@ extern const unsigned int   ng_afmt_to_channels[];
 extern const unsigned int   ng_afmt_to_bits[];
 extern const char*          ng_afmt_to_desc[];
 
+extern const char*          ng_attr_to_desc[];
+
 /* --------------------------------------------------------------------- */
 
 struct STRTAB {
@@ -164,12 +166,12 @@ struct ng_writer {
 /* attributes                                                            */
 
 struct ng_attribute {
-    int             id;
-    char            *name;
-    int             type;
-    int             defval;
-    struct STRTAB   *choices;
-    void            *priv;
+    int                  id;
+    const char           *name;
+    int                  type;
+    int                  defval;
+    struct STRTAB        *choices;
+    const void           *priv;
 };
 
 struct ng_attribute* ng_attr_byid(struct ng_attribute *attrs, int id);

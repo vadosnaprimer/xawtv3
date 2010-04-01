@@ -238,7 +238,10 @@ movie_writer_init(char *moviename, char *audioname,
     h->afmt = *audio;
 
     /* video */
-    ng_grabber_setparams(video,0,0);
+    if (-1 == ng_grabber_setparams(video,0,0)) {
+	free(h);
+	return NULL;
+    }
     fifo_init(&h->vfifo,"video",slots);
     pthread_create(&h->tvideo,NULL,writer_video_thread,h);
     h->vfmt = *video;
@@ -261,6 +264,7 @@ movie_writer_init(char *moviename, char *audioname,
     }
     pthread_cancel(h->tvideo);
     pthread_join(h->tvideo,&dummy);
+    free(h);
 
     return NULL;
 }

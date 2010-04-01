@@ -21,8 +21,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 
-#include <asm/types.h>          /* XXX glibc */
-#include "videodev.h"
+#include <linux/videodev.h>
 
 #define DEVICE "/dev/radio"              /* major=81, minor=64 */
 

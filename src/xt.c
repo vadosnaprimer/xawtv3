@@ -73,7 +73,11 @@ XtResource args_desc[] = {
 	"device",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,device),
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+	XtRString, "/dev/bktr0"
+#else
 	XtRString, "/dev/video"
+#endif
     },{
 	"basename",
 	XtCString, XtRString, sizeof(char*),
@@ -280,11 +284,12 @@ grabber_init()
 {
     struct ng_video_fmt screen;
     void *base = NULL;
-#ifdef HAVE_LIBXXF86DGA
-    int bar,fred;
 
+    memset(&screen,0,sizeof(screen));
+#ifdef HAVE_LIBXXF86DGA
     if (have_dga) {
-	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
+	int bar,fred;
+    	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
 			  &screen.bytesperline,&bar,&fred);
     }
 #endif
@@ -292,10 +297,10 @@ grabber_init()
 	fprintf(stderr,"x11: remote display (overlay disabled)\n");
 	drv = ng_grabber_open(args.device, NULL, base, &h_drv);
     } else {
-	memset(&screen,0,sizeof(screen));
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
 	screen.fmtid  = x11_native_format;
+	screen.bytesperline *= ng_vfmt_to_depth[x11_native_format]/8;
 	fprintf(stderr,"x11: %dx%d, %d bit/pixel, %d byte/scanline%s%s\n",
 		screen.width,screen.height,
 		ng_vfmt_to_depth[screen.fmtid],
@@ -315,13 +320,9 @@ grabber_init()
 void
 x11_check_remote()
 {
-#ifdef HAVE_GETNAMEINFO
+#if defined(HAVE_GETNAMEINFO) && defined(HAVE_SOCKADDR_STORAGE)
     int fd = ConnectionNumber(dpy);
-#ifdef HAVE_SOCKADDR_STORAGE
     struct sockaddr_storage ss;
-#else
-    struct sockaddr ss;
-#endif
     char me[INET6_ADDRSTRLEN+1];
     char peer[INET6_ADDRSTRLEN+1];
     char port[17];
@@ -339,6 +340,13 @@ x11_check_remote()
     if (debug)
 	fprintf(stderr,"*");
 
+    /* catch unix sockets on FreeBSD */
+    if (0 == length) {
+	if (debug)
+	    fprintf(stderr, " ok (unix socket)\n");
+	return;
+    }
+    
     getnameinfo((struct sockaddr*)&ss,length,
 		me,INET6_ADDRSTRLEN,port,16,
 		NI_NUMERICHOST | NI_NUMERICSERV);
@@ -450,7 +458,7 @@ static void
 mouse_timeout(XtPointer clientData, XtIntervalId *id)
 {
     Widget widget = clientData;
-    if (debug)
+    if (debug > 1)
 	fprintf(stderr,"xt: pointer hide\n");
     if (XtWindow(widget))
 	XDefineCursor(dpy, XtWindow(widget), no_ptr);
@@ -462,7 +470,7 @@ void
 mouse_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
     if (!mouse_visible) {
-	if (debug)
+	if (debug > 1)
 	    fprintf(stderr,"xt: pointer show\n");
 	if (XtWindow(widget))
 	    XDefineCursor(dpy, XtWindow(widget), left_ptr);

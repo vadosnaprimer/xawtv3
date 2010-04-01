@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
@@ -98,22 +99,21 @@ static const struct XVATTR {
     int   id;
     int   type;
     char  *atom;
-    char  *name;
 } xvattr[] = {
-    { ATTR_ID_COLOR,    ATTR_TYPE_INTEGER, "XV_COLOR"       "color"    },
-    { ATTR_ID_HUE,      ATTR_TYPE_INTEGER, "XV_HUE",        "hue"      },
-    { ATTR_ID_BRIGHT,   ATTR_TYPE_INTEGER, "XV_BRIGHTNESS", "bright"   },
-    { ATTR_ID_CONTRAST, ATTR_TYPE_INTEGER, "XV_CONTRAST",   "contrast" },
-    { ATTR_ID_MUTE,     ATTR_TYPE_BOOL,    "XV_MUTE",       "mute"     },
-    { ATTR_ID_VOLUME,   ATTR_TYPE_INTEGER, "XV_VOLUME",     "volume"   },
-    { -1,               -1,                "XV_COLORKEY",   NULL       },
-    { -1,               -1,                "XV_FREQ",       NULL       },
-    { -1,               -1,                "XV_ENCODING",   NULL       },
+    { ATTR_ID_COLOR,    ATTR_TYPE_INTEGER, "XV_COLOR"       },
+    { ATTR_ID_HUE,      ATTR_TYPE_INTEGER, "XV_HUE",        },
+    { ATTR_ID_BRIGHT,   ATTR_TYPE_INTEGER, "XV_BRIGHTNESS", },
+    { ATTR_ID_CONTRAST, ATTR_TYPE_INTEGER, "XV_CONTRAST",   },
+    { ATTR_ID_MUTE,     ATTR_TYPE_BOOL,    "XV_MUTE",       },
+    { ATTR_ID_VOLUME,   ATTR_TYPE_INTEGER, "XV_VOLUME",     },
+    { -1,               -1,                "XV_COLORKEY",   },
+    { -1,               -1,                "XV_FREQ",       },
+    { -1,               -1,                "XV_ENCODING",   },
     {}
 };
 
 static void
-xv_add_attr(struct xv_handle *h, int id, int type, char *name,
+xv_add_attr(struct xv_handle *h, int id, int type,
 	    int defval, struct STRTAB *choices, XvAttribute *at)
 {
     int i;
@@ -125,13 +125,11 @@ xv_add_attr(struct xv_handle *h, int id, int type, char *name,
 	for (i = 0; xvattr[i].atom != NULL; i++)
 	    if (0 == strcmp(xvattr[i].atom,at->name))
 		break;
-	if (NULL == xvattr[i].name)
+	if (-1 == xvattr[i].type)
 	    /* ignore this one*/
 	    return;
 	if (NULL != xvattr[i].atom) {
 	    h->attr[h->nattr].id      = xvattr[i].id;
-	    h->attr[h->nattr].type    = xvattr[i].type;
-	    h->attr[h->nattr].name    = xvattr[i].name;
 	    h->attr[h->nattr].priv    = at;
 	} else {
 	    /* unknown */
@@ -143,20 +141,20 @@ xv_add_attr(struct xv_handle *h, int id, int type, char *name,
 	h->attr[h->nattr].id      = id;
     if (type)
 	h->attr[h->nattr].type    = type;
-    if (name)
-	h->attr[h->nattr].name    = name;
     if (defval)
 	h->attr[h->nattr].defval  = defval;
     if (choices)
 	h->attr[h->nattr].choices = choices;
+    if (id <= ATTR_ID_MAX)
+	h->attr[h->nattr].name    = ng_attr_to_desc[id];
 
     h->nattr++;
 }
 
 static int xv_read_attr(void *handle, struct ng_attribute *attr)
 {
-    struct xv_handle *h  = handle;
-    XvAttribute      *at = attr->priv;
+    struct xv_handle *h   = handle;
+    const XvAttribute *at = attr->priv;
     Atom atom;
     int range, value = 0;
 
@@ -184,8 +182,8 @@ static int xv_read_attr(void *handle, struct ng_attribute *attr)
 
 static void xv_write_attr(void *handle, struct ng_attribute *attr, int value)
 {
-    struct xv_handle *h  = handle;
-    XvAttribute      *at = attr->priv;
+    struct xv_handle *h   = handle;
+    const XvAttribute *at = attr->priv;
     Atom atom;
     int range,i;
 
@@ -452,13 +450,13 @@ void xv_init(int xvideo, int hwscale, int port)
             if (0 == strcmp("XV_COLORKEY",at[i].name))
                 handle->xv_colorkey = XInternAtom(dpy, "XV_COLORKEY", False);
 #endif
-	    xv_add_attr(handle, 0, 0, NULL, 0, NULL, at+i);
+	    xv_add_attr(handle, 0, 0, 0, NULL, at+i);
 	}
 
 	if (handle->xv_encoding != None) {
-	    xv_add_attr(handle, ATTR_ID_NORM, ATTR_TYPE_CHOICE, "norm",
+	    xv_add_attr(handle, ATTR_ID_NORM, ATTR_TYPE_CHOICE,
 			0, norms, NULL);
-	    xv_add_attr(handle, ATTR_ID_INPUT, ATTR_TYPE_CHOICE, "input",
+	    xv_add_attr(handle, ATTR_ID_INPUT, ATTR_TYPE_CHOICE,
 			0, inputs, NULL);
 	}
 #if 0

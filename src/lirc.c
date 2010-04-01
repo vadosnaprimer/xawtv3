@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include "config.h"
 

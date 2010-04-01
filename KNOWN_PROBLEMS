@@ -7,6 +7,8 @@ this myself.  According to a report I've received upgrading Xfree86 to
 4.0 fixed this.  Probaby xawtv does'nt work with 3.3.x libraries if it
 was compiled against the 4.0.x versions.
 
+Compiling xawtv without DGA support seems to fix this too.
+
 -- 
 
 libXaw3d is buggy.  It bombs when xawtv wants to use a visual with a

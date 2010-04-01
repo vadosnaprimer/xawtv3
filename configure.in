@@ -31,6 +31,14 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 
+dnl ---------------------------------------------------------------------
+dnl Check if we better include /usr/local into include+lib path.
+dnl Linux tends to have everything in /usr, BSD needs /usr/local
+
+if test -f "/usr/local/lib/libjpeg.a"; then
+	CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
+fi
+
 
 dnl ---------------------------------------------------------------------
 dnl Checks for functions

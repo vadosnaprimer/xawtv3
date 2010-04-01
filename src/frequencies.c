@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "frequencies.h"
 #include "grab-ng.h"

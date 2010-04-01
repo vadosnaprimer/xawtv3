@@ -753,6 +753,7 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class)
     sheight = SCREEN(parent)->height;
 
     x11_native_format = x11_init(XtDisplay(parent),vinfo);
+    wfmt.fmtid = x11_native_format;
     video_parent = parent;
     video = XtVaCreateManagedWidget("tv",class,parent,
 				    NULL);
