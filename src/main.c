@@ -1370,6 +1370,7 @@ do_fullscreen(void)
 		vp_width = vm_modelines[0]->hdisplay;
 		vp_height = vm_modelines[0]->vdisplay;
 	    }
+	    fprintf(stderr,"%d x %d\n",vp_width,vp_height);
 	    if (vp_width < sheight || vp_width < swidth) {
 		/* move viewpoint, make sure the pointer is in there */
 		warp_pointer = 1;
@@ -2091,6 +2092,21 @@ do_movie_record(int argc, char **argv)
     int i;
 
     /* set parameters */
+    if (argc > 1 && 0 == strcasecmp(argv[0],"driver")) {
+	for (i = 0; m_movie_driver[i].str != NULL; i++)
+	    if (0 == strcasecmp(argv[1],m_movie_driver[i].str))
+		movie_driver = m_movie_driver[i].nr;
+	set_menu_val(w_movie_driver,MOVIE_DRIVER,
+		     m_movie_driver,movie_driver);
+	build_menus();
+	movie_audio = 0;
+	movie_video = 0;
+	set_menu_val(w_movie_audio,MOVIE_AUDIO,
+		     m_movie_audio,movie_audio);
+	set_menu_val(w_movie_video,MOVIE_VIDEO,
+		     m_movie_video,movie_video);
+	return;
+    }
     if (argc > 1 && 0 == strcasecmp(argv[0],"fvideo")) {
 	XtVaSetValues(w_movie_fvideo,XtNstring,argv[1],NULL);
 	return;
@@ -2110,7 +2126,7 @@ do_movie_record(int argc, char **argv)
     if (argc > 1 && 0 == strcasecmp(argv[0],"rate")) {
 	for (i = 0; m_movie_rate[i].str != NULL; i++)
 	    if (atoi(argv[1]) == m_movie_rate[i].nr)
-		movie_fps = m_movie_rate[i].nr;
+		movie_rate = m_movie_rate[i].nr;
 	set_menu_val(w_movie_rate,MOVIE_RATE,
 		     m_movie_rate,movie_rate);
     }
@@ -2125,7 +2141,7 @@ do_movie_record(int argc, char **argv)
     if (argc > 1 && 0 == strcasecmp(argv[0],"fps")) {
 	for (i = 0; m_movie_fps[i].str != NULL; i++)
 	    if (atoi(argv[1]) == m_movie_fps[i].nr)
-		movie_rate= m_movie_fps[i].nr;
+		movie_fps = m_movie_fps[i].nr;
 	set_menu_val(w_movie_fps,MOVIE_FPS,
 		     m_movie_fps,movie_fps);
     }

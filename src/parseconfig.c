@@ -193,6 +193,17 @@ cfg_get_int(char *sec, char *ent)
     return atoi(val);
 }
 
+int
+cfg_get_signed_int(char *sec, char *ent)
+{
+    char *val;
+
+    val = cfg_get_str(sec,ent);
+    if (NULL == val)
+	return 0;
+    return atoi(val);
+}
+
 float
 cfg_get_float(char *sec, char *ent)
 {

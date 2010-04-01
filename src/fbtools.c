@@ -54,7 +54,9 @@ static int             font_height;
 static unsigned char  *font_data;
 static char           *default_font[] = {
     "/usr/lib/kbd/consolefonts/lat1-16.psf",
+    "/usr/lib/kbd/consolefonts/lat1-16.psfu",
     "/usr/lib/kbd/consolefonts/lat1-16.psf.gz",
+    "/usr/lib/kbd/consolefonts/lat1-16.psfu.gz",
     "/usr/share/consolefonts/lat1-16.psf",
     "/usr/share/consolefonts/lat1-16.psf.gz",
     NULL,

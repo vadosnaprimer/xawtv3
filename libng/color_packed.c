@@ -21,7 +21,7 @@
 /* ------------------------------------------------------------------- */
 /* RGB conversions                                                     */
 
-static int
+static void
 redblue_swap(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -33,10 +33,9 @@ redblue_swap(unsigned char *dest, unsigned char *src, int p)
 	*(d++) = s[0];
 	s += 3;
     }
-    return d-dest;
 }
 
-static int
+static void
 bgr24_to_bgr32(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -48,10 +47,9 @@ bgr24_to_bgr32(unsigned char *dest, unsigned char *src, int p)
         *(d++) = *(s++);
 	*(d++) = 0;
     }
-    return d-dest;
 }
 
-static int
+static void
 bgr24_to_rgb32(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -64,10 +62,9 @@ bgr24_to_rgb32(unsigned char *dest, unsigned char *src, int p)
         *(d++) = s[0];
 	s +=3;
     }
-    return d-dest;
 }
 
-static int
+static void
 rgb32_to_rgb24(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -79,10 +76,9 @@ rgb32_to_rgb24(unsigned char *dest, unsigned char *src, int p)
 	*(d++) = *(s++);
 	*(d++) = *(s++);
     }
-    return d-dest;
 }
 
-static int
+static void
 rgb32_to_bgr24(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -95,11 +91,10 @@ rgb32_to_bgr24(unsigned char *dest, unsigned char *src, int p)
 	d[0] = *(s++);
 	d += 3;
     }
-    return d-dest;
 }
 
 /* 15+16 bpp LE <=> BE */
-static int
+static void
 byteswap_short(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *s = src;
@@ -110,13 +105,12 @@ byteswap_short(unsigned char *dest, unsigned char *src, int p)
 	*(d++) = s[0];
 	s += 2;
     }
-    return d-dest;
 }
 
 /* ------------------------------------------------------------------- */
 /* color => grayscale                                                  */
 
-static int
+static void
 rgb15_native_gray(unsigned char *dest, unsigned char *s, int p)
 {
     int              r,g,b;
@@ -130,11 +124,10 @@ rgb15_native_gray(unsigned char *dest, unsigned char *s, int p)
 	*(dest++) = ((3*r + 6*g + b)/10) << 3;
 	src++;
     }
-    return (unsigned char*)src-s;
 }
 
 #if BYTE_ORDER == LITTLE_ENDIAN
-static int
+static void
 rgb15_be_gray(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *d = dest;
@@ -147,12 +140,11 @@ rgb15_be_gray(unsigned char *dest, unsigned char *src, int p)
 	*(d++) = ((3*r + 6*g + b)/10) << 3;
 	src += 2;
     }
-    return d-dest;
 }
 #endif
 
 #if BYTE_ORDER == BIG_ENDIAN
-static int
+static void
 rgb15_le_gray(unsigned char *dest, unsigned char *src, int p)
 {
     register unsigned char *d = dest;
@@ -165,16 +157,10 @@ rgb15_le_gray(unsigned char *dest, unsigned char *src, int p)
 	*(dest++) = ((3*r + 6*g + b)/10) << 3;
 	src += 2;
     }
-    return d-dest;
 }
 #endif
 
 /* ------------------------------------------------------------------- */
-
-#define GENERIC_PACKED				\
-	init:           ng_packed_init,		\
-	frame:          ng_packed_frame,       	\
-	fini:           ng_packed_fini
 
 static struct ng_video_conv conv_list[] = {
     {

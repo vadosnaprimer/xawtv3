@@ -5,5 +5,5 @@ default:
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-checkit diff release port:
+checkit diff release port tarball:
 	./configure && $(MAKE) $@

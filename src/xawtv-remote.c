@@ -150,7 +150,7 @@ main(int argc, char *argv[])
 	    dpyname = optarg;
 	    break;
 	case 'i':
-	    id = atoi(optarg);
+	    sscanf(optarg,"%li",&id);
 	    break;
 	case 'v':
 	    debug = atoi(optarg);

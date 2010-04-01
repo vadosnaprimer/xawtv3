@@ -20,132 +20,130 @@
 #include "grab-ng.h"
 #include "byteswap.h"
 
-static unsigned long   lut_red[256];
-static unsigned long   lut_green[256];
-static unsigned long   lut_blue[256];
+unsigned long   ng_lut_red[256];
+unsigned long   ng_lut_green[256];
+unsigned long   ng_lut_blue[256];
 
 /* ------------------------------------------------------------------- */
 
-static int
+static void
 rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[0]] | lut_green[src[1]] | lut_blue[src[2]];
+	*(d++) = ng_lut_red[src[0]] | ng_lut_green[src[1]] |
+	    ng_lut_blue[src[2]];
 	src += 3;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 bgr24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[2]] | lut_green[src[1]] | lut_blue[src[0]];
+	*(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
+	    ng_lut_blue[src[0]];
 	src += 3;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 rgb32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[1]] | lut_green[src[2]] | lut_blue[src[3]];
+	*(d++) = ng_lut_red[src[1]] | ng_lut_green[src[2]] |
+	    ng_lut_blue[src[3]];
 	src += 4;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[3]] | lut_green[src[2]] | lut_blue[src[1]];
+	*(d++) = ng_lut_red[src[3]] | ng_lut_green[src[2]] |
+	    ng_lut_blue[src[1]];
 	src += 4;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 gray_to_lut2(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[*src] | lut_green[*src] | lut_blue[*src];
+	*(d++) = ng_lut_red[*src] | ng_lut_green[*src] | ng_lut_blue[*src];
 	src++;
     }
-    return ((unsigned char*)d-dest);
 }
 
 /* ------------------------------------------------------------------- */
 
-static int
+static void
 rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[0]] | lut_green[src[1]] | lut_blue[src[2]];
+	*(d++) = ng_lut_red[src[0]] | ng_lut_green[src[1]] |
+	    ng_lut_blue[src[2]];
 	src += 3;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 bgr24_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[2]] | lut_green[src[1]] | lut_blue[src[0]];
+	*(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
+	    ng_lut_blue[src[0]];
 	src += 3;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 rgb32_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[1]] | lut_green[src[2]] | lut_blue[src[3]];
+	*(d++) = ng_lut_red[src[1]] | ng_lut_green[src[2]] |
+	    ng_lut_blue[src[3]];
 	src += 4;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 bgr32_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[src[3]] | lut_green[src[2]] | lut_blue[src[1]];
+	*(d++) = ng_lut_red[src[3]] | ng_lut_green[src[2]] |
+	    ng_lut_blue[src[1]];
 	src += 4;
     }
-    return ((unsigned char*)d-dest);
 }
 
-static int
+static void
 gray_to_lut4(unsigned char *dest, unsigned char *src, int p)
 {
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = lut_red[*src] | lut_green[*src] | lut_blue[*src];
+	*(d++) = ng_lut_red[*src] | ng_lut_green[*src] | ng_lut_blue[*src];
 	src++;
     }
-    return ((unsigned char*)d-dest);
 }
 
 /* ------------------------------------------------------------------- */
@@ -171,6 +169,15 @@ static struct ng_video_conv lut2_list[] = {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_GRAY,
 	priv:		gray_to_lut2,
+    }, {
+	NG_GENERIC_PACKED,
+	fmtid_in:	VIDEO_YUV422,
+	priv:		ng_yuv422_to_lut2,
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          ng_yuv422p_to_lut2,
+	fmtid_in:	VIDEO_YUV422P,
     }
 };
 
@@ -195,6 +202,17 @@ static struct ng_video_conv lut4_list[] = {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_GRAY,
 	priv:		gray_to_lut4,
+    }, {
+	NG_GENERIC_PACKED,
+	fmtid_in:	VIDEO_YUV422,
+	priv:		ng_yuv422_to_lut4,
+#if 0
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          yuv422p_to_lut4,
+	fmtid_in:	VIDEO_YUV422P,
+#endif
     }
 };
 
@@ -244,32 +262,32 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
     
     if (rgb_red_bits > 8)
 	for (i = 0; i < 256; i++)
-	    lut_red[i] = (i << (rgb_red_bits + rgb_red_shift - 8));
+	    ng_lut_red[i] = (i << (rgb_red_bits + rgb_red_shift - 8));
     else
 	for (i = 0; i < 256; i++)
-	    lut_red[i] = (i >> (8 - rgb_red_bits)) << rgb_red_shift;
+	    ng_lut_red[i] = (i >> (8 - rgb_red_bits)) << rgb_red_shift;
     
     if (rgb_green_bits > 8)
 	for (i = 0; i < 256; i++)
-	    lut_green[i] = (i << (rgb_green_bits + rgb_green_shift - 8));
+	    ng_lut_green[i] = (i << (rgb_green_bits + rgb_green_shift - 8));
     else
 	for (i = 0; i < 256; i++)
-	    lut_green[i] = (i >> (8 - rgb_green_bits)) << rgb_green_shift;
+	    ng_lut_green[i] = (i >> (8 - rgb_green_bits)) << rgb_green_shift;
     
     if (rgb_blue_bits > 8)
 	for (i = 0; i < 256; i++)
-	    lut_blue[i] = (i << (rgb_blue_bits + rgb_blue_shift - 8));
+	    ng_lut_blue[i] = (i << (rgb_blue_bits + rgb_blue_shift - 8));
     else
 	for (i = 0; i < 256; i++)
-	    lut_blue[i] = (i >> (8 - rgb_blue_bits)) << rgb_blue_shift;
+	    ng_lut_blue[i] = (i >> (8 - rgb_blue_bits)) << rgb_blue_shift;
 
     switch (ng_vfmt_to_depth[fmtid]) {
     case 16:
 	if (swap) {
 	    for (i = 0; i < 256; i++) {
-		lut_red[i] = SWAP2(lut_red[i]);
-		lut_green[i] = SWAP2(lut_green[i]);
-		lut_blue[i] = SWAP2(lut_blue[i]);
+		ng_lut_red[i] = SWAP2(ng_lut_red[i]);
+		ng_lut_green[i] = SWAP2(ng_lut_green[i]);
+		ng_lut_blue[i] = SWAP2(ng_lut_blue[i]);
 	    }
 	}
 	for (i = 0; i < nconv2; i++)
@@ -279,9 +297,9 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
     case 32:
 	if (swap) {
 	    for (i = 0; i < 256; i++) {
-		lut_red[i] = SWAP4(lut_red[i]);
-		lut_green[i] = SWAP4(lut_green[i]);
-		lut_blue[i] = SWAP4(lut_blue[i]);
+		ng_lut_red[i] = SWAP4(ng_lut_red[i]);
+		ng_lut_green[i] = SWAP4(ng_lut_green[i]);
+		ng_lut_blue[i] = SWAP4(ng_lut_blue[i]);
 	    }
 	}
 	for (i = 0; i < nconv4; i++)

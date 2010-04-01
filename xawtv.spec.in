@@ -7,7 +7,7 @@
 %define __os_install_post       true
 
 Summary: Video4Linux Stream Capture Viewer
-Name: xawtv
+Name:    xawtv
 Version: @XAWTV_VERSION@
 Release: 1
 Source0: xawtv_%{version}.tar.gz

@@ -408,5 +408,6 @@ ng_init(void)
 	exit(1);
     }
     ng_color_packed_init();
+    ng_color_yuv2rgb_init();
     ng_mjpg_init();
 }

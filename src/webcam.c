@@ -33,7 +33,6 @@ webcam_writer(void *arg)
     int rename,fd,old;
     char tmpfilename[512];
     struct ng_video_fmt *fmt;
-    char *data;
 
     if (debug)
 	fprintf(stderr,"webcam_writer start\n");

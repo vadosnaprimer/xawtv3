@@ -14,7 +14,6 @@ distclean realclean::
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-RPM=/home/ftp/rpm
 VERSION=@XAWTV_VERSION@
 
 realclean::
@@ -23,19 +22,30 @@ realclean::
 	find . -name .nfs* -print | xargs -i rm -f
 	set -e; for dir in i2c; do make -C $$dir distclean; done
 
-checkit: distclean
-	dpkg-buildpackage -tc -us -uc -rfakeroot
-	rpm -ta ../xawtv_*.tar.gz
-	lintian ../xawtv_*.changes
-
 diff:
 	last=`ls -t $(HOME)/strusel/linux/xawtv/xawtv_*.tar.gz | head -1`;\
 	tardiff $$last . | gzip > ../xawtv_$(VERSION).diff.gz
 
-release: realclean diff
-	make -C font bdf
+checkit: distclean
+	dpkg-buildpackage -tc -us -uc -rfakeroot
+#	rpm -ta ../xawtv_*.tar.gz
+	lintian ../xawtv_*.changes
+
+#release: realclean diff
+release: distclean diff
+#	make -C font bdf
 	dpkg-buildpackage -tc -rfakeroot
 
 port:
 	dpkg-buildpackage -b -tc -rfakeroot
+
+tarball: distclean
+	(cd ..; tar cvzf xawtv_$(VERSION).tar.gz \
+		xawtv-$(VERSION))
+
+auto:
+	rm -f config.cache
+	autoconf
+	autoheader
+	./configure
 

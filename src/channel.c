@@ -324,7 +324,7 @@ init_channel(char *name, struct CHANNEL *c)
 	c->cname   = strdup(val);
     if (NULL != (val = cfg_get_str(name,"freq")))
 	c->freq   = (int)(atof(val)*16);
-    if (-1 != (n = cfg_get_int(name,"fine")))
+    if (0 != (n = cfg_get_signed_int(name,"fine")))
 	c->fine = n;
 
     if (NULL != (val = cfg_get_str(name,"key")))

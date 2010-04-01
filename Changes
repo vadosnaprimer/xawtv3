@@ -1,4 +1,13 @@
 
+3.41 => 3.42
+============
+
+ * Added color space conversion functions for 4:2:2 yuv (packed) to rgb.
+ * Added color space conversion functions for 4:2:2 yuv (planar) to rgb.
+ * minor cleanups in the conversion functions.
+ * some fixes from Kawamata/Hitoshi <kwmt@din.or.jp>.
+
+
 3.40 => 3.41
 ============
 

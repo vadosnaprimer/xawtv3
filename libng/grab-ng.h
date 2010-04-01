@@ -265,14 +265,27 @@ long long ng_get_timestamp(void);
 /* --------------------------------------------------------------------- */
 
 void ng_init(void);
-void ng_color_packed_init(void);
-void ng_mjpg_init(void);
 void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 		 unsigned long blue_mask, int fmtid, int swap);
 
 /* --------------------------------------------------------------------- */
-/* color_common.c                                                        */
+/* internal stuff starts here                                            */
 
+/* init functions */
+void ng_color_packed_init(void);
+void ng_color_yuv2rgb_init(void);
+void ng_mjpg_init(void);
+
+/* for yuv2rgb using lookup tables (color_lut.c, color_yuv2rgb.c) */
+unsigned long   ng_lut_red[256];
+unsigned long   ng_lut_green[256];
+unsigned long   ng_lut_blue[256];
+void ng_yuv422_to_lut2(unsigned char *dest, unsigned char *s, int p);
+void ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p);
+void ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out,
+			struct ng_video_buf *in);
+
+/* color_common.c stuff */
 void* ng_packed_init(struct ng_video_fmt *out, void *priv);
 void  ng_packed_frame(void *handle, struct ng_video_buf *out,
 		      struct ng_video_buf *in);
