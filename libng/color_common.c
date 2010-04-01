@@ -1,3 +1,4 @@
+#define NG_PRIVATE
 #include "config.h"
 
 #include <stdio.h>
@@ -5,9 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
+#include <sys/types.h>
 
 #include "grab-ng.h"
 

@@ -1,3 +1,6 @@
+/* no comment */
+#undef HAVE_XMU
+
 /* lirc lib */
 #undef HAVE_LIBLIRC_CLIENT
 

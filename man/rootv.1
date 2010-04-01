@@ -1,23 +1,59 @@
-.TH rootv 1 "(c) 2000 Gerd Knorr"
+.TH rootv 1 "(c) 2000-2002 Gerd Knorr"
 .SH NAME
-rootv - display TV/video as root window background 
+rootv - display TV using the Xvideo extention
 .SH SYNOPSIS
-.B rootv [ -stop | -wm ]
+.B rootv [ options ]
 .SH DESCRIPTION
 .B rootv
-puts a video to the root window of your display.  Requires the Xvideo
-extention.  If started with -stop the video will be stopped.
+puts a video to some window.  By default it creates its own window,
+but you can also ask it to use the root window (thus the name) or any
+other window.
+.B rootv
+needs the Xvideo extention.
 .P
-rootv itself provides no way to control video/audio/tuner.  You can
-use v4lctl to do this.  You can stick v4lctl calls into your window
-manager menus for example.  "rootv -wm" will build a WindowMaker
-menu with all TV stations from the ~/.xawtv config file.
+.B rootv
+itself provides no way to control video/audio/tuner.  You can use
+v4lctl to do this.
+.SH OPTIONS
+.B rootv
+knows a number of command line options to modify the behaviour.
+.TP
+.B -help
+Print a short description of all command line options.
+.TP
+.B -verbose
+Be verbose.  That will dump some debug messages to stderr.
+.TP
+.B -root
+Put the video onto the root window instead of creating a new window.
+.TP
+.B -id <win>
+Put the video into the window <win> instead of creating a new window.
+.TP
+.B -station <st>
+Tune station <st>.  This just calls v4lctl, which in turn will look up
+the station in your ~/.xawtv config file.
+.TP
+.B -no-mute
+Don't toggle mute.  By default rootv will unmute the TV card when it
+starts and mute it on exit.  It does this using the XV_MUTE attribute
+(if available).
+.TP
+.B -port <n>
+Use Xvideo port <n>.  Try the -verbose switch if you want to know
+which ones are available.
+.TP
+.B -bg
+Fork into background.
+.TP
+.B -wm
+Print WindowMaker menu (set stations using v4lctl).
 .SH SEE ALSO
 xawtv(1), fbtv(1), v4lctl(1)
 .SH AUTHOR
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
-Copyright (C) 2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Copyright (C) 2000-2002 Gerd Knorr <kraxel@bytesex.org>
 .P
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

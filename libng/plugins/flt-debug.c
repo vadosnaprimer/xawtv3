@@ -116,9 +116,3 @@ void ng_plugin_init(void)
 {
     ng_filter_register(NG_PLUGIN_MAGIC,PLUGNAME,&filter);
 }
-
-/*
- * Local variables:
- * compile-command: "make flt-debug.so"
- * End:
- */

@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
-#include <sys/types.h>
 #include <jpeglib.h>
 
 #include "grab-ng.h"
@@ -399,5 +398,5 @@ static const int nconv = sizeof(mjpg_list)/sizeof(struct ng_video_conv);
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_conv_register(NG_PLUGIN_MAGIC,PLUGNAME,mjpg_list,nconv);
+    ng_conv_register(NG_PLUGIN_MAGIC,__FILE__,mjpg_list,nconv);
 }

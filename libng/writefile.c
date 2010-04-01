@@ -4,6 +4,8 @@
  *  (c) 1998-2000 Gerd Knorr <kraxel@bytesex.org>
  *
  */
+
+#define NG_PRIVATE
 #include "config.h"
 
 #include <stdio.h>
@@ -16,10 +18,8 @@
 #include <fcntl.h>
 #include <jpeglib.h>
 #include <pthread.h>
+#include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
 #include "byteswap.h"
 
 #include "grab-ng.h"

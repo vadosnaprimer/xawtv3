@@ -11,8 +11,8 @@ give a overview and explain the design of the library.  Have a look at
 grab-ng.h, this is the header file where everything is defined.
 
 If you are looking for some simple sample code check out
-webcam/webcam.c.  More complex usages of libng can be found everythere
-in the xawtv source code: In src/capture.c for example, where most of
+console/webcam.c.  More complex usages of libng can be found everythere
+in the xawtv source code: In common/capture.c for example, where most of
 the threaded movie recording code for xawtv+streamer is.
 
 There are two types of structs: Those which carrying some data (like
@@ -66,7 +66,7 @@ ones exist:
  (3) bktr (bt848/878 driver for FreeBSD + OpenBSD, see
      plugins/drv0-bsd.c).
 
-xawtv uses struct ng_vid_driver for Xvideo support too (see src/xv.c).
+xawtv uses struct ng_vid_driver for Xvideo support too (see x11/xv.c).
 
 open()/close() should be clear.  The capabilities() function returns a
 bitfield which specifies the capabilities of the driver.  The *attr*
@@ -91,7 +91,7 @@ output drivers (struct ng_writer)
 This is a interface for movie writer code.  Four different ones exist:
 
  (1) Microsoft's AVI
- (2) Apple Quicktime (using the quicktime4linux library).
+ (2) Apple Quicktime (using the libquicktime library).
  (3) raw, uncompressed data (one big file).
  (4) one image file/frame (jpeg or ppm).
 
@@ -129,7 +129,7 @@ ng_mix_driver) and a implementation for the OSS API (in
 plugins/snd-oss.c).
 
 I'm not that happy with the current design of the mixer stuff, it
-might change in the future.
+likely will change in the future.
 
 
 color space conversion and compression

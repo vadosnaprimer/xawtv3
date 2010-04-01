@@ -1,4 +1,24 @@
 
+3.73 => 3.74
+============
+
+ * rewrote Makefiles.  No recursive make any more.  Faster now,
+   has sane dependences.  Parallelizes (make -j) very good.
+   Really needs GNU make now.
+ * shuffled around source files.
+ * xscreensaver support.  xawtv/motv will prevent xscreensaver kick in
+   when in fullscreen mode, and rootv can be used as xscreensaver
+   hack now.
+ * Changed the naming of the Xvideo extention command line switches,
+   hope they are a bit less confusing now.
+ * Changed motv mixer config, moved detection code to the oss sound
+   plugin.
+ * some spanish man pages (Ricardo Villalba <rvm@escomposlinux.org>).
+ * MoTV.ad: move <Key>osf* entries to the bottom of the translation
+   tables.
+ * minor alevtd fix (merge from webfsd).
+
+
 3.72 => 3.73
 ============
 

@@ -11,7 +11,6 @@ build:
 		--disable-motif		\
 		--prefix=/usr		\
 		--mandir=/usr/share/man
-	make depend
 	$(MAKE) $@
 
 clean::
@@ -32,10 +31,8 @@ binary-indep: install
 	# nop
 
 binary-arch: install
-	dh_installdocs README* Changes UPDATE_TO_v3.0		\
-		Programming-FAQ contrib/dot.lircrc contrib/frequencies*
-	dh_installdocs -p xawtv-tools tools/README
-	dh_installdocs -p webcam webcam/webcam.cgi
+	dh_installdocs README* Changes contrib/frequencies*
+	dh_installdocs -p webcam scripts/webcam.cgi
 #	dh_installexamples
 	dh_installmenu
 #	dh_installemacsen

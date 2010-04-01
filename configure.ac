@@ -36,42 +36,43 @@ AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 dnl ---------------------------------------------------------------------
 dnl do some OS specific stuff here
 
-VBIFLAGS=""
-PROGS=""
-INST=""
-RADIO=""
-PLUGINS=""
+AC_SUBST(FOUND_AALIB)
+AC_SUBST(FOUND_ALSA)
+AC_SUBST(FOUND_LQT)
+AC_SUBST(FOUND_MOTIF)
+AC_SUBST(FOUND_OS)
+AC_SUBST(FOUND_X11)
+AC_SUBST(FOUND_GL)
+FOUND_AALIB="no"
+FOUND_ALSA="no"
+FOUND_LQT="no"
+FOUND_MOTIF="no"
+FOUND_OS="unknown"
+FOUND_X11="no"
+FOUND_GL="no"
+
 case "`uname -s`" in
 	Linux)
-		PLUGINS="drv0-v4l2.so drv1-v4l.so snd-oss.so"
-		PROGS="v4l-conf fbtv"
-		INST="install-v4l-conf install-fbtv"
-		RADIO="radio"
+		FOUND_OS="linux"
 		;;
 	OpenBSD | FreeBSD | NetBSD)
-		# *BSD has important stuff (from ports) in
-		# /usr/local ...
+		# *BSD has important stuff (from ports)
+		# in /usr/local ...
 		CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
-		PLUGINS="drv0-bsd.so snd-oss.so"
-		VBIFLAGS="-DBSD"
+		FOUND_OS="bsd"
 		;;
 	*)
 		AC_MSG_CHECKING(if xawtv will build on `uname -s`)
 		AC_MSG_RESULT(maybe)
 		;;
 esac
-AC_SUBST(VBIFLAGS)
-AC_SUBST(PROGS)
-AC_SUBST(INST)
-AC_SUBST(RADIO)
-AC_SUBST(PLUGINS)
 
 
 dnl ---------------------------------------------------------------------
 dnl Checks for functions
 
 AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
-AC_CHECK_HEADERS(endian.h getopt.h soundcard.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
+AC_CHECK_HEADERS(getopt.h soundcard.h unistd.h sys/select.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
 AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long strcasestr dlopen)
 
 AC_SUBST(DLFLAGS)
@@ -112,16 +113,12 @@ dnl X11 checks
 
 AC_PATH_XTRA
 if test "$no_x" != "yes"; then
-  PROGS="$PROGS xawtv xawtv-remote xvideo rootv"
+  FOUND_X11="yes"
   ATHENA="-lXaw -lXmu -lXt $X_PRE_LIBS -lXpm -lXext -lX11 $X_EXTRA_LIBS"
   FSLIB="-lFS"
-  SUBS="font"
-  TOOLS="propwatch"
 else
   ATHENA=""
   FSLIB=""
-  SUBS=""
-  TOOLS=""
 fi
 AC_SUBST(X_CFLAGS)
 AC_SUBST(X_PRE_LIBS)
@@ -146,7 +143,7 @@ AC_SUBST(LIBALSA)
 LIBALSA=""
 if test "$enable_alsa" != "no"; then
     AC_CHECK_LIB(asound, snd_seq_open,
-	AC_DEFINE(HAVE_ALSA) PROGS="$PROGS mididump"; LIBALSA="-lasound",,)
+	AC_DEFINE(HAVE_ALSA) FOUND_ALSA="yes"; LIBALSA="-lasound",,)
 else
     echo "*** alsa disabled"
 fi
@@ -163,9 +160,8 @@ fi
 AC_SUBST(AALIBS)
 AALIBS=""
 if test "$enable_aa" != "no"; then
-    AC_CHECK_LIB(aa,aa_autoinit,
-	[ PROGS="$PROGS ttv"; INST="$INST install-ttv"; AA="found" ],,)
-    if test "$AA" = "found"; then
+    AC_CHECK_LIB(aa,aa_autoinit, [ FOUND_AALIB="yes" ],,)
+    if test "$FOUND_AALIB" = "yes"; then
         AALIBS=-laa
         if test -x "`which aalib-config 2>/dev/null`"; then
             AALIBS=`aalib-config --libs`
@@ -177,16 +173,14 @@ fi
 
 if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(quicktime, lqt_query_registry,
-	QUICKTIME="found";AC_DEFINE(HAVE_LIBQUICKTIME),,
+	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME),,
 	-ldl -lglib $LIBPTHREAD)
 else
     echo "*** quicktime disabled"
 fi
-if test "$QUICKTIME" = "found"; then
+QTLIBS=""
+if test "$FOUND_LQT" = "yes"; then
     QTLIBS="-lquicktime -ldl -lglib -lm" 
-    PLUGINS="$PLUGINS write-qt.so"
-else
-    QTLIBS=""
 fi
 AC_SUBST(QTLIBS)
 
@@ -215,12 +209,14 @@ else
 fi
 
 if test "$enable_motif" != "no"; then
-    AC_CHECK_LIB(Xm,XmStringGenerate,
-	[ PROGS="$PROGS motv"; INST="$INST install-motv" ],,
+    AC_CHECK_LIB(Xm,XmStringGenerate, [ FOUND_MOTIF="yes" ],,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
 else
     echo "*** motif support disabled"
 fi
+
+AC_CHECK_LIB(GL, glXChooseVisual, [ FOUND_GL="yes" ],,
+  $X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
 
 VERSION="`(cd $srcdir; pwd) | sed -e 's/.*-//'`"
 AC_SUBST(VERSION)
@@ -242,10 +238,16 @@ fi
 AC_MSG_RESULT($resdir/app-defaults)
 AC_SUBST(resdir)
 
+dnl ---------------------------------------------------------------------
+dnl for screenlock
+AC_DEFINE(HAVE_XMU)
 
 dnl ---------------------------------------------------------------------
-AC_OUTPUT(Make.config Makefile src/Makefile tools/Makefile radio/Makefile 
-	man/Makefile i2c/Makefile font/Makefile webcam/Makefile
-	http/Makefile libvbi/Makefile libng/Makefile libng/plugins/Makefile
-	cc/Makefile xawtv.spec)
-
+AC_OUTPUT(Makefile xawtv.spec)
+for dir in \
+	common console debug fonts jwz \
+	libng/plugins libvbi vbistuff x11
+do
+	test -d $dir && continue
+	mkdir -p $dir
+done

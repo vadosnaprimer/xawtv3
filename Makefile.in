@@ -1,51 +1,161 @@
+srcdir		:= @srcdir@
+VPATH		:= $(srcdir)
+
+# for package builds (buildroot install + no root privs needed)
+DESTDIR=
+SUID_ROOT=-m4755 -o root
+
+# install paths
+prefix		:= @prefix@
+exec_prefix	:= @exec_prefix@
+bindir		:= $(DESTDIR)@bindir@
+mandir		:= $(DESTDIR)@mandir@
+libdir		:= $(DESTDIR)@libdir@/xawtv
+resdir		:= $(DESTDIR)@resdir@
+fontdir		:= $(DESTDIR)/usr/X11R6/lib/X11/fonts/misc
+config		:= @x11conf@/xawtvrc
+
+# programs
+CC		:= @CC@
+INSTALL		:= @INSTALL@
+INSTALL_PROGRAM := @INSTALL_PROGRAM@ -s
+INSTALL_DATA	:= @INSTALL_DATA@
+INSTALL_DIR	:= @INSTALL@ -d -m 755
+
+# misc
+VERSION		:= @VERSION@
+
+# for CFLAGS
+WARN_FLAGS	:= -Wall -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith
+LFS_FLAGS	:= -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+X11_FLAGS	:= @X_CFLAGS@ -I/usr/X11R6/include/X11/fonts
+LIB_FLAGS	:= -I. -I./vbistuff -I./x11 \
+		   -I$(srcdir)/jwz -I$(srcdir)/common \
+		   -I$(srcdir)/libng -I$(srcdir)/libvbi -Llibvbi -Llibng
+
+# various libraries
+ATHENA_LIBS	:= @X_LIBS@ @LIBS@ @ATHENA@
+MOTIF_LIBS	:= @X_LIBS@ @LIBS@ -lXm -lXmu -lXt @X_PRE_LIBS@ \
+		   -lXp -lXpm -lXext -lX11 @X_EXTRA_LIBS@
+THREAD_LIBS	:= @LIBPTHREAD@
+CURSES_LIBS	:= @LIBCURSES@
+LIRC_LIBS	:= @LIRC@
+OSS_LIBS	:= @LIBOSS@
+ALSA_LIBS	:= @LIBALSA@
+AA_LIBS		:= @AALIBS@
+QT_LIBS		:= @QTLIBS@
+FS_LIBS		:= -L@x_libraries@ @FSLIB@
+DLFLAGS		:= @DLFLAGS@
+
+# stuff configure has found
+FOUND_AALIB	:= @FOUND_AALIB@
+FOUND_ALSA	:= @FOUND_ALSA@
+FOUND_LQT	:= @FOUND_LQT@
+FOUND_MOTIF	:= @FOUND_MOTIF@
+FOUND_OS	:= @FOUND_OS@
+FOUND_X11	:= @FOUND_X11@
+
+# build final cflags
+CFLAGS	:= @CFLAGS@
+CFLAGS	+= $(WARN_FLAGS)
+CFLAGS	+= $(LFS_FLAGS)
+CFLAGS	+= $(X11_FLAGS)
+CFLAGS	+= $(LIB_FLAGS)
+CFLAGS	+= -DCONFIGFILE='"$(config)"'
+CFLAGS	+= -DLIBDIR='"$(libdir)"'
+CFLAGS	+= -DVERSION='"$(VERSION)"'
+
 
 #########################################################
-# build stuff
+# targets
 
-SUBDIRS=src http webcam libvbi libng libng/plugins radio tools cc man @SUBS@
+build: all
 
-all build: $(SUBDIRS)
-.PHONY: $(SUBDIRS)
+Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
+	$(srcdir)/configure
 
+install:: all
+	$(INSTALL_DIR) $(bindir)
 
-src: libvbi libng .havedeps
-	(cd $@; $(MAKE) build)
+clean::
+	find . -name \*~ -print | xargs rm -f
+	find . -name \*.o -print | xargs rm -f
+	find . -name \*.a -print | xargs rm -f
+	find . -name \*.d -print | xargs rm -f
+	find . -name \*.pic -print | xargs rm -f
+	find . -name \*.dep -print | xargs rm -f
 
-http: libvbi .havedeps
-	(cd $@; $(MAKE) build)
-
-webcam: libng .havedeps
-	(cd $@; $(MAKE) build)
-
-libvbi libng libng/plugins radio font tools cc man: .havedeps
-	(cd $@; $(MAKE) build)
-
-
-.havedeps dep depend:
-	set -ex; for dir in $(SUBDIRS); do	\
-		(cd $$dir; $(MAKE) depend)	\
-	done
-	touch .havedeps
-
-install clean distclean realclean::
-	set -ex; for dir in $(SUBDIRS); do	\
-		(cd $$dir; $(MAKE) $@)		\
-	done
-
-distclean realclean::
-	-rm -f *~ debian/*~ xpm/*~ Makefile Make.config .havedeps
+distclean:: clean
+	-rm -f Makefile Make.config
 	-rm -f config.cache config.h config.log config.status
 	cp Makefile.clean Makefile
+
+realclean:: distclean
+	find . -name snap0*.ppm  -print | xargs -i rm -f
+	find . -name snap0*.jpeg -print | xargs -i rm -f
+	find . -name .nfs* -print | xargs -i rm -f
+	find . -name core.* -print | xargs -i rm -f
+
+
+#########################################################
+# some rules ...
+
+.SUFFIXES: .c .h .o .pic .in .ad .bdf .pcf.gz
+
+.c.o:
+	$(CC) $(CFLAGS) -Wp,-MD,$*.dep -c -o $@ $<
+	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
+
+.c.pic:
+	$(CC) $(CFLAGS) -fPIC -Wp,-MD,$*.dep -c -o $@ $<
+	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
+
+.in.h:
+	perl -ne 's/\"/\\\"/g; chop; print "\"$$_\\n\"\n"' $< > $@
+
+.ad.h:
+	perl $(srcdir)/scripts/fallback.pl < $< > $@
+
+.bdf.pcf.gz:
+	bdftopcf -o $*.pcf $<
+	gzip $*.pcf
+
+
+#########################################################
+# include stuff
+
+# must come first
+include $(srcdir)/common/Subdir.mk
+
+# subdirs
+include $(srcdir)/console/Subdir.mk
+include $(srcdir)/debug/Subdir.mk
+include $(srcdir)/fonts/Subdir.mk
+include $(srcdir)/libng/Subdir.mk
+include $(srcdir)/libng/plugins/Subdir.mk
+include $(srcdir)/libvbi/Subdir.mk
+include $(srcdir)/man/Subdir.mk
+include $(srcdir)/scripts/Subdir.mk
+include $(srcdir)/vbistuff/Subdir.mk
+include $(srcdir)/x11/Subdir.mk
+
+# dependences
+-include common/*.d
+-include console/*.d
+-include debug/*.d
+-include jwz/*.d
+-include libng/*.d
+-include libng/plugins/*.d
+-include libvbi/*.d
+-include vbistuff/*.d
+-include x11/*.d
 
 
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-VERSION=@VERSION@
-
 checkit: distclean
 	dpkg-buildpackage -tc -us -uc -rfakeroot
-#	rpm -ta ../xawtv_*.tar.gz
 	lintian ../xawtv_*.changes
 
 release: distclean
@@ -65,17 +175,9 @@ snapshot: distclean
 	(cd ..; tar cvzf xawtv-snap-`date +%Y-%m-%d`.tar.gz \
 		xawtv-$(VERSION))
 
-auto:
+auto: distclean
 	rm -f config.cache
 	autoconf
 	autoheader
 	./configure
-	make distclean
 	make
-
-realclean::
-	find . -name snap0*.ppm  -print | xargs -i rm -f
-	find . -name snap0*.jpeg -print | xargs -i rm -f
-	find . -name .nfs* -print | xargs -i rm -f
-	set -e; for dir in i2c; do make -C $$dir distclean; done
-

@@ -20,9 +20,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <pthread.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
 
 #include <asm/types.h>		/* XXX glibc */
 #include "videodev2.h"
@@ -1002,7 +999,7 @@ v4l2_waiton(struct v4l2_handle *h)
     
     /* wait for the next frame */
  again:
-    tv.tv_sec  = 1;
+    tv.tv_sec  = 5;
     tv.tv_usec = 0;
     FD_ZERO(&rdset);
     FD_SET(h->fd, &rdset);
@@ -1262,5 +1259,5 @@ v4l2_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&v4l2_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,__FILE__,&v4l2_driver);
 }

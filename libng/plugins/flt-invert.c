@@ -10,9 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
 
 #include "grab-ng.h"
 
@@ -131,5 +128,5 @@ static struct ng_filter filter = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_filter_register(NG_PLUGIN_MAGIC,PLUGNAME,&filter);
+    ng_filter_register(NG_PLUGIN_MAGIC,__FILE__,&filter);
 }

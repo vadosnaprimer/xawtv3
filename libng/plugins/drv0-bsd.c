@@ -14,15 +14,12 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
-#include <pthread.h>
 
 #ifdef HAVE_DEV_IC_BT8XX_H
 # include <dev/ic/bt8xx.h>
@@ -815,5 +812,5 @@ static struct ng_video_buf* bsd_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&bsd_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,__FILE__,&bsd_driver);
 }

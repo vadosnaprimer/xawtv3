@@ -7,9 +7,6 @@
 #include <quicktime/quicktime.h>
 #include <quicktime/colormodels.h>
 #include <quicktime/lqt.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
 
 #include "grab-ng.h"
 
@@ -467,5 +464,5 @@ void ng_plugin_init(void)
 {
     qt_writer.video = video_list();
     qt_writer.audio = audio_list();
-    ng_writer_register(NG_PLUGIN_MAGIC,PLUGNAME,&qt_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,__FILE__,&qt_writer);
 }

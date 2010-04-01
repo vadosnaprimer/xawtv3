@@ -102,16 +102,23 @@ Use the framebuffer device to determine the video framebuffer address
 Resource: motv.fbdev (bool).
 .TP
 \fB-xv/-noxv \fP
-enable/disable the usage of the Xvideo extention (for overlay),
-default is on.
+enable/disable the usage of the Xvideo extention altogether,
+i.e. -noxv has the same effect as both -noxv-video and -noxv-image
+switches (see below).
 .br
-Resource: motv.xvideo (bool).
+Resource: xawtv.xv (bool).
 .TP
-\fB-scale/-noscale \fP
-enable/disable the usage of the Xvideo extention (for hardware scaling
-in grabdisplay mode), default is on.
+\fB-xv-video/-noxv-video \fP
+enable/disable the usage of the Xvideo extention for video overlay
+(i.e. XvPutVideo).  overlay mode uses this.  default is on.
 .br
-Resource: motv.hwscale (bool).
+Resource: xawtv.xvVideo (bool).
+.TP
+\fB-xv-image/-noxv-image \fP
+enable/disable the usage of the Xvideo extention for image scaling
+(i.e. XvPutImage).  grabdisplay mode uses this.  default is on.
+.br
+Resource: xawtv.xvImage (bool).
 .TP
 \fB-vm/-novm\fP
 enable/disable the usage of the VidMode extention, default is off.
@@ -130,7 +137,7 @@ use n compression threads (default: one).
 .br
 Resource: xawtv.parallel (int).
 .P
-The usual Toolkit options like \fB-geometry\fP are supported too.
+The usual toolkit options like \fB-geometry\fP are supported too.
 .SH SUPPORTED HARDWARE / INTERFACES
 .TP
 .B v4l

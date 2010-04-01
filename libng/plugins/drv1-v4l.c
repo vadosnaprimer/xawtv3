@@ -14,15 +14,12 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
-#include <pthread.h>
 #include <linux/videodev.h>
 
 #include "grab-ng.h"
@@ -1279,5 +1276,5 @@ v4l_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&v4l_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,__FILE__,&v4l_driver);
 }

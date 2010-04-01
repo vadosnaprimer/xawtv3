@@ -11,9 +11,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
 
 #include "grab-ng.h"
 
@@ -176,5 +173,5 @@ extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
     calc_lut();
-    ng_filter_register(NG_PLUGIN_MAGIC,PLUGNAME,&filter);
+    ng_filter_register(NG_PLUGIN_MAGIC,__FILE__,&filter);
 }

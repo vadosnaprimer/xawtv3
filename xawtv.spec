@@ -2,7 +2,7 @@ Name:         xawtv
 Group:        Applications/Multimedia
 Requires:     v4l-conf, tv-common
 Autoreqprov:  on
-Version:      3.73
+Version:      3.74
 Release:      0
 License:      GPL
 Summary:      Video4Linux TV application (Athena)
@@ -70,12 +70,13 @@ via http, i.e. you can read the teletext pages with a web browser.
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
-./configure --prefix=/usr/X11R6
-make depend
-make all
+mkdir build
+cd build
+../configure --prefix=/usr/X11R6
+make
 
 %install
-make DESTDIR="%{buildroot}" SUID_ROOT="" install
+(cd build; make DESTDIR="%{buildroot}" SUID_ROOT="" install)
 gzip -v %{buildroot}/usr/X11R6/man/man*/*
 find %{buildroot} -name Xawtv -print	|\
 	sed -e 's|%{buildroot}||' > appdefaults.xawtv
@@ -86,7 +87,6 @@ find %{buildroot} -name MoTV -print	|\
 %defattr(-,root,root)
 %doc COPYING
 %doc Changes TODO README README.*
-%doc Programming-FAQ UPDATE_TO_v3.0
 %doc contrib/dot.lircrc contrib/frequencies*
 /usr/X11R6/bin/xawtv
 /usr/X11R6/man/man1/xawtv.1.gz

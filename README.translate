@@ -8,21 +8,19 @@ the strings are in the MoTV-<lang> files.  MoTV-default is the english
 version.  MoTV-fixed has the other (language-independant) app-default
 settings.  The Makefile merges these into MoTV.<lang>.ad files.
 
-To add another language you just need to create a new MoTV-<lang> file,
-edit src/Makefile.in and add the language to the LANG= line.  Then rerun
-the configure script.  Now the make targets (in src/) include the new
-language.  You can test the translations without "make install" this way
-(bash):
+To add another language you just need to create a new MoTV-<lang>
+file, edit x11/Subdir.mk and add the language to the LANGUAGES= line.
+You can test the translations without "make install" this way (bash):
 
 once at start:
 
-$ cd src
+$ cd x11
 $ export XUSERFILESEARCHPATH="./%N.%l.ad:./%N.ad"
 $ export LC_ALL=<lang>
 
 every time after editing MoTV-<lang>:
 
-$ make i18n
+$ make
 $ ./motv
 
 

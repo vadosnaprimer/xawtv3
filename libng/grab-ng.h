@@ -5,6 +5,9 @@
  *
  */
 
+#include <pthread.h>
+#include <sys/types.h>
+
 #include "devices.h"
 
 extern int  ng_debug;
@@ -224,6 +227,15 @@ void ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
 		     int ratio_x, int ratio_y, int up);
 
 /* --------------------------------------------------------------------- */
+/* device informations                                                   */
+
+struct ng_devinfo {
+    char  device[32];
+    char  name[64];
+    int   flags;
+};
+
+/* --------------------------------------------------------------------- */
 /* capture/overlay interface driver                                      */
 
 struct ng_vid_driver {
@@ -271,7 +283,11 @@ struct ng_dsp_driver {
 
 struct ng_mix_driver {
     const char            *name;
-    struct ng_attribute*  (*init)(char *device, char *channel);
+    struct ng_devinfo*    (*probe)(void);
+    struct ng_devinfo*    (*channels)(char *device);
+    void*                 (*open)(char *device);
+    struct ng_attribute*  (*volctl)(void *handle, char *channel);
+    void                  (*close)(void *handle);
 };
 
 
@@ -306,7 +322,7 @@ struct ng_filter {
 /* --------------------------------------------------------------------- */
 
 /* must be changed if we break compatibility */
-#define NG_PLUGIN_MAGIC 20020118
+#define NG_PLUGIN_MAGIC 0x20020322
 
 extern struct ng_video_conv  **ng_conv;
 extern struct ng_filter      **ng_filters;

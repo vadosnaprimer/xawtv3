@@ -8,12 +8,8 @@
 #include <errno.h>
 #include <sys/param.h>
 #include <sys/uio.h>
-#include <pthread.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
-#include "byteswap.h"
 
+#include "byteswap.h"
 #include "grab-ng.h"
 
 #if BYTE_ORDER == BIG_ENDIAN
@@ -667,5 +663,5 @@ struct ng_writer avi_writer = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_writer_register(NG_PLUGIN_MAGIC,PLUGNAME,&avi_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,__FILE__,&avi_writer);
 }

@@ -1,6 +1,8 @@
 #ifndef BYTEORDER_H
 #define BYTEORDER_H
 
+#include <sys/types.h>
+
 #ifndef BYTE_ORDER
 # error "Aiee: BYTE_ORDER not defined\n";
 #endif

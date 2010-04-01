@@ -4,6 +4,8 @@
  * (c) 2001 Gerd Knorr <kraxel@bytesex.org>
  *
  */
+
+#define NG_PRIVATE
 #include "config.h"
 
 #include <stdio.h>
@@ -16,9 +18,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <sys/time.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#endif
+#include <sys/types.h>
 
 #include <dlfcn.h>
 #ifndef RTLD_NOW
@@ -532,6 +532,7 @@ struct ng_attribute*
 ng_mix_init(char *device, char *channel)
 {
     struct ng_attribute *attrs = NULL;
+    void *handle;
     int i;
     
     /* check all mixer drivers */
@@ -543,8 +544,11 @@ ng_mix_init(char *device, char *channel)
 	if (ng_debug)
 	    fprintf(stderr,"mix-init: trying: %s... \n",
 		    ng_mix_drivers[i]->name);
-	if (NULL != (attrs = ng_mix_drivers[i]->init(device,channel)))
-	    break;
+	if (NULL != (handle = ng_mix_drivers[i]->open(device))) {
+	    if (NULL != (attrs = ng_mix_drivers[i]->volctl(handle,channel)))
+		break;
+	    ng_mix_drivers[i]->close(handle);
+	}
 	if (ng_debug)
 	    fprintf(stderr,"mix-init: failed: %s\n",ng_mix_drivers[i]->name);
     }
@@ -749,9 +753,3 @@ ng_init(void)
     if (0 == count)
 	fprintf(stderr,"WARNING: no plugins found [%s]\n",LIBDIR);
 }
-
-/*
- * Local variables:
- * compile-command: "(cd ..; make)"
- * End:
- */
