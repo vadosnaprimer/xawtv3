@@ -24,10 +24,7 @@
 #endif
 #include <pthread.h>
 
-#include <X11/Intrinsic.h>
-
 #include "grab-ng.h"
-#include "colorspace.h"
 
 #if !defined(__OpenBSD__) && !defined(__FreeBSD__)
 struct ng_driver bsd_driver;
@@ -208,7 +205,7 @@ xioctl(int fd, int cmd, void *arg)
     int rc;
 
     rc = ioctl(fd,cmd,arg);
-    if (0 == rc && debug < 2)
+    if (0 == rc && ng_debug < 2)
 	return 0;
     switch (cmd) {
     case METEORSVIDEO:
@@ -392,7 +389,7 @@ bsd_close(void *handle)
 {
     struct bsd_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "bktr: close\n");
 
     close(h->fd);
@@ -499,7 +496,7 @@ static unsigned long bsd_getfreq(void *handle)
 
     if (-1 == ioctl(h->tfd, TVTUNER_GETFREQ, &freq))
 	perror("ioctl TVTUNER_GETFREQ");
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"bktr: get freq: %.3f\n",(float)freq/16);
     return freq;
 }
@@ -508,7 +505,7 @@ static void bsd_setfreq(void *handle, unsigned long freq)
 {
     struct bsd_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"bktr: set freq: %.3f\n",(float)freq/16);
     if (-1 == ioctl(h->tfd, TVTUNER_SETFREQ, &freq))
 	perror("ioctl TVTUNER_SETFREQ");
@@ -581,7 +578,7 @@ static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	win_y +=  (fmt->height - win_height)/2;
     }
     if (aspect)
-	grabber_fix_ratio(&win_width,&win_height,&win_x,&win_y);
+	ng_ratio_fixup(&win_width,&win_height,&win_x,&win_y);
     xadjust = win_x - x;
     yadjust = win_y - y;
 
@@ -594,7 +591,7 @@ static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     h->ovgeo.frames  = 1;
     h->ovgeo.oformat = 0x10000;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"bktr: overlay win=%dx%d+%d+%d, %d clips\n",
 		win_width,win_height,win_x,win_y,count);
 
@@ -614,7 +611,7 @@ static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->clip[i].y_min      = oc[i].x1 - xadjust;
 	h->clip[i].y_max      = oc[i].x2 - xadjust;
 #endif
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"bktr:   clip x=%d-%d y=%d-%d\n",
 		    h->clip[i].x_min,h->clip[i].x_max,
 		    h->clip[i].y_min,h->clip[i].y_max);
@@ -632,7 +629,7 @@ static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 static void
 catchsignal(int signal)
 {
-    if (signal == SIGUSR1  &&  debug > 1)
+    if (signal == SIGUSR1  &&  ng_debug > 1)
 	fprintf(stderr,"bktr: sigusr1\n");
     if (signal == SIGALRM)
 	fprintf(stderr,"bktr: sigalrm\n");
@@ -731,7 +728,7 @@ static struct ng_video_buf* bsd_nextframe(void *handle)
     sigdelset(&sa_mask,SIGALRM);
     sigsuspend(&sa_mask);
     alarm(0);
-    rc = grabber_sw_rate(&h->start,h->fps,h->frames);
+    rc = ng_grabber_swrate(&h->start,h->fps,h->frames);
     if (rc <= 0)
 	goto next_frame;
 

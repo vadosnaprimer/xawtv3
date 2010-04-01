@@ -180,9 +180,9 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
     int rc;
 
     rc = ioctl(fd,cmd,arg);
-    if (0 == rc && debug < 2)
+    if (0 == rc && ng_debug < 2)
 	return rc;
-    if (mayfail && errno == mayfail && debug < 2)
+    if (mayfail && errno == mayfail && ng_debug < 2)
 	return rc;
     switch (cmd) {
     case VIDIOC_QUERYCAP:
@@ -711,7 +711,6 @@ v4l2_open(char *device)
 	return NULL;
     memset(h,0,sizeof(*h));
     
-    grabber_run_v4l_conf();
     if (-1 == (h->fd = open(device,O_RDWR))) {
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	goto err;
@@ -719,13 +718,13 @@ v4l2_open(char *device)
 
     if (-1 == ioctl(h->fd,VIDIOC_QUERYCAP,&h->cap))
 	goto err;
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "v4l2: open\n");
     fcntl(h->fd,F_SETFD,FD_CLOEXEC);
     fprintf(stderr,"v4l2: device is %s\n",h->cap.name);
 
     get_device_capabilities(h);
-    if (debug)
+    if (ng_debug)
 	print_device_capabilities(h);
 
     /* attributes */
@@ -752,7 +751,7 @@ v4l2_close(void *handle)
 {
     struct v4l2_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "v4l2: close\n");
 
     close(h->fd);
@@ -799,7 +798,7 @@ v4l2_setfreq(void *handle, unsigned long freq)
 {
     struct v4l2_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l2: freq: %.3f\n",(float)freq/16);
     xioctl(h->fd, VIDIOC_S_FREQ, &freq, 0);
 }
@@ -832,7 +831,7 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 	print_fbinfo(&h->ov_fb);
 
     /* double-check settings */
-    if (have_dga && h->ov_fb.base[0] != base) {
+    if (NULL != base && h->ov_fb.base[0] != base) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer base address mismatch\n");
 	fprintf(stderr,"v4l2: %p %p\n",base,h->ov_fb.base);
 	h->ov_error = 1;
@@ -870,7 +869,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	return -1;
     
     if (NULL == fmt) {
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"v4l2: overlay off\n");
 	h->ov_enabled = 0;
 	h->ov_on = 0;
@@ -878,7 +877,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	return 0;
     }
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l2: overlay win=%dx%d+%d+%d, %d clips\n",
 		fmt->width,fmt->height,x,y,count);
     h->ov_win.x          = x;
@@ -897,8 +896,8 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->ov_win.y +=  (fmt->height - h->ov_win.height)/2;
     }
     if (aspect)
-	grabber_fix_ratio(&h->ov_win.width,&h->ov_win.height,
-			  &h->ov_win.x,&h->ov_win.y);
+	ng_ratio_fixup(&h->ov_win.width,&h->ov_win.height,
+		       &h->ov_win.x,&h->ov_win.y);
 
     /* fixups */
     xadjust = h->ov_win.x - x;
@@ -914,7 +913,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	    h->ov_clips[i].y      = oc[i].y1 - yadjust;
 	    h->ov_clips[i].width  = oc[i].x2-oc[i].x1;
 	    h->ov_clips[i].height = oc[i].y2-oc[i].y1;
-	    if (debug)
+	    if (ng_debug)
 		fprintf(stderr,"v4l2: clip=%dx%d+%d+%d\n",
 			h->ov_clips[i].width,h->ov_clips[i].height,
 			h->ov_clips[i].x,h->ov_clips[i].y);
@@ -1022,7 +1021,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 	    perror("mmap");
 	    return -1;
 	}
-	if (debug)
+	if (ng_debug)
 	    print_bufinfo(&h->buf_v4l2[i]);
     }
 
@@ -1034,7 +1033,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
     if (disable_overlay) {
 	h->ov_on = 0;
 	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"v4l2: overlay off (start_streaming)\n");
     }
 
@@ -1071,7 +1070,7 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     if (h->ov_on != h->ov_enabled) {
 	h->ov_on = h->ov_enabled;
 	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"v4l2: overlay on (stop_streaming)\n");
     }
 }
@@ -1103,7 +1102,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     if (0 == fmt->bytesperline)
 	fmt->bytesperline = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
     h->fmt_me = *fmt;
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l2: new capture params (%dx%d, %c%c%c%c, %d byte)\n",
 		fmt->width,fmt->height,
 		h->fmt_v4l2.fmt.pix.pixelformat & 0xff,
@@ -1170,7 +1169,7 @@ v4l2_nextframe(void *handle)
 	}
 
 	/* rate control -- FIXME: use timecode instead */
-	if (grabber_sw_rate(&h->start,h->fps,h->frames) > 0)
+	if (ng_grabber_swrate(&h->start,h->fps,h->frames) > 0)
 	    break;
 	
 	if (h->cap.flags & V4L2_FLAG_STREAMING) {

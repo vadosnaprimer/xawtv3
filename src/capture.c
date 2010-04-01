@@ -12,8 +12,8 @@
 #include <sys/shm.h>
 
 #include "grab-ng.h"
+#include "grab.h"
 #include "commands.h"       /* FIXME: *drv globals */
-#include "colorspace.h"
 #include "sound.h"
 #include "capture.h"
 
@@ -238,7 +238,7 @@ movie_writer_init(char *moviename, char *audioname,
     h->afmt = *audio;
 
     /* video */
-    if (-1 == ng_grabber_setparams(video,0,0)) {
+    if (-1 == ng_grabber_setparams(video,0)) {
 	if (h->afmt.fmtid != AUDIO_NONE)
 	    sound_close();
 	free(h);

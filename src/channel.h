@@ -35,7 +35,6 @@ extern int             have_mixer;
 
 extern int have_config;
 extern int jpeg_quality;
-extern int mjpeg_quality;
 extern int keypad_ntsc;
 extern int use_osd;
 extern int fs_width,fs_height,fs_xoff,fs_yoff;

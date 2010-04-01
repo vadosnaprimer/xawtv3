@@ -26,16 +26,16 @@ PROGS=dump-mixers record showriff propwatch
 all build: $(PROGS)
 
 dump-mixers: dump-mixers.o
-	$(CC) $(CFLAGS) -o $@ $< @LIBSOUND@
+	$(CC) $(CFLAGS) -o $@ dump-mixers.o @LIBSOUND@
 
 showriff: showriff.o
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ showriff.o
 
 record: record.o
-	$(CC) $(CFLAGS) -o $@ $< @LIBCURSES@ @LIBSOUND@
+	$(CC) $(CFLAGS) -o $@ record.o @LIBCURSES@ @LIBSOUND@
 
 propwatch: propwatch.o
-	$(CC) $(CFLAGS) -o $@ $< $(XLDLIBS)
+	$(CC) $(CFLAGS) -o $@ propwatch.o $(XLDLIBS)
 
 install: all
 	$(INSTALL_DIR) $(bindir)

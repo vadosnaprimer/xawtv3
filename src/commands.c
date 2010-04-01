@@ -12,8 +12,9 @@
 #include <X11/Intrinsic.h>
 
 #include "config.h"
-
 #include "grab-ng.h"
+
+#include "grab.h"
 #include "commands.h"
 #include "writefile.h"
 #include "channel.h"
@@ -48,6 +49,7 @@ void (*capture_get_hook)(void);
 void (*capture_rel_hook)(void);
 void (*movie_hook)(int argc, char **argv);
 
+int debug;
 int do_overlay;
 char *snapbase = "snap";
 
@@ -316,7 +318,7 @@ set_title(void)
 }
 
 static void
-set_msg_int(char *name, int val)
+set_msg_int(const char *name, int val)
 {
     static char  title[256];
     
@@ -806,7 +808,7 @@ static int snap_handler(char *hname, int argc, char **argv)
     if (argc > 2)
 	filename = argv[2];
     
-    if (0 != ng_grabber_setparams(&fmt,0,1) ||
+    if (0 != ng_grabber_setparams(&fmt,1) ||
 	NULL == (buf = ng_grabber_capture(NULL,1))) {
 	if (display_message)
 	    display_message("grabbing failed");
@@ -873,7 +875,7 @@ static int webcam_handler(char *hname, int argc, char **argv)
 	capture_get_hook();
     fmt = x11_fmt;
     fmt.fmtid = VIDEO_RGB24;
-    ng_grabber_setparams(&fmt,0,0);
+    ng_grabber_setparams(&fmt,0);
     buf = ng_grabber_capture(NULL,1);
     ng_release_video_buf(buf);
     if (capture_rel_hook)

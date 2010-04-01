@@ -28,7 +28,6 @@
 
 int debug = 0;
 int have_dga = 0;
-char v4l_conf[] = "";
 char *device = "/dev/video";
 Display *dpy;
 
@@ -37,7 +36,7 @@ Display *dpy;
 static void
 grabber_init(void)
 {
-    ng_grabber_open(device,NULL,0,NULL);
+    drv = ng_grabber_open(device,NULL,0,&h_drv);
     f_drv = drv->capabilities(h_drv);
     a_drv = drv->list_attrs(h_drv);
 }

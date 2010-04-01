@@ -21,7 +21,8 @@ PROG=alevtd
 OBJS=main.o request.o response.o page.o
 HTML=alevt.css.h top.html.h bottom.html.h about.html.h
 
-%.h : %
+.SUFFIXES: .in .h
+.in.h:
 	perl -ne 's/\"/\\\"/g; chop; print "\"$$_\\n\"\n"' $< > $@
 
 all build: $(PROG)

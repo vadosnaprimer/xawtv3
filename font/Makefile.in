@@ -20,7 +20,8 @@ install: all
 		true;				\
 	fi
 
-%.pcf: %.bdf
+.SUFFIXES: .bdf .pcf
+.bdf.pcf:
 	bdftopcf -o $@ $<
 
 dep:

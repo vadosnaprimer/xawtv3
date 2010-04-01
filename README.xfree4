@@ -57,5 +57,23 @@ drawbacks
 capturing images/video doesn't work if xawtv runs using the Xvideo
 extention.  With the '-noxv' switch Xvideo can be disabled.
 
+
+multiheaded setups
+------------------
+
+"regular" multihead with two screens works just fine.  The one only thing
+you have to take care off is that you can't use the -display option to
+start xawtv on the second head if you are *not* using Xvideo.  Use
+"DISPLAY=:0.1 xawtv" instead.  Otherwise v4l-conf will use the wrong
+screen to configure the driver.
+
+With "xinerama" video works on the first physical screen only (the one
+listed first in your ServerLayout section).  With Xvideo it will simply
+not work on the other head (will be fixed in one of the next xfree86
+releases I hope), without Xvideo you'll see the video on the wrong
+display.
+
+[ status of the 4.0.2 release ]
+
   Gerd
 

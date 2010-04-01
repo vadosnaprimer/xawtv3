@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,14 +7,17 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
+#include "byteswap.h"
+
 #include <asm/page.h> /* PAGE_SIZE */
 
 #include <linux/fb.h>
 
-#include "config.h"
 #include "fbtools.h"
 #include "matrox.h"
-#include "byteorder.h"
 
 /* ---------------------------------------------------------------------- */
 /* generic                                                                */

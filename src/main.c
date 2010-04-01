@@ -51,6 +51,9 @@
 # include <X11/extensions/xf86vmode.h>
 # include <X11/extensions/xf86vmstr.h>
 #endif
+#ifdef HAVE_LIBXINERAMA
+# include <X11/extensions/Xinerama.h>
+#endif
 #ifdef HAVE_MITSHM
 # include <X11/extensions/XShm.h>
 #endif
@@ -70,6 +73,8 @@ Status DPMSDisable(Display*);
 
 #include "grab-ng.h"
 #include "writefile.h"
+
+#include "grab.h"
 #include "sound.h"
 #include "channel.h"
 #include "commands.h"
@@ -80,7 +85,6 @@ Status DPMSDisable(Display*);
 #include "x11.h"
 #include "toolbox.h"
 #include "complete.h"
-#include "colorspace.h"
 #include "wmhooks.h"
 #include "lirc.h"
 
@@ -699,10 +703,10 @@ grabdisplay_restart(void)
 {
 #ifdef HAVE_LIBXV
     if (have_xv_scale)
-	ng_grabber_setparams(&xv_fmt,0,0);
+	ng_grabber_setparams(&xv_fmt,0);
     else
 #endif
-	ng_grabber_setparams(&x11_fmt,1,0);
+	ng_grabber_setparams(&x11_fmt,0);
     
     if (cur_capture != CAPTURE_OFF)
 	return;
@@ -761,11 +765,11 @@ grabdisplay_setsize(int width, int height)
 #endif
 	xv_fmt.fmtid = VIDEO_YUV422;
 	xv_fmt.bytesperline = 0;
-	ng_grabber_setparams(&xv_fmt,0,0);
+	ng_grabber_setparams(&xv_fmt,0);
 	xv_image = xv_create_ximage(dpy, xv_fmt.width, xv_fmt.height, &xv_shm);
     } else {
 #endif
-	ng_grabber_setparams(&x11_fmt,1,1);
+	ng_grabber_setparams(&x11_fmt,1);
 	grab_ximage = x11_create_ximage(dpy,&vinfo,
 					x11_fmt.width,x11_fmt.height,
 					&grab_ximage_shm);
@@ -1144,7 +1148,7 @@ pixit(void)
     fmt = x11_fmt;
     fmt.width  = pix_width;
     fmt.height = pix_height;
-    if (0 == ng_grabber_setparams(&fmt,1,0) &&
+    if (0 == ng_grabber_setparams(&fmt,0) &&
 	NULL != (buf = ng_grabber_capture(NULL,1)) &&
 	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
 				      fmt.width,fmt.height,
@@ -1324,6 +1328,7 @@ do_fullscreen(void)
 {
     static Dimension x,y,w,h;
     static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy;
+    static int warp_pointer;
 #ifdef HAVE_LIBXXF86VM
     static int vm_switched;
 #endif
@@ -1368,8 +1373,9 @@ do_fullscreen(void)
 	}
 #endif
 
-	XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
-		     0, 0, 0, 0, rpx, rpy);
+	if (warp_pointer)
+	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
+			 0, 0, 0, 0, rpx, rpy);
 	fs = 0;
     } else {
 	int vp_x, vp_y, vp_width, vp_height;
@@ -1401,13 +1407,13 @@ do_fullscreen(void)
 		vp_width = vm_modelines[0]->hdisplay;
 		vp_height = vm_modelines[0]->vdisplay;
 	    }
-#if 0
-	    XF86VidModeGetViewPort(dpy,XDefaultScreen(dpy),&vp_x,&vp_y);
-#else
-	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
-			 0, 0, 0, 0, vp_width/2, vp_height/2);
-	    XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
-#endif
+	    if (vp_width < sheight || vp_width < swidth) {
+		/* move viewpoint, make sure the pointer is in there */
+		warp_pointer = 1;
+		XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
+			     0, 0, 0, 0, vp_width/2, vp_height/2);
+		XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
+	    }
 	    if (debug)
 		fprintf(stderr,"viewport: %dx%d+%d+%d\n",
 			vp_width,vp_height,vp_x,vp_y);
@@ -1419,6 +1425,25 @@ do_fullscreen(void)
 		      XtNwidth,      &w,
 		      XtNheight,     &h,
 		      NULL);
+
+#ifdef HAVE_LIBXINERAMA
+	if (nxinerama) {
+	    /* check which physical screen we are visible on */
+	    int i;
+	    for (i = 0; i < nxinerama; i++) {
+		if (x >= xinerama[i].x_org &&
+		    y >= xinerama[i].y_org && 
+		    x <  xinerama[i].x_org + xinerama[i].width &&
+		    y <  xinerama[i].y_org + xinerama[i].height) {
+		    vp_x      = xinerama[i].x_org;
+		    vp_y      = xinerama[i].y_org;
+		    vp_width  = xinerama[i].width;
+		    vp_height = xinerama[i].height;
+		    break;
+		}
+	    }
+	}
+#endif
 
 	XtVaSetValues(app_shell,
 		      XtNwidthInc,   1,
@@ -1444,7 +1469,8 @@ do_fullscreen(void)
 	}
 #endif
 
-	XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
+	if (warp_pointer)
+	    XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
 	fs = 1;
     }
     XtAppAddWorkProc (app_context, MyResize, NULL);
@@ -2486,8 +2512,10 @@ main(int argc, char *argv[])
 	usage();
 	exit(0);
     }
-    debug = args.debug;
     snapbase = args.basename;
+    debug    = args.debug;
+    ng_debug = args.debug;
+    ng_init();
     
     /* look for a useful visual */
     visual_init("xawtv","Xawtv");

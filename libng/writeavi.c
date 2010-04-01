@@ -12,7 +12,7 @@
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
-#include "byteorder.h"
+#include "byteswap.h"
 
 #include "grab-ng.h"
 
@@ -345,7 +345,7 @@ avi_bigfile(struct avi_handle *h, int last)
     h->framesx = 0;
     h->datax_size = 0;
     write(h->fd,&h->avix_hdr,sizeof(struct AVIX_HDR));
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"avi bigfile #%d\n",h->bigfile);
 }
 

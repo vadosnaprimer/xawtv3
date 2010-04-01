@@ -62,8 +62,10 @@ int               have_shmem = 0;
 int               vm_count;
 XF86VidModeModeInfo **vm_modelines;
 #endif
-
-char v4l_conf[128];
+#ifdef HAVE_LIBXINERAMA
+XineramaScreenInfo *xinerama;
+int                nxinerama;
+#endif
 
 /*--- args ----------------------------------------------------------------*/
 
@@ -286,8 +288,7 @@ void
 xfree_xinerama_init(void)
 {
 #ifdef HAVE_LIBXINERAMA
-    XineramaScreenInfo *xinerama;
-    int nxinerama,foo,bar,i;
+    int foo,bar,i;
     
     if (XineramaQueryExtension(dpy,&foo,&bar) &&
 	XineramaIsActive(dpy)) {
@@ -300,7 +301,6 @@ xfree_xinerama_init(void)
 		    xinerama[i].x_org,
 		    xinerama[i].y_org);
 	}
-	XFree(xinerama);
     }
 #endif
 }
@@ -449,17 +449,17 @@ v4lconf_init()
     if (!do_overlay)
 	return;
 
-    strcpy(v4l_conf,"v4l-conf");
+    strcpy(ng_v4l_conf,"v4l-conf");
     if (!args.debug)
-	strcat(v4l_conf," -q");
+	strcat(ng_v4l_conf," -q");
     if (args.fbdev)
-	strcat(v4l_conf," -f");
+	strcat(ng_v4l_conf," -f");
     if (args.shift)
-	sprintf(v4l_conf+strlen(v4l_conf)," -s %d",args.shift);
+	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -s %d",args.shift);
     if (args.bpp)
-	sprintf(v4l_conf+strlen(v4l_conf)," -b %d",args.bpp);
+	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -b %d",args.bpp);
     if (args.device)
-	sprintf(v4l_conf+strlen(v4l_conf)," -c %s",args.device);
+	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -c %s",args.device);
 }
 
 int

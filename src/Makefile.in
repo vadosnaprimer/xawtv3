@@ -25,6 +25,7 @@ WARN=-Wall -Wstrict-prototypes
 CFLAGS=-g $(WARN) @CFLAGS@ -D_FILE_OFFSET_BITS=64 \
 	-I$(srcdir)/.. -I.. @X_CFLAGS@ -D_REENTRANT \
 	-DVERSION='"$(VERSION)"' -DCONFIGFILE='"$(config)"' \
+	-I$(srcdir)/../libng -L../libng \
 	-I$(srcdir)/../libvbi -L../libvbi
 
 GFXLIBS=@GFXLIBS@
@@ -36,59 +37,58 @@ SCRLIBS=@LIBCURSES@
 IRLIBS=@LIRC@
 LDLIBS=@LIBPTHREAD@ @LIBSOUND@
 
-ifeq ($(OS),linux)
-  PROGS=xawtv xawtv-remote v4l-conf v4lctl streamer fbtv xvideo rootv scantv @MOTIF@
-else
-  PROGS=xawtv xawtv-remote v4lctl streamer xvideo rootv scantv
-endif
+PROGS=xawtv xawtv-remote v4lctl streamer xvideo rootv scantv @PROGS@ @MOTIF@
 
-COMMON_OBJS= sound.o grab.o grab-ng.o grab-v4l.o grab-v4l2.o grab-bsd.o	\
-	colorspace.o webcam.o frequencies.o commands.o parseconfig.o mjpeg.o
-CAPTURE_OBJS=capture.o writefile.o writeavi.o writeqt.o
+COMMON_OBJS=sound.o grab.o webcam.o frequencies.o commands.o parseconfig.o capture.o ../libng/libng.a
 LIRC_OBJS=lirc.o
 
 XAWTV_OBJS=  main.o xt.o toolbox.o conf.o x11.o xv.o complete.o wmhooks.o \
-	channel.o $(COMMON_OBJS) $(CAPTURE_OBJS) $(LIRC_OBJS)
+	channel.o $(COMMON_OBJS) $(LIRC_OBJS)
+MOTV_OBJS=   motif.o xt.o x11.o xv.o channel-no-x11.o $(COMMON_OBJS)
 FBTV_OBJS=   fbtv.o fbtools.o channel-no-x11.o matrox.o \
-	$(COMMON_OBJS) $(CAPTURE_OBJS) $(LIRC_OBJS)
+	$(COMMON_OBJS) $(LIRC_OBJS)
+V4LCTL_OBJS= v4lctl.o channel-no-x11.o xv.o $(COMMON_OBJS)
+STREAMER_OBJS= streamer.o channel-no-x11.o $(COMMON_OBJS)
+SCANTV_OBJS= scantv.o channel-no-x11.o xv.o $(COMMON_OBJS)
+
 
 ##########################################################################
 
 all build: $(PROGS)
 
 xawtv: $(XAWTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(X11LIBS) $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(XAWTV_OBJS) $(GFXLIBS) $(IRLIBS) $(X11LIBS) $(LDLIBS)
 	-test -f Xawtv.ad || cp -v $(srcdir)/Xawtv.ad .
 
-motv: motif.o xt.o x11.o xv.o channel-no-x11.o $(COMMON_OBJS) $(CAPTURE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(MOLIBS) $(LDLIBS)
+motv: $(MOTV_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(MOTV_OBJS) $(GFXLIBS) $(IRLIBS) $(MOLIBS) $(LDLIBS)
 
 fbtv: $(FBTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(SCRLIBS) $(LDLIBS) -lm
+	$(CC) $(CFLAGS) -o $@ $(FBTV_OBJS) $(GFXLIBS) $(IRLIBS) $(SCRLIBS) $(LDLIBS) -lm
 
-v4lctl: v4lctl.o channel-no-x11.o xv.o $(COMMON_OBJS) $(CAPTURE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(X11LIBS) $(LDLIBS)
+v4lctl: $(V4LCTL_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(V4LCTL_OBJS) $(GFXLIBS) $(X11LIBS) $(LDLIBS)
 
-streamer: streamer.o channel-no-x11.o $(COMMON_OBJS) $(CAPTURE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(LDLIBS)
+streamer: $(STREAMER_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(STREAMER_OBJS) $(GFXLIBS) $(IRLIBS) $(LDLIBS)
 
 xvideo: xvideo.o
-	$(CC) $(CFLAGS) -o $@ $^ $(X11LIBS) #$(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ xvideo.o $(X11LIBS) #$(LDLIBS)
 
 rootv: rootv.o parseconfig.o
-	$(CC) $(CFLAGS) -o $@ $^ $(X11LIBS)
+	$(CC) $(CFLAGS) -o $@ rootv.o parseconfig.o $(X11LIBS)
 
 v4l-conf: v4l-conf.o
-	$(CC) $(CFLAGS) -o $@ $< $(X11LIBS)
+	$(CC) $(CFLAGS) -o $@ v4l-conf.o $(X11LIBS)
 
-scantv: scantv.o channel-no-x11.o xv.o $(COMMON_OBJS) $(CAPTURE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ -lvbi $(GFXLIBS) $(X11LIBS) $(LDLIBS)
+scantv: $(SCANTV_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(SCANTV_OBJS) -lvbi $(GFXLIBS) $(X11LIBS) $(LDLIBS)
 
 xawtv-remote: xawtv-remote.o
-	$(CC) $(CFLAGS) -o $@ $< $(X11LIBS)
+	$(CC) $(CFLAGS) -o $@ xawtv-remote.o $(X11LIBS)
 
-channel-no-x11.o: channel.c
-	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $<
+channel-no-x11.o: $(srcdir)/channel.c
+	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $(srcdir)/channel.c
 
 install: all
 	$(INSTALL_DIR) $(bindir)
@@ -99,10 +99,10 @@ install: all
 	$(INSTALL_PROGRAM) -s v4lctl $(bindir)
 	$(INSTALL_PROGRAM) -s rootv $(bindir)
 	$(INSTALL_PROGRAM) -s scantv $(bindir)
-ifeq ($(OS),linux)
-	$(INSTALL_PROGRAM) -s fbtv $(bindir);
-	$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir)
-endif
+	test -f fbtv &&\
+		$(INSTALL_PROGRAM) -s fbtv $(bindir) || true
+	test -f v4l-conf &&\
+		$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir) || true
 	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(resdir)/Xawtv
 
 clean:

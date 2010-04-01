@@ -26,7 +26,6 @@
 #include <X11/Intrinsic.h>
 
 #include "grab-ng.h"
-#include "colorspace.h"
 #include "writefile.h"
 #include "channel.h"
 #include "sound.h"
@@ -63,7 +62,6 @@ static int  fd = -1, quiet = 0, fps = 10;
 static int  signaled = 0, wait_seconds = 0;
 
 int debug = 0, have_dga = 0;
-char v4l_conf[] = "";
 
 /* ---------------------------------------------------------------------- */
 
@@ -265,7 +263,7 @@ main(int argc, char **argv)
 	    bufcount = atoi(optarg);
 	    break;
 	case 'j':
-	    jpeg_quality = mjpeg_quality = atoi(optarg);
+	    jpeg_quality = ng_mjpeg_quality = atoi(optarg);
 	    break;
 	case 'n':
 	    tvnorm = optarg;

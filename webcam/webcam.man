@@ -32,8 +32,8 @@ text = "webcam %Y-%m-%d %H:%M:%S"
 width = 320
 height = 240
 delay = 3
-input = 0
-norm = 0
+input = composite1
+norm = pal
 rotate = 0
 top = 0
 left = 0
@@ -51,7 +51,7 @@ to see how you can format the timestamps.
 .B input
 is the video source (TV/composite/whatever),
 .B norm
-the TV norm (0=PAL, 1=NTSC, 2=SECAM).
+the TV norm.
 .B delay
 is the delay between two images in seconds.
 .B quality

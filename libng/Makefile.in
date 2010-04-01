@@ -4,21 +4,21 @@ VPATH=$(srcdir)
 CC=@CC@
 DEPEND=@DEPEND@
 
-CFLAGS=-O2 -g @VBIFLAGS@ #-Wall 
+CFLAGS=-Wall -O2 -g @CFLAGS@ -I..
+OBJS=grab-ng.o @NG_GRAB@				\
+	color_common.o color_packed.o color_lut.o	\
+	mjpeg.o						\
+	writefile.o writeavi.o writeqt.o
 
-# from alevt
-OBJS=vbi.o fdset.o misc.o hamm.o lang.o cache.o	\
-	font.o export.o exp-gfx.o exp-html.o exp-txt.o
+all build: libng.a
 
-all build: libvbi.a
-
-libvbi.a: $(OBJS)
+libng.a: $(OBJS)
 	rm -f $@
 	ar -r $@ $(OBJS)
 	ranlib $@
 
 clean:
-	rm -f libvbi.a $(OBJS)
+	rm -f libng.a $(OBJS)
 
 distclean realclean: clean
 	rm -f Makefile *~ *.bak

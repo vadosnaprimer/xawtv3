@@ -32,12 +32,34 @@ AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 
 dnl ---------------------------------------------------------------------
-dnl Check if we better include /usr/local into include+lib path.
-dnl Linux tends to have everything in /usr, BSD needs /usr/local
+dnl do some OS specific stuff here
 
-if test -f "/usr/local/lib/libjpeg.a"; then
-	CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
-fi
+NG_GRAB=""
+VBIFLAGS=""
+PROGS=""
+RADIO=""
+case "`uname -s`" in
+	Linux)
+		NG_GRAB="grab-v4l.o grab-v4l2.o"
+		PROGS="v4l-conf fbtv"
+		RADIO="radio"
+		;;
+	OpenBSD | FreeBSD)
+		# *BSD has important stuff (from ports) in
+		# /usr/local ...
+		CFLAGS="$CFLAGS -I/usr/local/include -L/usr/local/lib"
+		NG_GRAB="grab-bsd.o"
+		VBIFLAGS="-DBSD"
+		;;
+	*)
+		AC_MSG_CHECKING(if xawtv will build on `uname -s`)
+		AC_MSG_RESULT(maybe)
+		;;
+esac
+AC_SUBST(NG_GRAB)
+AC_SUBST(VBIFLAGS)
+AC_SUBST(PROGS)
+AC_SUBST(RADIO)
 
 
 dnl ---------------------------------------------------------------------
@@ -175,4 +197,4 @@ AC_SUBST(resdir)
 dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile src/Makefile tools/Makefile radio/Makefile 
 	man/Makefile i2c/Makefile font/Makefile webcam/Makefile
-	http/Makefile libvbi/Makefile xawtv.spec)
+	http/Makefile libvbi/Makefile libng/Makefile xawtv.spec)

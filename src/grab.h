@@ -4,13 +4,12 @@
 
 extern int debug;
 extern int have_dga;
-
 extern int fd_grab;
-extern int grab_ratio_x;
-extern int grab_ratio_y;
 
 /* ------------------------------------------------------------------------- */
 
 void  grabber_run_v4l_conf(void);
-int   grabber_sw_rate(struct timeval *start, int fps, int count);
-void  grabber_fix_ratio(int *width, int *height, int *xoff, int *yoff);
+
+int ng_grabber_setparams(struct ng_video_fmt *fmt, int fix_ratio);
+struct ng_video_buf* ng_grabber_capture(struct ng_video_buf *dest,
+					int single);

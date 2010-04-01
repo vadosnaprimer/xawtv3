@@ -39,7 +39,6 @@
 #include "grab-ng.h"
 #include "x11.h"
 #include "xv.h"
-#include "colorspace.h"
 #include "commands.h"
 
 #define DISPLAY             XtDisplay
@@ -107,8 +106,9 @@ x11_visual(Display *dpy)
 	case DirectColor:  class = "DirectColor"; break;
 	default:           class = "UNKNOWN";     break;
 	}
-	fprintf(stderr,"visual: id=0x%lx class=%d (%s), depth=%d\n",
-		info[i].visualid,info[i].class,class,info[i].depth);
+	if (debug)
+	    fprintf(stderr,"visual: id=0x%lx class=%d (%s), depth=%d\n",
+		    info[i].visualid,info[i].class,class,info[i].depth);
     }
     for (i = 0; vi == CopyFromParent && i < found; i++)
 	if (info[i].class == TrueColor && info[i].depth >= 15)
@@ -173,8 +173,8 @@ x11_init(Display *dpy, XVisualInfo *vinfo)
 	    fprintf(stderr, "Huh?\n");
 	    exit(1);
 	}
-	lut_init(vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask,
-		 pixmap_bytes,x11_byteswap);
+	ng_lut_init(vinfo->red_mask, vinfo->green_mask, vinfo->blue_mask,
+		    x11_fmt.fmtid,x11_byteswap);
 	/* guess physical screen format */
 	if (ImageByteOrder(dpy) == MSBFirst) {
 	    switch (pixmap_bytes) {

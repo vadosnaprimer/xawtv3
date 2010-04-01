@@ -69,11 +69,11 @@ int cur_norm = -1, cur_input = -1, cur_freq;
 int cur_capture, cur_movie, cur_mute = 0, cur_volume = 65535;
 int have_config;
 int jpeg_quality = 75;
-int mjpeg_quality = 75;
 int keypad_ntsc = 0;
 int use_osd = 1;
 int fs_width,fs_height,fs_xoff,fs_yoff;
 int pix_width=128, pix_height=96, pix_cols=1;
+static int grab_ratio_x,grab_ratio_y;
 
 #ifndef NO_X11
 void button_cb(Widget widget, XtPointer clientdata, XtPointer call_data);
@@ -401,12 +401,13 @@ read_config()
 	    fprintf(stderr,"invalid value for ratio: %s\n",val);
 	    grab_ratio_x = grab_ratio_y = 0;
 	}
+	ng_ratio_configure(grab_ratio_x,grab_ratio_y);
     }
 	
     if (-1 != (i = cfg_get_int("global","jpeg-quality")))
 	jpeg_quality = i;
     if (-1 != (i = cfg_get_int("global","mjpeg-quality")))
-	mjpeg_quality = i;
+	ng_mjpeg_quality = i;
 
     if (NULL != (val = cfg_get_str("global","keypad-ntsc")))
 	if (-1 != (i = str_to_int(val,booltab)))
@@ -492,7 +493,7 @@ save_config()
     fprintf(fp,"pixsize = %d x %d\n",pix_width,pix_height);
     fprintf(fp,"pixcols = %d\n",pix_cols);
     fprintf(fp,"jpeg-quality = %d\n",jpeg_quality);
-    fprintf(fp,"mjpeg-quality = %d\n",mjpeg_quality);
+    fprintf(fp,"mjpeg-quality = %d\n",ng_mjpeg_quality);
     fprintf(fp,"keypad-ntsc = %s\n",int_to_str(keypad_ntsc,booltab));
     fprintf(fp,"osd = %s\n",int_to_str(use_osd,booltab));
     if (mixer)

@@ -7,21 +7,16 @@ exec_prefix=@exec_prefix@
 bindir=$(ROOT)@bindir@
 mandir=$(ROOT)@mandir@
 
-OS:=$(shell uname -s | tr "A-Z" "a-z")
-
 CC=@CC@
-CFLAGS=-O2 -Wall -I$(srcdir)/.. -I.. -D_GNU_SOURCE
+CFLAGS=-O2 -Wall -I$(srcdir)/../libng -I.. @CFLAGS@ #-D_GNU_SOURCE
+LDLIBS=@GFXLIBS@ @LIBPTHREAD@
 
 INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_DIR=mkdir -p
 
-ifeq ($(OS),linux)
-  PROGS=webcam
-else
-  PROGS=
-endif
+PROGS=webcam
 
 OBJS=webcam.o ftp.o parseconfig.o
 
@@ -30,15 +25,13 @@ OBJS=webcam.o ftp.o parseconfig.o
 all build: $(PROGS)
 
 webcam: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) -ljpeg
+	$(CC) $(CFLAGS) -o $@ $(OBJS) ../libng/libng.a $(LDLIBS)
 
 install: all
-ifeq ($(OS),linux)
 	$(INSTALL_DIR) $(bindir)
 	$(INSTALL_DIR) $(mandir)/man1
 	$(INSTALL_PROGRAM) -s webcam $(bindir)
 	$(INSTALL_DATA) $(srcdir)/webcam.man $(mandir)/man1/webcam.1
-endif
 
 clean:
 	-rm -f $(OBJS) *.moc core* TAGS

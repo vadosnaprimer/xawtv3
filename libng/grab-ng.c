@@ -15,8 +15,10 @@
 #endif
 
 #include "config.h"
-
 #include "grab-ng.h"
+
+int ng_debug = 0;
+char ng_v4l_conf[256] = "v4l-conf";
 
 /* --------------------------------------------------------------------- */
 
@@ -93,35 +95,6 @@ const char* ng_attr_to_desc[] = {
     "bright",
     "hue",
     "contrast",
-};
-
-/* --------------------------------------------------------------------- */
-
-extern const struct ng_driver v4l_driver;
-extern const struct ng_driver v4l2_driver;
-extern const struct ng_driver bsd_driver;
-const struct ng_driver *ng_drivers[] = {
-    &v4l2_driver,
-    &v4l_driver,
-    &bsd_driver,
-    NULL
-};
-
-extern const struct ng_writer files_writer;
-extern const struct ng_writer raw_writer;
-extern const struct ng_writer avi_writer;
-#ifdef HAVE_LIBQUICKTIME
-extern const struct ng_writer qt_writer;
-#endif
-
-const struct ng_writer *ng_writers[] = {
-    &files_writer,
-    &raw_writer,
-    &avi_writer,
-#ifdef HAVE_LIBQUICKTIME
-    &qt_writer,
-#endif
-    NULL
 };
 
 /* --------------------------------------------------------------------- */
@@ -226,26 +199,105 @@ ng_attr_getint(struct ng_attribute *attr, char *value)
 
 /* --------------------------------------------------------------------- */
 
+static int ratio_x,ratio_y;
+
+void
+ng_ratio_configure(int x, int y)
+{
+    ratio_x = x;
+    ratio_y = y;
+}
+
+void
+ng_ratio_fixup(int *width, int *height, int *xoff, int *yoff)
+{
+    int h = *height;
+    int w = *width;
+
+    if (0 == ratio_x || 0 == ratio_y)
+	return;
+    if (w * ratio_y < h * ratio_x) {
+	*height = *width * ratio_y / ratio_x;
+	if (yoff)
+	    *yoff  += (h-*height)/2;
+    } else if (w * ratio_y > h * ratio_x) {
+	*width  = *height * ratio_x / ratio_y;
+	if (yoff)
+	    *xoff  += (w-*width)/2;
+    }
+}
+
+/* --------------------------------------------------------------------- */
+
+extern const struct ng_writer files_writer;
+extern const struct ng_writer raw_writer;
+extern const struct ng_writer avi_writer;
+#ifdef HAVE_LIBQUICKTIME
+extern const struct ng_writer qt_writer;
+#endif
+
+const struct ng_writer *ng_writers[] = {
+    &files_writer,
+    &raw_writer,
+    &avi_writer,
+#ifdef HAVE_LIBQUICKTIME
+    &qt_writer,
+#endif
+    NULL
+};
+
+/* --------------------------------------------------------------------- */
+
+extern const struct ng_driver v4l_driver;
+extern const struct ng_driver v4l2_driver;
+extern const struct ng_driver bsd_driver;
+const struct ng_driver *ng_drivers[] = {
+#ifdef __linux__
+    &v4l2_driver,
+    &v4l_driver,
+#endif
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+    &bsd_driver,
+#endif
+    NULL
+};
+
 const struct ng_driver*
 ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
 		void **handle)
 {
     int i;
 
+#ifdef __linux__
+    if (NULL != screen) {
+	switch (system(ng_v4l_conf)) {
+	case -1: /* can't run */
+	    fprintf(stderr,"could'nt start v4l-conf\n");
+	    break;
+	case 0: /* ok */
+	    break;
+	default: /* non-zero return */
+	    fprintf(stderr,"v4l-conf had some trouble, "
+		    "trying to continue anyway\n");
+	    break;
+	}
+    }
+#endif
+
     /* check all grabber drivers */
     for (i = 0; NULL != ng_drivers[i]; i++) {
 	if (NULL == ng_drivers[i]->name)
 	    continue;
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"init: trying: %s... \n",ng_drivers[i]->name);
 	if (NULL != (*handle = ng_drivers[i]->open(device)))
 	    break;
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"init: failed: %s\n",ng_drivers[i]->name);
     }
     if (NULL == ng_drivers[i])
 	return NULL;
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"init: ok: %s\n",ng_drivers[i]->name);
     if (NULL != screen &&
 	ng_drivers[i]->capabilities(*handle) & CAN_OVERLAY) {
@@ -254,4 +306,63 @@ ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
     return ng_drivers[i];
 }
 
+int
+ng_grabber_swrate(struct timeval *start, int fps, int count)
+{
+    struct timeval now;
+    int msecs,frames;
+    static int lasterr;
+
+    if (-1 == fps)
+	return 1;
+
+    gettimeofday(&now,NULL);
+    msecs  = now.tv_usec/1000 - start->tv_usec/1000;
+    msecs += now.tv_sec*1000  - start->tv_sec*1000;
+    frames = msecs * fps / 1000;
+    if (ng_debug > 1)
+	fprintf(stderr,"rate: msecs=%d fps=%d -> frames=%d  |"
+		"  count=%d  ret=%d\n",
+		msecs,fps,frames,count,frames-count+1);
+    if (frames-count > 3  &&  frames-count != lasterr) {
+	lasterr = frames-count;
+	fprintf(stderr,"rate control: video lags %d frames behind\n",lasterr);
+    }
+    return frames-count+1;
+}
+
 /* --------------------------------------------------------------------- */
+
+static struct ng_video_conv *ng_conv;
+static int                  ng_nconv;
+
+void
+ng_conv_register(struct ng_video_conv *list, int count)
+{
+    int size = sizeof(struct ng_video_conv) * (ng_nconv + count);
+
+    ng_conv = realloc(ng_conv,size);
+    memcpy(ng_conv + ng_nconv,list,sizeof(struct ng_video_conv)*count);
+    ng_nconv += count;
+}
+
+struct ng_video_conv*
+ng_conv_find(int out, int *i)
+{
+    if (*i)
+	(*i)++;
+    for (; *i < ng_nconv; (*i)++) {
+	if (ng_conv[*i].fmtid_out == out)
+	    return &ng_conv[*i];
+    }
+    return NULL;
+}
+
+/* --------------------------------------------------------------------- */
+
+void
+ng_init(void)
+{
+    ng_color_packed_init();
+    ng_mjpg_init();
+}

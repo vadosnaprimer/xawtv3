@@ -5,8 +5,9 @@
  *
  */
 
-/* old stuff -- to be removed once the new stuff is complete */
-#include "grab.h"
+extern int ng_debug;
+extern int ng_mjpeg_quality;
+extern char ng_v4l_conf[256];
 
 /* --------------------------------------------------------------------- */
 /* defines                                                               */
@@ -96,10 +97,6 @@ struct ng_video_buf {
     int                  size;
     char                 *data;
 
-    /* for planar formats */
-    char                 *data2;
-    char                 *data3;
-
     /* FIXME: time (struct timeval?) */
 
     /*
@@ -162,6 +159,7 @@ struct ng_writer {
     int (*wr_close)(void *handle);
 };
 
+
 /* --------------------------------------------------------------------- */
 /* attributes                                                            */
 
@@ -179,6 +177,10 @@ struct ng_attribute* ng_attr_byname(struct ng_attribute *attrs, char *name);
 const char* ng_attr_getstr(struct ng_attribute *attr, int value);
 int ng_attr_getint(struct ng_attribute *attr, char *value);
 
+/* --------------------------------------------------------------------- */
+
+void ng_ratio_configure(int x, int y);
+void ng_ratio_fixup(int *width, int *height, int *xoff, int *yoff);
 
 /* --------------------------------------------------------------------- */
 /* capture/overlay interface driver                                      */
@@ -215,24 +217,55 @@ struct ng_driver {
     int   (*is_tuned)(void *handle);
 };
 
-const struct ng_driver*
-ng_grabber_open(char *device, struct ng_video_fmt *screen,
-		void *base, void **handle);
 
 /* --------------------------------------------------------------------- */
 /* TODO: color space conversion / compression                            */
 /* maybe add filters for on-the-fly image processing later               */
 
+struct ng_video_conv {
+    int                   fmtid_in;
+    int                   fmtid_out;
+    void*                 (*init)(struct ng_video_fmt *out,
+				  void *priv);
+    void                  (*frame)(void *handle,
+				   struct ng_video_buf *out,
+				   struct ng_video_buf *in);
+    void                  (*fini)(void *handle);
+    void                  *priv;
+};
 
 /* --------------------------------------------------------------------- */
 
 extern const struct ng_driver *ng_drivers[];
 extern const struct ng_writer *ng_writers[];
 
-/* --------------------------------------------------------------------- */
-/* half rewritten -- still in grab.c                                     */
+void ng_conv_register(struct ng_video_conv *list, int count);
+struct ng_video_conv* ng_conv_find(int out, int *i);
 
-int ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid,
-			 int fix_ratio);
-struct ng_video_buf* ng_grabber_capture(struct ng_video_buf *dest,
-					int single);
+const struct ng_driver*
+ng_grabber_open(char *device, struct ng_video_fmt *screen,
+		void *base, void **handle);
+int ng_grabber_swrate(struct timeval *start, int fps, int count);
+
+/* --------------------------------------------------------------------- */
+
+void ng_init(void);
+void ng_color_packed_init(void);
+void ng_mjpg_init(void);
+void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
+		 unsigned long blue_mask, int fmtid, int swap);
+
+/* --------------------------------------------------------------------- */
+/* color_common.c                                                        */
+
+void* ng_packed_init(struct ng_video_fmt *out, void *priv);
+void  ng_packed_frame(void *handle, struct ng_video_buf *out,
+		      struct ng_video_buf *in);
+void* ng_conv_nop_init(struct ng_video_fmt *out, void *priv);
+void  ng_conv_nop_fini(void *handle);
+
+#define NG_GENERIC_PACKED			\
+	init:           ng_packed_init,		\
+	frame:          ng_packed_frame,       	\
+	fini:           ng_conv_nop_fini
+

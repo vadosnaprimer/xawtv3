@@ -10,8 +10,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
-#include "grab.h"
-
 /* ------------------------------------------------------------------------ */
 
 void (*wm_stay_on_top)(Display *dpy, Window win, int state) = NULL;

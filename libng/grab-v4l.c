@@ -235,7 +235,7 @@ xioctl(int fd, int cmd, void *arg)
     int rc;
 
     rc = ioctl(fd,cmd,arg);
-    if (0 == rc && debug < 2)
+    if (0 == rc && ng_debug < 2)
 	return 0;
     switch (cmd) {
     case VIDIOCGCAP:
@@ -382,7 +382,6 @@ v4l_open(char *device)
     memset(h,0,sizeof(*h));
 
     /* open device */
-    grabber_run_v4l_conf();
     if (-1 == (h->fd = open(device,O_RDWR))) {
 	fprintf(stderr,"v4l: open %s: %s\n",device,strerror(errno));
 	goto err;
@@ -390,11 +389,11 @@ v4l_open(char *device)
     if (-1 == ioctl(h->fd,VIDIOCGCAP,&h->capability))
 	goto err;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "v4l: open: %s (%s)\n",device,h->capability.name);
     fcntl(h->fd,F_SETFD,FD_CLOEXEC);
     siginit();
-    if (debug) {
+    if (ng_debug) {
 	fprintf(stderr,"  capabilities: ");
 	for (i = 0; device_cap[i] != NULL; i++)
 	    if (h->capability.type & (1 << i))
@@ -406,7 +405,7 @@ v4l_open(char *device)
     }
 
     /* input sources */
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"  channels: %d\n",h->capability.channels);
     h->channels = malloc(sizeof(struct video_channel)*h->capability.channels);
     memset(h->channels,0,sizeof(struct video_channel)*h->capability.channels);
@@ -417,7 +416,7 @@ v4l_open(char *device)
 	xioctl(h->fd,VIDIOCGCHAN,&h->channels[i]);
 	inputs[i].nr  = i;
 	inputs[i].str = h->channels[i].name;
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"    %s: %d %s%s %s%s\n",
 		    h->channels[i].name,
 		    h->channels[i].tuners,
@@ -431,12 +430,12 @@ v4l_open(char *device)
     v4l_add_attr(h,ATTR_ID_INPUT,ATTR_TYPE_CHOICE,0,inputs);
     
     /* audios */
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"  audios  : %d\n",h->capability.audios);
     if (h->capability.audios) {
 	h->audio.audio = 0;
 	xioctl(h->fd,VIDIOCGAUDIO,&h->audio);
-	if (debug) {
+	if (ng_debug) {
 	    fprintf(stderr,"    %d (%s): ",i,h->audio.name);
 	    if (h->audio.flags & VIDEO_AUDIO_MUTABLE)
 		fprintf(stderr,"muted=%s ",
@@ -461,17 +460,17 @@ v4l_open(char *device)
     if (h->capability.type & VID_TYPE_TUNER) {
 	/* have tuner */
 	xioctl(h->fd,VIDIOCGTUNER,&h->tuner);
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"  tuner   : %s %lu-%lu",
 		    h->tuner.name,h->tuner.rangelow,h->tuner.rangehigh);
 	for (i = 0; norms[i].str != NULL; i++) {
 	    if (h->tuner.flags & (1<<i)) {
-		if (debug)
+		if (ng_debug)
 		    fprintf(stderr," %s",norms[i].str);
 	    } else
 		norms[i].nr = -1;
 	}
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"\n");
     } else {
 	/* no tuner tuner */
@@ -481,21 +480,20 @@ v4l_open(char *device)
 	    vchan.norm = i;
 	    if (-1 == xioctl(h->fd,VIDIOCSCHAN,&vchan))
 		norms[i].nr = -1;
-	    else if (debug)
+	    else if (ng_debug)
 		fprintf(stderr," %s",norms[i].str);
 	}
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"\n");
     }
-    v4l_add_attr(h,ATTR_ID_NORM,ATTR_TYPE_CHOICE,0,norms);
     
 #if 1
 #define BTTV_VERSION  	        _IOR('v' , BASE_VIDIOCPRIVATE+6, int)
     /* dirty hack time / v4l design flaw -- works with bttv only
      * this adds support for a few less common PAL versions */
     if (-1 != (rc = ioctl(h->fd,BTTV_VERSION,0))) {
-	h->attr[1].choices = norms_bttv;
-	if (debug || rc < 0x000700)
+	norms = norms_bttv;
+	if (ng_debug || rc < 0x000700)
 	    fprintf(stderr,"v4l: bttv version %d.%d.%d\n",
 		    (rc >> 16) & 0xff,
 		    (rc >> 8)  & 0xff,
@@ -506,10 +504,11 @@ v4l_open(char *device)
 		    "     upgrade the driver before mailing bug reports\n");
     }
 #endif
+    v4l_add_attr(h,ATTR_ID_NORM,ATTR_TYPE_CHOICE,0,norms);
     
     /* frame buffer */
     xioctl(h->fd,VIDIOCGFBUF,&h->fbuf);
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"  fbuffer : base=0x%p size=%dx%d depth=%d bpl=%d\n",
 		h->fbuf.base, h->fbuf.width, h->fbuf.height,
 		h->fbuf.depth, h->fbuf.bytesperline);
@@ -520,7 +519,7 @@ v4l_open(char *device)
     v4l_add_attr(h,ATTR_ID_HUE,     ATTR_TYPE_INTEGER,0,NULL);
     v4l_add_attr(h,ATTR_ID_COLOR,   ATTR_TYPE_INTEGER,0,NULL);
     v4l_add_attr(h,ATTR_ID_CONTRAST,ATTR_TYPE_INTEGER,0,NULL);
-    if (debug) {
+    if (ng_debug) {
 	fprintf(stderr,
 		"  picture : brightness=%d hue=%d colour=%d contrast=%d\n",
 		h->pict.brightness, h->pict.hue,
@@ -533,7 +532,7 @@ v4l_open(char *device)
     if (h->capability.type & VID_TYPE_CAPTURE) {
 	/* map grab buffer */
 	if (0 == xioctl(h->fd,VIDIOCGMBUF,&h->mbuf)) {
-	    if (debug)
+	    if (ng_debug)
 		fprintf(stderr,"  mbuf: size=%d frames=%d\n",
 			h->mbuf.size,h->mbuf.frames);
 	    h->mmap = mmap(0,h->mbuf.size,PROT_READ|PROT_WRITE,
@@ -544,7 +543,7 @@ v4l_open(char *device)
 	    h->mmap = (unsigned char*)-1;
 	}
 	if ((unsigned char*)-1 != h->mmap) {
-	    if (debug)
+	    if (ng_debug)
 		fprintf(stderr,"  v4l: using mapped buffers for capture\n");
 	    h->use_read = 0;
 	    h->nbuf = h->mbuf.frames;
@@ -553,7 +552,7 @@ v4l_open(char *device)
 	    h->buf_me = malloc(h->nbuf * sizeof(struct ng_video_buf));
 	    memset(h->buf_me,0,h->nbuf * sizeof(struct ng_video_buf));
 	} else {
-	    if (debug)
+	    if (ng_debug)
 		fprintf(stderr,"  v4l: using read() for capture\n");
 	    h->use_read = 1;
 	}
@@ -573,7 +572,7 @@ v4l_close(void *handle)
 {
     struct v4l_handle *h = handle;
     
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "v4l: close\n");
 
     if ((unsigned char*)-1 != h->mmap)
@@ -736,7 +735,7 @@ v4l_setfreq(void *handle, unsigned long freq)
 {
     struct v4l_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: freq: %.3f\n",(float)freq/16);
     xioctl(h->fd, VIDIOCSFREQ, &freq);
 }
@@ -763,7 +762,7 @@ v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 
     /* overlay supported ?? */
     if (!(h->capability.type & VID_TYPE_OVERLAY)) {
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"v4l: device has no overlay support\n");
 	return -1;
     }
@@ -777,19 +776,19 @@ v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 	(h->fbuf.width  != fmt->width) ||
 	(h->fbuf.height != fmt->height)) {
 	fprintf(stderr,
-		"WARNING: v4l and dga disagree about the screen size\n"
+		"WARNING: v4l and x11 disagree about the screen size\n"
 		"WARNING: Is v4l-conf installed correctly?\n");
 	h->ov_error = 1;
     }
     if (ng_vfmt_to_depth[fmt->fmtid] != ((h->fbuf.depth+7)&0xf8)) {
 	fprintf(stderr,
-		"WARNING: v4l and dga disagree about the color depth\n"
+		"WARNING: v4l and x11 disagree about the color depth\n"
 		"WARNING: fbuf.depth=%d, x11 depth=%d\n"
 		"WARNING: Is v4l-conf installed correctly?\n",
 		h->fbuf.depth,ng_vfmt_to_depth[fmt->fmtid]);
 	h->ov_error = 1;
     }
-    if (have_dga) {
+    if (NULL != base) {
 	/* XXX: minor differences are legal... (matrox problems) */
 	if ((void*)((unsigned long)h->fbuf.base & 0xfffff000) !=
 	    (void*)((unsigned long)base         & 0xfffff000)) {
@@ -841,7 +840,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	return -1;
     
     if (NULL == fmt) {
-	if (debug)
+	if (ng_debug)
 	    fprintf(stderr,"v4l: overlay off\n");
 	h->ov_enabled = 0;
 	v4l_overlay_set(h,h->ov_enabled);
@@ -867,7 +866,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->win.y +=  (fmt->height - h->win.height)/2;
     }
     if (aspect)
-	grabber_fix_ratio(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
+	ng_ratio_fixup(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
 
     /* pass aligned values -- the driver does'nt get it right yet */
     h->win.width  &= ~3;
@@ -897,7 +896,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	    h->win.clips[i].y      = oc[i].y1 - yadjust;
 	    h->win.clips[i].width  = oc[i].x2-oc[i].x1;
 	    h->win.clips[i].height = oc[i].y2-oc[i].y1;
-	    if (debug)
+	    if (ng_debug)
 		fprintf(stderr,"v4l: clip=%dx%d+%d+%d\n",
 			h->win.clips[i].width,h->win.clips[i].height,
 			h->win.clips[i].x,h->win.clips[i].y);
@@ -907,7 +906,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     h->ov_fmtid = fmt->fmtid;
     v4l_overlay_set(h,h->ov_enabled);
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: overlay win=%dx%d+%d+%d, %d clips\n",
 		fmt->width,fmt->height,x,y,count);
     return 0;
@@ -983,7 +982,7 @@ mm_probe(struct v4l_handle *h, int fmtid)
     if (0 != h->probe[fmtid])
 	goto done;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "v4l: capture probe %s...\t",
 		ng_vfmt_to_desc[fmtid]);
 
@@ -998,13 +997,13 @@ mm_probe(struct v4l_handle *h, int fmtid)
     if (-1 == mm_waiton(h))
 	goto fail;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "ok\n");
     h->probe[fmtid] = 1;
     goto done;
 
  fail:
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr, "failed\n");
     h->probe[fmtid] = 2;
 
@@ -1103,7 +1102,7 @@ v4l_setformat(void *handle, struct ng_video_fmt *fmt)
     struct v4l_handle *h = handle;
     int rc;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: setformat\n");
     if (h->use_read) {
 	v4l_overlay_set(h,0);
@@ -1124,7 +1123,7 @@ v4l_startvideo(void *handle, int fps, int buffers)
 {
     struct v4l_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: startvideo\n");
     if (0 != h->fps)
 	fprintf(stderr,"v4l: Huh? start: fps != 0\n");
@@ -1144,7 +1143,7 @@ v4l_stopvideo(void *handle)
 {
     struct v4l_handle *h = handle;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: stopvideo\n");
     if (0 == h->fps)
 	fprintf(stderr,"v4l: Huh? stop: fps == 0\n");
@@ -1160,7 +1159,7 @@ v4l_nextframe(void *handle)
     struct ng_video_buf* buf = NULL;
     int rc, frame = 0;
 
-    if (debug > 1)
+    if (ng_debug > 1)
 	fprintf(stderr,"v4l: getimage\n");
 
     if (0 == h->fps) {
@@ -1185,7 +1184,7 @@ v4l_nextframe(void *handle)
     }
 
     /* rate control */
-    rc = grabber_sw_rate(&h->start,h->fps,h->frames);
+    rc = ng_grabber_swrate(&h->start,h->fps,h->frames);
     if (rc <= 0)
 	goto next_frame;
 
@@ -1207,7 +1206,7 @@ v4l_getimage(void *handle)
     struct ng_video_buf* buf = NULL;
     int frame;
 
-    if (debug)
+    if (ng_debug)
 	fprintf(stderr,"v4l: getimage\n");
 	
     if (0 != h->fps) {

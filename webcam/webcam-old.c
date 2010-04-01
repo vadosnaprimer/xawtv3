@@ -4,6 +4,9 @@
  *    capture a image, compress as jpeg and upload to the webserver
  *    using ftp the ftp utility
  *
+ *    not used any more -- but I'll leave the source code hanging
+ *    around here as it is a nice, short example for v4l usage.
+ *
  */
 
 #include <stdio.h>
@@ -12,12 +15,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
-#include "grab-ng.h"
+#include <linux/videodev.h>	/* change this to "videodev2.h" for v4l2 */
+
 #include "jpeglib.h"
 #include "ftp.h"
 #include "parseconfig.h"
@@ -52,8 +55,9 @@ int   grab_quality= 75;
 int   grab_trigger=  0;
 int   grab_once   =  0;
 
-char  *grab_input;
-char  *grab_norm;
+/* these work for v4l only, not v4l2 */
+int   grab_input = 0;
+int   grab_norm  = VIDEO_MODE_PAL;
 
 /* ---------------------------------------------------------------------- */
 
@@ -63,7 +67,7 @@ void swap_rgb24(char *mem, int n);
 /* jpeg stuff                                                             */
 
 int
-write_file(char *filename, char *data, int width, int height)
+write_jpeg(char *filename, char *data, int width, int height)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -99,78 +103,187 @@ write_file(char *filename, char *data, int width, int height)
 }
 
 /* ---------------------------------------------------------------------- */
-/* capture stuff                                                          */
+/* capture stuff  - v4l2                                                  */
 
-const struct ng_driver    *drv;
-void                      *h_drv;
-struct ng_video_fmt       fmt;
-int                       need_swap = 0;
+#ifdef VIDIOC_QUERYCAP
+
+static struct v4l2_capability    grab_cap;
+static struct v4l2_format        grab_pix;
+static int                       grab_fd, grab_size;
+static unsigned char            *grab_data;
 
 void
 grab_init()
 {
-    struct ng_attribute *attr;
-    int val;
-    
-    drv = ng_grabber_open(grab_device,NULL,0,&h_drv);
-    if (NULL == drv) {
-	fprintf(stderr,"no grabber device available\n");
+    if (-1 == (grab_fd = open(grab_device,O_RDWR))) {
+	fprintf(stderr,"open %s: %s\n",grab_device,strerror(errno));
 	exit(1);
     }
-    if (!(drv->capabilities(h_drv) & CAN_CAPTURE)) {
-	fprintf(stderr,"device does'nt support capture\n");
+    if (-1 == ioctl(grab_fd,VIDIOC_QUERYCAP,&grab_cap)) {
+	fprintf(stderr,"%s: no v4l2 device\n",grab_device);
 	exit(1);
     }
-
-    if (grab_input) {
-	attr = ng_attr_byid(drv->list_attrs(h_drv),ATTR_ID_INPUT);
-	val  = ng_attr_getint(attr,grab_input);
-	if (-1 == val) {
-	    fprintf(stderr,"invalid input: %s\n",grab_input);
-	    exit(1);
-	}
-	drv->write_attr(h_drv,attr,val);
+    if (-1 == ioctl(grab_fd, VIDIOC_G_FMT, &grab_pix)) {
+        perror("ioctl VIDIOC_G_FMT");
+	exit(1);
     }
-    if (grab_norm) {
-	attr = ng_attr_byid(drv->list_attrs(h_drv),ATTR_ID_NORM);
-	val  = ng_attr_getint(attr,grab_norm);
-	if (-1 == val) {
-	    fprintf(stderr,"invalid norm: %s\n",grab_norm);
-	    exit(1);
-	}
-	drv->write_attr(h_drv,attr,val);
+    grab_pix.type = V4L2_BUF_TYPE_CAPTURE;
+    grab_pix.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
+    grab_pix.fmt.pix.depth  = 24;
+    grab_pix.fmt.pix.width  = grab_width;
+    grab_pix.fmt.pix.height = grab_height;
+    if (-1 == ioctl(grab_fd, VIDIOC_S_FMT, &grab_pix)) {
+	perror("ioctl VIDIOC_S_FMT");
+	exit(1);
     }
-    
-    fmt.fmtid  = VIDEO_RGB24;
-    fmt.width  = grab_width;
-    fmt.height = grab_height;
-    if (0 != drv->setformat(h_drv,&fmt)) {
-	fmt.fmtid = VIDEO_BGR24;
-	need_swap = 1;
-	if (0 != drv->setformat(h_drv,&fmt)) {
-	    fprintf(stderr,"can't set capture format\n");
-	    exit(1);
-	}
+    grab_size = grab_pix.fmt.pix.width * grab_pix.fmt.pix.height *
+	((grab_pix.fmt.pix.depth+7)/8);
+    fprintf(stderr,"grabber: using %dx%dx%d => %d byte\n",
+	    grab_pix.fmt.pix.width,grab_pix.fmt.pix.height,
+	    grab_pix.fmt.pix.depth,grab_size);
+    if (NULL == (grab_data = malloc(grab_size))) {
+	fprintf(stderr,"out of virtual memory\n");
+	exit(1);
     }
 }
 
 unsigned char*
 grab_one(int *width, int *height)
 {
-    static struct ng_video_buf *buf;
+    int rc;
 
-    if (NULL != buf)
-	ng_release_video_buf(buf);
-    if (NULL == (buf = drv->getimage(h_drv))) {
-	fprintf(stderr,"capturing image failed\n");
+    for (;;) {
+	rc = read(grab_fd,grab_data,grab_size);
+	if (rc == grab_size) {
+	    swap_rgb24(grab_data,grab_pix.fmt.
+		       pix.width*grab_pix.fmt.pix.height);
+	    *width  = grab_pix.fmt.pix.width;
+	    *height = grab_pix.fmt.pix.height;
+	    return grab_data;
+	}
+	fprintf(stderr,"grabber: read: %d != %d\n",grab_size,rc);
+	if (-1 == rc)
+	    perror("grabber: read");
+    }
+}
+
+#endif
+
+
+/* ---------------------------------------------------------------------- */
+/* capture stuff  -  old v4l (bttv)                                       */
+
+#ifdef VIDIOCGCAP
+
+static struct video_capability   grab_cap;
+static struct video_mmap         grab_buf;
+static struct video_channel	 grab_chan;
+static struct video_picture      grab_pict;
+static struct video_window       grab_win;
+static int                       grab_fd, grab_size, have_mmap;
+static unsigned char            *grab_data;
+
+void
+grab_init()
+{
+    if (-1 == (grab_fd = open(grab_device,O_RDWR))) {
+	fprintf(stderr,"open %s: %s\n",grab_device,strerror(errno));
 	exit(1);
     }
-    *width  = buf->fmt.width;
-    *height = buf->fmt.height;
-    if (need_swap)
-	swap_rgb24(buf->data, buf->fmt.width * buf->fmt.height);
-    return buf->data;
+    if (-1 == ioctl(grab_fd,VIDIOCGCAP,&grab_cap)) {
+	fprintf(stderr,"%s: no v4l device\n",grab_device);
+	exit(1);
+    }
+
+    /* set image source and TV norm */
+    grab_chan.channel = grab_input;
+    if (-1 == ioctl(grab_fd,VIDIOCGCHAN,&grab_chan)) {
+	perror("ioctl VIDIOCGCHAN");
+	exit(1);
+    }
+    grab_chan.channel = grab_input;
+    grab_chan.norm    = grab_norm;
+    if (-1 == ioctl(grab_fd,VIDIOCSCHAN,&grab_chan)) {
+	perror("ioctl VIDIOCSCHAN");
+	exit(1);
+    }
+
+    /* try to setup mmap-based capture */
+    grab_buf.format = VIDEO_PALETTE_RGB24;
+    grab_buf.frame  = 0;
+    grab_buf.width  = grab_width;
+    grab_buf.height = grab_height;
+    grab_size = grab_buf.width * grab_buf.height * 3;
+    grab_data = mmap(0,grab_size,PROT_READ|PROT_WRITE,MAP_SHARED,grab_fd,0);
+    if (-1 != (int)grab_data) {
+	have_mmap = 1;
+	return;
+    }
+
+    /* fallback to read() */
+    fprintf(stderr,"no mmap support available, using read()\n");
+    have_mmap = 0;
+    grab_pict.depth   = 24;
+    grab_pict.palette = VIDEO_PALETTE_RGB24;
+    if (-1 == ioctl(grab_fd,VIDIOCSPICT,&grab_pict)) {
+	perror("ioctl VIDIOCSPICT");
+	exit(1);
+    }
+    if (-1 == ioctl(grab_fd,VIDIOCGPICT,&grab_pict)) {
+	perror("ioctl VIDIOCGPICT");
+	exit(1);
+    }
+    memset(&grab_win,0,sizeof(struct video_window));
+    grab_win.width  = grab_width;
+    grab_win.height = grab_height;
+    if (-1 == ioctl(grab_fd,VIDIOCSWIN,&grab_win)) {
+	perror("ioctl VIDIOCSWIN");
+	exit(1);
+    }
+    if (-1 == ioctl(grab_fd,VIDIOCGWIN,&grab_win)) {
+	perror("ioctl VIDIOCGWIN");
+	exit(1);
+    }
+    grab_size = grab_win.width * grab_win.height * 3;
+    grab_data = malloc(grab_size);
 }
+
+unsigned char*
+grab_one(int *width, int *height)
+{
+    int rc;
+    
+    for (;;) {
+	if (have_mmap) {
+	    if (-1 == ioctl(grab_fd,VIDIOCMCAPTURE,&grab_buf)) {
+		perror("ioctl VIDIOCMCAPTURE");
+	    } else {
+		if (-1 == ioctl(grab_fd,VIDIOCSYNC,&grab_buf)) {
+		    perror("ioctl VIDIOCSYNC");
+		} else {
+		    swap_rgb24(grab_data,grab_buf.width*grab_buf.height);
+		    *width  = grab_buf.width;
+		    *height = grab_buf.height;
+		    return grab_data;
+		}
+	    }
+	} else {
+	    rc = read(grab_fd,grab_data,grab_size);
+	    if (grab_size != rc) {
+		fprintf(stderr,"grabber read error (rc=%d)\n",rc);
+		return NULL;
+	    } else {
+		swap_rgb24(grab_data,grab_win.width*grab_win.height);
+		*width  = grab_win.width;
+		*height = grab_win.height;
+		return grab_data;
+	    }
+        }
+	sleep(1);
+    }
+}
+
+#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -354,16 +467,16 @@ main(int argc, char *argv[])
 	grab_device = val;
     if (NULL != (val = cfg_get_str("grab","text")))
 	grab_text = val;
-    if (NULL != (val = cfg_get_str("grab","input")))
-	grab_input = val;
-    if (NULL != (val = cfg_get_str("grab","norm")))
-	grab_norm = val;
     if (-1 != (i = cfg_get_int("grab","width")))
 	grab_width = i;
     if (-1 != (i = cfg_get_int("grab","height")))
 	grab_height = i;
     if (-1 != (i = cfg_get_int("grab","delay")))
 	grab_delay = i;
+    if (-1 != (i = cfg_get_int("grab","input")))
+	grab_input = i;
+    if (-1 != (i = cfg_get_int("grab","norm")))
+	grab_norm = i;
     if (-1 != (i = cfg_get_int("grab","rotate")))
 	grab_rotate = i;
     if (-1 != (i = cfg_get_int("grab","top")))
@@ -402,7 +515,7 @@ main(int argc, char *argv[])
 
     /* print config */
     fprintf(stderr,"video4linux webcam v1.3 - (c) 1998-2000 Gerd Knorr\n");
-    fprintf(stderr,"grabber config: size %dx%d, input %s, norm %s, "
+    fprintf(stderr,"grabber config: size %dx%d, input %d, norm %d, "
 	    "jpeg quality %d\n",
 	    grab_width,grab_height,grab_input,grab_norm, grab_quality);
     fprintf(stderr, "rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
@@ -444,12 +557,12 @@ main(int argc, char *argv[])
 	/* ok, label it and upload */
 	add_text(image,width,height);
 	if ( ftp_local ) {
-	    write_file(ftp_tmp, image, width, height);
+	    write_jpeg(ftp_tmp, image, width, height);
 	    if ( rename(ftp_tmp, ftp_file) ) {
 		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
 	    }
 	} else {
-	    write_file(JPEG_FILE, image, width, height);
+	    write_jpeg(JPEG_FILE, image, width, height);
 	    if (!ftp_connected)
 		ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
 	    ftp_upload(JPEG_FILE,ftp_file,ftp_tmp);

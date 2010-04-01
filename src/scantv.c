@@ -39,7 +39,6 @@
 
 int debug = 0;
 int have_dga = 0;
-char v4l_conf[] = "";
 char *device = "/dev/video";
 Display *dpy;
 

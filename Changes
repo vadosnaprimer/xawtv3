@@ -1,4 +1,20 @@
 
+3.35 => 3.36
+============
+
+  * better fullscreen switching in xinerama.
+  * added the missing config.h include to xvideo.c
+  * moved some code into the new libng directory.
+  * rewrote compression + color space conversion.
+  * Fixed v4lctl segfault.
+  * Fixed a minor bug in v4l code (PAL-M with bttv works again).
+  * updated webcam, uses libng now.  It expects TV norm and
+    video source as strings ("PAL" instead of "0", ...) now.
+    Works also on FreeBSD, switches between v4l + v4l2 at runtime
+    not compile time.
+  * made Makefiles portable.
+
+
 3.34 => 3.35
 ============
 

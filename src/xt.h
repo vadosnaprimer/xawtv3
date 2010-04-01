@@ -48,6 +48,10 @@ extern int               have_shmem;
 extern int               vm_count;
 extern XF86VidModeModeInfo **vm_modelines;
 #endif
+#ifdef HAVE_LIBXINERAMA
+extern XineramaScreenInfo *xinerama;
+extern int                nxinerama;
+#endif
 
 extern char v4l_conf[128];
 

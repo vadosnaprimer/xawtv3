@@ -9,6 +9,8 @@ int main(void)
  * this is a simple test app for playing around with the xvideo extention
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

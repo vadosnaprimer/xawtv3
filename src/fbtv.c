@@ -29,8 +29,9 @@
 #include <linux/fb.h>
 
 #include "config.h"
-
 #include "grab-ng.h"
+
+#include "grab.h"
 #include "fbtools.h"
 #include "matrox.h"
 #include "writefile.h"
@@ -64,7 +65,6 @@ static float fbgamma = 1.0;
 static struct ng_video_buf buf;
 static int dx,dy;
 
-char v4l_conf[128] = "v4l-conf";
 int have_config;
 int x11_native_format,have_dga=1,debug;
 
@@ -282,7 +282,7 @@ void do_capture(int from, int to)
 	    buf.fmt.width  = ww;
 	    buf.fmt.height = hh;
 	    buf.fmt.bytesperline = fb_fix.line_length;
-	    ng_grabber_setparams(&buf.fmt, 0, 1);
+	    ng_grabber_setparams(&buf.fmt, 1);
 	    dx  = fb_var.xres-buf.fmt.width;
 	    dy  = 0;
 	} else {
@@ -297,7 +297,7 @@ void do_capture(int from, int to)
 	    buf.fmt.width  = fb_var.xres-dx;
 	    buf.fmt.height = fb_var.yres-dy;
 	    buf.fmt.bytesperline = fb_fix.line_length;
-	    ng_grabber_setparams(&buf.fmt, 0, 1);
+	    ng_grabber_setparams(&buf.fmt, 1);
 	    dx += (fb_var.xres-24-buf.fmt.width)/2;
 	    dy += (fb_var.yres-16-buf.fmt.height)/2;
 	}
@@ -417,7 +417,7 @@ grabber_init(void)
     screen.width        = fb_var.xres_virtual;
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
-    drv = ng_grabber_open(device,NULL,0,&h_drv);
+    drv = ng_grabber_open(device,&screen,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -531,8 +531,8 @@ main(int argc, char *argv[])
 	case 'c':
 	    device = optarg;
 	    /* v4l-conf needs this too */
-	    strcat(v4l_conf," -c ");
-	    strcat(v4l_conf,device);
+	    strcat(ng_v4l_conf," -c ");
+	    strcat(ng_v4l_conf,device);
 	    break;
 	case 't':
 	    if (optarg)

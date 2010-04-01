@@ -13,10 +13,10 @@
 
 #include "grab-ng.h"
 #include "writefile.h"
-#include "colorspace.h"
 #include "webcam.h"
 
 extern int jpeg_quality;
+extern int debug;
 char *webcam;
 
 struct WEBCAM {
@@ -63,13 +63,15 @@ webcam_writer(void *arg)
 	    write(fd,web->buf->data,web->buf->size);
 	    close(fd);
 	    break;
+#if 0 /* FIXME */
 	case VIDEO_BGR24:
 	    data = malloc(web->buf->size);
 	    memcpy(data,web->buf->data,web->buf->size);
 	    swap_rgb24(data,fmt->width*fmt->height);
-	    write_jpeg(tmpfilename,web->buf,jpeg_quality,0);
+	    write_jpeg(tmpfilename,data,jpeg_quality,0);
 	    free(data);
 	    break;
+#endif
 	case VIDEO_RGB24:
 	    write_jpeg(tmpfilename,web->buf,jpeg_quality,0);
 	    break;

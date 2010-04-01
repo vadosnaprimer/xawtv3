@@ -1,8 +1,10 @@
 
-SUBDIRS=libvbi src man radio font tools webcam http #i2c vtx
+SUBDIRS=libvbi libng src man radio font tools webcam http #i2c vtx
 
 all build dep depend install clean distclean realclean::
-	set -e; for dir in $(SUBDIRS); do $(MAKE) -C $$dir $@; done
+	set -ex; for dir in $(SUBDIRS); do	\
+		cd $$dir; $(MAKE) $@; cd ..;	\
+	done
 
 distclean realclean::
 	-rm -f *~ debian/*~ config.cache config.h config.log config.status Makefile
