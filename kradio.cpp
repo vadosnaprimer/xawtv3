@@ -38,7 +38,13 @@ int main(int argc, char **argv)
 /* ------------------------------------------------------------------------ */
 
 #include <asm/types.h>          /* XXX glibc */
-#include "videodev.h"
+
+#include "config.h"
+#if USE_KERNEL_VIDEODEV
+# include <linux/videodev.h>
+#else
+# include "videodev.h"
+#endif
 
 static int hw_fd = -1;
 
@@ -179,6 +185,7 @@ void KRadio::mkpanel()
     }
     x = PANEL_WIDTH;
 
+#if 0 /* does'nt work ... */
     if (hw_audio.flags & VIDEO_AUDIO_VOLUME) {
 	volume = new QSlider(0,65535,512,65535-hw_audio.volume,
 			     QSlider::Vertical,this,"volume");
@@ -189,6 +196,7 @@ void KRadio::mkpanel()
 	volume->setGeometry(x+2,0,i,y1+y2+y3);
 	x += i+4;
     }
+#endif
 
     this->resize(x,y1+y2+y3);
     this->setMaximumWidth(x);

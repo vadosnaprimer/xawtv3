@@ -9,7 +9,11 @@
 #include "config.h"
 
 #include <asm/types.h>          /* XXX glibc */
-#include "videodev.h"
+#if USE_KERNEL_VIDEODEV
+# include <linux/videodev.h>
+#else
+# include "videodev.h"
+#endif
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -35,7 +39,7 @@ main(int argc, char *argv[])
     struct video_buffer      fbuf;
     int                      fd,c;
 #ifdef HAVE_LIBXXF86DGA
-    int                      foo,bar,fred,flags;
+    int                      width,bar,foo,flags;
     void                    *base = 0;
 #endif
 
@@ -98,9 +102,9 @@ main(int argc, char *argv[])
     if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
 	XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
 	if (flags & XF86DGADirectPresent) {
-	    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,&fred,&foo,&bar);
+	    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,&width,&foo,&bar);
 	    if (verbose)
-		fprintf(stderr,"dga: base=%p\n",base);
+		fprintf(stderr,"dga: base=%p, width=%d\n",base, width);
 	}
     }
 #endif
@@ -134,7 +138,7 @@ main(int argc, char *argv[])
     }
 #endif
     fbuf.depth        = wts.depth;
-    fbuf.width        = wts.width;
+    fbuf.width        = (flags & XF86DGADirectPresent) ? width : wts.width;
     fbuf.height       = wts.height;
     fbuf.bytesperline = fbuf.width * fbuf.depth/8;
     if (-1 == ioctl(fd,VIDIOCSFBUF,&fbuf)) {

@@ -1,0 +1,123 @@
+
+Here are a few hints if you have trouble to make bttv work:
+
+
+general
+=======
+
+* Check the PROBLEMS file in Ralph's bttv Documentation
+
+* There are a few known incompatibilities, see below.
+
+* The insmod options for the modules are documented in the
+  MODULES file.  Use the "verbose=" and "debug=" args to make
+  the modules more verbose.
+
+* Just in case you don't know: With the "dmesg" command you can
+  display the (last 4k of) kernel/module messages.
+
+* Try a newer version of the X-Server (if available).
+
+
+video
+=====
+
+* Make sure capture is turned on (xtvscreen starts up with capture
+  off)
+
+* Black screen, no picture at all:  Bad, probably the video frame buffer
+  address is wrong.
+  The bttv module has a vidmem= argument, so you can pass the correct one.
+  xawtv should print it (if the X-Server supports DGA), you can check the
+  X-Server startup messages and /proc/pci too.
+
+* Black screen after some time of normal operation: try to reload the
+  bttv module.
+
+* Blue Screen:  That's what you get if there is no input signal
+  (Composite1 and no input source connected, sometimes happens with
+  the wrong tuner type too).  The Blue Screen already comes from
+  the Grabber card, so the interaction between Grabber and Graphics
+  board already works fine.
+
+* noisy, sort-of-white screen:  There is no TV Station tuned in.
+  Possible reasons:
+   - There is really no station present on that channel...
+   - tuner module not loaded
+   - Wrong tuner type. You can set the tuner type with the "type="
+     insmod argument of the tuner module, see the MODULES file for
+     details.
+   - Wrong channel map (the channel-to-freqency mapping is
+     different in different countries)
+
+* Trouble with TrueColor mode:  It's impossible to find what color depth
+  the X-Server uses internally, you might have to use the -b switch to
+  tell if it runs 24 or 32 bpp.  Both xawtv and v4l-conf have this switch.
+
+
+sound
+=====
+
+* it might be nessesary to initialize the sound card with a
+  "insmod sound" to get sound at all.
+
+* With stereo cards you need the msp3400 module.
+
+  There is some trouble with the MIRO cards:  They can do both
+  mono (without msp3400 chip) & stereo (using msp3400), but nobody
+  knows how to kick them into stereo mode.
+  Result: it works even without msp3400, but loading the msp3400
+  does'nt give stereo sound...
+
+* For radio support (WinTV/Radio) you have to do "insmod radio=1"
+
+
+if it still does'nt work...  --  hardware problems/conflicts
+============================================================
+
+* As far I know, the bttv driver can't do IRQ sharing, make sure it
+  has its own interrupt.
+
+* There are reports that the tuner works only if the *graphic board*
+  has its own IRQ.  Don't ask me why...
+
+* Sometimes there are memory conflicts beetween bttv and some other
+  card.  With the remap insmod option of the bttv module you can move
+  the memory of the bt848 chip to some other place.
+
+* If you have to boot Win95 first to make the grabber board work, you
+  might want to save /proc/pci before and after running Win95 and look
+  for changes to track the problem down.
+
+* /proc/pci, /proc/interrupts and /proc/ioports are your friends...
+
+
+Known incompatibilities
+=======================
+
+[Alan on linux-kernel]
+
+o       Some SiS boards it doesnt work on. I don't know if it works on
+        the new SiS socket 7 stuff (5598 etc) but I'd like to know
+
+o       S3 video cards it flickers when windows are scrolling etc. Windows
+        & Linux. You cant DMA video to an S3 while it is using the onboard
+        accelerator
+
+o       Lot of noise with 3c59x ethernet. Caused by the latency for the
+        3c59x having to be really high to avoid a silicon bug.
+
+[Ralph, see also his PROBLEMS file]
+
+o	Some S3 cards (mostly Trio 64) don't work with XFree (but with
+	AccelX).
+
+
+
+More hints/suggestions/corrections/updates are welcome,
+
+  Gerd
+
+
+--
+Gerd Knorr <kraxel@cs.tu-berlin.de>

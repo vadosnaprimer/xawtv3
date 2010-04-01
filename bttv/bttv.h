@@ -148,6 +148,8 @@ struct bttv {
   dword *grisc;
   ulong gro;
   ulong gre;
+  ulong gro_next;
+  ulong gre_next;
   char *fbuffer;
   int gmode;
   int grabbing;

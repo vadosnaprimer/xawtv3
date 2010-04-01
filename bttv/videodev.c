@@ -203,16 +203,39 @@ static int video_ioctl(struct inode *inode, struct file *file,
  *	Video For Linux device drivers request registration here.
  */
  
-int video_register_device(struct video_device *vfd, int base)
+int video_register_device(struct video_device *vfd, int type)
 {
 	int i=0;
+	int base;
 	int err;
+	int end;
 	
-	for(i=base;i<VIDEO_NUM_DEVICES;i++)
+	switch(type)
+	{
+		case VFL_TYPE_GRABBER:
+			base=0;
+			end=64;
+			break;
+		case VFL_TYPE_VTX:
+			base=192;
+			end=224;
+			break;
+		case VFL_TYPE_VBI:
+			base=224;
+			end=240;
+			break;
+		case VFL_TYPE_RADIO:
+			base=64;
+			end=128;
+			break;
+		default:
+			return -1;
+	}
+	
+	for(i=base;i<end;i++)
 	{
 		if(video_device[i]==NULL)
 		{
-		        printk("v4l: register: minor %d for %s\n",i,vfd->name);
 			video_device[i]=vfd;
 			vfd->minor=i;
 			/* The init call may sleep so we book the slot out

@@ -14,7 +14,13 @@
 #include <sys/ioctl.h>
 
 #include <asm/types.h>          /* XXX glibc */
-#include "videodev.h"
+
+#include "config.h"
+#if USE_KERNEL_VIDEODEV
+# include <linux/videodev.h>
+#else
+# include "videodev.h"
+#endif
 
 #define DEVICE "/dev/bttv-fm"              /* major=81, minor=64 */
 

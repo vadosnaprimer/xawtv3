@@ -16,19 +16,21 @@ struct video_device
 	long (*write)(struct video_device *, const char *, unsigned long, int noblock);
 	int (*ioctl)(struct video_device *, unsigned int , void *);
 	int (*mmap)(struct video_device *, const char *, unsigned long);
-        int (*initialize)(struct video_device *);	
-#if defined(c_plusplus) || defined (__cplusplus)
-	void *priv;
-#else
-	void *private;
-#endif
+	int (*initialize)(struct video_device *);	
+	void *priv;		/* Used to be 'private' but that upsets C++ */
 	int busy;
 	int minor;
 };
 
 extern int videodev_init(void);
 #define VIDEO_MAJOR	81
-extern int video_register_device(struct video_device *, int base);
+extern int video_register_device(struct video_device *, int type);
+
+#define VFL_TYPE_GRABBER	0
+#define VFL_TYPE_VBI		1
+#define VFL_TYPE_RADIO		2
+#define VFL_TYPE_VTX		3
+
 extern void video_unregister_device(struct video_device *);
 #endif
 
@@ -43,10 +45,9 @@ extern void video_unregister_device(struct video_device *);
 #define VID_TYPE_SCALES		128	/* Scalable */
 #define VID_TYPE_MONOCHROME	256	/* Monochrome only */
 
-
 struct video_capability
 {
-	char	name[32];
+	char name[32];
 	int type;
 	int channels;	/* Num channels */
 	int audios;	/* Num audio devices */
@@ -114,7 +115,7 @@ struct video_audio
 #define VIDEO_AUDIO_VOLUME	4
 #define VIDEO_AUDIO_BASS	8
 #define VIDEO_AUDIO_TREBLE	16	
-        char    name[16];
+	char    name[16];
 #define VIDEO_SOUND_MONO	1
 #define VIDEO_SOUND_STEREO	2
 #define VIDEO_SOUND_LANG1	3
@@ -148,6 +149,12 @@ struct video_buffer
 	int	bytesperline;
 };
 
+struct video_mmap
+{
+	unsigned int frame;		/* Frame (0 or 1) for double buffer */
+	int height,width;
+	unsigned int format;
+};
 
 struct video_key
 {
@@ -168,10 +175,12 @@ struct video_key
 #define VIDIOCGFBUF		_IOR('v',11, struct video_buffer)	/* Get frame buffer */
 #define VIDIOCSFBUF		_IOW('v',12, struct video_buffer)	/* Set frame buffer - root only */
 #define VIDIOCKEY		_IOR('v',13, struct video_key)		/* Video key event - to dev 255 is to all - cuts capture on all DMA windows with this key (0xFFFFFFFF == all) */
-#define VIDIOCGFREQ		_IOR('v',15, unsigned long)		/* Set tuner */
+#define VIDIOCGFREQ		_IOR('v',14, unsigned long)		/* Set tuner */
 #define VIDIOCSFREQ		_IOW('v',15, unsigned long)		/* Set tuner */
 #define VIDIOCGAUDIO		_IOR('v',16, struct video_audio)	/* Get audio info */
 #define VIDIOCSAUDIO		_IOW('v',17, struct video_audio)	/* Audio source, mute etc */
+#define VIDIOCSYNC		_IO('v',18)				/* Sync with mmap grabbing */
+#define VIDIOCMCAPTURE		_IOW('v',19, struct video_mmap)		/* Grab frames */
 
 
 #define BASE_VIDIOCPRIVATE	192		/* 192-255 are private */
@@ -180,6 +189,9 @@ struct video_key
 #define VID_HARDWARE_BT848	1
 #define VID_HARDWARE_QCAM_BW	2
 #define VID_HARDWARE_PMS	3
+#define VID_HARDWARE_QCAM_C	4
+#define VID_HARDWARE_PSEUDO	5
+#define VID_HARDWARE_SAA5249	6
 
 /*
  *	Initialiser list

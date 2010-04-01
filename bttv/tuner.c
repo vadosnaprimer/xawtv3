@@ -172,6 +172,7 @@ tuner_attach(struct i2c_device *device)
     t->addr = device->addr;
     t->type = type;
     dprintk("tuner: type is %d (%s)\n",t->type,tuners[t->type].name);
+    MOD_INC_USE_COUNT;
     return 0;
 }
 
@@ -180,6 +181,7 @@ tuner_detach(struct i2c_device *device)
 {
     struct tuner *t = (struct tuner*)device->data;
     kfree(t);
+    MOD_DEC_USE_COUNT;
     return 0;
 }
 

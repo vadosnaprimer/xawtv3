@@ -14,6 +14,12 @@
 #include <X11/Xaw/XawInit.h>
 #include <X11/Xaw/Simple.h>
 
+#ifdef HAVE_MITSHM
+# include <sys/ipc.h>
+# include <sys/shm.h>
+# include <X11/extensions/XShm.h>
+#endif
+
 #include "grab.h"
 #include "x11.h"
 
@@ -23,22 +29,43 @@
 #define DEL_TIMER(proc)     XtRemoveTimeOut(proc)
 #define ADD_TIMER(proc)     XtAppAddTimeOut(app_context,200,proc,NULL)
 
+#ifdef HAVE_MITSHM
+#define XPUTIMAGE(dpy,dr,gc,xi,a,b,c,d,w,h)                          \
+    if (have_shmem)                                                  \
+	XShmPutImage(dpy,dr,gc,xi,a,b,c,d,w,h,True);                 \
+    else                                                             \
+	XPutImage(dpy,dr,gc,xi,a,b,c,d,w,h)
+#else
+#define XPUTIMAGE(dpy,dr,gc,xi,a,b,c,d,w,h)                          \
+	XPutImage(dpy,dr,gc,xi,a,b,c,d,w,h)
+#endif
+
 /* ------------------------------------------------------------------------ */
 
-extern XtAppContext  app_context;
+extern XtAppContext    app_context;
 
 static int             display_bits = 0;
 static int             display_bytes = 0;
+static int             pixmap_bytes = 0;
+static int             have_shmem = 0;
+static int             x11_error = 0;
 
 int
 x11_init(Display *dpy)
 {
     XVisualInfo         *info, template;
-    int                  found;
+    XPixmapFormatValues *pf;
+    int                  found,i,n;
     int                  format = 0;
     Screen               *scr = DefaultScreenOfDisplay(dpy);
     Window               root;
     XWindowAttributes    wts;
+
+#ifdef HAVE_MITSHM
+    if (XShmQueryExtension(dpy)) {
+	have_shmem = 1;
+    }
+#endif
 
     /* Ask for visual type */
     template.screen = XDefaultScreen(dpy);
@@ -52,19 +79,36 @@ x11_init(Display *dpy)
 
     display_bits = wts.depth;
     display_bytes = (display_bits+7)/8;
+
+    pf = XListPixmapFormats(dpy,&n);
+    for (i = 0; i < n; i++)
+	if (pf[i].depth == display_bits)
+	    pixmap_bytes = pf[i].bits_per_pixel/8;
+
     if (debug)
-	fprintf(stderr,"x11: display: %d bits, %d bytes\n",
-		display_bits,display_bytes);
+	fprintf(stderr,"x11: display: %d bits, %d bytes - pixmap: %d bytes\n",
+		display_bits,display_bytes,pixmap_bytes);
     if (info->class == TrueColor) {
 	switch (display_bytes) {
 	case 2:
-	    format = (display_bits == 15) ? VIDEO_RGB15 : VIDEO_RGB16;
+	    format = (display_bits==15) ? VIDEO_RGB15 : VIDEO_RGB16;
 	    break;
 	case 3:
 	    format = VIDEO_RGB24;
 	    break;
 	case 4:
 	    format = VIDEO_RGB32;
+	    break;
+	}
+	switch (pixmap_bytes) {
+	case 2:
+	    x11_pixmap_format = (display_bits==15) ? VIDEO_RGB15 : VIDEO_RGB16;
+	    break;
+	case 3:
+	    x11_pixmap_format = VIDEO_RGB24;
+	    break;
+	case 4:
+	    x11_pixmap_format = VIDEO_RGB32;
 	    break;
 	}
     }
@@ -76,10 +120,132 @@ x11_init(Display *dpy)
     return format;
 }
 
+int
+x11_error_dev_null(Display * dpy, XErrorEvent * event)
+{
+    x11_error++;
+    if (debug > 1)
+	fprintf(stderr," x11-error");
+    return 0;
+}
+
+/* ------------------------------------------------------------------------ */
+/* ximage handling for grab & display                                       */
+
+XImage         *
+x11_create_ximage(Display *dpy, int width, int height, void **shm)
+{
+    XImage         *ximage = NULL;
+    unsigned char  *ximage_data;
+    Screen         *scr = DefaultScreenOfDisplay(dpy);
+#ifdef HAVE_MITSHM
+    XShmSegmentInfo *shminfo = NULL;
+    void            *old_handler;
+#endif
+
+    if (debug)
+	fprintf(stderr,"video: x11_create_ximage\n");
+#ifdef HAVE_MITSHM
+    if (have_shmem) {
+	x11_error = 0;
+	old_handler = XSetErrorHandler(x11_error_dev_null);
+	(*shm) = shminfo = malloc(sizeof(XShmSegmentInfo));
+	memset(shminfo, 0, sizeof(XShmSegmentInfo));
+	ximage = XShmCreateImage(dpy,
+				 DefaultVisualOfScreen(scr),
+				 DefaultDepthOfScreen(scr),
+				 ZPixmap, NULL,
+				 shminfo, width, height);
+	if (ximage) {
+	    shminfo->shmid = shmget(IPC_PRIVATE,
+				    ximage->bytes_per_line * ximage->height,
+				    IPC_CREAT | 0777);
+	    if (-1 == shminfo->shmid) {
+		perror("shmget");
+		goto oom;
+	    }
+	    shminfo->shmaddr = (char *) shmat(shminfo->shmid, 0, 0);
+	    if ((void *) -1 == shminfo->shmaddr) {
+		perror("shmat");
+		goto oom;
+	    }
+	    ximage->data = shminfo->shmaddr;
+	    shminfo->readOnly = False;
+
+	    XShmAttach(dpy, shminfo);
+	    XSync(dpy, False);
+	    shmctl(shminfo->shmid, IPC_RMID, 0);
+	    if (x11_error) {
+		have_shmem = 0;
+		shmdt(shminfo->shmaddr);
+		free(shminfo);
+		shminfo = *shm = NULL;
+		XDestroyImage(ximage);
+		ximage = NULL;
+	    }
+	} else {
+	    have_shmem = 0;
+	    free(shminfo);
+	    shminfo = *shm = NULL;
+	}
+	XSetErrorHandler(old_handler);
+    }
+#endif
+
+    if (ximage == NULL) {
+	(*shm) = NULL;
+	if (NULL == (ximage_data = malloc(width * height * display_bytes))) {
+	    fprintf(stderr,"out of memory\n");
+	    goto oom;
+	}
+	ximage = XCreateImage(dpy,
+			      DefaultVisualOfScreen(scr),
+			      DefaultDepthOfScreen(scr),
+			      ZPixmap, 0, ximage_data,
+			      width, height,
+			      8, 0);
+    }
+    memset(ximage->data, 0, ximage->bytes_per_line * ximage->height);
+
+    return ximage;
+
+oom:
+#ifdef HAVE_MITSHM
+    if (shminfo) {
+	if (shminfo->shmid && shminfo->shmid != -1)
+	    shmctl(shminfo->shmid, IPC_RMID, 0);
+	free(shminfo);
+    }
+#endif
+    if (ximage)
+	XDestroyImage(ximage);
+    return NULL;
+}
+
+void
+x11_destroy_ximage(Display *dpy, XImage * ximage, void *shm)
+{
+#ifdef HAVE_MITSHM
+    XShmSegmentInfo *shminfo = shm;
+
+    if (shminfo) {
+	XShmDetach(dpy, shminfo);
+	XDestroyImage(ximage);
+	shmdt(shminfo->shmaddr);
+	free(shminfo);
+    } else
+#endif
+	XDestroyImage(ximage);
+
+    if (debug)
+	fprintf(stderr,"video: x11_destroy_ximage\n");
+}
+
 /* ------------------------------------------------------------------------ */
 /* video overlay stuff                                                      */
 
 int        x11_native_format;
+int	   x11_pixmap_format;
 int        swidth,sheight;                         /* screen  */
 
 static Widget    video,video_parent;
@@ -93,6 +259,10 @@ static int                   did_refresh, oc_count;
 static int                   visibility = VisibilityFullyObscured;
 static int                   conf = 1, overlay_on = 0;
 static struct OVERLAY_CLIP   oc[32];
+
+static XImage   *ximage;
+static void     *ximage_shm;      /* used for MIT shmem */
+static GC        gc;
 
 /* ------------------------------------------------------------------------ */
 
@@ -134,14 +304,6 @@ static char *events[] = {
 };
 
 /* ------------------------------------------------------------------------ */
-
-int
-x11_error_dev_null(Display * dpy, XErrorEvent * event)
-{
-    if (debug > 1)
-	fprintf(stderr," x11-error");
-    return 0;
-}
 
 static void
 add_clip(int x1, int y1, int x2, int y2)
@@ -314,6 +476,11 @@ video_new_size()
     if (ox        < wx)         ox     += 4;
     if (ox+owidth > wx+wwidth)  owidth -= 4;
 
+    if (ximage) {
+	x11_destroy_ximage(DISPLAY(video), ximage, ximage_shm);
+	ximage = NULL;
+    }
+    
     conf = 1;
     configure_overlay();
 }
@@ -439,7 +606,6 @@ video_setmax(int x, int y)
 void
 video_overlay(set_overlay cb)
 {
-
     if (cb) {
 	overlay_cb = cb;
 	conf = 1;
@@ -453,6 +619,29 @@ video_overlay(set_overlay cb)
 	overlay_cb = NULL;
     }
 }
+
+int
+video_displayframe(get_frame cb)
+{
+    if (!WINDOW(video))
+	return -1;
+    if (!gc)
+	gc = XCreateGC(DISPLAY(video),WINDOW(video),0,NULL);
+    if (!ximage) {
+	ximage = x11_create_ximage(DISPLAY(video),owidth,oheight,&ximage_shm);
+	if (NULL == ximage) {
+	    fprintf(stderr,"oops: out of memory\n");
+	    exit(1);
+	}
+    }
+
+    if (NULL == cb(ximage->data,owidth,oheight))
+	return -1;
+    XPUTIMAGE(DISPLAY(video), WINDOW(video), gc, ximage,
+	      0,0,ox-wx,oy-wy, owidth, oheight);
+    return 0;
+}
+
 
 Widget
 video_init(Widget parent)
@@ -496,6 +685,9 @@ video_close(void)
     
     XSelectInput(DISPLAY(video),root,0);
     XtUnregisterDrawable(DISPLAY(video),root);
+
+    if (ximage) {
+	x11_destroy_ximage(DISPLAY(video), ximage, ximage_shm);
+	ximage = NULL;
+    }
 }
-
-

@@ -7,7 +7,16 @@ dnl ---------------------------------------------------------------------
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CPP
-AC_PROG_CXX
+
+if test "$KDEDIR" != "" -a -d "$KDEDIR"; then
+   KRADIO=kradio
+   # for kradio we need c++
+   AC_PROG_CXX
+else
+   KRADIO=""
+fi
+AC_SUBST(KRADIO)
+
 AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 
@@ -30,30 +39,40 @@ AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB,
 AC_SUBST(XAWLIB)
 
 AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
-	$X_LIBS $X_PRE_LIBS -lXext -lX11)
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+AC_CHECK_LIB(Xext, XShmAttach,AC_DEFINE(HAVE_MITSHM),,
+	$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress,,,)
 
 dnl ---------------------------------------------------------------------
 dnl video dev checks
 
-AC_ARG_WITH(bttv,
-  [  --with-bttv=/path       give the path of the bttv package],
-  bttvdir="$withval", bttvdir="bttv")
-AC_SUBST(bttvdir)
+kernel_v4l=0
 
-echo -n "checking for bttv... "
-if test -f "$bttvdir/bttv.h"; then
-  echo "in $bttvdir"
-dnl  AC_DEFINE(HAVE_BTTV)
+AC_EGREP_HEADER(video_mmap, linux/videodev.h,
+    AC_DEFINE(USE_KERNEL_VIDEODEV) kernel_v4l=1,)
+
+echo
+if test "$kernel_v4l" = "1"; then
+	echo "*** using kernel's video4linux driver"
+	# dummy
+	bttvdir=.
 else
-  echo "no (you might want to try --with-path=/path_to_bttv)"
+	AC_ARG_WITH(bttv,
+	  [  --with-bttv=/path       give the path of the bttv package],
+	  bttvdir="$withval", bttvdir="`pwd`/bttv")
+	AC_SUBST(bttvdir)
+	if test -f "$bttvdir/bttv.h"; then
+		echo "*** using bttv driver in $bttvdir"
+	else
+		echo "oops, no driver in $bttvdir"
+		exit 1
+	fi
 fi
-
-dnl ---------------------------------------------------------------------
-dnl KDE (kradio)
-if test "$KDEDIR" != ""; then KRADIO=kradio; else KRADIO=""; fi
-AC_SUBST(KRADIO)
+echo
 
 dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile)

@@ -30,6 +30,7 @@ CURRENT=$(shell uname -r)
 
 # where the kernel sources are located
 #KERNEL_LOCATION=/usr/src/kernel/$(CURRENT)
+#KERNEL_LOCATION=/usr/src/kernel/vger
 KERNEL_LOCATION=/usr/src/linux
 
 
@@ -37,7 +38,7 @@ KERNEL_LOCATION=/usr/src/linux
 # some magic for using linux kernel settings
 # when compiling module(s)
 
-M_OBJS       = bttv.o i2c.o msp3400.o tuner.o videodev.o 
+M_OBJS       = bttv.o i2c.o msp3400.o tuner.o videodev.o #i2c_chardev.o
 EXTRA_CFLAGS = -DTUNER_DEFAULT=$(TUNER) -DCARD_DEFAULT=$(CARD) \
 	-DBTTV_MAJOR=$(BTTV_MAJOR) $(INTERFACE) -DEXPORT_SYMTAB 
 

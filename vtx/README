@@ -1,0 +1,44 @@
+Just included a new vtx driver version here.  Hav'nt tested it myself,
+becauce I hav'nt a vtx chip on my card.  Compiles with 2.1.x only.
+
+  Gerd
+
+------------------------------------------------------------------------
+From zxmpm11@student.uni-tuebingen.de Mon Mar 30 15:36:32 1998
+Date: Mon, 30 Mar 1998 11:50:52 +0200 (METDST)
+From: Richard Guenther <zxmpm11@student.uni-tuebingen.de>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: Gerd Knorr <kraxel@cs.tu-berlin.de>, martin-2.buck@student.uni-ulm.de,
+    alan@lxorguk.ukuu.org.uk
+Subject: Re: Bttv driver and teletext
+
+Hi!
+
+Ok, I have just done this. Get a working (well you need the included
+patch to VideoteXt because parity is somehow corrupted!??) copy
+at http://www.anatom.uni-tuebingen.de/~richi/vtx.tar.gz
+
+Richard.
+
+PS: its not nice code, but it works.
+
+
+On Tue, 24 Feb 1998, Alan Cox wrote:
+
+> > Had a short look at the driver, I think it shoult'nt be a big problem to 
+> > build a new vtx driver on top of the i2c module which comes with newer
+> > bttv/xawtv versions.  This removes the 
+> > "two-drivers-talking-to-one-device" and the trouble resulting of this.  As 
+> > far I know, there is'nt one yet. 
+> 
+> Its gross to try and fix the existing vtx driver. I could hack the vtx code
+> to be clean and just support the bttv cards for now (but with hooks for
+> someone to sort others out over time). RIght now its broken for things like
+> 2 bttv cards
+> 
+> Alan
+
+--
+Richard Guenther <richard.guenther@student.uni-tuebingen.de>
+PGP: 2E829319 - 2F 83 FC 93 E9 E4 19 E2 93 7A 32 42 45 37 23 57
+WWW: http://www.anatom.uni-tuebingen.de/~richi/

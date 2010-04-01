@@ -153,9 +153,10 @@ int i2c_register_bus(struct i2c_bus *bus)
     bus_count++;
     REGPRINT(printk("i2c: bus registered: %s\n",bus->name));
 
+    LOCK_I2C_BUS(bus);
+    i2c_reset(bus);
     if (scan) {
 	/* scan whole i2c bus */
-	LOCK_I2C_BUS(bus);
 	for (i = 0; i < 256; i+=2) {
 	    i2c_start(bus);
 	    ack = i2c_sendbyte(bus,i,0);
@@ -165,8 +166,8 @@ int i2c_register_bus(struct i2c_bus *bus)
 		       bus->name,i);
 	    }
 	}
-	UNLOCK_I2C_BUS(bus);
     }
+    UNLOCK_I2C_BUS(bus);
 
     /* probe available drivers */
     for (i = 0; i < I2C_DRIVER_MAX; i++)
@@ -274,6 +275,12 @@ int i2c_control_device(struct i2c_bus *bus, int id,
 
 #define I2C_SET(bus,ctrl,data)  (bus->i2c_setlines(bus,ctrl,data))
 #define I2C_GET(bus)            (bus->i2c_getdataline(bus))
+
+void i2c_reset(struct i2c_bus *bus)
+{
+    I2C_SET(bus,1,1);
+    I2C_DEBUG(printk("%s: bus reset",bus->name));
+}
 
 void i2c_start(struct i2c_bus *bus)
 {
@@ -384,6 +391,7 @@ int i2c_write(struct i2c_bus *bus, unsigned char addr,
 /* ----------------------------------------------------------------------- */
 
 #ifdef MODULE
+
 int init_module(void)
 {
     return i2c_init();
@@ -392,4 +400,5 @@ int init_module(void)
 void cleanup_module(void)
 {
 }
+
 #endif

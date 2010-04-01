@@ -1157,8 +1157,13 @@ vgrab(struct bttv *btv, struct gbuf *gb)
 	//bt848_set_risc_jmps(btv);
 	btor(3, BT848_CAP_CTL);
 	btor(3, BT848_GPIO_DMA_CTL);
-	btv->gro=virt_to_bus(ro);
-	btv->gre=virt_to_bus(re);
+        if (btv->grabbing) {
+            btv->gro_next=virt_to_bus(ro);
+            btv->gre_next=virt_to_bus(re);
+        } else {
+            btv->gro=virt_to_bus(ro);
+            btv->gre=virt_to_bus(re);
+        }
 	if (!(btv->grabbing++)) 
 	  btv->risc_jmp[12]=BT848_RISC_JUMP|(0x8<<16)|BT848_RISC_IRQ;
 	//interruptible_sleep_on(&btv->capq);
@@ -1299,6 +1304,8 @@ static int bttv_open(struct video_device *dev, int flags)
 			  btv->user--;
 			  return -EINVAL;
 			}
+                        btv->grab=0;
+                        btv->lastgrab=0;
 			break;
 		case 1:
 			break;
@@ -1936,10 +1943,18 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			v.flags|=VIDEO_AUDIO_MUTABLE;
 			strcpy(v.name,"TV");
 			if (btv->have_msp3400) {
-			    v.flags|=VIDEO_AUDIO_VOLUME;
+			    v.flags|=VIDEO_AUDIO_VOLUME |
+                                VIDEO_AUDIO_BASS |
+                                VIDEO_AUDIO_TREBLE;
 			    i2c_control_device(&(btv->i2c),
 					       I2C_DRIVERID_MSP3400,
 					       MSP_GET_VOLUME,&(v.volume));
+			    i2c_control_device(&(btv->i2c),
+					       I2C_DRIVERID_MSP3400,
+					       MSP_GET_BASS,&(v.bass));
+			    i2c_control_device(&(btv->i2c),
+					       I2C_DRIVERID_MSP3400,
+					       MSP_GET_TREBLE,&(v.treble));
 			    i2c_control_device(&(btv->i2c),
 					       I2C_DRIVERID_MSP3400,
 					       MSP_GET_STEREO,&(v.mode));
@@ -1967,6 +1982,12 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 					       MSP_SET_VOLUME,&(v.volume));
 			    i2c_control_device(&(btv->i2c),
 					       I2C_DRIVERID_MSP3400,
+					       MSP_SET_BASS,&(v.bass));
+			    i2c_control_device(&(btv->i2c),
+					       I2C_DRIVERID_MSP3400,
+					       MSP_SET_TREBLE,&(v.treble));
+			    i2c_control_device(&(btv->i2c),
+					       I2C_DRIVERID_MSP3400,
 					       MSP_SET_STEREO,&(v.mode));
 			}
 			btv->audio_dev=v;
@@ -1984,15 +2005,29 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			if(copy_to_user((void *) arg, (void *) eedata, 256))
 				return -EFAULT;
 			break;
+	        case VIDIOCSYNC:
 	        case BTTV_SYNC:
-		        if (btv->grabbing && btv->grab==btv->lastgrab)
-			        interruptible_sleep_on(&btv->capq);
-		        btv->lastgrab=btv->grab;
+                        if (btv->grabbing && btv->lastgrab == btv->grab)
+                                interruptible_sleep_on(&btv->capq);
+                        btv->lastgrab++;
 		        break;
 	        case BTTV_GRAB:
 		{
                         struct gbuf gb;
 		        copy_from_user((void *) &gb, (void *) arg, sizeof(gb));
+		        return vgrab(btv, &gb);
+		}
+	        case VIDIOCMCAPTURE:
+		{
+                        struct video_mmap vm;
+                        struct gbuf gb;
+                        
+			if(copy_from_user((void *) &vm, (void *) arg, sizeof(vm)))
+				return -EFAULT;
+                        gb.adr    = vm.frame ? 0x144000 : 0;
+                        gb.fmt    = vm.format; /* FIXME */
+                        gb.width  = vm.width;
+                        gb.height = vm.height;
 		        return vgrab(btv, &gb);
 		}
 		default:
@@ -2706,16 +2741,16 @@ static int init_bt848(int i)
 	memcpy(&btv->radio_dev,&radio_template,sizeof(radio_template));
 	idcard(btv);
 
-	if(video_register_device(&btv->video_dev,0)<0)
+	if(video_register_device(&btv->video_dev,VFL_TYPE_GRABBER)<0)
 		return -1;
-	if(video_register_device(&btv->vbi_dev,32)<0) 
+	if(video_register_device(&btv->vbi_dev,VFL_TYPE_VBI)<0) 
         {
 	        video_unregister_device(&btv->video_dev);
 		return -1;
 	}
 	if (radio)
 	{
-		if(video_register_device(&btv->radio_dev,64)<0) 
+		if(video_register_device(&btv->radio_dev,VFL_TYPE_RADIO)<0) 
                 {
 		        video_unregister_device(&btv->vbi_dev);
 		        video_unregister_device(&btv->video_dev);
@@ -2786,10 +2821,10 @@ static void bttv_irq(int irq, void *dev_id, struct pt_regs * regs)
 			/* captured full frame */
 			if (stat&(2<<28)) 
 			{
-			        btv->grab++;
-				wake_up_interruptible(&btv->capq);
 			        if ((--btv->grabbing))
 				{
+                                        btv->gro = btv->gro_next;
+                                        btv->gre = btv->gre_next;
                                         btv->risc_jmp[5]=btv->gro;
 					btv->risc_jmp[11]=btv->gre;
 					bt848_set_geo(btv, btv->gwidth,
@@ -2801,9 +2836,11 @@ static void bttv_irq(int irq, void *dev_id, struct pt_regs * regs)
 						      btv->win.height,
 						      btv->win.color_fmt);
 				}
+			        btv->grab++;
+				wake_up_interruptible(&btv->capq);
 				break;
 			}
-			if (stat&(8<<28)) 
+			if (stat&(8<<28))
 			{
 			        btv->risc_jmp[5]=btv->gro;
 				btv->risc_jmp[11]=btv->gre;
@@ -3062,6 +3099,13 @@ int init_bttv_cards(struct video_init *unused)
 			return -EIO;
 		} 
 	}
+
+#if 0
+	/* load i2c chip drivers (requires a tiny patch for 2.0.x) */
+	request_module("tuner");
+	request_module("msp3400");
+#endif
+
 	return 0;
 }
 

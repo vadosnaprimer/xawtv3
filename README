@@ -9,21 +9,17 @@ video4linux (included in 2.1.7x).  Copy Policy is GNU GPL.
 compile & install
 =================
 
-The bttv "old-style interface" support is still present, but untested
-and probably will go away over time...
-Disabled now, as it does'nt compile with the current bttv driver. You
-have to do some Makefile hacking to compile it.  Or simply stay with a
-older version, if you don't want to use the new driver for some reason.
+There is modified bttv-0.5.6 in the bttv subdirectory.  Only the
+driver itself is included.  If you use the bttv for the first time, I
+recommend to get the whole bttv package from Ralph's page (see below)
+and check out the documentation. Some (very limited) informations can
+be found in the bttv/MODULES file.
 
-The video4linux interface is backported to 2.0.x, new bttv releases
-support the new video4linux interface only.  Grabbing does'nt work
-yet.
-
-
-There is bttv-0.5.6 (with minor msp3400 changes wrt nicam) in the bttv
-subdirectory.  Only the driver itself is included.  If you use the bttv
-for the first time, I recommend to get the whole bttv package from
-Ralph's page (see below) and check out the documentation.
+I merged the latest video4linux changes from the vger CVS tree to the
+bttv driver.  This xawtv version does _not_ work (read: the included
+binary can't grab and it does'nt compile) with plain bttv-0.5.6, you
+need either the included version or the latest video4linux bits from
+vger's CVS tree.  Check also the Changes file.
 
 
 $ ./configure --with-bttv=/path/to/bttv/driver && make
@@ -50,18 +46,8 @@ problem probably will be solved in a better way later on (Alan plans
 to write a X-Server extention).  Try "v4l-conf -h" for a short
 description.
 
-The easiest way to make this work is to compile the driver as
-module, let kerneld load it and run v4l-conf via post-install. My
-module settings look like this:
-
-$ grep bttv /etc/modules.conf
-alias   char-major-81           bttv
-post-install    bttv            /usr/local/sbin/v4l-conf -q
-
-This might require a "xhost +localhost", becauce v4l-conf must be able
-to contact your X-Server.  You could also install v4l-conf suid-root
-and write a small wrapper script for xawtv.  It's up to you, there are
-many ways to solve the puzzle...
+It is installed suid-root now, and xawtv runs it at startup.  Should
+work out-of-the-box without extra configuration.
 
 
 xawtv
@@ -89,17 +75,34 @@ set-tv
 Simple command line tuner.  Reads like xawtv the config file $HOME/.xawtv.
 Expects a channel name on the command line.  Assuming you have a station
 named [ZDF] in your $HOME/.xawtv file, "set-tv zdf" will tune in the
-channel defined there.  Prints some useless messages about video resolution
-due to the fact that it shares alot of code with xawtv, maybe I fix this
-later.
+channel defined there.  That way you can tune in a station to grab
+teletext (or whatever) without starting up X11.
+
+It prints some useless messages about video resolution due to the fact that
+it shares alot of code with xawtv, maybe I fix this later.
+
+
+dump-mixers
+-----------
+
+Just does what the name suggests:  It simply dumps the current mixer
+settings to stdout.
 
 
 vic
 ---
 
-The grabber-bttv-0.5.6.cc file is a grabber driver for vic.  If you plan
-to compile vic:  It is'nt trivial, you should have some basic knowledge
-about C and writing/editing Makefiles.  
+The grabber-bttv-0.5.6.cc file is a grabber driver for vic, works with
+plain bttv-0.5.6.  Up to 12 fps.
+
+There is newer version, grabber-video4linux.cc.  Requires the included
+modified bttv version or a kernel >= 2.1.94.  Handles up to 25 fps.
+
+Both versions are tested only with PAL.  The "large" picture size probably
+doest'nt work with NTSC.  
+
+If you plan to compile vic:  It is'nt trivial, you should have some
+basic knowledge about C and writing/editing Makefiles.  
 
 
 radio & kradio
@@ -122,8 +125,9 @@ set correctly.  Yes, the volume slider does'nt work yet.
 resources
 =========
 
-http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv		- xawtv
-http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv driver
+http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv		- xawtv       [me]
+http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv driver [Ralph]
+http://roadrunner.swansea.linux.org.uk/v4l.shtml	- video4linux [Alan]
 http://www-nrg.ee.lbl.gov/vic/				- vic
 http://www.kde.org					- KDE
 

@@ -54,3 +54,8 @@ tuner.o
 You can't load the i2c chip driver modules (tuner,msp3400) with kerneld,
 you should modprobe them within a boot script.
 
+NEW: Well, you can't without a kernel patch.  There is a tiny kernel patch
+     for 2.0.33.  With the request_module() in bttv.c enabled (you have to
+     change a "#if 0" to "#if 1" at the end of bttv.c) and a patched kernel
+     loading _all_ the modules on demand works just fine.
+

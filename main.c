@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
@@ -26,6 +27,9 @@
 #ifdef HAVE_LIBXXF86DGA
 # include <X11/extensions/xf86dga.h>
 #endif
+#ifdef HAVE_LIBXXF86VM
+# include <X11/extensions/xf86vmode.h>
+#endif
 
 #ifdef HAVE_LIBJPEG
 # include "jpeglib.h"
@@ -33,14 +37,20 @@
 
 #include "mixer.h"
 #include "channel.h"
+#include "channels.h"
 #include "grab.h"
 #include "x11.h"
 #include "toolbox.h"
 
-#define TITLE_TIME 6000
-#define WIDTH_INC    64
-#define HEIGHT_INC   48
-#define LABEL_WIDTH  "16"
+#define TITLE_TIME          6000
+#define WIDTH_INC             64
+#define HEIGHT_INC            48
+#define LABEL_WIDTH         "16"
+#define VIDMODE_DELAY        100   /* 0.1 sec */
+
+#define CAPTURE_OFF          0
+#define CAPTURE_OVERLAY      1
+#define CAPTURE_GRABDISPLAY  2
 
 /*--- public variables ----------------------------------------------------*/
 
@@ -56,6 +66,7 @@ XtIntervalId      title_timer;
 int               pointer_on = 1;
 int               debug = 0;
 int               fs = 0;
+int               fs_width,fs_height,fs_xoff,fs_yoff;
 int               bpp = 0;
 char              *ppmfile;
 char              *jpegfile;
@@ -64,6 +75,11 @@ char              modename[64];
 char              *progname;
 #ifdef HAVE_LIBXXF86DGA
 int               have_dga;
+#endif
+#ifdef HAVE_LIBXXF86VM
+int               have_vm;
+int               vm_count;
+XF86VidModeModeInfo **vm_modelines;
 #endif
 
 /*                            PAL  NTSC SECAM */
@@ -74,14 +90,8 @@ static int    maxheight[] = { 576, 480, 576 };
 /*--- drivers -------------------------------------------------------------*/
 
 extern struct GRABBER grab_v4l;
-#ifdef HAVE_BTTV
-extern struct GRABBER grab_bttv;
-#endif
 struct GRABBER *grabbers[] = {
     &grab_v4l,
-#ifdef HAVE_BTTV
-    &grab_bttv,
-#endif
 };
 
 int grabber;
@@ -113,19 +123,21 @@ void PointerAction(Widget, XEvent*, String*, Cardinal*);
 void FullScreenAction(Widget, XEvent*, String*, Cardinal*);
 void OptionsAction(Widget, XEvent*, String*, Cardinal*);
 void SnapAction(Widget, XEvent*, String*, Cardinal*);
+void GrabDisplayAction(Widget, XEvent*, String*, Cardinal*);
 
 static XtActionsRec actionTable[] = {
-    { "CloseMain",  CloseMainAction  },
-    { "SetRes",     SetResAction },
-    { "SetChannel", SetChannelAction },
-    { "Tune",       TuneAction },
-    { "Menu",       MenuAction },
-    { "Channel",    ChannelAction },
-    { "Volume",     VolumeAction },
-    { "Pointer",    PointerAction },
-    { "FullScreen", FullScreenAction },
-    { "Options",    OptionsAction },
-    { "Snap",       SnapAction },
+    { "CloseMain",   CloseMainAction  },
+    { "SetRes",      SetResAction },
+    { "SetChannel",  SetChannelAction },
+    { "Tune",        TuneAction },
+    { "Menu",        MenuAction },
+    { "Channel",     ChannelAction },
+    { "Volume",      VolumeAction },
+    { "Pointer",     PointerAction },
+    { "FullScreen",  FullScreenAction },
+    { "Options",     OptionsAction },
+    { "Snap",        SnapAction },
+    { "GrabDisplay", GrabDisplayAction },
 };
 
 static struct STRTAB try[] = {
@@ -158,8 +170,6 @@ ExitWP(XtPointer client_data)
     /* exit if the application is idle,
      * i.e. all the DestroyCallback's are called.
      */
-    if (have_mixer)
-	mixer_close();
     exit(0);
 }
 
@@ -168,6 +178,10 @@ ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
     video_overlay(NULL);
     video_close();
+    if (have_mixer)
+	mixer_close();
+    if (fs)
+	XtCallActionProc(widget,"FullScreen",NULL,NULL,0);
     XtAppAddWorkProc (app_context,ExitWP, NULL);
     XtDestroyWidget(app_shell);
 }
@@ -247,7 +261,7 @@ set_title()
     if (-1 != cur_sender) {
 	strcpy(title,channels[cur_sender]->name);
     } else {
-	sprintf(title,"channel %d",cur_channel);
+	sprintf(title,"channel %s",tvtuner[cur_channel].name);
 	if (cur_fine != 0)
 	    sprintf(title+strlen(title)," (%d)",cur_fine);
 	sprintf(title+strlen(title)," (%s/%s)",
@@ -311,15 +325,38 @@ void set_source(int j)
 
 void set_freqtab(int j)
 {
-    int freq;
-    
     sprintf(title,"%-" LABEL_WIDTH "s: %s","Frequency table",
 	    chan_names[j].str);
     if (c_freq)
 	XtVaSetValues(c_freq,XtNlabel,title,NULL);
     chan_tab = j;
-    freq = cf2freq(cur_channel,cur_fine);
-    grabbers[grabber]->grab_tune(freq);
+}
+
+void
+set_capture(int capture)
+{
+    if (cur_capture == capture)
+	return;
+
+    cur_capture = capture;
+
+    switch (capture) {
+    case CAPTURE_OFF:
+	strcpy(title,"capture: off");
+	video_overlay(NULL);
+	break;
+    case CAPTURE_OVERLAY:
+    default:
+	strcpy(title,"capture: overlay");
+	video_overlay(grabbers[grabber]->grab_overlay);
+	break;
+#if 0
+    case CAPTURE_GRABDISPLAY:
+	strcpy(title,"capture: grabdisplay");
+	/* TODO */
+	break;
+#endif
+    }
 }
 
 /* the RightWay[tm] to set float resources (copyed from Xaw specs) */
@@ -376,13 +413,9 @@ set_channel(struct CHANNEL *channel)
     /* image parameters */
     set_picparams(channel->color, channel->bright,
 		  channel->hue, channel->contrast);
+    set_capture(channel->capture);
 
     /* input source */
-    if (cur_capture != channel->capture)
-	video_overlay(channel->capture ?
-		      grabbers[grabber]->grab_overlay : NULL);
-    cur_capture  = channel->capture;
-
     if (cur_input   != channel->source)
 	set_source(channel->source);
     if (cur_norm    != channel->norm)
@@ -432,9 +465,7 @@ SetResAction(Widget widget, XEvent *event,
 	change_int(params[0],params[1],&cur_hue);
 	set_picparams(-1,-1,cur_hue,-1);
     } else if (0 == strcmp(params[0],"capture")) {
-	cur_capture = !cur_capture;
-	sprintf(title,"capture: %s",cur_capture ? "on" : "off");
-	video_overlay(cur_capture ? grabbers[grabber]->grab_overlay : NULL);
+	set_capture(!cur_capture);
     } else if (0 == strcmp("audio",params[0])) {
 	change_audio(atoi(params[1]));
     } else
@@ -523,10 +554,14 @@ TuneAction(Widget widget, XEvent *event,
 	return;
 
     if (0 == strcasecmp(params[0],"next")) {
-	cur_channel++;
+	do {
+	    cur_channel = (cur_channel+1) % CHAN_ENTRIES;
+	} while (!tvtuner[cur_channel].freq[chan_tab]);
 	cur_fine = 0;
     } else if (0 == strcasecmp(params[0],"prev")) {
-	cur_channel--;
+	do {
+	    cur_channel = (cur_channel+CHAN_ENTRIES-1) % CHAN_ENTRIES;
+	} while (!tvtuner[cur_channel].freq[chan_tab]);
 	cur_fine = 0;
     } else if (0 == strcasecmp(params[0],"fine_up")) {
 	cur_fine++;
@@ -536,11 +571,9 @@ TuneAction(Widget widget, XEvent *event,
 
     cur_sender  = -1;
 
-    if (!cur_capture) {
-	cur_capture = 1;
-	video_overlay(cur_capture ? grabbers[grabber]->grab_overlay : NULL);
-    }
-    freq = cf2freq(cur_channel,cur_fine);
+    set_capture(CAPTURE_OVERLAY);
+
+    freq = get_freq(cur_channel)+cur_fine;
     grabbers[grabber]->grab_tune(freq);
     set_title();
 }
@@ -555,9 +588,7 @@ MenuAction(Widget widget, XEvent *event,
     title[0] = 0;
     switch(i=popup_menu(widget,"Settings",try)) {
     case 1:
-	cur_capture = !cur_capture;
-	sprintf(title,"capture: %s",cur_capture ? "on" : "off");
-	video_overlay(cur_capture ? grabbers[grabber]->grab_overlay : NULL);
+	set_capture(!cur_capture);
 	break;
     case 2:
 	XtCallActionProc(widget,"Volume",event,mute,1);
@@ -629,54 +660,109 @@ MyResize(XtPointer client_data)
     return TRUE;
 }
 
+static void
+vidmode_timer(XtPointer clientData, XtIntervalId *id)
+{
+    set_capture(CAPTURE_OVERLAY);
+}
+
+static void
+set_vidmode(int nr)
+{
+    if (cur_capture)
+	video_overlay(NULL);
+    usleep(VIDMODE_DELAY*1000);
+    if (debug)
+	fprintf(stderr,"switching video mode to %dx%d now\n",
+		vm_modelines[nr]->hdisplay,
+		vm_modelines[nr]->vdisplay);
+    XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),vm_modelines[nr]);
+
+    if (cur_capture) {
+	cur_capture = 0;
+	XtAppAddTimeOut(app_context,VIDMODE_DELAY,vidmode_timer,NULL);
+    }
+}
+
 void
 FullScreenAction(Widget widget, XEvent *event,
 		 String *params, Cardinal *num_params)
 {
     static Dimension x,y,w,h;
+    static int timeout,interval,prefer_blanking,allow_exposures;
+    static int vm_switched;
 
     if (fs) {
+#ifdef HAVE_LIBXXF86VM
+	if (have_vm && vm_switched) {
+	    set_vidmode(0);
+	    vm_switched = 0;
+	}
+#endif
+	    
 	XtVaSetValues(app_shell,
 		      XtNwidthInc, WIDTH_INC,
 		      XtNheightInc,HEIGHT_INC,
-		      XtNx,        x,
-		      XtNy,        y,
+		      XtNx,        x + fs_xoff,
+		      XtNy,        y + fs_yoff,
 		      XtNwidth,    w,
 		      XtNheight,   h,
 		      NULL);
+
+	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
 	fs = 0;
     } else {
-	int                vp_width  = swidth;
-	int                vp_height = sheight;
+	int vp_x, vp_y, vp_width, vp_height, i;
 
-#ifdef HAVE_LIBXXF86DGA
-	if (have_dga) {
-	    XF86DGAGetViewPortSize(dpy,XDefaultScreen(dpy),
-				   &vp_width, &vp_height);
+	vp_x = 0;
+	vp_y = 0;
+	vp_width  = swidth;
+	vp_height = sheight;
+#ifdef HAVE_LIBXXF86VM
+	if (have_vm) {
+	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
+				       &vm_count,&vm_modelines);
+	    for (i = 0; i < vm_count; i++)
+		if (fs_width  == vm_modelines[i]->hdisplay &&
+		    fs_height == vm_modelines[i]->vdisplay)
+		    break;
+	    if (i != 0 && i != vm_count) {
+		set_vidmode(i);
+		vm_switched = 1;
+		vp_width = vm_modelines[i]->hdisplay;
+		vp_height = vm_modelines[i]->vdisplay;
+	    } else {
+		vm_switched = 0;
+		vp_width = vm_modelines[0]->hdisplay;
+		vp_height = vm_modelines[0]->vdisplay;
+	    }
+	    XF86VidModeGetViewPort(dpy,XDefaultScreen(dpy),&vp_x,&vp_y);
 	    if (debug)
-		fprintf(stderr,"dga: viewport size: %dx%d\n",
-			vp_width,vp_height);
-	    if (vp_width < swidth || vp_height < sheight)
-		XF86DGASetViewPort(dpy,XDefaultScreen(dpy),0,0);
+		fprintf(stderr,"viewport: %dx%d+%d+%d\n",
+			vp_width,vp_height,vp_x,vp_y);
 	}
 #endif
 	XtVaGetValues(app_shell,
-		      XtNx,      &x,
-		      XtNy,      &y,
-		      XtNwidth,  &w,
-		      XtNheight, &h,
+		      XtNx,          &x,
+		      XtNy,          &y,
+		      XtNwidth,      &w,
+		      XtNheight,     &h,
 		      NULL);
 
 	XtVaSetValues(app_shell,
-		      XtNwidthInc,  1,
-		      XtNheightInc, 1,
+		      XtNwidthInc,   1,
+		      XtNheightInc,  1,
 		      NULL);
 	XtVaSetValues(app_shell,
-		      XtNx,          0,
-		      XtNy,          0,
-		      XtNwidth,     vp_width,
-		      XtNheight,    vp_height,
+		      XtNx,          (vp_x & 0xfffc) + fs_xoff,
+		      XtNy,          vp_y            + fs_yoff,
+		      XtNwidth,      vp_width,
+		      XtNheight,     vp_height,
 		      NULL);
+	
+	XGetScreenSaver(dpy,&timeout,&interval,
+			&prefer_blanking,&allow_exposures);
+	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
 	fs = 1;
     }
     XtAppAddWorkProc (app_context,MyResize, NULL);
@@ -695,9 +781,7 @@ channel_menu()
 	if (max < len)
 	    max = len;
     }
-    defaults.freq = cf2freq(defaults.channel,defaults.fine);
     for (i = 0; i < count; i++) {
-	channels[i]->freq = cf2freq(channels[i]->channel,channels[i]->fine);
 	cmenu[i].nr  = i+1;
 	cmenu[i].str = channels[i]->name;
 	if (channels[i]->key) {
@@ -712,6 +796,59 @@ channel_menu()
 	    cmenu[i].str=strdup(str);
 	}
     }
+}
+
+static Boolean
+idle_grabdisplay(XtPointer data)
+{
+    static long count,lastsec;
+    struct timeval  tv;
+    struct timezone tz;
+
+    if (cur_capture) {
+	if (debug)
+	    fprintf(stderr,"grabdisplay off\n");
+	return TRUE;
+    }
+    if (!grabbers[grabber]->grab_scr)
+	return TRUE;
+
+    gettimeofday(&tv,&tz);
+    if (tv.tv_sec != lastsec) {
+        /* statistics */
+        sprintf(title,"grabdisplay: %ld fps", count);
+	XtVaSetValues(app_shell,XtNtitle,title,NULL);
+        lastsec = tv.tv_sec;
+        count = 0;
+    }
+    count++;
+
+    if (-1 == video_displayframe(grabbers[grabber]->grab_scr))
+	return TRUE;
+    return FALSE;
+}
+
+void
+GrabDisplayAction(Widget widget, XEvent *event,
+		  String *params, Cardinal *num_params)
+{
+#if 1
+    static int niced = 0;
+
+    if (!niced) {
+	nice(10);
+	niced = 1;
+	if (debug)
+	    fprintf(stderr,"nice\n");
+    }
+#endif
+    if (cur_capture) {
+	cur_capture = 0;
+	video_overlay(NULL);
+    }
+    XtAppAddWorkProc(app_context, idle_grabdisplay, NULL);
+    if (debug)
+	fprintf(stderr,"grabdisplay on\n");
 }
 
 /*--- option window ------------------------------------------------------*/
@@ -1051,14 +1188,23 @@ SnapAction(Widget widget, XEvent *event,
 {
     void *buffer;
     int   jpeg = 0;
-    int   width  = maxwidth[cur_norm];
-    int   height = maxheight[cur_norm];
+    Dimension width  = maxwidth[cur_norm];
+    Dimension height = maxheight[cur_norm];
 
     if (*num_params > 0) {
 	if (0 == strcasecmp(params[0],"jpeg"))
 	    jpeg = 1;
 	if (0 == strcasecmp(params[0],"ppm"))
 	    jpeg = 0;
+    }
+
+    if (*num_params > 1) {
+	if (0 == strcasecmp(params[1],"full")) {
+	    width  = maxwidth[cur_norm];
+	    height = maxheight[cur_norm];
+	}
+	if (0 == strcasecmp(params[1],"win"))
+	    XtVaGetValues(tv,XtNwidth,&width,XtNheight,&height,NULL);
     }
     
     if (!grabbers[grabber]->grab_one) {
@@ -1103,22 +1249,52 @@ SnapAction(Widget widget, XEvent *event,
 /*--- main ---------------------------------------------------------------*/
 
 static void
+xfree_init()
+{
+    int  flags,foo,bar,i,ma,mi;
+
+#ifdef HAVE_LIBXXF86DGA
+    if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
+	XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
+	if (flags & XF86DGADirectPresent) {
+	    XF86DGAQueryVersion(dpy,&ma,&mi);
+	    have_dga = 1;
+	    fprintf(stderr,"X-Server supports DGA extention (version %d.%d)\n",
+		    ma,mi);
+	}
+    }
+#endif
+#ifdef HAVE_LIBXXF86VM
+    if (XF86VidModeQueryExtension(dpy,&foo,&bar)) {
+	XF86VidModeQueryVersion(dpy,&ma,&mi);
+	have_vm = 1;
+	fprintf(stderr,"X-Server supports VidMode extention (version %d.%d)\n",
+		ma,mi);
+	fprintf(stderr,"  available video mode(s):");
+	XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
+				   &vm_count,&vm_modelines);
+	for (i = 0; i < vm_count; i++) {
+	    fprintf(stderr," %dx%d",
+		    vm_modelines[i]->hdisplay,
+		    vm_modelines[i]->vdisplay);
+	}
+	fprintf(stderr,"\n");
+    }
+#endif
+}
+
+static void
 grabber_init()
 {
     int sw,sh;
     void *base = NULL;
 #ifdef HAVE_LIBXXF86DGA
-    int  foo,bar,fred,flags;
+    int  width = 0,bar,fred;
 
-    have_dga = 0;
-    if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
-	XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
-	if (flags & XF86DGADirectPresent) {
-	    have_dga = 1;
-	    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
-			      &foo,&bar,&fred);
-	    fprintf(stderr,"dga: base=%p\n",base);
-	}
+    if (have_dga) {
+	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
+			  &width,&bar,&fred);
+	fprintf(stderr,"dga: base=%p, width=%d\n",base,width);
     }
 #endif
     sw = XtScreen(app_shell)->width;
@@ -1126,7 +1302,7 @@ grabber_init()
     for (grabber = 0; grabber < sizeof(grabbers)/sizeof(struct GRABBERS*);
 	 grabber++) {
 	if (-1 != grabbers[grabber]->grab_open
-	    (NULL,sw,sh,x11_native_format,base))
+	    (NULL,sw,sh,x11_native_format,x11_pixmap_format,base,width))
 	    break;
     }
     if (grabber == sizeof(grabbers)/sizeof(struct GRABBERS*)) {
@@ -1138,7 +1314,8 @@ grabber_init()
 
 int main(int argc, char *argv[])
 {
-    int  c,noconf,fullscreen,nomouse;
+    int  c,noconf,fullscreen,nomouse,xfree_ext;
+    char v4l_conf[32] = "v4l-conf -q";
 
     progname = strdup(argv[0]);
     app_shell = XtAppInitialize(&app_context,
@@ -1150,8 +1327,9 @@ int main(int argc, char *argv[])
 
     /* parse options */
     debug = noconf = fullscreen = nomouse = 0;
+    xfree_ext = 1;
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hnmfv:c:o:")))
+	if (-1 == (c = getopt(argc, argv, "hxnmfv:c:o:j:b:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -1169,8 +1347,14 @@ int main(int argc, char *argv[])
 	case 'f':
 	    fullscreen = 1;
 	    break;
+	case 'x':
+	    xfree_ext = 0;
+	    break;
 	case 'b':
 	    bpp = atoi(optarg);
+	    /* v4l-conf needs this too */
+	    strcat(v4l_conf," -b ");
+	    strcat(v4l_conf,optarg);
 	    break;
 	case 'o':
 	    ppmfile = strdup(optarg);
@@ -1185,6 +1369,18 @@ int main(int argc, char *argv[])
 	}
     }
 
+    switch (system(v4l_conf)) {
+    case -1: /* can't run */
+	fprintf(stderr,"could'nt start v4l-conf\n");
+	break;
+    case 0: /* ok */
+	break;
+    default: /* non-zero return */
+	fprintf(stderr,"v4l-conf had some trouble, "
+		"trying to continue anyway\n");
+	break;
+    }
+
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
     wm_protocols[0] =
@@ -1192,6 +1388,8 @@ int main(int argc, char *argv[])
     wm_protocols[1] =
 	XInternAtom(XtDisplay(app_shell), "WM_SAVE_YOURSELF", False);
     dpy = XtDisplay(app_shell);
+    if (xfree_ext)
+	xfree_init();
     create_optwin();
     
     tv = video_init(app_shell);
@@ -1208,6 +1406,8 @@ int main(int argc, char *argv[])
     if (!noconf)
 	read_config();
     set_freqtab(chan_tab);
+    defaults.channel = lookup_channel(defaults.cname);
+    defaults.freq    = get_freq(defaults.channel);
     channel_menu();
     if (have_mixer)
 	cur_volume = mixer_get_volume() * 65535/100;

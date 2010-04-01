@@ -6,7 +6,6 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 
 bindir=$(exec_prefix)/bin
-sbindir=$(exec_prefix)/sbin
 mandir=$(prefix)/man
 
 kdebindir=$(KDEDIR)/bin
@@ -27,7 +26,7 @@ CXXFLAGS = $(CFLAGS) -I$(QTDIR)/include -I$(KDEDIR)/include
 LDLIBS=@X_LIBS@ -l@XAWLIB@ -lXt @X_PRE_LIBS@ -lXext -lXmu \
 	-lX11 @X_EXTRA_LIBS@ @LIBS@
 
-PROGS=xawtv v4l-conf radio set-tv @KRADIO@
+PROGS=xawtv v4l-conf set-tv dump-mixers radio @KRADIO@
 
 CHAN_SRCS= $(shell echo Channelmaps/*.chan)
 SRCS=	$(srcdir)/main.c\
@@ -35,10 +34,8 @@ SRCS=	$(srcdir)/main.c\
 	$(srcdir)/mixer.c\
 	$(srcdir)/channel.c\
 	$(srcdir)/x11.c\
-	$(srcdir)/grab-bttv.c\
 	$(srcdir)/grab-v4l.c
-OBJS= main.o toolbox.o mixer.o channel.o x11.o\
-	grab-bttv.o grab-v4l.o
+OBJS= main.o toolbox.o mixer.o channel.o x11.o grab-v4l.o
 
 ##########################################################################
 
@@ -63,7 +60,10 @@ v4l-conf: v4l-conf.c
 radio: radio.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-set-tv: set-tv.o channel.o mixer.o grab-bttv.o grab-v4l.o
+dump-mixers: dump-mixers.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+set-tv: set-tv.o channel.o mixer.o grab-v4l.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 
@@ -72,10 +72,10 @@ kradio: kradio.moc kradio.o
 		-lkdeui -lkdecore -lqt @X_PRE_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@
 
 
-install: xawtv
+install: all
 	$(INSTALL_PROGRAM) -s xawtv $(bindir)
 	$(INSTALL_PROGRAM) -s set-tv $(bindir)
-	$(INSTALL_PROGRAM) -s v4l-conf $(sbindir)
+	$(INSTALL_PROGRAM) -s -m4711 -o root -g root v4l-conf $(bindir)
 	$(INSTALL_DATA) xawtv.man $(mandir)/man1/xawtv.1
 	$(INSTALL_DATA) Xawtv.ad @x_libraries@/X11/app-defaults/Xawtv
 	if test -x kradio; then 				\
@@ -83,10 +83,8 @@ install: xawtv
 		$(INSTALL_DATA) *.kdelnk $(kdelnkdir);		\
 		$(INSTALL_DIR) $(kradiodir)/toolbar;		\
 		$(INSTALL_DATA) *.xpm $(kradiodir)/toolbar;	\
+		make -C font install;				\
 	fi
-
-chan.h: $(CHAN_SRCS)
-	perl chan2c.pl $(CHAN_SRCS) > $@
 
 clean:
 	-rm -f *.o *.moc *~ core* *.bak TAGS
@@ -101,7 +99,7 @@ realclean: distclean
 	-rm -f chan.h
 	-rm -f $(PROGS)
 
-depend dep: chan.h
+depend dep:
 	$(DEPEND) -- $(CFLAGS) -- $(SRCS) $(SRCS2)
 
 #########################
@@ -115,6 +113,7 @@ check:
 
 dist: distclean
 	rm -f snap0*.ppm
+	rm -f snap0*.jpeg
 	make -C bttv clean
 	make -C font dist
 	dir=`pwd`; rel=`basename $$dir`; cd ..; tar cvzf $$rel.tar.gz $$rel

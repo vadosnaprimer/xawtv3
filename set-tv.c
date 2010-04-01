@@ -1,5 +1,5 @@
 /*
- * main.c  --  (c) 1997 Gerd Knorr <kraxel@cs.tu-berlin.de>
+ * set-tv.c  --  (c) 1997 Gerd Knorr <kraxel@cs.tu-berlin.de>
  *
  */
 
@@ -19,14 +19,8 @@
 /*--- drivers -------------------------------------------------------------*/
 
 extern struct GRABBER grab_v4l;
-#ifdef HAVE_BTTV
-extern struct GRABBER grab_bttv;
-#endif
 struct GRABBER *grabbers[] = {
     &grab_v4l,
-#ifdef HAVE_BTTV
-    &grab_bttv,
-#endif
 };
 
 int grabber;
@@ -37,6 +31,7 @@ int cur_color;
 int cur_bright;
 int cur_hue;
 int cur_contrast;
+int fs_width,fs_height,fs_xoff,fs_yoff;
 
 /*------------------------------------------------------------------------*/
 
@@ -78,15 +73,6 @@ set_channel(struct CHANNEL *channel)
 	   grabbers[grabber]->inputs[cur_input].str);
 }
 
-void
-channel_menu()
-{
-    int  i;
-
-    for (i = 0; i < count; i++)
-	channels[i]->freq = cf2freq(channels[i]->channel,channels[i]->fine);
-}
-
 /*--- main ---------------------------------------------------------------*/
 
 static void
@@ -95,7 +81,7 @@ grabber_init()
     for (grabber = 0; grabber < sizeof(grabbers)/sizeof(struct GRABBERS*);
 	 grabber++) {
 	if (-1 != grabbers[grabber]->grab_open
-	    (NULL,0,0,0,NULL))
+	    (NULL,0,0,0,0,NULL,0))
 	    break;
     }
     if (grabber == sizeof(grabbers)/sizeof(struct GRABBERS*)) {
@@ -129,7 +115,6 @@ int main(int argc, char *argv[])
 
     grabber_init();
     read_config();
-    channel_menu();
 
     cur_sender = -1;
     for (i = 0; i < count; i++)

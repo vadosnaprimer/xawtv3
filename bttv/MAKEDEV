@@ -11,8 +11,8 @@ mknod /dev/bttv2	c 81 2
 mknod /dev/bttv3	c 81 3
 
 # videotext
-mknod /dev/bttv-vbi0	c 81 32
-mknod /dev/bttv-vbi1	c 81 33
+mknod /dev/bttv-vbi0	c 81 224
+mknod /dev/bttv-vbi1	c 81 225
 
 # radio
 mknod /dev/bttv-fm0	c 81 64

@@ -1,0 +1,11 @@
+--- VideoteXt-0.6/vtxtools.c.original	Sun Mar 29 20:36:03 1998
++++ VideoteXt-0.6/vtxtools.c	Sun Mar 29 20:36:39 1998
+@@ -54,7 +54,7 @@
+ vtx_chkparity(byte_t *val) {
+   if (!init_done)
+     tools_init();
+-  if (parity_table[*val] & 0x80) {
++  if (1/*parity_table[*val] & 0x80*/) {
+     *val &= 0x7f;
+     return TRUE;
+   } else return FALSE;

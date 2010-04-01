@@ -32,7 +32,6 @@ struct i2c_device;
 
 #define I2C_DRIVERID_MSP3400     1
 #define I2C_DRIVERID_TUNER       2
-#define I2C_DRIVERID_CHARDEV     4
 
 /*
  * struct for a driver for a i2c chip (tuner, soundprocessor,
@@ -149,7 +148,6 @@ int i2c_control_device(struct i2c_bus *bus, int id,
 		       unsigned int cmd, void *arg);
 
 /* i2c bus access functions */
-void    i2c_reset(struct i2c_bus *bus);
 void    i2c_start(struct i2c_bus *bus);
 void    i2c_stop(struct i2c_bus *bus);
 void    i2c_one(struct i2c_bus *bus);
@@ -163,16 +161,5 @@ unsigned char i2c_readbyte(struct i2c_bus *bus,int last);
 int     i2c_read(struct i2c_bus *bus, unsigned char addr);
 int     i2c_write(struct i2c_bus *bus, unsigned char addr,
 		  unsigned char b1, unsigned char b2, int both);
-
-/* ------------------------------------------------------------------------ */
-/* this allows i2c bus access from userspace                                */
-
-/* ioctls */
-#define I2C_SLAVE       0x0706
-#define I2C_WRITE_SIZE  0x0712
-#define I2C_WRITE_BUF   0x0713
-#define I2C_RESET       0x07fd
-
-#define I2C_BUFFER_SIZE 64       /* buffer size for write b4 read        */
 
 #endif /* I2C_H */

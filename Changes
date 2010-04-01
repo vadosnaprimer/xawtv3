@@ -1,0 +1,72 @@
+2.07 => 2.08
+============
+
+  * Ha!  Found a complete (?) frequency table on the web, using this
+    one now (and a complete different channel-to-freqency mapping
+    method).
+    Expect a few new bugs and tuning problems -- pointers to frequency
+    lists are welcome.  Check channels.h for details.
+    The names of the freqency mappings have changed, you have to
+    adopt $HOME/.xawtv
+
+  * fixed a bug in the msp3400 module (system hangs on control
+    thread kill)
+  * With the 2.1.x modular sound driver, the msp3400 module registers
+    as mixer device. This allows to control volume, bass and treble with
+    a mixer application of your choice.
+  * the config file parser prints more detailed error messages and
+    does not exit on errors.
+  * Added a workaround for buggy (wrt static gravity) Window managers,
+    see manpage (wm-off-by= ...)
+  * Started non-overlay displaying (try Shift-ESC). Not completed, not
+    stable yet.
+  * Changed v4l-conf handling:  It is installed suid-root now and called
+    by xawtv.
+
+
+2.06 => 2.07
+============
+
+  * Two hours after releasing 2.06 I noticed that the driver did'nt
+    compile with 2.0.33 :-(
+
+
+2.05 => 2.06
+============
+
+  * You can grab both full size and window size now (hold down Ctrl
+    for window size).
+  * Merged some of the latest vger CVS changes to bttv-0.5.6 to keep
+    both versions in sync (at least the ioctl interface). The included
+    driver version supports currently both the new
+    VIDIOCMCAPTURE+VIDIOCSYNC and old BTTV_GRAB+BTTV_SYNC. xawtv uses
+    the new ones.
+    The minor numbers for vbi have changed (from 32 to 224)
+  * hacked msp3400 stereo handling, it does permanent monitoring now
+    and should handle mono/stereo/bilang switches by the TV station
+    correctly.
+
+
+2.04 => 2.05
+============
+
+  * Started writing a Changes file
+  * fixed a quite stupid getopt bug
+  * ditched support for the old-style bttv interface.
+  * The screen saver is turned off now in fullscreen mode
+  * xawtv can switch video modes now (for fullscreen mode). There is
+    a new config file entry for this, check the manpage.
+  * fixed configure script (check for c++ only if required)
+
+  * For the bleeding edge people:
+
+    Added some code for the new VIDIOCMCAPTURE and VIDIOCSYNC ioctl's
+    (new video4linux code in the vger CVS tree) as compile time
+    option.  The configure script should detect the new version and
+    use the kernel driver then.
+
+    The ioctl's are'n really new, the are basically slightly modified
+    BTTV_GRAB and BTTV_SYNC.  Well, this change breaks _again_ grabbing
+    applications, but now there is a standardized interface for
+    mmap-based grabbing available.
+

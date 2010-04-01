@@ -64,8 +64,10 @@ V            Video (Capture) on/off
 A            Audio on/off
 M            Mouse pointer on/off
 F            Fullscreen on/off
-G            Grab picture (ppm)
-J            Grab picture (jpeg)
+G            Grab picture (full size, ppm)
+J            Grab picture (full size, jpeg)
+Ctrl+G       Grab picture (window size, ppm)
+Ctrl+J       Grab picture (window size, jpeg)
 
 up+down      tune up/down one channel
 left+right   fine tuning
@@ -121,9 +123,21 @@ input source
 .B contrast = n
 Valid range is 0-65535, default is 32768
 .P
-There are two global options allowed before the first station only:
+There are three global options allowed before the first station only:
 .TP
-.B freqtab = europe | usa
+.B fullscreen = width x height
+specify which video mode should be used for full-screen.  Works with
+XFree only, and of cource you need a valid modeline for this mode in
+your XF86Config file.
+.TP
+.B wm-off-by = [+-]x[+-]y
+Some WM's handle static gravity not correct (I know mwm and
+kwm).  This is somewhat boring with fullscreen mode.  With this
+options you can correct this with a displacement for moving
+windows.  For example, wm-off-by = -4-24 does the trick for kwm (the
+KDE window manager).
+.TP
+.B freqtab = 
 select a channel-to-freqency mapping
 .TP
 .B mixer = device
@@ -138,10 +152,17 @@ mute.
 My config file looks like this:
 .P
 .nf
+# this is a comment
+# empty lines are ignored too
+
 source  = television
 norm    = pal
-freqtab = europe
+freqtab = pal-europe
 #mixer   = synth
+fullscreen = 768x576
+
+# for /etc/XF86Config
+# Modeline  "pal"  50.00  768 832 856 1000  576 590 595 630  -hsync -vsync
 
 [ZDF]
 channel=33
@@ -161,9 +182,6 @@ key = K
 Whats this?
 .SH SEE ALSO
 http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv (xawtv homepage)
-
-http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html (bttv driver
-homepage)
 .SH AUTHOR
 Gerd Knorr <kraxel@cs.tu-berlin.de>
 .SH COPYRIGHT

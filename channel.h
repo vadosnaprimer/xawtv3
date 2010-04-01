@@ -2,12 +2,14 @@ struct CHANNEL {
     char  *name;
     char  *key;
 
+    char  *cname;     /* name of the channel  */
+    int   channel;    /* index into tvtuner[] */
+    int   fine;
+    int   freq;
+
     int   capture;
     int   source;
     int   norm;
-    int   channel;
-    int   fine;
-    int   freq;
 
     int   color;
     int   bright;
@@ -25,9 +27,9 @@ extern int    cur_sender, cur_channel, cur_fine, cur_norm, cur_input;
 extern int            chan_tab;
 extern struct STRTAB  chan_names[];
 
-int freq2chan(int f);
-int cf2freq(int chan, int fine);
-int freq2fine(int f);
+int  lookup_channel(char *channel);
+int  get_freq(int i);
+int  cf2freq(char *name, int fine);
 
 void read_config();
 

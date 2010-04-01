@@ -17,16 +17,24 @@
 #include "grab.h"
 
 #include <asm/types.h>		/* XXX glibc */
-#include "videodev.h"
-#include "bttv.h"
+
+#if USE_KERNEL_VIDEODEV
+# include <linux/videodev.h>
+#else
+# include "videodev.h"
+#endif
+
+#define MEM_SIZE 0x144000
 
 /* ---------------------------------------------------------------------- */
 
 /* prototypes */
-static int   grab_open(char *filename, int sw, int sh, int format, void *base);
+static int   grab_open(char *filename, int sw, int sh,
+		       int format, int pixmap, void *base, int width);
 static int   grab_close();
 static int   grab_overlay(int x, int y, int width, int height, int format,
 			  struct OVERLAY_CLIP *oc, int count);
+static void* grab_scr(void *dest, int width, int height);
 static void* grab_one(int width, int height);
 static int   grab_tune(unsigned long freq);
 static int   grab_input(int input, int norm);
@@ -41,7 +49,7 @@ static char *device_cap[] = {
 };
 
 static char *device_pal[] = {
-    "-", "grey", "hi240", "rgb565", "rgb24", "rgb32", "rgb555", NULL
+    "-", "grey", "hi240", "rgb16", "rgb24", "rgb32", "rgb15", NULL
 };
 
 static struct STRTAB norms[] = {
@@ -67,6 +75,11 @@ static struct video_window      ov_win;
 static struct video_clip        ov_clips[32];
 static struct video_buffer      ov_fbuf;
 
+/* screen grab */
+static struct video_mmap        gb_even;
+static struct video_mmap        gb_odd;
+static int                      gb_count,even,pixmap_bytes;
+
 static char *map = NULL;
 
 /* state */
@@ -80,6 +93,7 @@ struct GRABBER grab_v4l = {
 
     grab_open,grab_close,
     grab_overlay,
+    grab_scr,
     grab_one,
     grab_tune,
     grab_input,
@@ -90,7 +104,8 @@ struct GRABBER grab_v4l = {
 /* ---------------------------------------------------------------------- */
 
 static int
-grab_open(char *filename, int sw, int sh, int format, void *base)
+grab_open(char *filename, int sw, int sh,
+	  int format, int pixmap, void *base, int width)
 {
     int i;
 
@@ -245,12 +260,33 @@ grab_open(char *filename, int sw, int sh, int format, void *base)
     }
 
     if (0 == strncmp(capability.name,"BT848",5)) {
-	map = mmap(0,768*576*4,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+	map = mmap(0,MEM_SIZE*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
 	if ((char*)-1 == map)
 	    perror("mmap");
     }
     else
 	map = (char*)-1;
+
+    switch (pixmap) {
+    case VIDEO_RGB15:
+	gb_even.format = gb_odd.format = 0x33;  /* FIXME */
+	pixmap_bytes = 2;
+	break;
+    case VIDEO_RGB16:
+	gb_even.format = gb_odd.format = 0x22;  /* FIXME */
+	pixmap_bytes = 2;
+	break;
+    case VIDEO_RGB24:
+	gb_even.format = gb_odd.format = 0x11;  /* FIXME */
+	pixmap_bytes = 3;
+	break;
+    case VIDEO_RGB32:
+	gb_even.format = gb_odd.format = 0x11;  /* FIXME (RGB24 too) */
+	pixmap_bytes = 4;
+	break;
+    }
+    gb_even.frame = 0;
+    gb_odd.frame  = 1;
 
     return 0;
 
@@ -265,8 +301,14 @@ err:
 static int
 grab_close()
 {
+    while (gb_count > 0) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,0))
+	    perror("ioctl VIDIOCSYNC");
+	gb_count--;
+    }
+
     if ((char*)-1 != map)
-	munmap(map,768*576*4);
+	munmap(map,MEM_SIZE*2);
 
     if (-1 == fd)
 	return 0;
@@ -288,6 +330,12 @@ grab_overlay(int x, int y, int width, int height, int format,
     int one = 1, zero = 0;
     int i;
 
+    while (gb_count > 0) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,0))
+	    perror("ioctl VIDIOCSYNC");
+	gb_count--;
+    }
+
     if (width == 0 || height == 0) {
 	if (debug)
 	    fprintf(stderr,"v4l: overlay off\n");
@@ -300,7 +348,7 @@ grab_overlay(int x, int y, int width, int height, int format,
     ov_win.y          = y;
     ov_win.width      = width;
     ov_win.height     = height;
-    ov_win.flags      = 0;         /* ??? */
+    ov_win.flags      = 0;
 
     if (capability.type & VID_TYPE_CLIPPING) {
 	ov_win.clips      = ov_clips;
@@ -347,6 +395,7 @@ grab_overlay(int x, int y, int width, int height, int format,
 	default:
 	    TRAP("unsupported video format (overlay)");
 	}
+	
 	if (-1 == ioctl(fd,VIDIOCSPICT,&pict))
 	    perror("ioctl VIDIOCSPICT");
 	if (-1 == ioctl(fd, VIDIOCCAPTURE, &one))
@@ -373,24 +422,88 @@ static void rgb_swap(char *mem, int n)
     }
 }
 
-static void*
-grab_one(int width, int height)
+void
+rgb24_to_rgb32(void *d, void *s, int p)
 {
-    struct gbuf gb;
+    unsigned char  *dest = d;
+    unsigned char  *src  = s;
+    int             i    = p;
+
+    while (i--) {
+        *(dest++) = *(src++);
+        *(dest++) = *(src++);
+        *(dest++) = *(src++);
+	*(dest++) = 0;
+    }
+}
+
+static void*
+grab_scr(void *dest, int width, int height)
+{
+    void *buf;
 
     if ((char*)-1 == map)
 	return NULL;
-        
-    gb.adr = 0;
-    gb.fmt = BT848_COLOR_FMT_RGB24;
+    if (!gb_even.format)
+	return NULL;
+    
+    gb_even.width  = width;
+    gb_even.height = height;
+    gb_odd.width  = width;
+    gb_odd.height = height;
+
+    if (gb_count == 0) {
+	if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_even : &gb_odd))
+	    perror("ioctl VIDIOCMCAPTURE");
+	gb_count++;
+    }
+
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_odd : &gb_even))
+	perror("ioctl VIDIOCMCAPTURE");
+    if (-1 == ioctl(fd,VIDIOCSYNC,0))
+	perror("ioctl VIDIOCSYNC");
+    buf = even ? map : map + MEM_SIZE;
+    even = !even;
+
+    if (pixmap_bytes == 4) {
+	rgb24_to_rgb32(dest, buf, width*height);
+    } else {
+	memcpy(dest, buf, width*height*pixmap_bytes);
+    }
+    
+    return dest;
+}
+
+static void*
+grab_one(int width, int height)
+{
+    struct video_mmap gb;
+
+    if ((char*)-1 == map)
+	return NULL;
+    
+    while (gb_count > 0) {
+	if (-1 == ioctl(fd,VIDIOCSYNC,0))
+	    perror("ioctl VIDIOCSYNC");
+	gb_count--;
+    }
+
+    gb.format = 0x11; /* FIXME: BT848_COLOR_FMT_RGB24 */
+    gb.frame  = 0;
     gb.width  = width;
     gb.height = height;
-    ioctl(fd,BTTV_GRAB,&gb);
 
-    ioctl(fd,BTTV_SYNC,0);
+    memset(map,0,width*height*3);
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,&gb)) {
+	perror("ioctl VIDIOCMCAPTURE");
+	return NULL;
+    }
+    if (-1 == ioctl(fd,VIDIOCSYNC,0)) {
+	perror("ioctl VIDIOCSYNC");
+	return NULL;
+    }
 
     rgb_swap(map,width*height);
-    
     return map;
 }
 
