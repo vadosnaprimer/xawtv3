@@ -1,7 +1,7 @@
 /*
  * main.c for xawtv -- a TV application
  *
- *   (c) 1997-2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1997-2001 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -727,6 +727,9 @@ grabdisplay_setsize(int width, int height)
     if (!grab_gc)
 	grab_gc = XCreateGC(dpy,XtWindow(tv),0,NULL);
 
+    if (cur_capture == CAPTURE_GRABDISPLAY)
+	drv->stopvideo(h_drv);
+
     /* free old stuff */
     if (grab_ximage) {
         x11_destroy_ximage(dpy,grab_ximage,grab_ximage_shm);
@@ -769,6 +772,8 @@ grabdisplay_setsize(int width, int height)
 #ifdef HAVE_LIBXV
     }
 #endif
+    if (cur_capture == CAPTURE_GRABDISPLAY)
+	drv->startvideo(h_drv,-1,2);
 }
 
 static void
@@ -793,6 +798,7 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
     }
 }
 
+#if 0
 static void
 tv_expose_event(Widget widget, XtPointer client_data,
 		XEvent *event, Boolean *d)
@@ -807,7 +813,6 @@ tv_expose_event(Widget widget, XtPointer client_data,
 		    event->xexpose.count);
 	if (0 == event->xexpose.count && CAPTURE_OVERLAY == cur_capture) {
 	    if (0 == gc) {
-#if 0
 		XColor color;
 		color.red   = (grabber->colorkey & 0x00ff0000) >> 8;
 		color.green = (grabber->colorkey & 0x0000ff00);
@@ -815,9 +820,6 @@ tv_expose_event(Widget widget, XtPointer client_data,
 		XAllocColor(dpy,colormap,&color);
 		values.foreground = color.pixel;
 		gc = XCreateGC(dpy, XtWindow(widget), GCForeground, &values);
-#else
-		gc = XCreateGC(dpy, XtWindow(widget), 0, &values);
-#endif
 	    }
 	    /* TODO: draw background for chroma keying */
 	    XFillRectangle(dpy,XtWindow(widget),gc,
@@ -828,6 +830,7 @@ tv_expose_event(Widget widget, XtPointer client_data,
 	break;
     }
 }
+#endif
 
 /*------------------------------------------------------------------------*/
 
@@ -2450,7 +2453,11 @@ main(int argc, char *argv[])
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
     x11_misc_init();
+    if (debug)
+	fprintf(stderr,"main: dga extention...\n");
     xfree_dga_init();
+    if (debug)
+	fprintf(stderr,"main: xvideo extention...\n");
     xv_init(args.xv_video,args.xv_scale,args.xv_port);
 
     /* set hooks (command.c) */
@@ -2470,6 +2477,8 @@ main(int argc, char *argv[])
     capture_rel_hook    = grabdisplay_restart;
     channel_switch_hook = pixit;
     
+    if (debug)
+	fprintf(stderr,"main: init main window...\n");
     tv = video_init(app_shell,&vinfo,simpleWidgetClass);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
@@ -2502,11 +2511,18 @@ main(int argc, char *argv[])
 	    args.bpp = 0;
 	}
     }
+    if (debug)
+	fprintf(stderr,"main: install signal handlers...\n");
     siginit();
-    if (NULL == drv)
+    if (NULL == drv) {
+	if (debug)
+	    fprintf(stderr,"main: open grabber device...\n");
 	grabber_init();
+    }
 
     XSetIOErrorHandler(x11_ctrl_alt_backspace);
+    if (debug)
+	fprintf(stderr,"main: checking wm...\n");
     wm_detect(dpy);
     if (debug)
 	fprintf(stderr,"main: creating windows ...\n");

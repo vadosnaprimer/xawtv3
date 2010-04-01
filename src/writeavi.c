@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -5,6 +7,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/param.h>
+#include <sys/uio.h>
 #include <pthread.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -12,14 +15,13 @@
 #include "byteorder.h"
 
 #include "grab-ng.h"
-/* #include "colorspace.h" */
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define AVI_SWAP2(a) SWAP2((a))
-#define AVI_SWAP4(a) SWAP4((a))
+#if BYTE_ORDER == BIG_ENDIAN
+# define AVI_SWAP2(a) SWAP2((a))
+# define AVI_SWAP4(a) SWAP4((a))
 #else
-#define AVI_SWAP2(a) (a)
-#define AVI_SWAP4(a) (a)
+# define AVI_SWAP2(a) (a)
+# define AVI_SWAP4(a) (a)
 #endif
 
 /*
@@ -249,6 +251,7 @@ struct avi_handle {
     /* file name+handle */
     char   file[MAXPATHLEN];
     int    fd;
+    struct iovec *vec;
 
     /* format */
     struct ng_video_fmt video;
@@ -373,6 +376,7 @@ avi_open(char *filename, char *dummy,
     h->frame_hdr     = frame_hdr;
     h->sound_hdr     = sound_hdr;
     h->idx_hdr       = idx_hdr;
+    h->vec           = malloc(sizeof(struct iovec) * video->height);
 
     strcpy(h->file,filename);
     for (i = 0; i < 4; i++) {
@@ -462,7 +466,7 @@ static int
 avi_video(void *handle, struct ng_video_buf *buf)
 {
     struct avi_handle *h = handle;
-    unsigned char *d;
+    struct iovec *line;
     int y,bpl,size=0;
 
     size = (buf->size + 3) & ~3;
@@ -475,12 +479,14 @@ avi_video(void *handle, struct ng_video_buf *buf)
     case VIDEO_RGB15_LE:
     case VIDEO_BGR24:
 	bpl = h->video.width * ng_vfmt_to_depth[h->video.fmtid] / 8;
-	for (y = h->video.height-1; y >= 0; y--) {
-	    d = ((unsigned char*)buf->data) + y * bpl;
-	    if (-1 == write(h->fd,d,bpl)) {
-		fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
-		return -1;
-	    }
+	for (line = h->vec, y = h->video.height-1;
+	     y >= 0; line++, y--) {
+	    line->iov_base = ((unsigned char*)buf->data) + y * bpl;
+	    line->iov_len  = bpl;
+	}
+	if (-1 == writev(h->fd,h->vec,h->video.height)) {
+	    fprintf(stderr,"writev %s: %s\n",h->file,strerror(errno));
+	    return -1;
 	}
 	break;
     case VIDEO_MJPEG:
@@ -564,6 +570,7 @@ avi_close(void *handle)
     write(h->fd,&h->avi_data,sizeof(struct AVI_DATA));
 
     close(h->fd);
+    free(h->vec);
     free(h);
     return 0;
 }

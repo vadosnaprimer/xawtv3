@@ -29,7 +29,7 @@
 #define VIDEO_YUV420P	    15  /* YUV 4:2:0 (planar) */
 #define VIDEO_MJPEG	    16  /* MJPEG (AVI) */
 #define VIDEO_JPEG	    17  /* JPEG (JFIF) */
-#define VIDEO_FMT_MAX	    17
+#define VIDEO_FMT_COUNT	    18
 
 #define AUDIO_NONE           0
 #define AUDIO_U8_MONO        1
@@ -38,7 +38,7 @@
 #define AUDIO_S16_LE_STEREO  4
 #define AUDIO_S16_BE_MONO    5
 #define AUDIO_S16_BE_STEREO  6
-#define AUDIO_FMT_MAX        6
+#define AUDIO_FMT_COUNT      7
 
 #define ATTR_TYPE_INTEGER    1   /*  range 0 - 65535  */
 #define ATTR_TYPE_CHOICE     2   /*  multiple choice  */
@@ -53,7 +53,7 @@
 #define ATTR_ID_BRIGHT       7
 #define ATTR_ID_HUE          8
 #define ATTR_ID_CONTRAST     9
-#define ATTR_ID_MAX          9
+#define ATTR_ID_COUNT       10
 
 #define CAN_OVERLAY          1
 #define CAN_CAPTURE          2

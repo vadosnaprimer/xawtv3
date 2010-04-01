@@ -181,7 +181,7 @@ fb_initcolors(int fd, int gray)
     case 16:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
 	    linear_palette(5);
-#if __BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = (fb_var.green.length == 6) ?
 	    VIDEO_RGB16_BE : VIDEO_RGB15_BE;
 #else
@@ -192,7 +192,7 @@ fb_initcolors(int fd, int gray)
     case 24:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
 	    linear_palette(8);
-#if __BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = VIDEO_RGB24;
 #else
 	x11_native_format = VIDEO_BGR24;
@@ -201,7 +201,7 @@ fb_initcolors(int fd, int gray)
     case 32:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
 	    linear_palette(8);
-#if __BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = VIDEO_RGB32;
 #else
 	x11_native_format = VIDEO_BGR32;

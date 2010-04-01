@@ -89,7 +89,7 @@ struct CONV_LIST {
 };
 
 static struct CONV_LIST gray_list[] = {
-#if __BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
     { VIDEO_RGB15_BE, 0, rgb15_native_gray  },
 #else
     { VIDEO_RGB15_LE, 0, rgb15_native_gray  },

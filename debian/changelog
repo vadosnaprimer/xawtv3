@@ -1,4 +1,4 @@
-xawtv (3.32) unstable; urgency=low
+xawtv (3.33) unstable; urgency=low
 
   * new release.
   * debconf changes (only dpkg-reconfigure will overwrite a
@@ -6,12 +6,7 @@ xawtv (3.32) unstable; urgency=low
     that).
   * german translations for the template file
     (Eduard Bloch <edi@gmx.de>, closes: #83772)
-
- -- Gerd Knorr <kraxel@debian.org>  Tue, 30 Jan 2001 23:09:00 +0100
-
-xawtv (3.31) unstable; urgency=low
-
-  * new release.
+  * enabled quicktime4linux support.
 
  -- Gerd Knorr <kraxel@debian.org>  Sun, 28 Jan 2001 14:25:15 +0100
 

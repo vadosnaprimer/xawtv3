@@ -83,8 +83,8 @@ sound_open(struct ng_audio_fmt *fmt)
     }
 
     if (debug)
-	fprintf(stderr,"sound rec: rate=%d channels=%d bits=%d (%s)\n",
-		fmt->rate,
+	fprintf(stderr,"sound rec: bs=%d rate=%d channels=%d bits=%d (%s)\n",
+		blocksize,fmt->rate,
 		ng_afmt_to_channels[fmt->fmtid],
 		ng_afmt_to_bits[fmt->fmtid],
 		ng_afmt_to_desc[fmt->fmtid]);
@@ -116,9 +116,18 @@ sound_startrec()
 void
 sound_read(char *buffer)
 {
-    if (blocksize != read(fd,buffer,blocksize)) {
-	perror("read /dev/dsp");
-	exit(1);
+    int rc,count=0;
+
+    /* FreeBSD returns chunks smaller than blocksize */
+    for (;;) {
+	rc = read(fd,buffer+count,blocksize-count);
+	if (rc < 0) {
+	    perror("read /dev/dsp");
+	    exit(1);
+	}
+	count += rc;
+	if (count == blocksize)
+	    return;
     }
 }
 

@@ -33,10 +33,12 @@ webcam: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) -ljpeg
 
 install: all
+ifeq ($(OS),linux)
 	$(INSTALL_DIR) $(bindir)
 	$(INSTALL_DIR) $(mandir)/man1
 	$(INSTALL_PROGRAM) -s webcam $(bindir)
 	$(INSTALL_DATA) $(srcdir)/webcam.man $(mandir)/man1/webcam.1
+endif
 
 clean:
 	-rm -f $(OBJS) *.moc core* TAGS

@@ -134,7 +134,7 @@ const struct ng_driver v4l2_driver = {
     is_tuned:      v4l2_tuned,
 };
 
-static __u32 xawtv_pixelformat[VIDEO_FMT_MAX+1] = {
+static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {
     0,                    /* unused   */
     0,                    /* RGB8     */
     V4L2_PIX_FMT_GREY,    /* GRAY8    */
@@ -641,7 +641,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	h->attr[h->nattr].type    = ATTR_TYPE_CHOICE;
 	h->attr[h->nattr].choices = choices;
     }
-    if (h->attr[h->nattr].id <= ATTR_ID_MAX)
+    if (h->attr[h->nattr].id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name = ng_attr_to_desc[id];
     h->nattr++;
 }
@@ -1096,6 +1096,8 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     fmt->width        = h->fmt_v4l2.fmt.pix.width;
     fmt->height       = h->fmt_v4l2.fmt.pix.height;
     fmt->bytesperline = h->fmt_v4l2.fmt.pix.bytesperline;
+    if (0 == fmt->bytesperline)
+	fmt->bytesperline = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
     h->fmt_me = *fmt;
     if (debug)
 	fprintf(stderr,"v4l2: new capture params (%dx%d, %c%c%c%c, %d byte)\n",

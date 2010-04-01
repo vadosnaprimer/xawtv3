@@ -10,6 +10,12 @@
  *
  */
 
+#include "config.h"
+
+#include "unistd.h"
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 #include "colorspace.h"
 #include "byteorder.h"
 

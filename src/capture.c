@@ -239,6 +239,8 @@ movie_writer_init(char *moviename, char *audioname,
 
     /* video */
     if (-1 == ng_grabber_setparams(video,0,0)) {
+	if (h->afmt.fmtid != AUDIO_NONE)
+	    sound_close();
 	free(h);
 	return NULL;
     }

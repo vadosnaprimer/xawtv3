@@ -145,7 +145,7 @@ xv_add_attr(struct xv_handle *h, int id, int type,
 	h->attr[h->nattr].defval  = defval;
     if (choices)
 	h->attr[h->nattr].choices = choices;
-    if (id <= ATTR_ID_MAX)
+    if (id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name    = ng_attr_to_desc[id];
 
     h->nattr++;

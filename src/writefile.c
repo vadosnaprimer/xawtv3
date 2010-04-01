@@ -196,7 +196,7 @@ typedef struct WAVEHDR {
     CHUNKHDR chkData;
 } WAVEHDR;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 # define cpu_to_le32(x) SWAP4((x))
 # define cpu_to_le16(x) SWAP2((x))
 # define le32_to_cpu(x) SWAP4((x))

@@ -37,7 +37,7 @@ page.o: httpd.h $(HTML)
 install: all
 	$(INSTALL_DIR) $(bindir) $(mandir)/man1
 	$(INSTALL_PROGRAM) -s alevtd $(bindir)
-	install -m 644 $(srcdir)/alevtd.man $(mandir)/man1/alevtd.1
+	$(INSTALL_DATA) -m 644 $(srcdir)/alevtd.man $(mandir)/man1/alevtd.1
 
 clean:
 	rm -f $(OBJS) $(HTML)

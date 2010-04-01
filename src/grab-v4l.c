@@ -103,7 +103,7 @@ static struct STRTAB norms_bttv[] = {
     { -1, NULL }
 };
 
-static const unsigned short format2palette[VIDEO_FMT_MAX+1] = {
+static const unsigned short format2palette[VIDEO_FMT_COUNT] = {
     0,				/* unused */
     VIDEO_PALETTE_HI240,	/* RGB8   */
     VIDEO_PALETTE_GREY,		/* GRAY8  */
@@ -174,7 +174,7 @@ struct v4l_handle {
     int                      nbuf;
     int                      queue;
     int                      waiton;
-    int                      probe[VIDEO_FMT_MAX];
+    int                      probe[VIDEO_FMT_COUNT];
     struct video_mmap        *buf_v4l;
     struct ng_video_buf      *buf_me;
 };
@@ -363,7 +363,7 @@ v4l_add_attr(struct v4l_handle *h, int id, int type,
     h->attr[h->nattr].type    = type;
     h->attr[h->nattr].defval  = defval;
     h->attr[h->nattr].choices = choices;
-    if (id <= ATTR_ID_MAX)
+    if (id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name = ng_attr_to_desc[id];
     h->nattr++;
 }

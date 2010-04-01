@@ -17,12 +17,13 @@ INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_DIR=mkdir -p
-SUID_ROOT=-m4755 -o root -g root
+SUID_ROOT=-m4755 -o root
 
 VERSION=xawtv-@XAWTV_VERSION@
 
 WARN=-Wall -Wstrict-prototypes
-CFLAGS=-g $(WARN) @CFLAGS@ -I$(srcdir)/.. -I.. @X_CFLAGS@ -D_REENTRANT \
+CFLAGS=-g $(WARN) @CFLAGS@ -D_FILE_OFFSET_BITS=64 \
+	-I$(srcdir)/.. -I.. @X_CFLAGS@ -D_REENTRANT \
 	-DVERSION='"$(VERSION)"' -DCONFIGFILE='"$(config)"' \
 	-I$(srcdir)/../libvbi -L../libvbi
 
@@ -94,12 +95,14 @@ install: all
 	$(INSTALL_DIR) $(resdir)
 	$(INSTALL_PROGRAM) -s xawtv $(bindir)
 	$(INSTALL_PROGRAM) -s xawtv-remote $(bindir)
-	$(INSTALL_PROGRAM) -s fbtv $(bindir);
 	$(INSTALL_PROGRAM) -s streamer $(bindir)
 	$(INSTALL_PROGRAM) -s v4lctl $(bindir)
 	$(INSTALL_PROGRAM) -s rootv $(bindir)
 	$(INSTALL_PROGRAM) -s scantv $(bindir)
+ifeq ($(OS),linux)
+	$(INSTALL_PROGRAM) -s fbtv $(bindir);
 	$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir)
+endif
 	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(resdir)/Xawtv
 
 clean:

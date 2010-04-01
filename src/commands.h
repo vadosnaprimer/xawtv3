@@ -26,7 +26,7 @@ extern void (*movie_hook)(int argc, char **argv);
 extern int do_overlay;
 extern char *snapbase;
 extern struct ng_video_fmt x11_fmt;
-extern int cur_attrs[ATTR_ID_MAX];
+extern int cur_attrs[ATTR_ID_COUNT];
 
 extern const struct ng_driver     *drv;
 extern void                       *h_drv;

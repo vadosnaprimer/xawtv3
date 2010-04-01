@@ -11,13 +11,6 @@
  */
 
 #include "config.h"
-#ifdef HAVE_LFS
-# define DOF "%Ld"
-# define XOF "0x%08Lx"
-#else
-# define DOF "%ld"
-# define XOF "0x%08lx"
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -296,6 +289,22 @@ void dump_jpeg(unsigned char *buf, int len)
     }
 }
 
+unsigned char*
+off_t_to_char(off_t val, int base, int len)
+{
+    static const char digit[] = "0123456789abcdef";
+    static char outbuf[32];
+    char *p = outbuf + sizeof(outbuf);
+    int i;
+
+    *(--p) = 0;
+    for (i = 0; i < len || val > 0; i++) {
+	*(--p) = digit[ val % base ];
+	val = val / base;
+    }
+    return p;
+}    
+
 /* Reads a chunk ID and the chunk's size from file f at actual
    file position : */
 
@@ -336,7 +345,8 @@ boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
     fseek(f,filepos,SEEK_SET);    /* Go to desired file position!     */
     
     if (!ReadChunkHead(f,&chunkid,chunksize)) {  /* read chunk header */
-	printf("  *****  Error reading chunk at filepos " XOF "\n",filepos);
+	printf("  *****  Error reading chunk at filepos 0x%s\n",
+	       off_t_to_char(filepos,16,1));
 	return(FALSE);
     }
     FOURCC2Str(chunkid,tagstr);       /* now we can PRINT the chunkid */
@@ -353,8 +363,8 @@ boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
     datapos=filepos+sizeof(FOURCC)+sizeof(DWORD); /* here is the data */
 
     /* print out header: */
-    printf("(" XOF ") %*c  ID:<%s>   Size: 0x%08lx\n",
-	   filepos,(RekDepth+1)*4,' ',tagstr,*chunksize);
+    printf("(0x%s) %*c  ID:<%s>   Size: 0x%08lx\n",
+	   off_t_to_char(filepos,16,8),(RekDepth+1)*4,' ',tagstr,*chunksize);
 
     if (datapos + ((*chunksize+1)&~1) > filesize) {      /* too long? */
 	printf("  *****  Error: Chunk exceeds file\n");
@@ -477,7 +487,7 @@ int main (int argc, char **argv)
     off_t  filepos;
     DWORD  chunksize;    /* size of the RIFF chunk data */
     int c;
-    
+
     /* parse options */
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "jeh")))
@@ -515,8 +525,9 @@ int main (int argc, char **argv)
 #endif
     fseek(f, 0, SEEK_SET);
 
-    printf("Contents of file %s (" DOF "/" XOF " bytes):\n\n",
-	   argv[optind],filesize,filesize);
+    printf("Contents of file %s (%s/",argv[optind],
+	   off_t_to_char(filesize,10,1));
+    printf("0x%s bytes):\n\n",off_t_to_char(filesize,16,1));
 
     for (filepos = 0; filepos < filesize;) {
 	chunksize = 0;

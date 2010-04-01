@@ -1,4 +1,13 @@
 
+3.32 => 3.33
+============
+
+  * lots of fixes: bugs in the new capture code, portability problems.
+  * fixes in the bktr support, can do full framerate now, added yuv
+    capture.  Think it works reasonable well now (so I can list BSD
+    as "supported" on the Homepage without getting flamed for it :-)
+
+
 3.31 => 3.32 [non-public release]
 =================================
 

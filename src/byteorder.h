@@ -1,6 +1,10 @@
 #ifndef BYTEORDER_H
 #define BYTEORDER_H
 
+#ifndef BYTE_ORDER
+# error "Aiee: BYTE_ORDER not defined\n";
+#endif
+
 #define SWAP2(x) (((x>>8) & 0x00ff) |\
                   ((x<<8) & 0xff00))
 

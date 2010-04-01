@@ -52,7 +52,7 @@ int do_overlay;
 char *snapbase = "snap";
 
 struct ng_video_fmt x11_fmt;
-int cur_attrs[ATTR_ID_MAX];
+int cur_attrs[ATTR_ID_COUNT];
 
 /* current hardware driver */
 const struct ng_driver    *drv;

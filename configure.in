@@ -43,9 +43,6 @@ fi
 dnl ---------------------------------------------------------------------
 dnl Checks for functions
 
-AC_CHECK_FUNC(open64,
-	AC_DEFINE(HAVE_LFS)
-	CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64")
 AC_CHECK_FUNCS(ftello getpt getnameinfo getopt_long)
 AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
 AC_CHECK_HEADERS(endian.h soundcard.h sys/soundcard.h getopt.h)

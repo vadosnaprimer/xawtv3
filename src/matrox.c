@@ -27,7 +27,7 @@ static unsigned long	*mmio;
 static void
 wrio4(int adr, unsigned long val)
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     mmio[adr] = val;
 #else
     mmio[adr] = SWAP4(val);

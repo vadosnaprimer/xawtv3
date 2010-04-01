@@ -73,7 +73,7 @@ struct vc_mode {
 #define VC_GETCMAP      0x766b
 
 int
-is_mklinux()
+is_mklinux(void)
 {
     int fd;
     if(-1 == (fd = open("/proc/osfmach3", O_RDONLY)))
