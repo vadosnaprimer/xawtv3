@@ -1,4 +1,7 @@
 int    cfg_parse_file(char *filename);
+void   cfg_parse_option(char *section, char *tag, char *value);
+void   cfg_parse_options(int *argc, char **argv);
+
 char** cfg_list_sections(void);
 char** cfg_list_entries(char *name);
 char*  cfg_get_str(char *sec, char *ent);

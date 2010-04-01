@@ -122,6 +122,7 @@ usage(FILE *out)
 	    "  -j quality  quality for mjpeg or jpeg    [%d]\n"
 	    "  -n tvnorm   set pal/ntsc/secam\n"
 	    "  -i input    set video source\n"
+	    "  -a          don't unmute/mute v4l device.\n"
 	    "\n"
 	    "audio options:\n"
 	    "  -O file     wav file name\n"
@@ -310,19 +311,22 @@ ctrlc(int signal)
 int
 main(int argc, char **argv)
 {
-    int  c,queued=0;
+    int  c,queued=0,noaudio=0;
     char *raw_length=NULL;
 
     /* parse options */
     ng_init();
     for (;;) {
-	if (-1 == (c = getopt(argc, argv,
-			      "hqdp:w:" "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
+	if (-1 == (c = getopt(argc, argv, "haqdp:w:"
+			      "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
 	    break;
 	switch (c) {
 	    /* general options */
 	case 'q':
 	    quiet = 1;
+	    break;
+	case 'a':
+	    noaudio = 1;
 	    break;
 	case 'd':
 	    debug++;
@@ -430,7 +434,8 @@ main(int argc, char **argv)
 	    fprintf(stderr,"%s: capture not supported\n",drv->name);
 	    exit(1);
 	}
-	audio_on();
+	if (!noaudio)
+	    audio_on();
 	audio_init();
 
 	/* modify settings */
@@ -479,7 +484,8 @@ main(int argc, char **argv)
 
     /* done */
     if (video.fmtid != VIDEO_NONE) {
-	audio_off();
+	if (!noaudio)
+	    audio_off();
 	drv->close(h_drv);
     }
     return 0;

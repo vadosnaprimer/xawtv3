@@ -507,7 +507,7 @@ struct {
 	fmt:  GL_BGRA_EXT,
 	type: GL_UNSIGNED_BYTE,
 	ext:  "GL_EXT_bgra",
-    }
+    },
 #endif
 };
 
@@ -549,6 +549,8 @@ static int gl_ext(GLubyte *find)
     GLubyte *pos;
     
     ext = glGetString(GL_EXTENSIONS);
+    if (NULL == ext)
+	return 0;
     if (NULL == (pos = strstr(ext,find)))
 	return 0;
     if (pos != ext && pos[-1] != ' ')
@@ -556,7 +558,7 @@ static int gl_ext(GLubyte *find)
     if (pos[len] != ' ' && pos[len] != '\0')
 	return 0;
     if (debug)
-	fprintf(stderr,"blit: gl: extention %s available\n",find);
+	fprintf(stderr,"blit: gl: extention %s is available\n",find);
     return 1;
 }
 
@@ -662,16 +664,40 @@ struct blit_state {
     XvImage                   *xvimage;
 #endif
 #if HAVE_GL
-    int                       gl;
     GLint                     tex;
     int                       tw,th;
 #endif
 };
 
-void blit_get_formats(int *fmtids, int max)
+struct blit_state*
+blit_init(Widget widget, XVisualInfo *vinfo, int use_gl)
+{
+    struct blit_state *st;
+
+    if (debug)
+	fprintf(stderr,"blit: init\n");
+    BUG_ON(0 == XtWindow(widget), "no blit window");
+    
+    st = malloc(sizeof(*st));
+    memset(st,0,sizeof(*st));
+
+    st->widget = widget;
+    st->vinfo  = vinfo;
+    st->gc     = XCreateGC(XtDisplay(st->widget),XtWindow(st->widget),0,NULL);
+#ifdef HAVE_GL
+    if (use_gl)
+	gl_init(st->widget);
+#endif
+
+    return st;
+}
+
+void blit_get_formats(struct blit_state *st, int *fmtids, int max)
 {
     struct ng_video_conv *conv;
     int i, n=0;
+
+    BUG_ON(NULL == st, "blit handle is NULL");
 
     /* Xvideo extention */
 #ifdef HAVE_LIBXV
@@ -712,24 +738,6 @@ void blit_get_formats(int *fmtids, int max)
 	fmtids[n] = 0;
 }
 
-struct blit_state*
-blit_init(Widget widget, XVisualInfo *vinfo, int enable_gl)
-{
-    struct blit_state *st;
-
-    if (debug)
-	fprintf(stderr,"blit: init\n");
-    st = malloc(sizeof(*st));
-    memset(st,0,sizeof(*st));
-
-    st->widget = widget;
-    st->vinfo  = vinfo;
-#ifdef HAVE_GL
-    st->gl     = enable_gl;
-#endif
-    return st;
-}
-
 void blit_resize(struct blit_state *st, Dimension width, Dimension height)
 {
     if (debug)
@@ -743,15 +751,6 @@ void blit_init_frame(struct blit_state *st, struct ng_video_fmt *fmt)
 {
     struct ng_video_conv *conv;
     int i;
-
-    /* delayed initialization stuff (needs mapped window) */
-    if (!st->gc) {
-	st->gc = XCreateGC(XtDisplay(st->widget),XtWindow(st->widget),0,NULL);
-#ifdef HAVE_GL
-	if (st->gl)
-	    gl_init(st->widget);
-#endif
-    }
 
     /* Xvideo extention */
 #ifdef HAVE_LIBXV

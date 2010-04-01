@@ -80,8 +80,11 @@ static void add_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     channel->channel = cur_channel;
     channel->input = cur_attrs[ATTR_ID_INPUT];
     channel->fine = cur_fine;
+    fprintf(stderr,"add_cb #1: %d %s\n",channel->channel,channel->cname);
     configure_channel(channel);
+    fprintf(stderr,"add_cb #2: %d %s\n",channel->channel,channel->cname);
     channel_menu();
+    fprintf(stderr,"add_cb #3: %d %s\n",channel->channel,channel->cname);
 }
 
 static void del_cb(Widget widget, XtPointer clientdata, XtPointer call_data)

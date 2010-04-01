@@ -4,6 +4,7 @@ TARGETS-console := \
 	console/dump-mixers \
 	console/record \
 	console/showriff \
+	console/showqt \
 	console/streamer \
 	console/webcam
 TARGETS-v4l-conf := 
@@ -58,6 +59,7 @@ console/webcam: \
 
 console/dump-mixers: console/dump-mixers.o
 console/showriff: console/showriff.o
+console/showqt: console/showqt.o
 console/radio: console/radio.o
 console/record: console/record.o
 console/v4l-conf: console/v4l-conf.o

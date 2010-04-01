@@ -560,14 +560,14 @@ static void write_attr(struct ng_attribute *attr, int value)
 static struct ng_attribute attrs[] = {
     {
 	id:       0,
-	name:     "Smooth over time",
+	name:     "smooth over time",
 	type:     ATTR_TYPE_BOOL,
 	defval:   1,
 	read:     read_attr,
 	write:    write_attr,
-    },
-    {	id:       1,
-	name:     "Smooth horizontally",
+    },{
+	id:       1,
+	name:     "smooth horizontally",
 	type:     ATTR_TYPE_BOOL,
 	defval:   1,
 	read:     read_attr,
@@ -579,7 +579,7 @@ static struct ng_attribute attrs[] = {
 
 
 static struct ng_filter filter = {
-    name:    "Smooth",
+    name:    "smooth",
     attrs:   attrs,
     fmts:
     (1 << VIDEO_GRAY)         |
@@ -598,5 +598,5 @@ static struct ng_filter filter = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-  ng_filter_register(NG_PLUGIN_MAGIC,__FILE__,&filter);
+    ng_filter_register(NG_PLUGIN_MAGIC,__FILE__,&filter);
 }

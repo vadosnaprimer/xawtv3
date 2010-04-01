@@ -11,7 +11,7 @@ general hints
 
 	bttv0: model: BT848(Hauppauge old)
 
-    If your card is'nt autodetected correctly, you have to specify the
+    If your card isn't autodetected correctly, you have to specify the
     board type as insmod argument (card=n).  You might also have to
     specify tuner=x and pll=x.
     Check the driver documentation for details and a list of supported
@@ -19,11 +19,11 @@ general hints
     Documentation/video4linux/bttv directory.
 
 (2) If you are using a vanilla 2.2.x kernel kernel, it is worth trying
-    to upgrade as very first step.  Either download and build bttv
+    to upgrade as the very first step.  Either download and build bttv
     0.7.x for your 2.2.x kernel, or upgrade to 2.4.x which includes
     the 0.7.x driver already.
-    bttv 0.7.x knows alot more cards than the 2.2.x kernel driver, the
-    autodetect is improved much and a number of known problems is
+    bttv 0.7.x knows a lot more cards than the 2.2.x kernel driver, the
+    autodetect is much improved and a number of known problems is
     fixed.
 
 (3) If you have problems with xawtv, you should open a xterm (or
@@ -57,7 +57,7 @@ common problems
 
 ?: The video is outside the window and spread in thin lines over the
    screen.
-!: xawtv / v4l-conf did'nt autodetect the color depth for your screen
+!: xawtv / v4l-conf didn't autodetect the color depth for your screen
    correctly.  You can fix that with xawtv's -bpp switch.
 
 ?: Only the left part of the window is updated, the right one is updated

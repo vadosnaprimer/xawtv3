@@ -532,8 +532,11 @@ oss_latency(void *handle)
     if (-1 == ioctl(h->fd, SNDCTL_DSP_GETOSPACE, &info))
 	return 0;
     bytes   = info.fragsize * info.fragstotal;
-    samples = bytes * 8 / ng_afmt_to_bits[h->ifmt.fmtid] * h->channels;
+    samples = bytes * 8 / ng_afmt_to_bits[h->ifmt.fmtid] / h->channels;
     latency = (long long)samples * 1000000000 / h->rate;
+    if (ng_debug)
+	fprintf(stderr,"oss: bytes: %d  / samples: %d => latency: %lld\n",
+		bytes,samples,latency);
     return latency;
 }
 

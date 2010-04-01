@@ -9,9 +9,8 @@ OBJS-libng := \
 	libng/convert.o
 
 libng/libng.a: $(OBJS-libng)
-	rm -f $@
-	ar -r $@ $(OBJS-libng)
-	ranlib $@
+	@$(echo_ar_lib)
+	@$(ar_lib)
 
 clean::
 	rm -f libng.a

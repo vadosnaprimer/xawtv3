@@ -11,7 +11,13 @@
 #include <math.h>
 #include <stdarg.h>
 #include <time.h>
+#include <fcntl.h>
 #include <pthread.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include "grab-ng.h"
 
@@ -91,6 +97,7 @@ static int movie_handler(char *name, int argc, char **argv);
 static int fullscreen_handler(char *name, int argc, char **argv);
 static int msg_handler(char *name, int argc, char **argv);
 static int showtime_handler(char *name, int argc, char **argv);
+static int vdr_handler(char *name, int argc, char **argv);
 #if TT
 static int vtx_handler(char *name, int argc, char **argv);
 #endif
@@ -105,6 +112,7 @@ static struct COMMANDS {
 } commands[] = {
     { "setstation", 0, setstation_handler },
     { "setchannel", 0, setchannel_handler },
+    { "setfreq",    1, setchannel_handler },
     { "setfreqtab", 1, setfreqtab_handler },
 
     { "capture",    1, capture_handler    },
@@ -137,6 +145,7 @@ static struct COMMANDS {
 
     { "keypad",     1, keypad_handler     },
     { "showtime",   0, showtime_handler   },
+    { "vdr",        1, vdr_handler        },
 
     { NULL, 0, NULL }
 };
@@ -651,47 +660,53 @@ static int setchannel_handler(char *name, int argc, char **argv)
 	    display_message("grabber busy");
 	return -1;
     }
-    
-    if (0 == strcasecmp(argv[0],"next")) {
-	cur_channel = (cur_channel+1) % chancount;
-	cur_fine = defaults.fine;
-    } else if (0 == strcasecmp(argv[0],"prev")) {
-	cur_channel = (cur_channel+chancount-1) % chancount;
-	cur_fine = defaults.fine;
-    } else if (0 == strcasecmp(argv[0],"fine_up")) {
-	cur_fine++;
-    } else if (0 == strcasecmp(argv[0],"fine_down")) {
-	cur_fine--;
-    } else {
-	if (-1 != (c = lookup_channel(argv[0]))) {
-	    cur_channel = c;
-	    cur_fine = defaults.fine;
-	}
-    }
 
-    if (0 != strncmp(argv[0],"fine",4)) {
-	/* look if there is a known station on that channel */
-	for (i = 0; i < count; i++) {
-	    if (cur_channel == channels[i]->channel) {
-		char *argv[2];
-		argv[0] = channels[i]->name;
-		argv[1] = NULL;
-		return setstation_handler("", argc, argv);
+    if (0 == strcasecmp("setfreq",name)) {
+	cur_freq = (unsigned long)(atof(argv[0])*16);
+	cur_sender = -1;
+	cur_channel = -1;
+	cur_fine = 0;
+    } else {
+	if (0 == strcasecmp(argv[0],"next")) {
+	    cur_channel = (cur_channel+1) % chancount;
+	    cur_fine = defaults.fine;
+	} else if (0 == strcasecmp(argv[0],"prev")) {
+	    cur_channel = (cur_channel+chancount-1) % chancount;
+	    cur_fine = defaults.fine;
+	} else if (0 == strcasecmp(argv[0],"fine_up")) {
+	    cur_fine++;
+	} else if (0 == strcasecmp(argv[0],"fine_down")) {
+	    cur_fine--;
+	} else {
+	    if (-1 != (c = lookup_channel(argv[0]))) {
+		cur_channel = c;
+		cur_fine = defaults.fine;
 	    }
+	}
+	
+	if (0 != strncmp(argv[0],"fine",4)) {
+	    /* look if there is a known station on that channel */
+	    for (i = 0; i < count; i++) {
+		if (cur_channel == channels[i]->channel) {
+		    char *argv[2];
+		    argv[0] = channels[i]->name;
+		    argv[1] = NULL;
+		    return setstation_handler("", argc, argv);
+		}
+	    }
+	}
+	cur_sender  = -1;
+	if (-1 != cur_channel)
+	    cur_freq = get_freq(cur_channel)+cur_fine;
+	else {
+	    cur_freq += cur_fine;
+	    cur_fine = 0;
 	}
     }
     
     if (channel_switch_hook)
 	channel_switch_hook();
     set_capture(CAPTURE_OFF,1);
-
-    cur_sender  = -1;
-    if (-1 != cur_channel)
-	cur_freq = get_freq(cur_channel)+cur_fine;
-    else {
-	cur_freq += cur_fine;
-	cur_fine = 0;
-    }
 
     mute = ng_attr_byid(attrs,ATTR_ID_MUTE);
     if (mute && !cur_attrs[ATTR_ID_MUTE])
@@ -1153,6 +1168,160 @@ exit_handler(char *name, int argc, char **argv)
     if (exit_hook)
 	exit_hook();
     return 0;
+}
+
+/* ----------------------------------------------------------------------- */
+
+static char *strfamily(int family)
+{
+    switch (family) {
+    case PF_INET6: return "ipv6";
+    case PF_INET:  return "ipv4";
+    case PF_UNIX:  return "unix";
+    }
+    return "????";
+}
+
+static int
+tcp_connect(struct addrinfo *ai, char *host, char *serv)
+{
+    struct addrinfo *res,*e;
+    char uhost[INET6_ADDRSTRLEN+1];
+    char userv[33];
+    int sock,rc,opt=1;
+
+    ai->ai_flags = AI_CANONNAME;
+    if (debug)
+	fprintf(stderr,"tcp: lookup %s:%s ... ",host,serv);
+    if (0 != (rc = getaddrinfo(host, serv, ai, &res))) {
+	fprintf(stderr,"tcp: getaddrinfo (%s:%s): %s\n",
+		host,serv,gai_strerror(rc));
+	return -1;
+    }
+    if (debug)
+	fprintf(stderr,"ok\n");
+    for (e = res; e != NULL; e = e->ai_next) {
+	if (0 != getnameinfo((struct sockaddr*)e->ai_addr,e->ai_addrlen,
+			     uhost,INET6_ADDRSTRLEN,userv,32,
+			     NI_NUMERICHOST | NI_NUMERICSERV)) {
+	    fprintf(stderr,"tcp: getnameinfo (peer): oops\n");
+	    continue;
+	}
+	if (debug)
+	    fprintf(stderr,"tcp: trying %s (%s:%s) ... ",
+		    strfamily(e->ai_family),uhost,userv);
+	if (-1 == (sock = socket(e->ai_family, e->ai_socktype,
+				 e->ai_protocol))) {
+	    fprintf(stderr,"tcp: socket: %s\n",strerror(errno));
+	    continue;
+	}
+        setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+	if (-1 == connect(sock,e->ai_addr,e->ai_addrlen)) {
+	    fprintf(stderr,"tcp: connect: %s\n",strerror(errno));
+	    close(sock);
+	    continue;
+	}
+	if (debug)
+	    fprintf(stderr,"ok\n");
+	fcntl(sock,F_SETFL,O_NONBLOCK);
+	fcntl(sock,F_SETFD,FD_CLOEXEC);
+	return sock;
+    }
+    return -1;
+}
+
+static int tcp_readbuf(int sock, int timeout, char *dest, char dlen)
+{
+    struct timeval tv;
+    fd_set set;
+    int rc;
+
+ again:
+    FD_ZERO(&set);
+    FD_SET(sock,&set);
+    tv.tv_sec  = timeout;
+    tv.tv_usec = 0;
+    rc = select(sock+1,&set,NULL,NULL,&tv);
+    if (-1 == rc && EINTR == errno)
+	goto again;
+    if (-1 == rc) {
+	if (debug)
+	    perror("tcp: select");
+	return -1;
+    }
+    if (0 == rc) {
+	if (debug)
+	    fprintf(stderr,"tcp: select timeout\n");
+	return -1;
+    }
+    rc = read(sock,dest,dlen-1);
+    if (-1 == rc) {
+	if (debug)
+	    perror("tcp: read");
+	return -1;
+    }
+    dest[rc] = 0;
+    return rc;
+}
+
+static int vdr_sock = -1;
+
+static int
+vdr_handler(char *name, int argc, char **argv)
+{
+    char line[80];
+    struct addrinfo ask;
+    int i,l,len;
+
+    if (-1 == vdr_sock) {
+	memset(&ask,0,sizeof(ask));
+	ask.ai_family = PF_UNSPEC;
+	ask.ai_socktype = SOCK_STREAM;
+	vdr_sock = tcp_connect(&ask,"localhost","2001");
+	if (-1 == vdr_sock)
+	    return -1;
+
+	/* skip greeting line */
+	if (-1 == tcp_readbuf(vdr_sock,3,line,sizeof(line)))
+	    goto oops;
+	if (debug)
+	    fprintf(stderr,"vdr: << %s",line);
+    }
+
+    /* send command */
+    line[0] = 0;
+    for (i = 0, len = 0; i < argc; i++) {
+	l = strlen(argv[i]);
+	if (len+l+4 > sizeof(line))
+	    break;
+	if (len) {
+	    strcpy(line+len," ");
+	    len++;
+	}
+	strcpy(line+len,argv[i]);
+	len += l;
+    }
+    strcpy(line+len,"\r\n");
+    len += 2;
+    if (len != write(vdr_sock,line,len)) {
+	if (debug)
+	    perror("tcp: write");
+	goto oops;
+    }
+    if (debug)
+	fprintf(stderr,"vdr: >> %s",line);
+    
+    /* skip answer */
+    if (-1 == tcp_readbuf(vdr_sock,3,line,sizeof(line)))
+	goto oops;
+    if (debug)
+	fprintf(stderr,"vdr: << %s",line);
+    return 0;
+
+oops:
+    close(vdr_sock);
+    vdr_sock = -1;
+    return -1;
 }
 
 /* ----------------------------------------------------------------------- */

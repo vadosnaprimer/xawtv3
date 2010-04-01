@@ -79,6 +79,8 @@ Status DPMSDisable(Display*);
 #include "joystick.h"
 #include "vbi-data.h"
 #include "blit.h"
+#include "parseconfig.h"
+#include "event.h"
 
 /* jwz */
 #include "remote.h"
@@ -1876,6 +1878,31 @@ int xt_joystick_init(void)
     return 0;
 }
 
+/* ---------------------------------------------------------------------- */
+
+void xt_kbd_init(Widget tv)
+{
+    char **list,key[16],str[128];
+
+    list = cfg_list_entries("eventmap");
+    if (NULL == list)
+	return;
+    
+    for (; *list != NULL; list++) {
+	if (1 != sscanf(*list,"kbd-key-%15s",key))
+	    continue;
+	sprintf(str,"<Key>%s: Event(%s)",key,*list);
+	XtOverrideTranslations(tv,XtParseTranslationTable(str));
+    }
+}
+
+void
+EventAction(Widget widget, XEvent *event,
+	    String *params, Cardinal *num_params)
+{
+    if (0 != *num_params)
+	event_dispatch(params[0]);
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -1934,4 +1961,20 @@ create_bitmaps(Widget app_shell)
     no_ptr = XCreatePixmapCursor(dpy, bm_no, bm_no,
 				 &black, &black,
 				 0, 0);
+}
+
+/* ---------------------------------------------------------------------- */
+
+int xt_handle_pending(Display *dpy)
+{
+    XEvent event;
+
+    if (debug)
+	fprintf(stderr,"xt: handle_pending:  start ...\n");
+    XFlush(dpy);
+    while (True == XCheckMaskEvent(dpy, ~0, &event))
+	XtDispatchEvent(&event);
+    if (debug)
+	fprintf(stderr,"xt: handle_pending:  ... done\n");
+    return 0;
 }

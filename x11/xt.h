@@ -97,6 +97,7 @@ void RatioAction(Widget, XEvent*, String*, Cardinal*);
 void LaunchAction(Widget, XEvent*, String*, Cardinal*);
 void VtxAction(Widget, XEvent*, String*, Cardinal*);
 void FilterAction(Widget, XEvent*, String*, Cardinal*);
+void EventAction(Widget, XEvent*, String*, Cardinal*);
 
 Boolean MyResize(XtPointer client_data);
 void do_fullscreen(void);
@@ -163,6 +164,7 @@ int xt_lirc_init(void);
 int xt_midi_init(char *dev);
 int xt_joystick_init(void);
 void init_icon_window(Widget shell,WidgetClass class);
+void xt_kbd_init(Widget tv);
 
 /*----------------------------------------------------------------------*/
 
@@ -177,3 +179,6 @@ extern Cursor  no_ptr;
 extern Pixmap bm_yes;
 extern Pixmap bm_no;
 
+/*----------------------------------------------------------------------*/
+
+int xt_handle_pending(Display *dpy);

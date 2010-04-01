@@ -674,7 +674,7 @@ main(int argc, char *argv[])
 	strcat(ng_v4l_conf," -y ");
     
     grabber_init();
-    read_config(NULL);
+    read_config(NULL,NULL,NULL);
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
 	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))

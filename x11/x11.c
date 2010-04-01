@@ -38,9 +38,6 @@
 #include "commands.h"
 #include "blit.h"
 
-#define DISPLAY             XtDisplay
-#define SCREEN              XtScreen
-#define WINDOW              XtWindow
 #define DEL_TIMER(proc)     XtRemoveTimeOut(proc)
 #define ADD_TIMER(proc)     XtAppAddTimeOut(app_context,200,proc,NULL)
 
@@ -116,6 +113,16 @@ struct video_handle {
     struct ng_video_fmt   ffmt;
 };
 struct video_handle vh;
+
+void video_gd_init(Widget widget, int use_gl)
+{
+    struct video_handle *h = &vh;
+
+    if (debug)
+	fprintf(stderr,"gd: init\n");
+    h->win  = widget;
+    h->blit = blit_init(h->win,&vinfo, use_gl);
+}
 
 static struct ng_video_buf*
 video_gd_filter(struct video_handle *h, struct ng_video_buf *buf)
@@ -197,10 +204,10 @@ video_gd_start(void)
 {
     struct video_handle *h = &vh;
 
+    if (debug)
+	fprintf(stderr,"gd: start [%d]\n",h->best.fmtid);
     if (0 == h->best.fmtid)
 	return;
-    if (debug)
-	fprintf(stderr,"gd: start\n");
     ng_grabber_setformat(&h->best,0);
     drv->startvideo(h_drv,-1,2);
     h->work_id = XtAppAddWorkProc(app_context, video_gd_idle, h);
@@ -241,7 +248,7 @@ video_gd_restart(void)
 	return;
     h->suspend = 0;
     if (h->nw && h->nh) {
-	video_gd_configure(h->nw,h->nh,0);
+	video_gd_configure(h->nw,h->nh);
 	h->nw = 0;
 	h->nh = 0;
     }
@@ -251,7 +258,7 @@ video_gd_restart(void)
 }
 
 void
-video_gd_configure(int width, int height, int gl)
+video_gd_configure(int width, int height)
 {
     struct video_handle *h = &vh;
     int i,fmtids[2*VIDEO_FMT_COUNT];
@@ -259,8 +266,6 @@ video_gd_configure(int width, int height, int gl)
     if (!(f_drv & CAN_CAPTURE))
 	return;
 
-    if (NULL == h->blit)
-	h->blit = blit_init(h->win,&vinfo, gl);
     blit_resize(h->blit,width,height);
 
     if (h->suspend) {
@@ -287,7 +292,7 @@ video_gd_configure(int width, int height, int gl)
     ng_ratio_fixup(&h->best.width, &h->best.height, NULL, NULL);
 
     if (0 == h->best.fmtid) {
-	blit_get_formats(fmtids,sizeof(fmtids)/sizeof(int));
+	blit_get_formats(h->blit,fmtids,sizeof(fmtids)/sizeof(int));
 	for (i = 0; i < sizeof(fmtids)/sizeof(int); i++) {
 	    h->best.fmtid = fmtids[i];
 	    if (0 == ng_grabber_setformat(&h->best,0))
@@ -395,7 +400,7 @@ get_clips(void)
 	fprintf(stderr," getclips");
     lastcount = oc_count;
     oc_count = 0;
-    dpy = DISPLAY(video);
+    dpy = XtDisplay(video);
 
     if (wx<0)
 	add_clip(0, 0, (uint)(-wx), wfmt.height);
@@ -407,7 +412,7 @@ get_clips(void)
 	add_clip(0, sheight-wy, wfmt.width, wfmt.height);
     
     root=DefaultRootWindow(dpy);
-    me = WINDOW(video);
+    me = XtWindow(video);
     for (;;) {
 	XQueryTree(dpy, me, &rroot, &parent, &children, &nchildren);
 	XFree((char *) children);
@@ -451,8 +456,8 @@ get_clips(void)
 static void
 refresh_timer(XtPointer clientData, XtIntervalId *id)
 {
-    Window   win = RootWindowOfScreen(SCREEN(video));
-    Display *dpy = DISPLAY(video);
+    Window   win = RootWindowOfScreen(XtScreen(video));
+    Display *dpy = XtDisplay(video);
     XSetWindowAttributes xswa;
     unsigned long mask;
     Window   tmp;
@@ -605,7 +610,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	/* TV widget (+root window) */
 	switch(event->type) {
 	case Expose:
-	    if (event->xvisibility.window == WINDOW(video)) {
+	    if (event->xvisibility.window == XtWindow(video)) {
 		/* tv */
 		if (!event->xexpose.count) {
 		    if (did_refresh) {
@@ -622,7 +627,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    }
 	    break;
 	case VisibilityNotify:
-	    if (event->xvisibility.window == WINDOW(video)) {
+	    if (event->xvisibility.window == XtWindow(video)) {
 		/* tv */
 		visibility = event->xvisibility.state;
 		if (debug > 1)
@@ -645,7 +650,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	case MapNotify:
 	case UnmapNotify:
 	case ConfigureNotify:
-	    if (event->xvisibility.window != WINDOW(video)) {
+	    if (event->xvisibility.window != XtWindow(video)) {
 		if (debug > 1)
 		    fprintf(stderr,"video: root: %s%s\n",
 			    events[event->type],did_refresh?" (ignored)":"");
@@ -688,12 +693,13 @@ video_overlay(int state)
 }
 
 Widget
-video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class, int args_bpp)
+video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class,
+	   int args_bpp, int args_gl)
 {
-    Window root = DefaultRootWindow(DISPLAY(parent));
+    Window root = DefaultRootWindow(XtDisplay(parent));
 
-    swidth  = SCREEN(parent)->width;
-    sheight = SCREEN(parent)->height;
+    swidth  = XtScreen(parent)->width;
+    sheight = XtScreen(parent)->height;
 
     x11_overlay_fmtid = x11_dpy_fmtid;
     if (ImageByteOrder(XtDisplay(parent)) == MSBFirst) {
@@ -718,7 +724,6 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class, int args_bpp)
 
     video_parent = parent;
     video = XtVaCreateManagedWidget("tv",class,parent,NULL);
-    vh.win = video;
 
     /* Shell widget -- need map, unmap, configure */
     XtAddEventHandler(parent,
@@ -733,12 +738,12 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class, int args_bpp)
 			  False, video_event, NULL);
 	
 	/* root window -- need */
-	XSelectInput(DISPLAY(video),root,
+	XSelectInput(XtDisplay(video),root,
 		     VisibilityChangeMask |
 		     SubstructureNotifyMask |
 		     StructureNotifyMask);
 	
-	XtRegisterDrawable(DISPLAY(video),root,video);
+	XtRegisterDrawable(XtDisplay(video),root,video);
     }
 
     return video;
@@ -747,10 +752,10 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class, int args_bpp)
 void
 video_close(void)
 {
-    Window root = DefaultRootWindow(DISPLAY(video));
+    Window root = DefaultRootWindow(XtDisplay(video));
 
     if (overlay_refresh)
 	DEL_TIMER(overlay_refresh);
-    XSelectInput(DISPLAY(video),root,0);
-    XtUnregisterDrawable(DISPLAY(video),root);
+    XSelectInput(XtDisplay(video),root,0);
+    XtUnregisterDrawable(XtDisplay(video),root);
 }

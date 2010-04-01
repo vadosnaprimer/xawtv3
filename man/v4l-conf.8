@@ -8,7 +8,7 @@ v4l-conf -  configure a video4linux driver
 is a small helper tool.  It figures out the video mode and framebuffer
 base address of the graphics board and configures a video4linux driver
 like bttv.  This is needed for drivers which can DMA the video over PCI
-directly to the into the video memory.
+directly into the video memory.
 .P
 Usually it is not required to use v4l-conf manually, xawtv(1) and
 fbtv(1) run it automatically at startup.  It might be useful for
@@ -17,7 +17,7 @@ trouble-shooting.
 must be installed suid-root.
 .P
 .B v4l-conf
-knows tree ways to get the informations:
+knows three ways to get the informations:
 .TP 3
  *
 Query the X-Server using the XF86 DGA extention.  This is the default
@@ -58,13 +58,13 @@ bytes.
 .TP 4
 \fB-a\fP adr
 Set framebuffer address to \fBadr\fP.  The value should be specified
-in hex.  This option is allowd for root only.  You can't overwrite the
-autodetected value, this switch is only useful if autodetect does'nt
+in hex.  This option is allowed for root only.  You can't overwrite the
+autodetected value, this switch is only useful if autodetect doesn't
 work because the X-Server lacks DGA support.  You can put this into
 /etc/conf.modules, as "post-install bttv ..." for example.
 .SH BUGS
-Hope I hav'nt any security flaws in there.  If you find one, drop me a 
-note.  Mails with patches are prefeared :-)
+Hope I havn't any security flaws in there.  If you find one, drop me a 
+note.  Mails with patches are preferred :-)
 .SH SEE ALSO
 xawtv(1), fbtv(1)
 .SH AUTHOR

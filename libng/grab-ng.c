@@ -17,6 +17,7 @@
 #include <fnmatch.h>
 #include <errno.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -651,18 +652,25 @@ struct ng_reader* ng_find_reader(char *filename)
     return NULL;
 }
 
-long long
+int64_t
+ng_tofday_to_timestamp(struct timeval *tv)
+{
+    long long ts;
+
+    ts  = tv->tv_sec;
+    ts *= 1000000;
+    ts += tv->tv_usec;
+    ts *= 1000;
+    return ts;
+}
+
+int64_t
 ng_get_timestamp()
 {
     struct timeval tv;
-    long long ts;
 
     gettimeofday(&tv,NULL);
-    ts  = tv.tv_sec;
-    ts *= 1000000;
-    ts += tv.tv_usec;
-    ts *= 1000;
-    return ts;
+    return ng_tofday_to_timestamp(&tv);
 }
 
 struct ng_video_buf*

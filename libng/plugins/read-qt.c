@@ -41,7 +41,7 @@ struct qt_handle {
     long long bps;
 };
 
-static void* qt_open(char *moviename, int *vfmt, int vn)
+static void* qt_open(char *moviename)
 {
     struct qt_handle *h;
     char *str;
@@ -119,21 +119,8 @@ static void* qt_open(char *moviename, int *vfmt, int vn)
 	if (ng_debug)
 	    fprintf(stderr,"qt: unsupported video codec\n");
     } else {
-	for (i = 0; i < vn; i++) {
-	    if (ng_debug)
-		fprintf(stderr,"qt: trying: %d [%s]\n",
-			vfmt[i],ng_vfmt_to_desc[vfmt[i]]);
-	    if (0 == fmtid_to_cmodel[vfmt[i]])
-		continue;
-	    if (!quicktime_reads_cmodel(h->qt,fmtid_to_cmodel[vfmt[i]],0))
-		continue;
-	    quicktime_set_cmodel(h->qt, fmtid_to_cmodel[vfmt[i]]);
-	    h->vfmt.fmtid = vfmt[i];
-	    break;
-	}
 	h->vfmt.width  = quicktime_video_width(h->qt,0);
 	h->vfmt.height = quicktime_video_height(h->qt,0);
-	h->vfmt.bytesperline = (h->vfmt.width*ng_vfmt_to_depth[h->vfmt.fmtid]) >> 3;
 	h->rate = quicktime_frame_rate(h->qt,0);
     }
 
@@ -154,11 +141,25 @@ static void* qt_open(char *moviename, int *vfmt, int vn)
     return h;
 }
 
-static struct ng_video_fmt* qt_vfmt(void *handle)
+static struct ng_video_fmt* qt_vfmt(void *handle, int *vfmt, int vn)
 {
     struct qt_handle *h = handle;
+    int i;
 
-    return h->vfmt.fmtid ? &h->vfmt : NULL;
+    for (i = 0; i < vn; i++) {
+	if (ng_debug)
+	    fprintf(stderr,"qt: trying: %d [%s]\n",
+		    vfmt[i],ng_vfmt_to_desc[vfmt[i]]);
+	if (0 == fmtid_to_cmodel[vfmt[i]])
+	    continue;
+	if (!quicktime_reads_cmodel(h->qt,fmtid_to_cmodel[vfmt[i]],0))
+	    continue;
+	quicktime_set_cmodel(h->qt, fmtid_to_cmodel[vfmt[i]]);
+	h->vfmt.fmtid = vfmt[i];
+	break;
+    }
+    h->vfmt.bytesperline = (h->vfmt.width*ng_vfmt_to_depth[h->vfmt.fmtid]) >> 3;
+    return &h->vfmt;
 }
 
 static struct ng_audio_fmt* qt_afmt(void *handle)
@@ -196,9 +197,7 @@ static struct ng_video_buf* qt_vdata(void *handle, int drop)
 	h->rows[2] = buf->data + h->vfmt.width*h->vfmt.height*5/4;
 	break;
     default:
-	fprintf(stderr,"internal error at %s:%d\n",
-		__FILE__,__LINE__);
-	exit(1);
+	BUG_ON(1,"unknown cmodel");
     }
 
     /* drop frames */

@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #include "grab-ng.h"
 #include "jpeglib.h"
@@ -611,6 +612,29 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 
 /* ---------------------------------------------------------------------- */
 
+static int make_dirs(char *filename)
+{
+    char *dirname,*h;
+    int retval = -1;
+
+    dirname = strdup(filename);
+    if (NULL == dirname)
+	goto done;
+    h = strrchr(dirname,'/');
+    if (NULL == h)
+	goto done;
+    *h = 0;
+
+    if (-1 == (retval = mkdir(dirname,0777)))
+	if (ENOENT == errno)
+	    if (0 == make_dirs(dirname))
+		retval = mkdir(dirname,0777);
+    
+ done:
+    free(dirname);
+    return retval;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -846,7 +870,12 @@ main(int argc, char *argv[])
 	    time(&t);
 	    tm = localtime(&t);
 	    strftime(filename,sizeof(filename)-1,archive,tm);
+	again:
 	    if (-1 == (fh = open(filename,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
+		if (ENOENT == errno) {
+		    if (0 == make_dirs(filename))
+			goto again;
+		}
 		fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
 		exit(1);
 	    }

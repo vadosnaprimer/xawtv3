@@ -107,20 +107,28 @@ x11/propwatch    : LDLIBS  += $(ATHENA_LIBS)
 x11/xawtv        : LDFLAGS := $(DLFLAGS)
 x11/motv         : LDFLAGS := $(DLFLAGS)
 x11/v4lctl       : LDFLAGS := $(DLFLAGS)
-x11/pia          : LDFLAGS :=  $(DLFLAGS)
+x11/pia          : LDFLAGS := $(DLFLAGS)
+
+# compile flags
+x11/complete-xaw.o   : CFLAGS += -DATHENA=1
+x11/complete-motif.o : CFLAGS += -DMOTIF=1
+
 
 # i18n
 LANGUAGES := de it fr
 MOTV-app  := $(patsubst %,x11/MoTV.%.ad,$(LANGUAGES))
 
+
 # local targets
 x11/complete-xaw.o:: x11/complete.c
-	$(CC) $(CFLAGS) -DATHENA=1 -Wp,-MD,$*.dep -c -o $@ $<
-	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
 
 x11/complete-motif.o:: x11/complete.c
-	$(CC) $(CFLAGS) -DMOTIF=1 -Wp,-MD,$*.dep -c -o $@ $<
-	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
 
 
 # global targets
@@ -137,7 +145,7 @@ install::
 endif
 ifeq ($(FOUND_MOTIF),yes)
 install::
-	$(INSTALL_DATA) x11/mtt.ad $(resdir)/app-defaults/mtt
+	$(INSTALL_DATA) $(srcdir)/x11/mtt.ad $(resdir)/app-defaults/mtt
 	$(INSTALL_DATA) x11/MoTV.ad $(resdir)/app-defaults/MoTV
 	for lang in $(LANGUAGES); do \
 	    $(INSTALL_DIR) $(resdir)/$$lang/app-defaults; \

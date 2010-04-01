@@ -99,6 +99,9 @@ int nlaunch           = 0;
 
 int lookup_channel(char *channel)
 {
+#if 0
+    /* Hmm, why the heck that used to be that complex?
+     * Any good reason I forgot ? */
     int    i,nr1,nr2;
     char   tag1[5],tag2[5];
 
@@ -130,6 +133,18 @@ int lookup_channel(char *channel)
 	return -1;
 
     return i;
+#else
+    int i;
+    
+    if (NULL == channel)
+	return -1;
+    for (i = 0; i < chancount; i++)
+	if (0 == strcasecmp(chanlist[i].name,channel))
+	    break;
+    if (i == chancount)
+	return -1;
+    return i;
+#endif
 }
 
 int get_freq(int i)
@@ -365,7 +380,7 @@ init_channel(char *name, struct CHANNEL *c)
 }
 
 void
-read_config(char *conffile)
+read_config(char *conffile, int *argc, char **argv)
 {
     char filename[100];
     char *val;
@@ -381,6 +396,8 @@ read_config(char *conffile)
 	if (0 == cfg_parse_file(filename))
 	    have_config = 1;
     }
+    if (argc)
+	cfg_parse_options(argc,argv);
 
     /* misc global settings */
     if (NULL != (val = cfg_get_str("global","mixer"))) {
@@ -460,6 +477,11 @@ read_config(char *conffile)
 	mov_audio = val;
     if (NULL != (val = cfg_get_str("global","mov-rate")))
 	mov_rate = val;
+
+    if (NULL != (val = cfg_get_str("global","filter")))
+	for (i = 0; NULL != ng_filters[i]; i++)
+	    if (0 == strcasecmp(ng_filters[i]->name, val))
+		cur_filter=ng_filters[i];
 }
 
 void

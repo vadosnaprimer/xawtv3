@@ -320,8 +320,8 @@ struct v4l2_buffer
 	/* memory location */
 	enum v4l2_memory        memory;
 	union {
-		off_t           offset;
-		void*           userptr;
+		__u32           offset;
+		unsigned long   userptr;
 	} m;
 	__u32			length;
 
@@ -839,7 +839,8 @@ struct v4l2_streamparm
 
 /*  Video standard functions  */
 extern unsigned int v4l2_video_std_fps(struct v4l2_standard *vs);
-extern int v4l2_video_std_construct(struct v4l2_standard *vs, int id);
+extern int v4l2_video_std_construct(struct v4l2_standard *vs,
+				    int id, char *name);
 
 /*  Compatibility layer interface  */
 typedef int (*v4l2_kioctl)(struct inode *inode, struct file *file,

@@ -19,22 +19,20 @@ langs-1   := $(patsubst %/,inst1-%,$(sort $(dir $(lang-man1))))
 langs-5   := $(patsubst %/,inst5-%,$(sort $(dir $(lang-man5))))
 langs-8   := $(patsubst %/,inst8-%,$(sort $(dir $(lang-man8))))
 
+pages-1   = $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man1)))
+pages-5   = $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man5)))
+pages-8   = $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man8)))
+
 install:: $(langs-1) $(langs-5) $(langs-8)
 
 inst1-%:
 	$(INSTALL_DIR) $(mandir)/$*/man1
-	$(INSTALL_DATA) \
-	  $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man1))) \
-	  $(mandir)/$*/man1
+	$(INSTALL_DATA) $(pages-1) $(mandir)/$*/man1
 
 inst5-%:
 	$(INSTALL_DIR) $(mandir)/$*/man5
-	$(INSTALL_DATA) \
-	  $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man5))) \
-	  $(mandir)/$*/man5
+	$(INSTALL_DATA) $(pages-5) $(mandir)/$*/man5
 
 inst8-%:
 	$(INSTALL_DIR) $(mandir)/$*/man8
-	$(INSTALL_DATA) \
-	  $(patsubst %,$(srcdir)/man/%,$(filter $*/%,$(lang-man8))) \
-	  $(mandir)/$*/man8
+	$(INSTALL_DATA) $(pages-8) $(mandir)/$*/man8

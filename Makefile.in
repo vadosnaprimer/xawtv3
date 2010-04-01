@@ -16,6 +16,7 @@ config		:= @x11conf@/xawtvrc
 
 # programs
 CC		:= @CC@
+CXX		:= @CXX@
 INSTALL		:= @INSTALL@
 INSTALL_PROGRAM := @INSTALL_PROGRAM@ -s
 INSTALL_DATA	:= @INSTALL_DATA@
@@ -45,12 +46,14 @@ AA_LIBS		:= @AALIBS@
 QT_LIBS		:= @QTLIBS@
 VBI_LIBS	:= @LIBZVBI@ -lm
 GL_LIBS		:= @LIBGL@
+DV_LIBS		:= @LIBDV@
 FS_LIBS		:= -L@x_libraries@ @FSLIB@
 DLFLAGS		:= @DLFLAGS@
 
 # stuff configure has found
 FOUND_AALIB	:= @FOUND_AALIB@
 FOUND_ALSA	:= @FOUND_ALSA@
+FOUND_DV	:= @FOUND_DV@
 FOUND_GL	:= @FOUND_GL@
 FOUND_LQT	:= @FOUND_LQT@
 FOUND_MOTIF	:= @FOUND_MOTIF@
@@ -67,6 +70,7 @@ CFLAGS	+= $(LIB_FLAGS)
 CFLAGS	+= -DCONFIGFILE='"$(config)"'
 CFLAGS	+= -DLIBDIR='"$(libdir)"'
 CFLAGS	+= -DVERSION='"$(VERSION)"'
+CXXFLAGS = $(CFLAGS)
 
 # shared objects need -fPIC
 %.so : CFLAGS += -fPIC
@@ -83,6 +87,9 @@ build: all
 Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
 	$(srcdir)/configure
 
+$(srcdir)/configure: $(srcdir)/configure.ac
+	(cd $(srcdir); autoconf && autoheader)
+
 install:: all
 	$(INSTALL_DIR) $(bindir)
 
@@ -90,9 +97,8 @@ clean::
 	find . -name \*~ -print | xargs rm -f
 	find . -name \*.o -print | xargs rm -f
 	find . -name \*.a -print | xargs rm -f
-	find . -name \*.d -print | xargs rm -f
-	find . -name \*.pic -print | xargs rm -f
 	find . -name \*.dep -print | xargs rm -f
+	rm -f .deps.*
 
 distclean:: clean
 	-rm -f Makefile Make.config
@@ -109,27 +115,63 @@ realclean:: distclean
 #########################################################
 # some rules ...
 
-.SUFFIXES: .c .h .o .so .in .ad .bdf .pcf.gz
+tmpdep		= $*.dep
+depfile		= .deps.$(subst /,_,$*)
+
+compile_c	= $(CC) $(CFLAGS) -Wp,-MD,$(tmpdep) -c -o $@ $<
+compile_cc	= $(CXX) $(CXXFLAGS) -Wp,-MD,$(tmpdep) -c -o $@ $<
+fixup_deps	= sed -e "s|.*\.o:|$@::|" < $(tmpdep) > $(depfile) && rm -f $(tmpdep)
+
+link_app	= $(CC) $(LDFLAGS) -o $@  $^ $(LDLIBS)
+link_so		= $(CC) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
+ar_lib		= rm -f $@ && ar -r $@ $^ && ranlib $@
+
+# non-verbose output
+VERBOSE		= no
+ifeq ($(VERBOSE),yes)
+echo_compile_c	= echo $(compile_c)
+echo_compile_cc	= echo $(compile_cc)
+echo_link_app	= echo $(link_app)
+echo_link_so	= echo $(link_so)
+echo_ar_lib	= echo $(ar_lib)
+else
+echo_compile_c	= echo "compile	" $@
+echo_compile_cc	= echo "compile	" $@
+echo_link_app	= echo "link	" $@
+echo_link_so	= echo "link	" $@
+echo_ar_lib	= echo "archive	" $@
+endif
+
+.SUFFIXES: .c .cc .h .o .so .in .ad
+# .bdf .pcf.gz
 
 .c.o:
-	$(CC) $(CFLAGS) -Wp,-MD,$*.dep -c -o $@ $<
-	@sed -e "s|.*\.o:|$@::|" < $*.dep > $*.d && rm -f $*.dep
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
+
+.cc.o:
+	@$(echo_compile_cc)
+	@$(compile_cc)
+	@$(fixup_deps)
 
 .o.so:
-	$(CC) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
+	@$(echo_link_so)
+	@$(link_so)
 
 %: %.o
-	$(CC) $(LDFLAGS) -o $@  $^ $(LDLIBS)
+	@$(echo_link_app)
+	@$(link_app)
 
 .in.h:
-	perl -ne 's/\"/\\\"/g; chop; print "\"$$_\\n\"\n"' $< > $@
+	perl $(srcdir)/scripts/html.pl < $< > $@
 
 .ad.h:
 	perl $(srcdir)/scripts/fallback.pl < $< > $@
 
-.bdf.pcf.gz:
-	bdftopcf -o $*.pcf $<
-	gzip $*.pcf
+#.bdf.pcf.gz:
+#	bdftopcf -o $*.pcf $<
+#	gzip $*.pcf
 
 
 #########################################################
@@ -143,20 +185,14 @@ include $(srcdir)/console/Subdir.mk
 include $(srcdir)/debug/Subdir.mk
 include $(srcdir)/libng/Subdir.mk
 include $(srcdir)/libng/plugins/Subdir.mk
+include $(srcdir)/libng/contrib-plugins/Subdir.mk
 include $(srcdir)/man/Subdir.mk
 include $(srcdir)/scripts/Subdir.mk
 include $(srcdir)/vbistuff/Subdir.mk
 include $(srcdir)/x11/Subdir.mk
 
 # dependences
--include common/*.d
--include console/*.d
--include debug/*.d
--include jwz/*.d
--include libng/*.d
--include libng/plugins/*.d
--include vbistuff/*.d
--include x11/*.d
+-include .deps.*
 
 
 #########################################################
@@ -183,9 +219,3 @@ snapshot: distclean
 	(cd ..; tar cvzf xawtv-snap-`date +%Y-%m-%d`.tar.gz \
 		xawtv-$(VERSION))
 
-auto: distclean
-	rm -f config.cache
-	autoconf
-	autoheader
-	./configure
-	make

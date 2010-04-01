@@ -258,8 +258,8 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
     int fd;
 
     if (NULL == fbdev) {
-	if (-1 == (fd = open("/dev/tty0",O_RDWR,0))) {
-	    fprintf(stderr,"open /dev/tty0: %s\n",strerror(errno));
+	if (-1 == (fd = open("/dev/tty",O_RDWR,0))) {
+	    fprintf(stderr,"open /dev/tty: %s\n",strerror(errno));
 	    exit(1);
 	}
 	if (-1 == ioctl(fd, VT_GETSTATE, &vstat)) {
@@ -325,7 +325,7 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
 		    videodev,strerror(errno));
 	return -1;
     }
-    if (!(cap.flags & V4L2_FLAG_PREVIEW)) {
+    if (!(cap.capabilities & V4L2_CAP_VIDEO_OVERLAY)) {
 	fprintf(stderr,"%s [v4l2]: no overlay support\n",videodev);
 	exit(1);
     }
@@ -340,8 +340,7 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     /* set values */
     fb.fmt.width  = d->width;
     fb.fmt.height = d->height;
-    fb.fmt.depth  = d->bpp;
-    switch (fb.fmt.depth) {
+    switch (d->bpp) {
     case  8: fb.fmt.pixelformat = V4L2_PIX_FMT_HI240;   break;
 #if BYTE_ORDER == BIG_ENDIAN
     case 15: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB555X; break;
@@ -360,8 +359,8 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     fb.fmt.bytesperline = d->bpl;
     fb.fmt.sizeimage = fb.fmt.height * fb.fmt.bytesperline;
     if (NULL != d->base)
-	fb.base[0]   = d->base;
-    if (NULL == fb.base[0])
+	fb.base   = d->base;
+    if (NULL == fb.base)
 	fprintf(stderr,
 		"WARNING: couldn't find framebuffer base address, try manual\n"
 		"         configuration (\"v4l-conf -a <addr>\")\n");

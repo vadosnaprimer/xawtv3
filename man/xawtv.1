@@ -85,7 +85,7 @@ Resource: xawtv.bpp (int).
 \fB-shift\fP n
 Shift the video display by
 .B n
-bytes.  Try this if your video display is'nt within the xawtv window,
+bytes.  Try this if your video display isn't within the xawtv window,
 some older matrox cards show this problem.  This gets passed through
 to v4l-conf(8) too.
 .br
@@ -93,38 +93,38 @@ Resource: xawtv.shift (int).
 .TP
 \fB-fb\fP
 Use the framebuffer device to determine the video framebuffer address
-(instead of the DGA extention).  Yet another pass through argument.
+(instead of the DGA extension).  Yet another pass through argument.
 .br
 Resource: xawtv.fbdev (bool).
 .TP
 \fB-xv/-noxv \fP
-enable/disable the usage of the Xvideo extention altogether,
+enable/disable the usage of the Xvideo extension altogether,
 i.e. -noxv has the same effect as both -noxv-video and -noxv-image
 switches (see below).
 .br
 Resource: xawtv.xv (bool).
 .TP
 \fB-xv-video/-noxv-video \fP
-enable/disable the usage of the Xvideo extention for video overlay
+enable/disable the usage of the Xvideo extension for video overlay
 (i.e. XvPutVideo).  overlay mode uses this.  default is on.
 .br
 Resource: xawtv.xvVideo (bool).
 .TP
 \fB-xv-image/-noxv-image \fP
-enable/disable the usage of the Xvideo extention for image scaling
+enable/disable the usage of the Xvideo extension for image scaling
 (i.e. XvPutImage).  grabdisplay mode uses this.  default is on.
 .br
 Resource: xawtv.xvImage (bool).
 .TP
 \fB-vm/-novm\fP
-enable/disable the usage of the VidMode extention, default is off.
+enable/disable the usage of the VidMode extension, default is off.
 If there is a fullscreen video mode configured in the config file,
-the vidmode extention will be enabled automatically.
+the vidmode extension will be enabled automatically.
 .br
 Resource: xawtv.vidmode (bool).
 .TP
 \fB-dga/-nodga\fP
-enable/disable the usage of the DGA extention, default is on.
+enable/disable the usage of the DGA extension, default is on.
 .br
 Resource: xawtv.dga (bool).
 .TP
@@ -147,9 +147,9 @@ of v4l design bugs.
 FreeBSD / OpenBSD driver for bt848/878 grabber cards.
 .TP
 .B Xvideo
-X11 Extention for video devices.  Note that the Xvideo extention does
+X11 Extension for video devices.  Note that the Xvideo extension does
 support overlay only, you can't capture images/movies if the Xvideo
-extention is used.  On the other hand this is the only way to scaled
+extension is used.  On the other hand this is the only way to scaled
 video overlay (i.e. fullscreen without black borders @ 1024x748) if
 both hardware and xfree86 driver support it.  See README.xfree4 for
 more details and hints on how to setup Xvideo.
@@ -172,7 +172,7 @@ all channels it has found.
 .SS Mouse functions
 The left mouse button will popup a menu with all TV stations found in
 the config file. The middle button switches to the next station. The
-right button brings up a window with alot of options and control
+right button brings up a window with a lot of options and control
 functions.
 .SS Keyboard Shortcuts
 .nf

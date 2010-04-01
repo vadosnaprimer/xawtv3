@@ -32,7 +32,7 @@ correctly.
 Video
 =====
 
-Note that video recording does not work if the Xvideo extention is in
+Note that video recording does not work if the Xvideo extension is in
 use.  For recording stuff with xawtv you might have to start the
 application with the -noxv switch to disable Xvideo.
 
@@ -48,7 +48,7 @@ xawtv/streamer handle video recording with multiple threads:
 
 There are buffer fifo's between the recording threads and the
 compression / disk writer to avoid recording overruns due to a
-temporarely busy hard disk or CPU load peaks.
+temporarily busy hard disk or CPU load peaks.
 
 If you see messages about a full fifo or about v4l(2) waiting for
 free buffers it is very likely that your hard disk is too slow,
@@ -59,13 +59,9 @@ configure the number at insmod time (gbuffers option).  Using more
 buffers (say 4-8 instead of just two which is the default) should help
 to reduce the number of dropped frames.
 
-If you want to record quicktime movies install the quicktime4linux
-libraries (http://heroines.sourceforge.net/quicktime.php3), then
-(re-)build xawtv.  The configure script should find the library
-automatically.  Note: /me still uses version 1.3.  Tried 1.5 recently,
-it didn't work for me.  The library itself needs a (trivial) fix to
-build (gcc 2.95.4, maybe gcc 3.x is less picky).  "make util" failes
-with unresolved symbols :-(  Waiting for 1.6 ...
+If you want to record quicktime movies install libquicktime
+(http://libquicktime.sf.net), then (re-)build xawtv.  The configure
+script should find the library automatically.
 
 
 Known problems (and workarounds)
@@ -80,34 +76,19 @@ With v4l2 xawtv uses the frame timestamps provided by the driver.
 Troubleshooting syncronisation problems
 =======================================
 
-If you are recording a movie with xawtv/stremaer you get a display
-like this on stderr:
+A/V sync should simply work if your box can keep up with the data
+rate.  xawtv/streamer displays some debug info (time shift) on stderr.
+"a/r" is the difference between audio and real time, "a/v" is the
+difference between audio and video.
 
-real: 3.638s   audio: [+-]0.023s   video: [+-]0.042s
-
- - "real" is the real time, i.e. simply the number of seconds passed
-   since you've started recording.
- - "audio" says how much audio data was recorded: simply the total
-   number of bytes divided by the data rate (bytes/second).  It is
-   displayed relative to real time.
- - "video" is the same for video: total frames divided by the
-   frames/second (also displayed relative to real time).
-
-Obviously the numbers for audio/video should stay close to zero.  If
-audio and video run out of sync you can easily see whenever audio or
-video is wrong by looking at these numbers.
-
-The display says how much media data streamer/xawtv tried to put into
-the fifos.  Any data which get lost due to fifo overruns will *not* be
-taken into accout here, i.e. if you see "fifo full" error messages
-your movie will have bad syncronisation even if the display looks
-fine.  Possible fixes:  Try using more buffers.  Try recording
-compressed video.  Try tuning the hard disk using hdparm.  Buy a
-faster hard disk.  Buy a faster computer.
+Ff you see "fifo full" error messages your box likely can't keep up
+with the data rate.  Possible fixes: Try using more buffers.  Try
+recording compressed video.  Try tuning the hard disk using hdparm.
+Buy a faster hard disk.  Buy a faster computer.
 
 If xawtv/streamer says "queueing frame twice" it has put a the same
 video frame twice into the output queue to avoid video running out of
-sync.  If this happens alot it indicates that either your computer
+sync.  If this happens a lot it indicates that either your computer
 can't keep up with compressing the frames or that your v4l device
 can't capture frames with the frame rate you are asking for.  A single
 message now and then is harmless.
@@ -121,7 +102,7 @@ can write the yuv4mpeg format accepted by mpeg2enc directly.  mp2enc
 accepts xawtv's wav files too.  So you can use xawtv/streamer,
 mpeg2enc, mp3enc and mplex to build mpeg movies.
 
-If you don't have enought disk space to store uncompressed yuv video
+If you don't have enough disk space to store uncompressed yuv video
 you can also record compressed quicktime/avi files and then recode
 stuff using lav2yuv + mpeg2enc in a pipe.  The streamer help text
 (streamer -h) has a few examples.
@@ -131,7 +112,7 @@ Large Files
 ===========
 
 xawtv has LFS support, i.e. it can write files >2GB without problems.
-The AVI format has a 2GB limit.  There is a extention to overcome this
+The AVI format has a 2GB limit.  There is a extension to overcome this
 [http://www.matrox.com/videoweb/news/press/papers/odmlff2.pdf], but not
 all applications can deal with it.  The quicktime format usually works
 better as there is the quicktime4linux library everybody uses to
@@ -140,6 +121,10 @@ read/write *.mov files, thus there are less compatibility issues.
 
 Read, Convert, Edit + Playback stuff
 ====================================
+
+Recent xawtv versions come with the "pia" utility.  That is a simple
+player which should be able to playback all AVI and QuickTime movies
+recorded by xawtv, motv and streamer.
 
 avi format
 
@@ -152,7 +137,7 @@ avi format
  * avifile can't deal with the uncompressed video correctly
    [fixed in recent versions].
    mjpeg/jpeg doesn't work either for me as it seems not to
-   recognise the MainConcept codec, althought I've copied
+   recognise the MainConcept codec, although I've copied
    stuff to /usr/lib/win32.  Maybe it works with another
    one.
  * MainActor (linux) can read the mjpeg but not the jpeg

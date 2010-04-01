@@ -88,6 +88,18 @@ wm_detect(Display *dpy)
     unsigned char  *args = NULL;
     Window root = DefaultRootWindow(dpy);
 
+    /* netwm compliant */
+    if (Success == XGetWindowProperty
+        (dpy, root, _NET_SUPPORTED, 0, (65536 / sizeof(long)), False,
+         AnyPropertyType, &type, &format, &nitems, &bytesafter, &args) &&
+	nitems > 0) {
+	if (debug)
+	    fprintf(stderr,"wmhooks: netwm\n");
+	wm_stay_on_top = net_wm_stay_on_top;
+        XFree(args);
+        return 0;
+    }
+
     /* gnome-compilant */
     if (Success == XGetWindowProperty
 	(dpy, root, _WIN_SUPPORTING_WM_CHECK, 0, (65536 / sizeof(long)), False,
@@ -99,18 +111,6 @@ wm_detect(Display *dpy)
 	wm_stay_on_top = gnome_stay_on_top;
 	XFree(args);
 	return 0;
-    }
-
-    /* netwm compliant */
-    if (Success == XGetWindowProperty
-        (dpy, root, _NET_SUPPORTED, 0, (65536 / sizeof(long)), False,
-         AnyPropertyType, &type, &format, &nitems, &bytesafter, &args) &&
-	nitems > 0) {
-	if (debug)
-	    fprintf(stderr,"wmhooks: netwm\n");
-	wm_stay_on_top = net_wm_stay_on_top;
-        XFree(args);
-        return 0;
     }
 
     /* nothing found... */

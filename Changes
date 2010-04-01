@@ -1,4 +1,22 @@
 
+3.76 => 3.77
+============
+
+ * fixed broken alevtd
+ * swapped gnome + netwm protocol checks (wmhooks.c), netwm is
+   preferred now.
+ * Added showqt utility (dumps structure of QuickTime files like
+   showriff does for AVI files).
+ * Added vdr control code.
+ * webcam's archive function now creates directories if needed.
+ * fixed spec file.
+ * started adding support for reading/writing raw dv files via libdv.
+   Probably not that useful yet, at least my box is far away from
+   being able to encode dv streams in real time.  Even playback drops
+   more than 50% of the frames.
+ * added alsa mixer plugin (Malte Starostik <malte.starostik@t-online.de>).
+
+ 
 3.75 => 3.76
 ============
 

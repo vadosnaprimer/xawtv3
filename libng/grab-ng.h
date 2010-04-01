@@ -17,6 +17,11 @@ extern int  ng_ratio_x;
 extern int  ng_ratio_y;
 extern char ng_v4l_conf[256];
 
+#define BUG_ON(condition,message)	if (condition) {\
+	fprintf(stderr,"BUG: %s [%s:%d]\n",\
+		message,__FILE__,__LINE__);\
+	exit(1);}
+
 /* --------------------------------------------------------------------- */
 /* defines                                                               */
 
@@ -121,7 +126,7 @@ struct ng_video_buf {
 
     /* meta info for frame */
     struct {
-	long long        ts;      /* time stamp */
+	int64_t          ts;      /* time stamp */
 	int              seq;
 	int              twice;
     } info;
@@ -162,7 +167,7 @@ struct ng_audio_buf {
     char                 *data;
 
     struct {
-	long long        ts;
+	int64_t          ts;
     } info;
 };
 
@@ -204,12 +209,12 @@ struct ng_reader {
     int   moff[4];
     int   mlen[4];
 
-    void* (*rd_open)(char *moviename, int *vfmt, int vn);
-    struct ng_video_fmt* (*rd_vfmt)(void *handle);
+    void* (*rd_open)(char *moviename);
+    struct ng_video_fmt* (*rd_vfmt)(void *handle, int *vfmt, int vn);
     struct ng_audio_fmt* (*rd_afmt)(void *handle);
     struct ng_video_buf* (*rd_vdata)(void *handle, int drop);
     struct ng_audio_buf* (*rd_adata)(void *handle);
-    long long (*frame_time)(void *handle);
+    int64_t (*frame_time)(void *handle);
     int (*rd_close)(void *handle);
 };
 
@@ -299,9 +304,9 @@ struct ng_dsp_driver {
     void                  (*close)(void *handle);
     int                   (*fd)(void *handle);
     int                   (*startrec)(void *handle);
-    struct ng_audio_buf*  (*read)(void *handle, long long stopby);
+    struct ng_audio_buf*  (*read)(void *handle, int64_t stopby);
     struct ng_audio_buf*  (*write)(void *handle, struct ng_audio_buf *buf);
-    long long             (*latency)(void *handle);
+    int64_t               (*latency)(void *handle);
 };
 
 struct ng_mix_driver {
@@ -365,7 +370,7 @@ struct ng_filter {
 /* --------------------------------------------------------------------- */
 
 /* must be changed if we break compatibility */
-#define NG_PLUGIN_MAGIC 0x20020701
+#define NG_PLUGIN_MAGIC 0x20020910
 
 extern struct ng_video_conv  **ng_conv;
 extern struct ng_filter      **ng_filters;
@@ -402,7 +407,8 @@ const struct ng_dsp_driver* ng_dsp_open(char *device, struct ng_audio_fmt *fmt,
 struct ng_attribute* ng_mix_init(char *device, char *channel);
 struct ng_reader* ng_find_reader(char *filename);
 
-long long ng_get_timestamp(void);
+int64_t ng_tofday_to_timestamp(struct timeval *tv);
+int64_t ng_get_timestamp(void);
 void ng_check_clipping(int width, int height, int xadjust, int yadjust,
 		       struct OVERLAY_CLIP *oc, int *count);
 struct ng_video_buf* ng_filter_single(struct ng_filter *filter,

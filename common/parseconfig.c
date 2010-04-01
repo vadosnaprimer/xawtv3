@@ -145,6 +145,37 @@ cfg_parse_file(char *filename)
 
 /* ------------------------------------------------------------------------ */
 
+void
+cfg_parse_option(char *section, char *tag, char *value)
+{
+    struct CFG_ENTRIES *e = NULL;
+    
+    if (NULL == c)
+	c = cfg_init_sections();
+    e = cfg_find_section(c,section);
+    cfg_set_entry(e,tag,value);
+}
+
+void
+cfg_parse_options(int *argc, char **argv)
+{
+    char section[64], tag[64];
+    int i,j;
+
+    for (i = 1; i+1 < *argc;) {
+	if (2 == sscanf(argv[i],"-%63[^:]:%63s",section,tag)) {
+	    cfg_parse_option(section,tag,argv[i+1]);
+	    for (j = i; j < *argc-1; j++)
+		argv[j] = argv[j+2];
+	    (*argc) -= 2;
+	} else {
+	    i++;
+	}
+    }
+}
+
+/* ------------------------------------------------------------------------ */
+
 char**
 cfg_list_sections()
 {

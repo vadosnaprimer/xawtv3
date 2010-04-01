@@ -44,9 +44,9 @@ For problem/bug reports:
  * emails with questions answered in the documentation will go to
    /dev/null.
  * emails which don't have any useful informations (like "xawtv
-   does'nt work, please help me") will go to /dev/null.
+   doesn't work, please help me") will go to /dev/null.
 
-"useful informations" includes at least:
+"useful information" includes at least:
  - xawtv version
  - kernel version
  - which driver (+ version if you know)
@@ -60,13 +60,13 @@ If you are using bttv as driver:
  - the insmod arguments for the modules
  - the kernel messages printed by bttv while loading.
 
-If you are _really_sure_ some information is'nt important for your
+If you are _really_sure_ some information isn't important for your
 problem, you can skip it.  But if in doubt, better include it...
 
 
 For patches/changes:
 
- * Please add a comment what is changed and and why you changed it.
+ * Please add a comment on what is changed and and why you changed it.
  * Please send unified diffs ("diff -u") against the latest version.
  * Please don't reformat my source code.
  * Complete patches have better chances to go in.  Quick+dirty hacks
@@ -86,7 +86,7 @@ should compile xawtv, v4l-conf, fbtv and a few other utilities.  You can
 also simply type "make" if you don't want to pass any options to
 configure.
 
-If it failes, check that all required packages are installed.  Note that
+If it fails, check that all required packages are installed.  Note that
 the *-devel packages are also required to compile stuff, i.e. you need
 both libjpeg and libjpeg-devel for example.
 
@@ -109,7 +109,7 @@ bttv
 
 bttv is'nt bundled with xawtv any more.  You can the latest version
 from http://bytesex.org/bttv/.  If you are using kernel 2.4.x, it is
-very unlikely that you need a update, the bttv driver in 2.4.x is
+very unlikely that you need an update, the bttv driver in 2.4.x is
 updated in regular intervals.
 
 
@@ -118,7 +118,7 @@ v4l-conf
 
 v4l-conf is a small tool which tells video4linux about the current
 video mode (size and color depth).  This requires root priviliges,
-becauce it is easy to crash the box by passing bogous values there.
+becauce it is easy to crash the box by passing bogus values there.
 It requires the X-Server with DGA support up and running or a
 framebuffer device.  It is a temporary hack, this problem will be
 solved in a better way with a X11 extention.  See README.xfree4
@@ -126,7 +126,7 @@ for details.
 
 Try "v4l-conf -h" for a short description.  It is installed suid-root,
 and xawtv runs it at startup.  Should work out-of-the-box without
-extra configuration.  Normally you should'nt need to worry about it,
+extra configuration.  Normally you shouldn't need to worry about it,
 but for debugging it is handy do run it from the shell and check the
 output.
 
@@ -136,7 +136,7 @@ xawtv
 
 There is a man page now, read it.  Don't expect you can use xawtv
 without reading the documentation at least once.  You are lost if you
-don't know the keyboard shortcuts,  xawtv is'nt a mouse-only program.
+don't know the keyboard shortcuts,  xawtv isn't a mouse-only program.
 
 xawtv will not work without the app-defaults.  If you want to try
 xawtv without installing it, use this...
@@ -146,7 +146,7 @@ xawtv without installing it, use this...
 	$ ./xawtv
 
 ...to make sure xawtv finds the application defaults (the Xawtv.ad
-file).  If v4l-conf is'nt installed too, you have to run it once
+file).  If v4l-conf isn't installed too, you have to run it once
 (as root) before starting xawtv.
 
 
@@ -154,7 +154,7 @@ motv
 ----
 
 That's basically xawtv with better (IMO), motif-based GUI.  Feature set
-is very close to xawtv, they share alot of code (basically everything
+is very close to xawtv, they share a lot of code (basically everything
 but the athena/motif GUI code).
 
 motv uses Motif 2.x features (utm, render tables).  This means you
@@ -188,6 +188,13 @@ ttv
 aa-lib based TV app which renders the TV image on any text terminal.
 
 
+scantv
+------
+
+scans for tv stations and writes a initial config file for xawtv and
+motv.
+
+
 v4lctl
 ------
 
@@ -203,6 +210,13 @@ frames work too.  Try the '-h' switch for a description.  A (short)
 man page is available too.
 
 
+pia
+---
+
+simple movie player, should play every movie file (mov+avi) recorded
+by streamer, xawtv and motv.
+
+
 radio
 -----
 
@@ -216,7 +230,7 @@ kradio config file.  You can't configure anything with radio, you'll
 have to use kradio or vi for this.  The config file format is
 documented in the man page.
 
-kradio (my KDE radio app) is'nt included any more, it is available as
+kradio (my KDE radio app) isn't included any more, it is available as
 separate tarball now.
 
 
@@ -225,8 +239,9 @@ videotext / teletext
 
 alevt is _the_ videotext application for bttv.  URL below.
 
-A http server for videotext which is based on alevt's vbi decoder engine
-is in the http subdirectory.  It's called alevtd.
+A http server for videotext called 'alevtd' is in the vbistuff
+subdirectory.  Recent xawtv version also come with mtt, which is a
+interactive videotext application for X11 (Motif) and console.
 
 
 webcam

@@ -229,6 +229,7 @@ static XtActionsRec actionTable[] = {
 #ifdef HAVE_ZVBI
     { "Vtx",         VtxAction },
 #endif
+    { "Event",       EventAction },
 };
 
 static struct STRTAB cap_list[] = {
@@ -478,16 +479,20 @@ display_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
 static void
 resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
-    static int width = 0, height = 0;
+    static int width = 0, height = 0, first = 1;
     char label[64];
     
     switch(event->type) {
     case ConfigureNotify:
+	if (first) {
+	    video_gd_init(tv,args.gl);
+	    first = 0;
+	}
 	if (width  != event->xconfigure.width ||
 	    height != event->xconfigure.height) {
 	    width  = event->xconfigure.width;
 	    height = event->xconfigure.height;
-	    video_gd_configure(width, height, args.gl);
+	    video_gd_configure(width, height);
 	    XClearWindow(XtDisplay(tv),XtWindow(tv));
 	    sprintf(label,"%-" LABEL_WIDTH "s: %dx%d",MOVIE_SIZE,width,height);
 	    if (w_movie_size)
@@ -1641,7 +1646,8 @@ main(int argc, char *argv[])
     
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
-    tv = video_init(app_shell,&vinfo,simpleWidgetClass,args.bpp);
+    tv = video_init(app_shell, &vinfo, simpleWidgetClass,
+		    args.bpp, args.gl);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
     if (debug)
@@ -1672,7 +1678,7 @@ main(int argc, char *argv[])
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
-	read_config(args.conffile ? args.conffile : NULL);
+	read_config(args.conffile ? args.conffile : NULL, &argc, argv);
     }
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
@@ -1704,6 +1710,9 @@ main(int argc, char *argv[])
     if (debug)
 	fprintf(stderr,"main: checking for midi ...\n");
     xt_midi_init(midi);
+    if (debug)
+	fprintf(stderr,"main: adding kbd hooks ...\n");
+    xt_kbd_init(tv);
 
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
@@ -1743,6 +1752,7 @@ main(int argc, char *argv[])
     }
     channel_menu();
 
+    xt_handle_pending(dpy);
     do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
     cur_capture = 0;
     do_va_cmd(2,"capture","overlay");

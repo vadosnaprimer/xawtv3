@@ -72,12 +72,15 @@ static struct ng_audio_buf         *abuf;
 
 struct ARGS {
     char  *dsp;
+    int   slow;
     int   help;
     int   verbose;
     int   debug;
     int   xv;
     int   gl;
     int   max;
+    int   audio;
+    int   video;
 } args;
 
 XtResource args_desc[] = {
@@ -105,6 +108,11 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,help),
 	XtRString, "0"
     },{
+	"slow",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,slow),
+	XtRString, "1"
+    },{
 	"xv",
 	XtCValue, XtRInt, sizeof(int),
 	XtOffset(struct ARGS*,xv),
@@ -119,12 +127,23 @@ XtResource args_desc[] = {
 	XtCValue, XtRInt, sizeof(int),
 	XtOffset(struct ARGS*,max),
 	XtRString, "0"
+    },{
+	"audio",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,audio),
+	XtRString, "1"
+    },{
+	"video",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,video),
+	XtRString, "1"
     }
 };
 const int args_count = XtNumber(args_desc);
 
 XrmOptionDescRec opt_desc[] = {
     { "-dsp",        "dsp",         XrmoptionSepArg, NULL },
+    { "-slow",       "slow",        XrmoptionSepArg, NULL },
 
     { "-h",          "help",        XrmoptionNoArg,  "1" },
     { "-help",       "help",        XrmoptionNoArg,  "1" },
@@ -139,6 +158,10 @@ XrmOptionDescRec opt_desc[] = {
     { "-noxv",       "xv",          XrmoptionNoArg,  "0" },
     { "-gl",         "gl",          XrmoptionNoArg,  "1" },
     { "-nogl",       "gl",          XrmoptionNoArg,  "0" },
+    { "-audio",      "audio",       XrmoptionNoArg,  "1" },
+    { "-noaudio",    "audio",       XrmoptionNoArg,  "0" },
+    { "-video",      "video",       XrmoptionNoArg,  "1" },
+    { "-novideo",    "video",       XrmoptionNoArg,  "0" },
 };
 const int opt_count = (sizeof(opt_desc)/sizeof(XrmOptionDescRec));
 
@@ -153,9 +176,15 @@ static void quit_ac(Widget widget, XEvent *event,
 static void resize_ev(Widget widget, XtPointer client_data,
 		      XEvent *event, Boolean *d)
 {
+    static int first = 1;
+    
     switch(event->type) {
     case MapNotify:
     case ConfigureNotify:
+	if (first) {
+	    blit = blit_init(simple,&vinfo,args.gl);
+	    first = 0;
+	}
 	XtVaGetValues(widget,XtNheight,&sheight,XtNwidth,&swidth,NULL);
 	if (vfmt)
 	    blit_resize(blit,swidth,sheight);
@@ -168,6 +197,7 @@ static XtActionsRec action_table[] = {
 };
 
 static String res[] = {
+    "pia.winGravity:		 Static",
     "pia.playback.translations:  #override \\n"
     "       <Key>Q:              Quit()    \\n"
     "       <Key>Escape:         Quit()",
@@ -200,17 +230,22 @@ static void usage(FILE *out, char *prog)
 	    prog,prog);
 }
 
-static void sync_info(long long drift, int drops)
+static void sync_info(long long drift, int drops, int frames)
 {
-    fprintf(stderr,"a/v sync: audio drift is %3d ms / %d frame(s) dropped\r",
-	    (int)((drift)/1000000),drops);
+    int total = drops + frames;
+    
+    fprintf(stderr,"a/v sync: audio drift is %4d ms / "
+	    "%d of %d frame(s) [%3.1f%%] dropped \r",
+	    (int)((drift)/1000000),drops,total,
+	    total ? (float)drops * 100 / total : 0);
 }
 
 int main(int argc, char *argv[])
 {
     long long start, now, delay, latency = 0, drift = 0;
     struct timeval wait;
-    int fmtids[2*VIDEO_FMT_COUNT], i, n, drop, droptotal, ww, wh;
+    int fmtids[2*VIDEO_FMT_COUNT], i, n, drop, droptotal, framecount, ww, wh;
+    XEvent event;
     
     app_shell = XtVaAppInitialize(&app_context, "pia",
 				  opt_desc, opt_count,
@@ -239,6 +274,30 @@ int main(int argc, char *argv[])
 	fprintf(stderr,"no reader\n");
 	exit(1);
     }
+
+    /* open file */
+    reader = ng_find_reader(argv[1]);
+    if (NULL == reader) {
+	fprintf(stderr,"can't handle %s\n",argv[1]);
+	exit(1);
+    }
+    rhandle = reader->rd_open(argv[1]);
+    if (NULL == rhandle) {
+	fprintf(stderr,"opening %s failed\n",argv[1]);
+	exit(1);
+    }
+    vfmt = reader->rd_vfmt(rhandle,NULL,0);
+    if (0 == vfmt->width || 0 == vfmt->height)
+	vfmt = NULL;
+    afmt = reader->rd_afmt(rhandle);
+
+    if (0 == args.video)
+	vfmt = NULL;
+    if (0 == args.audio)
+	afmt = NULL;
+    if (1 != args.slow)
+	/* no audio for slow motion, will not sync anyway ... */
+	afmt = NULL;
 
     /* init x11 stuff */
     dpy = XtDisplay(app_shell);
@@ -270,21 +329,6 @@ int main(int argc, char *argv[])
 		    sizeof(action_table)/sizeof(XtActionsRec));
     XtVaSetValues(app_shell, XtNtitle,argv[1],NULL);
 
-    /* open file */
-    blit_get_formats(fmtids,sizeof(fmtids)/sizeof(int));
-    reader = ng_find_reader(argv[1]);
-    if (NULL == reader) {
-	fprintf(stderr,"can't handle %s\n",argv[1]);
-	exit(1);
-    }
-    rhandle = reader->rd_open(argv[1],fmtids,sizeof(fmtids)/sizeof(int));
-    if (NULL == rhandle) {
-	fprintf(stderr,"opening %s failed\n",argv[1]);
-	exit(1);
-    }
-    vfmt = reader->rd_vfmt(rhandle);
-    afmt = reader->rd_afmt(rhandle);
-
     /* show window */
     ww = 320;
     wh = 32;
@@ -305,8 +349,22 @@ int main(int argc, char *argv[])
     }
     simple = XtVaCreateManagedWidget("playback",simpleWidgetClass,app_shell,
 				     XtNwidth,ww, XtNheight,wh, NULL);
+    XtAddEventHandler(simple, StructureNotifyMask, True, resize_ev, NULL);
+    XtRealizeWidget(app_shell);
+    while (NULL == blit) {
+	XFlush(dpy);
+	while (True == XCheckMaskEvent(dpy, ~0, &event))
+	    XtDispatchEvent(&event);
+    }
+
+    /* video setup */
     if (vfmt) {
-	blit = blit_init(simple,&vinfo,args.gl);
+	blit_get_formats(blit,fmtids,sizeof(fmtids)/sizeof(int));
+	vfmt = reader->rd_vfmt(rhandle,fmtids,sizeof(fmtids)/sizeof(int));
+	if (0 == vfmt->width || 0 == vfmt->height || VIDEO_NONE == vfmt->fmtid)
+	    vfmt = NULL;
+    }
+    if (vfmt) {
 	for (i = 0; i < sizeof(fmtids)/sizeof(int); i++)
 	    if (fmtids[i] == vfmt->fmtid)
 		break;
@@ -328,6 +386,8 @@ int main(int argc, char *argv[])
 	    }
 	}
     }
+
+    /* audio setup */
     if (afmt) {
 	struct ng_audio_fmt f = *afmt;
 	snd = ng_dsp_open(args.dsp ? args.dsp : "/dev/dsp", &f,0,&shandle);
@@ -336,11 +396,11 @@ int main(int argc, char *argv[])
 	else {
 	    snd_fd  = snd->fd(shandle);
 	    latency = snd->latency(shandle);
+	    if (debug)
+		fprintf(stderr,"a/v sync: audio latency is %lld ms\n",
+			latency/1000000);
 	}
     }
-    XtAddEventHandler(simple,StructureNotifyMask, True, resize_ev, NULL);
-    XtRealizeWidget(app_shell);
-    XSync(dpy,False);
 
     /* enter main loop
      * 
@@ -348,7 +408,11 @@ int main(int argc, char *argv[])
      * that doesn't give us usable event scheduling, thus we have our
      * own main loop here ...
      */
-    start = ng_get_timestamp();
+    drop = 0;
+    droptotal = 0;
+    framecount = 0;
+    start = 0;
+    drift = 0;
     if (afmt) {
 	/* fill sound buffer */
 	fd_set wr;
@@ -365,19 +429,22 @@ int main(int argc, char *argv[])
 	    abuf = reader->rd_adata(rhandle);
 	    if (NULL == abuf)
 		break;
+	    if (0 == start)
+		start = ng_get_timestamp();
 	    drift = abuf->info.ts - (ng_get_timestamp() - start);
 	    abuf = snd->write(shandle,abuf);
 	    if (NULL != abuf)
 		break;
 	}
     }
+    if (0 == start)
+	start = ng_get_timestamp();
 
-    drop = 0;
-    droptotal = 0;
+    if (debug)
+	fprintf(stderr,"a/v sync: audio buffer filled\n");
     for (; vfmt || afmt;) {
 	int rc,max;
 	fd_set rd,wr;
-	XEvent event;
 
 	/* handle X11 events */
 	if (True == XCheckMaskEvent(dpy, ~0, &event)) {
@@ -394,9 +461,13 @@ int main(int argc, char *argv[])
 		drift = abuf->info.ts - (ng_get_timestamp() - start);
 	}
 	if (vfmt && NULL == vbuf) {
+	    droptotal += drop;
 	    vbuf = reader->rd_vdata(rhandle,drop);
 	    if (conv)
 		vbuf = ng_convert_frame(chandle,NULL,vbuf);
+	    if (NULL != vbuf && 1 != args.slow)
+		/* ts fixup for slow motion */
+		vbuf->info.ts *= args.slow;
 	    if (NULL == vbuf)
 		vfmt = NULL; /* EOF */
 	}
@@ -421,16 +492,14 @@ int main(int argc, char *argv[])
 		now += drift;
 		now -= latency;
 		if (args.verbose)
-		    sync_info(drift-latency,droptotal);
+		    sync_info(drift-latency,droptotal,framecount);
 	    }
 	    delay = vbuf->info.ts - now;
 	    if (delay < 0) {
-		/* FIXME: drop frames if needed */
 		drop = -delay / reader->frame_time(rhandle);
 		if (drop) {
-		    droptotal += drop;
 		    if (args.verbose)
-			sync_info(drift-latency,droptotal);
+			sync_info(drift-latency,droptotal,framecount);
 		}
 		wait.tv_sec  = 0;
 		wait.tv_usec = 0;
@@ -452,6 +521,7 @@ int main(int argc, char *argv[])
 	if (vfmt && 0 == rc) {
 	    /* blit video frame */
 	    blit_putframe(blit,vbuf);
+	    framecount++;
 	    vbuf = NULL;
 	}
     }

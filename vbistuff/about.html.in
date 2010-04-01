@@ -24,7 +24,7 @@ the vbi data.  &nbsp; Source code of this daemon comes with
 <a href="/800/00.html">800</a> &nbsp;
 <hr noshade size=1>
 <h2>teletext characters</h2>
-<pre style="font-family: teletext; font-size: 20px">
+<pre class=vt>
 
 ETS 300 706 Table 36: Latin National Option Sub-sets
 

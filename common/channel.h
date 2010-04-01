@@ -70,7 +70,7 @@ void configure_channel(struct CHANNEL *channel);
 void del_channel(int nr);
 void calc_frequencies(void);
 
-void read_config(char *conffile);
+void read_config(char *conffile, int *argc, char **argv);
 void parse_config(void);
 void save_config(void);
 

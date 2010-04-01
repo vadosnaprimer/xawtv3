@@ -24,8 +24,8 @@ void xv_blit(Display *dpy, Drawable dr, GC gc, XvImage *xi,
 
 /* video frame blitter */
 struct blit_state;
-void blit_get_formats(int *fmtids, int max);
-struct blit_state* blit_init(Widget widget, XVisualInfo *vinfo, int enable_gl);
+struct blit_state* blit_init(Widget widget, XVisualInfo *vinfo, int use_gl);
+void blit_get_formats(struct blit_state *st, int *fmtids, int max);
 void blit_resize(struct blit_state *st, Dimension width, Dimension height);
 void blit_init_frame(struct blit_state *st, struct ng_video_fmt *fmt);
 void blit_fini_frame(struct blit_state *st);

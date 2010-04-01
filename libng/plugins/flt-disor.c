@@ -92,11 +92,18 @@ frame(void *handle, struct ng_video_buf *in)
 		continue;
 	    
 	    switch (in->fmt.fmtid) {
+	    case VIDEO_RGB15_LE:
+	    case VIDEO_RGB16_LE:
+	    case VIDEO_RGB15_BE:
+	    case VIDEO_RGB16_BE:
+		dst16[i] = src16[dj*in->fmt.width + di];
+		break;
 	    case VIDEO_BGR24:
 	    case VIDEO_RGB24:
 		dst8[3*i  ] = src8[3*(dj*in->fmt.width + di)  ];
 		dst8[3*i+1] = src8[3*(dj*in->fmt.width + di)+1];
-		dst8[3*i+2] = src8[3*(dj*in->fmt.width + di)+2];	
+		dst8[3*i+2] = src8[3*(dj*in->fmt.width + di)+2];
+		break;
 	    }
 	}
 	dst8  += out->fmt.bytesperline;
@@ -156,7 +163,7 @@ static struct ng_attribute attrs[] = {
 	type:     ATTR_TYPE_INTEGER,
 	defval:   700,
 	min:      1,
-	max:      1000,
+	max:      2000,
 	read:     read_attr,
 	write:    write_attr,
     },{
@@ -195,6 +202,10 @@ static struct ng_filter filter = {
     name:    "disortion correction",
     attrs:   attrs,
     fmts:
+    (1 << VIDEO_RGB15_BE)     |
+    (1 << VIDEO_RGB16_BE)     |
+    (1 << VIDEO_RGB15_LE)     |
+    (1 << VIDEO_RGB16_LE)     |
     (1 << VIDEO_BGR24)        |
     (1 << VIDEO_RGB24),
     init:    init,

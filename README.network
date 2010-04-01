@@ -3,7 +3,7 @@ How send audio/video data over the net?
 =======================================
 
 
-Just some pointers where to look.  I havn't tried everything myself.
+Just some pointers where to look.  I haven't tried everything myself.
 
 
 still images (webcam)
@@ -20,7 +20,7 @@ both audio and video
 --------------------
 
 You can use video conferencing tools, see http://www.openh323.org.  That
-should even interoperate with M$ Netmeeting.  I've heared there is a
+should even interoperate with M$ Netmeeting.  I've heard there is a
 project named "gnomemeeting" ...
 
 You might want to have a look at videolan (http://www.videolan.org).

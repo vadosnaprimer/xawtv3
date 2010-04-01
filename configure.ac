@@ -32,6 +32,7 @@ dnl ---------------------------------------------------------------------
 dnl Checks for programs.
 
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_CPP
 
 AC_PROG_INSTALL
@@ -42,6 +43,7 @@ dnl do some OS specific stuff here
 
 AC_SUBST(FOUND_AALIB)
 AC_SUBST(FOUND_ALSA)
+AC_SUBST(FOUND_DV)
 AC_SUBST(FOUND_LQT)
 AC_SUBST(FOUND_MOTIF)
 AC_SUBST(FOUND_OS)
@@ -50,6 +52,7 @@ AC_SUBST(FOUND_GL)
 AC_SUBST(FOUND_ZVBI)
 FOUND_AALIB="no"
 FOUND_ALSA="no"
+FOUND_DV="no"
 FOUND_LQT="no"
 FOUND_MOTIF="no"
 FOUND_OS="unknown"
@@ -78,7 +81,7 @@ esac
 dnl ---------------------------------------------------------------------
 dnl Checks for functions
 
-AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
+AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE,1,"have opv6"))
 AC_CHECK_HEADERS(getopt.h soundcard.h unistd.h sys/select.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
 AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long strcasestr dlopen)
 
@@ -151,7 +154,7 @@ AC_SUBST(LIBALSA)
 LIBALSA=""
 if test "$enable_alsa" != "no"; then
     AC_CHECK_LIB(asound, snd_seq_open,
-	AC_DEFINE(HAVE_ALSA) FOUND_ALSA="yes"; LIBALSA="-lasound",,)
+	AC_DEFINE(HAVE_ALSA,1,"have alsa") FOUND_ALSA="yes"; LIBALSA="-lasound",,)
 else
     echo "*** alsa disabled"
 fi
@@ -160,7 +163,7 @@ AC_SUBST(LIRC)
 LIRC=""
 if test "$enable_lirc" != "no"; then
     AC_CHECK_LIB(lirc_client, lirc_init,
-	AC_DEFINE(HAVE_LIBLIRC_CLIENT) LIRC="-llirc_client",,)
+	AC_DEFINE(HAVE_LIBLIRC_CLIENT,1,"have lirc") LIRC="-llirc_client",,)
 else
     echo "*** lirc disabled"
 fi
@@ -169,7 +172,7 @@ AC_SUBST(LIBZVBI)
 LIBZVBI=""
 if test "$enable_zvbi" != "no"; then
     AC_CHECK_LIB(zvbi, vbi_capture_fd,
-        AC_DEFINE(HAVE_ZVBI) FOUND_ZVBI="yes"; LIBZVBI="-lzvbi",,)
+        AC_DEFINE(HAVE_ZVBI,1,"have zvbi") FOUND_ZVBI="yes"; LIBZVBI="-lzvbi",,)
 else
     echo "*** zvbi disabled"
 fi
@@ -188,9 +191,18 @@ else
     echo "*** aalib support disabled"
 fi
 
+AC_SUBST(LIBDV)
+LIBDV=""
+if test "$enable_dv" != "no"; then
+    AC_CHECK_LIB(dv, dv_decoder_new,
+        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv",,)
+else
+    echo "*** DV disabled"
+fi
+
 if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(quicktime, lqt_query_registry,
-	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME),,
+	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME,1,"have libquicktime"),,
 	-ldl -lglib $LIBPTHREAD)
 else
     echo "*** quicktime disabled"
@@ -236,7 +248,7 @@ AC_SUBST(LIBGL)
 LIBGL=""
 if test "$enable_gl" != "no"; then
     AC_CHECK_LIB(GL, glXChooseVisual,
-        AC_DEFINE(HAVE_GL) FOUND_GL="yes"; LIBGL="-lGLU -lGL -lm",,
+        AC_DEFINE(HAVE_GL,1,"have opengl") FOUND_GL="yes"; LIBGL="-lGLU -lGL -lm",,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS -lm)
 else
     echo "*** OpenGL disabled"
@@ -264,13 +276,13 @@ AC_SUBST(resdir)
 
 dnl ---------------------------------------------------------------------
 dnl for screenlock
-AC_DEFINE(HAVE_XMU)
+AC_DEFINE(HAVE_XMU,1,"have xmu")
 
 dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile xawtv.spec)
 for dir in \
-	common console debug fonts jwz \
-	libng/plugins libvbi vbistuff x11
+	common console debug fonts jwz libvbi vbistuff x11 \
+	libng libng/plugins libng/contrib-plugins
 do
 	test -d $dir && continue
 	mkdir -p $dir

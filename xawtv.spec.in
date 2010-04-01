@@ -27,9 +27,8 @@ webcams, ...).  It's based on xawtv's code, but uses Motif to provide a
 better GUI.
 
 %package      -n tv-common
-Summary:      fonts, tools and some README's for motv and xawtv
+Summary:      tools and some README's for motv and xawtv
 Group:        Applications/Multimedia
-Provides:     xawtv:/usr/X11R6/lib/X11/fonts/misc/led-iso8859-1.bdf
 
 %description  -n tv-common
 This package includes some X11 fonts used by motv and xawtv, some
@@ -69,10 +68,9 @@ via http, i.e. you can read the teletext pages with a web browser.
 %setup -q
 
 %build
-export CFLAGS="$RPM_OPT_FLAGS"
 mkdir build
 cd build
-../configure --prefix=/usr/X11R6
+CFLAGS="$RPM_OPT_FLAGS" ../configure --prefix=/usr/X11R6
 make
 
 %install
@@ -87,7 +85,7 @@ find %{buildroot} -name MoTV -print	|\
 %defattr(-,root,root)
 %doc COPYING
 %doc Changes TODO README README.*
-%doc contrib/dot.lircrc contrib/frequencies*
+%doc contrib/frequencies*
 /usr/X11R6/bin/xawtv
 /usr/X11R6/man/man1/xawtv.1.gz
 /usr/X11R6/bin/rootv
@@ -110,7 +108,6 @@ find %{buildroot} -name MoTV -print	|\
 /usr/X11R6/bin/propwatch
 /usr/X11R6/man/man1/propwatch.1.gz
 /usr/X11R6/man/man5/xawtvrc.5.gz
-/usr/X11R6/lib/X11/fonts/misc/led*
 /usr/X11R6/lib/xawtv/*.so
 
 %files -n v4l-conf

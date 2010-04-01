@@ -222,7 +222,7 @@ static uint32_t avi_find_chunk(struct avi_handle *h, uint32_t id, off_t *pos)
 
 /* ----------------------------------------------------------------------- */
 
-static void* avi_open(char *moviename, int *vfmt, int vn)
+static void* avi_open(char *moviename)
 {
     struct avi_handle *h;
     off_t pos, size;
@@ -303,11 +303,11 @@ static void* avi_open(char *moviename, int *vfmt, int vn)
     return NULL;
 }
 
-static struct ng_video_fmt* avi_vfmt(void *handle)
+static struct ng_video_fmt* avi_vfmt(void *handle, int *vfmt, int vn)
 {
     struct avi_handle *h = handle;
 
-    return VIDEO_NONE != h->vfmt.fmtid ? &h->vfmt : NULL;
+    return &h->vfmt;
 }
 
 static struct ng_audio_fmt* avi_afmt(void *handle)

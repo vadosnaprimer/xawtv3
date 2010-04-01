@@ -117,6 +117,7 @@ static XtActionsRec actionTable[] = {
     { "Ipc",         IpcAction         },
     { "Filter",      FilterAction      },
     { "StayOnTop",   ontop_ac          },
+    { "Event",       EventAction       },
 };
 
 static String fallback_ressources[] = {
@@ -134,7 +135,9 @@ static Widget st_freq,st_chan,st_name,st_key;
 static Widget scale_shell,filter_shell;
 static Widget w_full;
 static Widget b_ontop;
+#ifdef HAVE_ZVBI
 static struct vbi_window *vtx;
+#endif
 
 /* properties */
 static Widget prop_dlg,prop_name,prop_key,prop_channel,prop_button;
@@ -324,15 +327,19 @@ ontop_ac(Widget widget, XEvent *event, String *params, Cardinal *num_params)
 static void
 resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
-    static int width = 0, height = 0;
+    static int width = 0, height = 0, first = 1;
     
     switch(event->type) {
     case ConfigureNotify:
+	if (first) {
+	    video_gd_init(tv,args.gl);
+	    first = 0;
+	}
 	if (width  != event->xconfigure.width ||
 	    height != event->xconfigure.height) {
 	    width  = event->xconfigure.width;
 	    height = event->xconfigure.height;
-	    video_gd_configure(width, height, args.gl);
+	    video_gd_configure(width, height);
 	    XClearWindow(XtDisplay(tv),XtWindow(tv));
 	}
 	break;
@@ -3232,7 +3239,8 @@ main(int argc, char *argv[])
 
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
-    tv = video_init(app_shell,&vinfo,xmPrimitiveWidgetClass,args.bpp);
+    tv = video_init(app_shell,&vinfo,xmPrimitiveWidgetClass,
+		    args.bpp,args.gl);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
     if (debug)
@@ -3265,7 +3273,7 @@ main(int argc, char *argv[])
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
-	read_config(args.conffile ? args.conffile : NULL);
+	read_config(args.conffile ? args.conffile : NULL, &argc, argv);
     }
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
@@ -3299,6 +3307,9 @@ main(int argc, char *argv[])
     if (debug)
 	fprintf(stderr,"main: checking for midi ...\n");
     xt_midi_init(midi);
+    if (debug)
+	fprintf(stderr,"main: adding kbd hooks ...\n");
+    xt_kbd_init(tv);
 
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
@@ -3335,6 +3346,7 @@ main(int argc, char *argv[])
     }
     channel_menu();
 
+    xt_handle_pending(dpy);
     do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
     cur_capture = 0;
     do_va_cmd(2,"capture","overlay");

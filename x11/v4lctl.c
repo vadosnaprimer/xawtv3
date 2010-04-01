@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 #endif
     if (NULL == drv)
 	grabber_init();
-    read_config(NULL);
+    read_config(NULL,NULL,NULL);
 
     attr_init();
     audio_init();
