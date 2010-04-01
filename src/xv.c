@@ -117,17 +117,11 @@ static int xv_read_attr(struct ng_attribute *attr)
     struct xv_handle *h   = attr->handle;
     const XvAttribute *at = attr->priv;
     Atom atom;
-    int range, value = 0;
+    int value = 0;
 
     if (NULL != at) {
 	atom = XInternAtom(dpy, at->name, False);
 	XvGetPortAttribute(dpy, h->vi_port,atom,&value);
-	if (ATTR_TYPE_INTEGER == attr->type) {
-	    range = at->max_value - at->min_value;
-	    value = (value - at->min_value) * 65536 / range;
-	    if (value < 0)      value = 0;
-	    if (value > 65535)  value = 65535;
-	}
 	if (debug)
 	    fprintf(stderr,"xv: get %s: %d\n",at->name,value);
 	
@@ -146,16 +140,10 @@ static void xv_write_attr(struct ng_attribute *attr, int value)
     struct xv_handle *h   = attr->handle;
     const XvAttribute *at = attr->priv;
     Atom atom;
-    int range,i;
+    int i;
 
     if (NULL != at) {
 	atom = XInternAtom(dpy, at->name, False);
-	if (ATTR_TYPE_INTEGER == attr->type) {
-	    range = at->max_value - at->min_value;
-	    value = value * range / 65536 + at->min_value;
-	    if (value < at->min_value)  value = at->min_value;
-	    if (value > at->max_value)  value = at->max_value;
-	}
 	XvSetPortAttribute(dpy, h->vi_port,atom,value);
 	if (debug)
 	    fprintf(stderr,"xv: set %s: %d\n",at->name,value);
@@ -193,12 +181,16 @@ xv_add_attr(struct xv_handle *h, int id, int type,
 	    if (0 == strcmp(xvattr[i].atom,at->name))
 		break;
 	if (-1 == xvattr[i].type)
-	    /* ignore this one*/
+	    /* ignore this one */
 	    return;
 	if (NULL != xvattr[i].atom) {
 	    h->attr[h->nattr].id      = xvattr[i].id;
 	    h->attr[h->nattr].type    = xvattr[i].type;
 	    h->attr[h->nattr].priv    = at;
+	    if (ATTR_TYPE_INTEGER == h->attr[h->nattr].type) {
+		h->attr[h->nattr].min = at->min_value;
+		h->attr[h->nattr].max = at->max_value;
+	    }
 	} else {
 	    /* unknown */
 	    return;

@@ -354,6 +354,10 @@ v4l_add_attr(struct v4l_handle *h, int id, int type,
     h->attr[h->nattr].type    = type;
     h->attr[h->nattr].defval  = defval;
     h->attr[h->nattr].choices = choices;
+    if (ATTR_TYPE_INTEGER == type) {
+	h->attr[h->nattr].min = 0;
+	h->attr[h->nattr].max = 65535;
+    }
     if (id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name = ng_attr_to_desc[id];
 
@@ -1275,5 +1279,5 @@ v4l_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(&v4l_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&v4l_driver);
 }

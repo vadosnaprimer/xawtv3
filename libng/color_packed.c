@@ -250,5 +250,5 @@ static const int nconv = sizeof(conv_list)/sizeof(struct ng_video_conv);
 void
 ng_color_packed_init(void)
 {
-    ng_conv_register(conv_list,nconv);
+    ng_conv_register(NG_PLUGIN_MAGIC,"built-in",conv_list,nconv);
 }

@@ -53,7 +53,7 @@
 struct CHANNEL defaults = {
     name:     "defaults",
     cname:    "none",
-    capture:  CAPTURE_OVERLAY,
+    capture:  CAPTURE_ON,
     audio:    -1,
     color:    -1,
     bright:   -1,
@@ -69,7 +69,7 @@ int last_sender = -1, cur_sender = -1, cur_channel = -1, cur_fine = 0;
 int cur_freq;
 struct ng_filter *cur_filter;
 
-int cur_capture;
+int cur_capture = CAPTURE_OFF;
 int have_config;
 int keypad_ntsc = 0;
 int keypad_partial = 1;
@@ -342,18 +342,22 @@ init_channel(char *name, struct CHANNEL *c)
 	c->fine = n;
 
     if (NULL != (val = cfg_get_str(name,"key")))
-	c->key   = strdup(val);
-    if (-1 != (n = attr_to_int(cfg_get_str(name,"midi"))))
-	c->midi = n;
+	c->key  = strdup(val);
+    if (NULL != (val = cfg_get_str(name,"midi")))
+	c->midi = atoi(val);
 
-    if (-1 != (n = attr_to_int(cfg_get_str(name,"color"))))
-	c->color = n;
-    if (-1 != (n = attr_to_int(cfg_get_str(name,"bright"))))
-	c->bright = n;
-    if (-1 != (n = attr_to_int(cfg_get_str(name,"hue"))))
-	c->hue = n;
-    if (-1 != (n = attr_to_int(cfg_get_str(name,"contrast"))))
-	c->contrast = n;
+    attr = ng_attr_byid(attrs,ATTR_ID_COLOR);
+    if (attr && NULL != (val = cfg_get_str(name,"color")))
+	c->color = ng_attr_parse_int(attr,val);
+    attr = ng_attr_byid(attrs,ATTR_ID_BRIGHT);
+    if (attr && NULL != (val = cfg_get_str(name,"bright")))
+	c->bright = ng_attr_parse_int(attr,val);
+    attr = ng_attr_byid(attrs,ATTR_ID_HUE);
+    if (attr && NULL != (val = cfg_get_str(name,"hue")))
+	c->hue = ng_attr_parse_int(attr,val);
+    attr = ng_attr_byid(attrs,ATTR_ID_CONTRAST);
+    if (attr && NULL != (val = cfg_get_str(name,"contrast")))
+	c->contrast = ng_attr_parse_int(attr,val);
 }
 
 void
@@ -503,6 +507,7 @@ parse_config(void)
 void
 save_config()
 {
+    struct ng_attribute *attr;
     char filename1[100], filename2[100];
     FILE *fp;
     int i;
@@ -589,14 +594,23 @@ save_config()
 	    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_INPUT),
 			   cur_attrs[ATTR_ID_INPUT]));
     fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
-    if (cur_attrs[ATTR_ID_COLOR] != 32768)
-	fprintf(fp,"color = %d\n",cur_attrs[ATTR_ID_COLOR]);
-    if (cur_attrs[ATTR_ID_BRIGHT] != 32768)
-	fprintf(fp,"bright = %d\n",cur_attrs[ATTR_ID_BRIGHT]);
-    if (cur_attrs[ATTR_ID_HUE] != 32768)
-	fprintf(fp,"hue = %d\n",cur_attrs[ATTR_ID_HUE]);
-    if (cur_attrs[ATTR_ID_CONTRAST] != 32768)
-	fprintf(fp,"contrast = %d\n",cur_attrs[ATTR_ID_CONTRAST]);
+
+    attr = ng_attr_byid(attrs,ATTR_ID_COLOR);
+    if (attr && attr->defval != cur_attrs[ATTR_ID_COLOR])
+	fprintf(fp,"color = %d%%\n",
+		ng_attr_int2percent(attr,cur_attrs[ATTR_ID_COLOR]));
+    attr = ng_attr_byid(attrs,ATTR_ID_BRIGHT);
+    if (attr && attr->defval != cur_attrs[ATTR_ID_BRIGHT])
+	fprintf(fp,"bright = %d%%\n",
+		ng_attr_int2percent(attr,cur_attrs[ATTR_ID_BRIGHT]));
+    attr = ng_attr_byid(attrs,ATTR_ID_HUE);
+    if (attr && attr->defval != cur_attrs[ATTR_ID_HUE])
+	fprintf(fp,"hue = %d%%\n",
+		ng_attr_int2percent(attr,cur_attrs[ATTR_ID_HUE]));
+    attr = ng_attr_byid(attrs,ATTR_ID_CONTRAST);
+    if (attr && attr->defval != cur_attrs[ATTR_ID_CONTRAST])
+	fprintf(fp,"contrast = %d%%\n",
+		ng_attr_int2percent(attr,cur_attrs[ATTR_ID_CONTRAST]));
     fprintf(fp,"\n");
 
     /* write channels */
@@ -625,15 +639,23 @@ save_config()
 	if (channels[i]->capture != cur_capture)
 	    fprintf(fp,"capture = %s\n",
 		    int_to_str(channels[i]->capture,captab));
-	  
-	if (cur_attrs[ATTR_ID_COLOR] != channels[i]->color)
-	    fprintf(fp,"color = %d\n",channels[i]->color);
-	if (cur_attrs[ATTR_ID_BRIGHT] != channels[i]->bright)
-	    fprintf(fp,"bright = %d\n",channels[i]->bright);
-	if (cur_attrs[ATTR_ID_HUE] != channels[i]->hue)
-	    fprintf(fp,"hue = %d\n",channels[i]->hue);
-	if (cur_attrs[ATTR_ID_CONTRAST] != channels[i]->contrast)
-	    fprintf(fp,"contrast = %d\n",channels[i]->contrast);
+	
+	attr = ng_attr_byid(attrs,ATTR_ID_COLOR);
+	if (attr && cur_attrs[ATTR_ID_COLOR] != channels[i]->color)
+	    fprintf(fp,"color = %d%%\n",
+		    ng_attr_int2percent(attr,channels[i]->color));
+	attr = ng_attr_byid(attrs,ATTR_ID_BRIGHT);
+	if (attr && cur_attrs[ATTR_ID_BRIGHT] != channels[i]->bright)
+	    fprintf(fp,"bright = %d%%\n",
+		    ng_attr_int2percent(attr,channels[i]->bright));
+	attr = ng_attr_byid(attrs,ATTR_ID_HUE);
+	if (attr && cur_attrs[ATTR_ID_HUE] != channels[i]->hue)
+	    fprintf(fp,"hue = %d%%\n",
+		    ng_attr_int2percent(attr,channels[i]->hue));
+	attr = ng_attr_byid(attrs,ATTR_ID_CONTRAST);
+	if (attr && cur_attrs[ATTR_ID_CONTRAST] != channels[i]->contrast)
+	    fprintf(fp,"contrast = %d%%\n",
+		    ng_attr_int2percent(attr,channels[i]->contrast));
 
 	fprintf(fp,"\n");
     }
@@ -674,18 +696,4 @@ int_to_str(int n, struct STRTAB *tab)
 	if (tab[i].nr == n)
 	    return tab[i].str;
     return NULL;
-}
-
-int
-attr_to_int(char *attr)
-{
-    int val,n;
-
-    if (NULL == attr)
-	return -1;
-    if (0 == sscanf(attr,"%d%n",&val,&n))
-	return 0;
-    if (attr[n] == '%')
-	return val*65536/100;
-    return val;
 }

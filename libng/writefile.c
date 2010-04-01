@@ -608,6 +608,6 @@ struct ng_writer raw_writer = {
 void
 ng_writefile_init(void)
 {
-    ng_writer_register(&files_writer);
-    ng_writer_register(&raw_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,"built-in",&files_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,"built-in",&raw_writer);
 }

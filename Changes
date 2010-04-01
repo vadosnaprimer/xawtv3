@@ -1,4 +1,27 @@
 
+3.68 => 3.69
+============
+
+ * added API versioning to the plugins.
+ * added attributes to struct ng_filter, so you can control filter
+   settings via GUI.
+ * added gamma filter plugin.
+ * updated documentation (libng/OVERVIEW), added some hints for
+   filter plugin programming.  Note: motv has a menu to deal with
+   filters, xawtv has no GUI elements yet.
+ * more record tool improvements (level trigger for recording).
+ * removed fixed 0-65535 range for integer attributes, using min and
+   max values instead.  This also affects the attributes specified
+   within the config file.
+ * Some improvements for the radio utility.
+ * make v4l-conf run most code as real user, not root.  That should
+   improve security and also make v4l-conf not fail on ~/.Xauthority
+   located at root-squash mounted NFS dirs.
+ * hacked up a test app to play with OpenGL textures for video
+   playback.  Not built by default.  Needs Motif.  Check src/gl.c if
+   you wanna have a look.
+
+
 3.67 => 3.68
 ============
 

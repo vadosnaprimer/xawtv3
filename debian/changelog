@@ -1,3 +1,11 @@
+xawtv (3.69) unstable; urgency=low
+
+  * new release (closes: #112892)
+  * various bugs are fixed in other releases but I forgot to mention them
+    in the changelog (closes: #122672, #116477, #119935, #116476).
+
+ -- Gerd Knorr <kraxel@debian.org>  Thu, 31 Jan 2002 12:05:43 +0100
+
 xawtv (3.68) unstable; urgency=low
 
   * new release.

@@ -1,5 +1,4 @@
 #include "config.h"
-#ifdef HAVE_LIBQUICKTIME
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -286,7 +285,5 @@ struct ng_writer qt_writer = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_writer_register(&qt_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,PLUGNAME,&qt_writer);
 }
-
-#endif /* HAVE_LIBQUICKTIME */

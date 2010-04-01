@@ -35,7 +35,7 @@ MoTV.about_box_popup.title:		About motv
 MoTV*about_box_popup*messageString:	\
 	motv - Motif TV application	\n\
 	\n\
-	(c) 2001 Gerd Knorr <kraxel@bytesex.org>
+	(c) 2002 Gerd Knorr <kraxel@bytesex.org>
 
 MoTV.errbox_popup.title:		Errors
 
@@ -175,8 +175,8 @@ control*menubar*norm.labelString:	TV Norm
 control*menubar*norm.mnemonic:		N
 
 ! filter menu
-control*menubar*none.labelString:	No filter
-control*menubar*none.mnemonic:		N
+control*menubar*fnone.labelString:	No filter
+control*menubar*fnone.mnemonic:		N
 
 ! help menu
 control*menubar*man.labelString:	Show manpage

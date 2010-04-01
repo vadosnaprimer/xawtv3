@@ -182,18 +182,24 @@ static struct ng_attribute bsd_attr[] = {
 	id:       ATTR_ID_HUE,
 	name:     "hue",
 	type:     ATTR_TYPE_INTEGER,
+	min:      BT848_HUEREGMIN,
+	max:      BT848_HUEREGMAX,
 	read:     bsd_read_attr,
 	write:    bsd_write_attr,
     },{
 	id:       ATTR_ID_BRIGHT,
 	name:     "bright",
 	type:     ATTR_TYPE_INTEGER,
+	min:      BT848_BRIGHTREGMIN,
+	max:      BT848_BRIGHTREGMAX,
 	read:     bsd_read_attr,
 	write:    bsd_write_attr,
     },{
 	id:       ATTR_ID_CONTRAST,
 	name:     "contrast",
 	type:     ATTR_TYPE_INTEGER,
+	min:      BT848_CONTRASTREGMIN,
+	max:      BT848_CONTRASTREGMAX,
 	read:     bsd_read_attr,
 	write:    bsd_write_attr,
     },{
@@ -275,7 +281,7 @@ xioctl(int fd, int cmd, void *arg)
 
 /* ---------------------------------------------------------------------- */
 
-void
+static void
 bsd_print_format(struct meteor_pixfmt *pf, int format)
 {
     switch (pf->type) {
@@ -444,24 +450,18 @@ static struct ng_attribute* bsd_attrs(void *handle)
 /* ---------------------------------------------------------------------- */
 
 static int
-bsd_get_range(int id, int *min, int *max, int *get, int *set)
+bsd_get_range(int id, int *get, int *set)
 {
     switch (id) {
     case ATTR_ID_HUE:
-	*min = BT848_HUEREGMIN;
-	*max = BT848_HUEREGMAX;
 	*get = BT848_GHUE;
 	*set = BT848_SHUE;
 	break;
     case ATTR_ID_BRIGHT:
-	*min = BT848_BRIGHTREGMIN;
-	*max = BT848_BRIGHTREGMAX;
 	*get = BT848_GBRIG;
 	*set = BT848_SBRIG;
 	break;
     case ATTR_ID_CONTRAST:
-	*min = BT848_CONTRASTREGMIN;
-	*max = BT848_CONTRASTREGMAX;
 	*get = BT848_GCONT;
 	*set = BT848_SCONT;
 	break;
@@ -474,7 +474,7 @@ bsd_get_range(int id, int *min, int *max, int *get, int *set)
 static int bsd_read_attr(struct ng_attribute *attr)
 {
     struct bsd_handle *h = attr->handle;
-    int arg, min, max, get, set, i;
+    int arg, get, set, i;
     int value = -1;
 
     switch (attr->id) {
@@ -497,12 +497,9 @@ static int bsd_read_attr(struct ng_attribute *attr)
     case ATTR_ID_HUE:
     case ATTR_ID_BRIGHT:
     case ATTR_ID_CONTRAST:
-	bsd_get_range(attr->id,&min,&max,&get,&set);
-	if (-1 != xioctl(h->tfd,get,&arg)) {
-	    value = (arg + min) * 65536 / (max - min);
-	    if (value < 0)      value = 0;
-	    if (value > 65535)  value = 65535;
-	}
+	bsd_get_range(attr->id,&get,&set);
+	if (-1 != xioctl(h->tfd,get,&arg))
+	    value = arg;
 	break;
     default:
 	break;
@@ -513,7 +510,7 @@ static int bsd_read_attr(struct ng_attribute *attr)
 static void bsd_write_attr(struct ng_attribute *attr, int value)
 {
     struct bsd_handle *h = attr->handle;
-    int arg, min, max, get, set;
+    int arg, get, set;
 
     switch (attr->id) {
     case ATTR_ID_NORM:
@@ -530,10 +527,8 @@ static void bsd_write_attr(struct ng_attribute *attr, int value)
     case ATTR_ID_HUE:
     case ATTR_ID_BRIGHT:
     case ATTR_ID_CONTRAST:
-	bsd_get_range(attr->id,&min,&max,&get,&set);
-	arg = value * (max - min) / 65536 + min;
-	if (arg < min)  value = min;
-	if (arg > max)  value = max;
+	bsd_get_range(attr->id,&get,&set);
+	arg = value;
 	xioctl(h->tfd,set,&arg);
 	break;
     default:
@@ -806,5 +801,5 @@ static struct ng_video_buf* bsd_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(&bsd_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&bsd_driver);
 }

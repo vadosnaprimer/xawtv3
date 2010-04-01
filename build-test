@@ -54,7 +54,7 @@ make distclean
 make distclean
 
 # library link order
-./configure && make CC="gcc -static"				|| exit 1
+CFLAGS="-static" ./configure && make 				|| exit 1
 make distclean
 
 # 2.2.x kernel headers

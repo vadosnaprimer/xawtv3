@@ -35,6 +35,12 @@ Do a scan for radio stations.
 Same as above + write a radio.fmmap with the signal for every
 frequency.  You can get a graph for it with gnuplot (plot
 "radio.fmmap" w lin).
+.TP
+.B -i
+Scan, write a initial ~/.radio file to stdout and quit.  So you can
+create a config file where you only have to fill in the correct
+station names later this way: "radio -i > ~/.radio".  See below for
+the config file syntax.
 .SH CONFIGURATION
 .B radio
 picks up station names and present stations from a config file. 
@@ -64,6 +70,19 @@ The [Buttons] section can have up to eight entries.  That are
 the present stations, they get mapped to F1-F8.  The [Stations]
 section maps frequencies to station names.  The frequencies in
 both sections are specified in Hz.
+.SH KEYS
+.nf
+X	     exit
+ESC,Q,E      mute and exit.
+up/down      inc/dec frequency
+pgup/pgdown  next/previous station.  This one uses the
+             stations from the config file by default.
+             When started with the -s option these keys
+             will cycle througth the stations found during
+             the scan.
+F1-F8, 1-8   preset buttons.
+Ctrl+L       redraw screen.
+.fi
 .SH AUTHOR
 Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT

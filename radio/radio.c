@@ -210,20 +210,23 @@ make_label(int ifreq)
 
 float g[411],baseline;
 int astation[100],max_astation=0,current_astation=-1;
+int write_config;
 
 static void
 foundone(int m)
 {
     int i;
     
-    for(i=0;i<100 && astation[i];i++) {
+    for (i=0; i<100 && astation[i]; i++) {
         if(abs(astation[i]-m) <5 )  // 20 kHz width 
 	    break;
     }
-    if(g[m] > g[astation[i]]) {  //  select bigger signal
+    if (g[m] > g[astation[i]]) {  //  select bigger signal
 	astation[i]=m;
 	max_astation=i;
 	fprintf(stderr,"Station %2d: %6.2f MHz - %.2f\n",i,87.5+m*0.05,g[m]);
+	if (write_config)
+	    printf("%d0000=scan-%d\n",(int)((87.5+m*0.05)*100),i);
     }
 }
 
@@ -306,6 +309,8 @@ findstations(void)
 	if(g[i]>maxg) maxg=g[i];
     }
 
+    if (write_config)
+	printf("[Stations]\n");
     baseline=get_baseline(ming,maxg);
     findmax();
 }
@@ -358,6 +363,8 @@ usage(FILE *out)
 	    "  -c dev   use given device        [default: %s]\n"
 	    "  -s       scan\n"
 	    "  -S       scan + write radio.fmmap\n"
+	    "  -i       scan, write initial ~/.radio config file to\n"
+	    "           stdout and quit\n"
 	    "  -q       quit.  Useful with other options to control the\n"
 	    "           radio device without entering interactive mode,\n"
 	    "           i.e. \"radio -qf 91.4\"\n"
@@ -381,7 +388,7 @@ main(int argc, char *argv[])
 
     /* parse args */
     for (;;) {
-	c = getopt(argc, argv, "mhqdsSf:c:");
+	c = getopt(argc, argv, "mhiqdsSf:c:");
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -399,6 +406,11 @@ main(int argc, char *argv[])
 	    break;
 	case 's':
 	    scan = 1;
+	    break;
+	case 'i':
+	    write_config = 1;
+	    scan = 1;
+	    quit = 1;
 	    break;
 	case 'f':
 	    if (1 == sscanf(optarg,"%f",&ffreq)) {
@@ -493,11 +505,11 @@ main(int argc, char *argv[])
     wrefresh(wcommand);    
     
     /* JMMV: Added key information and windows division */
-    mvwprintw(woptions, 1, 1, "UP Key    - increment frequency");
-    mvwprintw(woptions, 2, 1, "DOWN Key  - decrease frequency");
-    mvwprintw(woptions, 3, 1, "g         - go to frequency...");
-    mvwprintw(woptions, 4, 1, "x         - exit");
-    mvwprintw(woptions, 5, 1, "ESC, q, e - mute and exit");
+    mvwprintw(woptions, 1, 1, "Up/Down     - inc/dec frequency");
+    mvwprintw(woptions, 2, 1, "PgUp/PgDown - next/prev station");
+    mvwprintw(woptions, 3, 1, "g           - go to frequency...");
+    mvwprintw(woptions, 4, 1, "x           - exit");
+    mvwprintw(woptions, 5, 1, "ESC, q, e   - mute and exit");
     wrefresh(woptions);
     for (i = 0, c = 1; i < 8; i++) {
 	if (fkeys[i]) {
@@ -573,6 +585,7 @@ main(int argc, char *argv[])
 	    break;
 	case KEY_PPAGE:
 	case KEY_NPAGE:
+	case ' ':
 	    if (max_astation) {
 		current_astation += (key == KEY_NPAGE) ? -1 : 1;
 		if(current_astation<0)
@@ -580,6 +593,17 @@ main(int argc, char *argv[])
 		if(current_astation>max_astation)
 		    current_astation=0;
 		ifreq=87500000+astation[current_astation]*50000;
+	    } else {
+		for (i = 0; i < stations; i++) {
+		    if (ifreq == freqs[i])
+			break;
+		}
+		if (i != stations) {
+		    i += (key == KEY_NPAGE) ? -1 : 1;
+		    if (i < 0 || i >= stations)
+			i = 0;
+		    ifreq = freqs[i];
+		}
 	    }
 	    break;
         case '1':
@@ -603,7 +627,19 @@ main(int argc, char *argv[])
 		ifreq = fkeys[i];
 		mvwprintw(wcommand, 1, 2, "Go to preset station %d", i+1);
 	    }
-	    break;	    
+	    break;
+	case 'L' & 0x1f:  /* Ctrl-L */
+	    redrawwin(stdscr);
+	    redrawwin(wfreq);
+	    redrawwin(woptions);
+	    redrawwin(wstations);
+	    redrawwin(wcommand);
+	    wrefresh(stdscr);
+	    wrefresh(wfreq);
+	    wrefresh(woptions);
+	    wrefresh(wstations);
+	    wrefresh(wcommand);
+	    break;
 	}
     }
     if (mute)

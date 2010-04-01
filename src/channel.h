@@ -94,4 +94,3 @@ extern struct STRTAB captab[];
 
 int str_to_int(char *str, struct STRTAB *tab);
 const char* int_to_str(int n, struct STRTAB *tab);
-int attr_to_int(char *attr);

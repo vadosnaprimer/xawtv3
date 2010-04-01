@@ -665,5 +665,5 @@ struct ng_writer avi_writer = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_writer_register(&avi_writer);
+    ng_writer_register(NG_PLUGIN_MAGIC,PLUGNAME,&avi_writer);
 }

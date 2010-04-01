@@ -77,6 +77,7 @@ static int capture_handler(char *name, int argc, char **argv);
 static int volume_handler(char *name, int argc, char **argv);
 static int attr_handler(char *name, int argc, char **argv);
 static int show_handler(char *name, int argc, char **argv);
+static int list_handler(char *name, int argc, char **argv);
 static int dattr_handler(char *name, int argc, char **argv);
 
 static int snap_handler(char *name, int argc, char **argv);
@@ -109,6 +110,7 @@ static struct COMMANDS {
     { "bright",     0, attr_handler       },
     { "contrast",   0, attr_handler       },
     { "show",       0, show_handler       },
+    { "list",       0, list_handler       },
 
     { "mute",       0, volume_handler     },
     { "volume",     0, volume_handler     },
@@ -355,12 +357,13 @@ set_title(void)
 }
 
 static void
-set_msg_int(const char *name, int val)
+set_msg_int(struct ng_attribute *attr, int val)
 {
     static char  title[256];
     
     if (display_message) {
-	sprintf(title,"%s: %d%%",name,val*100/65535);
+	sprintf(title,"%s: %d%%",attr->name,
+		ng_attr_int2percent(attr,val));
 	display_message(title);
     }
 }
@@ -389,29 +392,33 @@ set_msg_str(char *name, char *val)
 
 /* ----------------------------------------------------------------------- */
 
-#define STEP (65536/100)
-
-static int update_int(int old, char *new)
+static int update_int(struct ng_attribute *attr, int old, char *new)
 {
-    int ret = old;
+    int value = old;
+    int step;
+
+    step = (attr->max - attr->min) * 3 / 100;
+    if (step == 0)
+	step = 1;
     
     if (0 == strcasecmp(new,"inc"))
-        ret += STEP;
+        value += step;
     else if (0 == strcasecmp(new,"dec"))
-	ret -= STEP;
-    else if (new[0] == '+')
-	ret += attr_to_int(new+1);
-    else if (new[0] == '-')
-	ret -= attr_to_int(new+1);
-    else if (isdigit(new[0]))
-	ret = attr_to_int(new);
+	value -= step;
+    else if (0 == strncasecmp(new,"+=",2))
+	value += ng_attr_parse_int(attr,new+2);
+    else if (0 == strncasecmp(new,"-=",2))
+	value -= ng_attr_parse_int(attr,new+2);
+    else if (isdigit(new[0]) || '+' == new[0] || '-' == new[0])
+	value = ng_attr_parse_int(attr,new);
     else
 	fprintf(stderr,"update_int: can't parse %s\n",new);
 
-    if (ret < 0)     ret = 0;
-    if (ret > 65535) ret = 65535;
-
-    return ret;
+    if (value < attr->min)
+	value = attr->min;
+    if (value > attr->max)
+	value = attr->max;
+    return value;
 }
 
 /* ----------------------------------------------------------------------- */
@@ -735,6 +742,8 @@ static int capture_handler(char *name, int argc, char **argv)
 
 static int volume_handler(char *name, int argc, char **argv)
 {
+    struct ng_attribute *vol = ng_attr_byid(attrs,ATTR_ID_VOLUME);
+
     if (0 == argc)
 	goto display;
     
@@ -752,15 +761,19 @@ static int volume_handler(char *name, int argc, char **argv)
     } else {
 	/* volume */
 	cur_attrs[ATTR_ID_VOLUME] =
-	    update_int(cur_attrs[ATTR_ID_VOLUME],argv[0]);
+	    update_int(vol,cur_attrs[ATTR_ID_VOLUME],argv[0]);
     }
     set_volume();
 
  display:
     if (cur_attrs[ATTR_ID_MUTE])
 	set_msg_str("volume","muted");
-    else
-	set_msg_int("volume",cur_attrs[ATTR_ID_VOLUME]);
+    else {
+	if (vol)
+	    set_msg_int(vol,cur_attrs[ATTR_ID_VOLUME]);
+	else
+	    set_msg_str("volume","unmuted");
+    }
     return 0;
 }
 
@@ -816,10 +829,10 @@ static int attr_handler(char *name, int argc, char **argv)
 	break;
     case ATTR_TYPE_INTEGER:
 	if (argc > arg) {
-	    val = update_int(cur_attrs[attr->id],argv[arg]);
+	    val = update_int(attr,cur_attrs[attr->id],argv[arg]);
 	    set_attr(attr,val);
 	}
-	set_msg_int(attr->name,cur_attrs[attr->id]);
+	set_msg_int(attr,cur_attrs[attr->id]);
 	break;
     case ATTR_TYPE_BOOL:
 	if (argc > arg) {
@@ -868,6 +881,43 @@ static int show_handler(char *name, int argc, char **argv)
     case ATTR_TYPE_BOOL:
 	printf("%s: %s\n", attr->name, val ? "on" : "off");
 	break;
+    }
+    return 0;
+}
+
+static int list_handler(char *name, int argc, char **argv)
+{
+    struct ng_attribute *attr;
+    int val,i;
+
+    printf("%-10.10s | type   | %-7.7s | %-7.7s | %s\n",
+	   "attribute","current","default","comment");
+    printf("-----------+--------+---------+--------"
+	   "-+-------------------------------------\n");
+    for (attr = attrs; attr->name != NULL; attr++) {
+	val = cur_attrs[attr->id];
+	switch (attr->type) {
+	case ATTR_TYPE_CHOICE:
+	    printf("%-10.10s | choice | %-7.7s | %-7.7s |",
+		   attr->name,
+		   ng_attr_getstr(attr,val),
+		   ng_attr_getstr(attr,attr->defval));
+	    for (i = 0; attr->choices[i].str != NULL; i++)
+		printf(" %s",attr->choices[i].str);
+	    printf("\n");
+	    break;
+	case ATTR_TYPE_INTEGER:
+	    printf("%-10.10s | int    | %7d | %7d | range is %d => %d\n",
+		   attr->name, val, attr->defval,
+		   attr->min, attr->max);
+	    break;
+	case ATTR_TYPE_BOOL:
+	    printf("%-10.10s | bool   | %-7.7s | %-7.7s |\n",
+		   attr->name,
+		   val ? "on" : "off",
+		   attr->defval ? "on" : "off");
+	    break;
+	}
     }
     return 0;
 }
@@ -958,6 +1008,7 @@ static int snap_handler(char *hname, int argc, char **argv)
 	ret = -1;
 	goto done;
     }
+    buf = ng_filter_single(cur_filter,buf);
 
     if (NULL == filename) {
 	if (-1 != cur_sender) {

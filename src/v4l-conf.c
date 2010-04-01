@@ -153,6 +153,22 @@ dev_open(const char *device, int major)
     return fd;
 }
 
+static void real_user(void)
+{
+    if (-1 == seteuid(getuid())) {
+	perror("seteuid(user)");
+	exit(1);
+    }
+}
+
+static void root_user(void)
+{
+    if (-1 == seteuid(0)) {
+	perror("seteuid(root)");
+	exit(1);
+    }
+}
+
 /* ---------------------------------------------------------------- */
 /* get mode info                                                    */
 
@@ -431,6 +447,9 @@ main(int argc, char *argv[])
     Display                  *dpy;
 #endif
 
+    /* we don't need root proviliges for now ... */
+    real_user();
+
     /* Make sure fd's 0 1 2 are open, otherwise
      * we might end up sending perror() messages to
      * the `device' file */
@@ -574,10 +593,18 @@ main(int argc, char *argv[])
 	    fprintf(stderr,"base=unknown\n");
     }
 
-    /* Set the parameters */
+    /* Set the parameters (needs root) */
+    root_user();
     fd = dev_open(videodev, 81 /* VIDEO_MAJOR */);
     if (-1 == displayinfo_v4l2(fd,&d))
 	displayinfo_v4l(fd,&d);
     close(fd);
     return 0;
 }
+
+/* ---------------------------------------------------------------- */
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

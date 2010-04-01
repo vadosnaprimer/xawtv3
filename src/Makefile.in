@@ -106,6 +106,10 @@ xawtv-remote: xawtv-remote.o
 mididump: midictrl.c
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $(srcdir)/midictrl.c $(ALSA_LIBS)
 
+gl: gl.o RegEdit.o
+	$(CC) $(CFLAGS) -o $@ gl.o RegEdit.o $(MOTIF_LIBS) \
+		-lGLU -lGL -lng -ljpeg $(DLFLAGS)
+
 channel-no-x11.o: $(srcdir)/channel.c
 	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $(srcdir)/channel.c
 
@@ -164,9 +168,9 @@ clean:
 	-rm -f *.o *.moc *core TAGS Xawtv.h MoTV.h MoTV.ad $(I18N)
 
 realclean distclean: clean
-	-rm -f $(PROGS) Makefile *~ *.bak
+	-rm -f $(PROGS) Makefile *~ *.bak gl
 
-depend dep: Xawtv.h MoTV.h
+depend dep: Xawtv.h MoTV.h gl.h
 	$(DEPEND) -- $(CFLAGS) -- *.c
 
 

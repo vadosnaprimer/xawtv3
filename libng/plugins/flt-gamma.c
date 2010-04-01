@@ -1,7 +1,7 @@
 /*
- * simple libng filter -- just invert the image
+ * libng filter -- gamma correction
  *
- * (c) 2001 Gerd Knorr <kraxel@bytesex.org>
+ * (c) 2002 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <pthread.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -18,41 +19,44 @@
 
 /* ------------------------------------------------------------------- */
 
+static unsigned char lut[256];
+static int g = 100;
+
 static void inline
-invert_bytes(unsigned char *dst, unsigned char *src, int bytes)
+gamma_bytes(unsigned char *dst, unsigned char *src, int bytes)
 {
     while (bytes--)
-	*(dst++) = 0xff - *(src++);
+	*(dst++) = lut[ *(src++) ];
 }
 
 static void inline
-invert_native_rgb15(void *d, void *s, int pixels)
+gamma_native_rgb15(void *d, void *s, int pixels)
 {
     unsigned short *dst = d;
     unsigned short *src = s;
     unsigned short r,g,b;
 
     while (pixels--) {
-	r = 0x1f - ((*src >> 10)  &  0x1f);
-	g = 0x1f - ((*src >>  5)  &  0x1f);
-	b = 0x1f - ( *src         &  0x1f);
-	*dst = (r << 10) | (g << 5) | b;
+	r = lut[ ((*src >> 7)  &  0xf8) ] & 0xf8;
+	g = lut[ ((*src >> 2)  &  0xf8) ] & 0xf8;
+	b = lut[ ((*src << 3)  &  0xf8) ] & 0xf8;
+	*dst = (r << 7) | (g << 2) | (b >> 3);
 	src++; dst++;
     }
 }
 
 static void inline
-invert_native_rgb16(void *d, void *s, int pixels)
+gamma_native_rgb16(void *d, void *s, int pixels)
 {
     unsigned short *dst = d;
     unsigned short *src = s;
     unsigned short r,g,b;
 
     while (pixels--) {
-	r = 0x1f - ((*src >> 11)  &  0x1f);
-	g = 0x3f - ((*src >>  5)  &  0x3f);
-	b = 0x1f - ( *src         &  0x1f);
-	*dst = (r << 11) | (g << 5) | b;
+	r = lut[ ((*src >> 8)  &  0xf8) ] & 0xf8;
+	g = lut[ ((*src >> 3)  &  0xfc) ] & 0xfc;
+	b = lut[ ((*src << 3)  &  0xf8) ] & 0xf8;
+	*dst = (r << 8) | (g << 3) | (b >> 3);
 	src++; dst++;
     }
 }
@@ -87,14 +91,13 @@ frame(void *handle, struct ng_video_buf *in)
 	case VIDEO_RGB24:
 	case VIDEO_BGR32:
 	case VIDEO_RGB32:
-	case VIDEO_YUV422:
-	    invert_bytes(dst,src,cnt);
+	    gamma_bytes(dst,src,cnt);
 	    break;
 	case VIDEO_RGB15_NATIVE:
-	    invert_native_rgb15(dst,src,in->fmt.width);
+	    gamma_native_rgb15(dst,src,in->fmt.width);
 	    break;
 	case VIDEO_RGB16_NATIVE:
-	    invert_native_rgb16(dst,src,in->fmt.width);
+	    gamma_native_rgb16(dst,src,in->fmt.width);
 	    break;
 	}
 	dst += out->fmt.bytesperline;
@@ -112,8 +115,50 @@ static void fini(void *handle)
 
 /* ------------------------------------------------------------------- */
 
+static void calc_lut(void)
+{
+    int i,val;
+    
+    for (i = 0; i < 256; i++) {
+	val = 255 * pow((float)i/255, 10000.0/g);
+	if (val < 0)   val = 0;
+	if (val > 255) val = 255;
+	lut[i] = val;
+    }
+}
+
+static int read_attr(struct ng_attribute *attr)
+{
+    return g;
+}
+
+static void write_attr(struct ng_attribute *attr, int value)
+{
+    g = value;
+    calc_lut();
+}
+
+/* ------------------------------------------------------------------- */
+
+static struct ng_attribute attrs[] = {
+    {
+	id:       0,
+	name:     "gamma value",
+	type:     ATTR_TYPE_INTEGER,
+	defval:   100,
+	min:      1,
+	max:      999,
+	points:   2,
+	read:     read_attr,
+	write:    write_attr,
+    },{
+	/* end of list */
+    }
+};
+
 static struct ng_filter filter = {
-    name:    "invert",
+    name:    "gamma",
+    attrs:   attrs,
     fmts:
     (1 << VIDEO_GRAY)         |
     (1 << VIDEO_RGB15_NATIVE) |
@@ -121,8 +166,7 @@ static struct ng_filter filter = {
     (1 << VIDEO_BGR24)        |
     (1 << VIDEO_RGB24)        |
     (1 << VIDEO_BGR32)        |
-    (1 << VIDEO_RGB32)        |
-    (1 << VIDEO_YUV422),
+    (1 << VIDEO_RGB32),
     init:    init,
     frame:   frame,
     fini:    fini,
@@ -131,5 +175,6 @@ static struct ng_filter filter = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
+    calc_lut();
     ng_filter_register(NG_PLUGIN_MAGIC,PLUGNAME,&filter);
 }

@@ -43,6 +43,8 @@ static struct ng_attribute mixer_attrs[] = {
 	id:       ATTR_ID_VOLUME,
 	name:     "volume",
 	type:     ATTR_TYPE_INTEGER,
+	min:      0,
+	max:      100,
 	read:     mixer_read_attr,
 	write:    mixer_write_attr,
     },{
@@ -120,7 +122,7 @@ mixer_read_attr(struct ng_attribute *attr)
     case ATTR_ID_VOLUME:
 	if (-1 == ioctl(h->mix,MIXER_READ(h->dev),&h->volume))
 	    perror("oss mixer read volume");
-	vol = (h->volume & 0x7f) * 65535 / 100;
+	vol = h->volume & 0x7f;
 	return vol;
     case ATTR_ID_MUTE:
 	return h->muted;
@@ -136,7 +138,6 @@ mixer_write_attr(struct ng_attribute *attr, int val)
 
     switch (attr->id) {
     case ATTR_ID_VOLUME:
-	val = val * 100 / 65535;
 	val &= 0x7f;
 	h->volume = val | (val << 8);
 	if (-1 == ioctl(h->mix,MIXER_WRITE(h->dev),&h->volume))
@@ -464,6 +465,6 @@ static struct ng_dsp_driver oss_dsp = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_dsp_driver_register(&oss_dsp);
-    ng_mix_driver_register(&oss_mixer);
+    ng_dsp_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&oss_dsp);
+    ng_mix_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&oss_mixer);
 }

@@ -427,6 +427,7 @@ freeze_image(Display *dpy, Colormap colormap)
 
     fmt = x11_fmt;
     if (NULL != (buf = ng_grabber_get_image(&fmt))) {
+	buf = ng_filter_single(cur_filter,buf);
 	pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
 				buf->fmt.width, buf->fmt.height,
 				NULL);

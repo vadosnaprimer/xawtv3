@@ -114,7 +114,7 @@ struct ng_video_fmt {
 struct ng_video_buf {
     struct ng_video_fmt  fmt;
     int                  size;
-    char                 *data;
+    unsigned char        *data;
 
     /* meta info for frame */
     struct {
@@ -199,7 +199,9 @@ struct ng_attribute {
     const char           *name;
     int                  type;
     int                  defval;
-    struct STRTAB        *choices;
+    struct STRTAB        *choices;    /* ATTR_TYPE_CHOICE  */
+    int                  min,max;     /* ATTR_TYPE_INTEGER */
+    int                  points;      /* ATTR_TYPE_INTEGER -- fixed point */
     const void           *priv;
     void                 *handle;
     int         (*read)(struct ng_attribute*);
@@ -211,6 +213,9 @@ struct ng_attribute* ng_attr_byname(struct ng_attribute *attrs, char *name);
 const char* ng_attr_getstr(struct ng_attribute *attr, int value);
 int ng_attr_getint(struct ng_attribute *attr, char *value);
 void ng_attr_listchoices(struct ng_attribute *attr);
+int ng_attr_int2percent(struct ng_attribute *attr, int value);
+int ng_attr_percent2int(struct ng_attribute *attr, int percent);
+int ng_attr_parse_int(struct ng_attribute *attr, char *str);
 
 /* --------------------------------------------------------------------- */
 
@@ -291,6 +296,7 @@ struct ng_video_conv {
 struct ng_filter {
     char                  *name;
     int                   fmts;
+    struct ng_attribute*  attrs;
     void*                 (*init)(struct ng_video_fmt *fmt);
     struct ng_video_buf*  (*frame)(void *handle,
 				   struct ng_video_buf *in);
@@ -299,6 +305,9 @@ struct ng_filter {
 
 /* --------------------------------------------------------------------- */
 
+/* must be changed if we break compatibility */
+#define NG_PLUGIN_MAGIC 20020118
+
 extern struct ng_video_conv  **ng_conv;
 extern struct ng_filter      **ng_filters;
 extern struct ng_writer      **ng_writers;
@@ -306,12 +315,18 @@ extern struct ng_vid_driver  **ng_vid_drivers;
 extern struct ng_dsp_driver  **ng_dsp_drivers;
 extern struct ng_mix_driver  **ng_mix_drivers;
 
-void ng_conv_register(struct ng_video_conv *list, int count);
-void ng_filter_register(struct ng_filter *filter);
-void ng_writer_register(struct ng_writer *writer);
-void ng_vid_driver_register(struct ng_vid_driver *driver);
-void ng_dsp_driver_register(struct ng_dsp_driver *driver);
-void ng_mix_driver_register(struct ng_mix_driver *driver);
+int ng_conv_register(int magic, char *plugname,
+		     struct ng_video_conv *list, int count);
+int ng_filter_register(int magic, char *plugname,
+		       struct ng_filter *filter);
+int ng_writer_register(int magic, char *plugname,
+		       struct ng_writer *writer);
+int ng_vid_driver_register(int magic, char *plugname,
+			   struct ng_vid_driver *driver);
+int ng_dsp_driver_register(int magic, char *plugname,
+			   struct ng_dsp_driver *driver);
+int ng_mix_driver_register(int magic, char *plugname,
+			   struct ng_mix_driver *driver);
 
 struct ng_video_conv* ng_conv_find(int out, int *i);
 
@@ -326,6 +341,8 @@ ng_mix_init(char *device, char *channel);
 long long ng_get_timestamp(void);
 void ng_check_clipping(int width, int height, int xadjust, int yadjust,
 		       struct OVERLAY_CLIP *oc, int *count);
+struct ng_video_buf*
+ng_filter_single(struct ng_filter *filter, struct ng_video_buf *in);
 
 /* --------------------------------------------------------------------- */
 

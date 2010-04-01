@@ -66,20 +66,21 @@ Set the video input (Television/Composite1/...)
 .B capture [ on | off | overlay | grabdisplay ]
 Set capture mode.
 .TP
-.B volume <n>
+.B volume <arg>
 .TP
-.B color <n>
+.B color <arg>
 .TP
-.B hue <n>
+.B hue <arg>
 .TP
-.B bright <n>
+.B bright <arg>
 .TP
-.B contrast <n>
-Set the parameter to the specified value.  Range for all values is 0
-<= n <= 65535.  <n> can be either absolute (like "32768") or relative
-(marked by a sign, like "+1000" or "-512").  "inc" and "dec" are
-accepted too and increase/decrease the parameter by one percent.
-"volume" additionally accepts "mute".
+.B contrast <arg>
+Set the parameter to the specified value.  <arg> can be one of the
+following: A percent value ("70%" for example).  Some absolute value
+("32768"), the valid range is hardware specific.  Relative values can
+be specified too by prefixing with "+=" or "-=" ("+=10%" or "-=2000").
+The keywords "inc" and "dec" are accepted to and will increase and
+decrease the given value in small steps.
 .TP
 .B setattr <name> <value>
 Set set the value of some attribute (color, contrast, ... can be set
@@ -87,6 +88,10 @@ this way too).
 .TP
 .B show [ <name> ]
 Show the value current of some attribute.
+.TP
+.B list
+List all available attributes with all properties (default value,
+range, ...)
 .TP
 .B snap [ jpeg | ppm ] [ full | win | widthxheight ] <filename>
 Capture one image.

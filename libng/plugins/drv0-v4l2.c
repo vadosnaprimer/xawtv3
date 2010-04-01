@@ -552,40 +552,6 @@ static struct V4L2_ATTR {
 };
 #define NUM_ATTR (sizeof(v4l2_attr)/sizeof(struct V4L2_ATTR))
 
-static int
-v4l2_to_me(const struct v4l2_queryctrl *ctl, int value)
-{
-    int me = 65536;
-    int v4l2;
-    
-    v4l2 = ctl->maximum - ctl->minimum;
-    if (v4l2 > 16384) {
-	v4l2 >>= 2;
-	me   >>= 2;
-    }
-    value = (value - ctl->minimum) * me / v4l2;
-    if (value < 0)      value = 0;
-    if (value > 65535)  value = 65535;
-    return value;
-}
-
-static int
-me_to_v4l2(const struct v4l2_queryctrl *ctl, int value)
-{
-    int me = 65536;
-    int v4l2;
-    
-    v4l2 = ctl->maximum - ctl->minimum;
-    if (v4l2 > 16384) {
-	v4l2 >>= 2;
-	me   >>= 2;
-    }
-    value = value * v4l2 / me + ctl->minimum;
-    if (value < ctl->minimum)  value = ctl->minimum;
-    if (value > ctl->maximum)  value = ctl->maximum;
-    return value;
-}
-
 static struct STRTAB*
 v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
 {
@@ -633,7 +599,9 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	switch (ctl->type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 	    h->attr[h->nattr].type    = ATTR_TYPE_INTEGER;
-	    h->attr[h->nattr].defval  = v4l2_to_me(ctl,ctl->default_value);
+	    h->attr[h->nattr].defval  = ctl->default_value;
+	    h->attr[h->nattr].min     = ctl->minimum;
+	    h->attr[h->nattr].max     = ctl->maximum;
 	    break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 	    h->attr[h->nattr].type    = ATTR_TYPE_BOOL;
@@ -672,14 +640,7 @@ static int v4l2_read_attr(struct ng_attribute *attr)
     if (NULL != ctl) {
 	c.id = ctl->id;
 	xioctl(h->fd,VIDIOC_G_CTRL,&c,0);
-	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
-	    value = v4l2_to_me(ctl,c.value);
-	    if (ng_debug)
-		fprintf(stderr,"v4l2: attr read int %d => %d\n",
-			c.value,value);
-	} else {
-	    value = c.value;
-	}
+	value = c.value;
 	
     } else if (attr->id == ATTR_ID_NORM) {
 	value = -1; /* FIXME */
@@ -691,6 +652,7 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 	memset(&tuner,0,sizeof(tuner));
 	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
 	value = tuner.audmode;
+#if 1
 	if (ng_debug) {
 	    fprintf(stderr,"v4l2:   tuner cap:%s%s%s\n",
 		    (tuner.capability&V4L2_TUNER_CAP_STEREO) ? " STEREO" : "",
@@ -707,6 +669,7 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 		    (tuner.audmode==V4L2_TUNER_MODE_LANG1)  ? " LANG1"  : "",
 		    (tuner.audmode==V4L2_TUNER_MODE_LANG2)  ? " LANG2"  : "");
 	}
+#endif
     }
     return value;
 }
@@ -720,14 +683,7 @@ static void v4l2_write_attr(struct ng_attribute *attr, int value)
 
     if (NULL != ctl) {
 	c.id = ctl->id;
-	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
-	    c.value = me_to_v4l2(ctl,value);
-	    if (ng_debug)
-		fprintf(stderr,"v4l2: attr write int %d => %d\n",
-			value,c.value);
-	} else {
-	    c.value = value;
-	}
+	c.value = value;
 	xioctl(h->fd,VIDIOC_S_CTRL,&c,0);
 	
     } else if (attr->id == ATTR_ID_NORM) {
@@ -947,9 +903,11 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     if (NULL == fmt) {
 	if (ng_debug)
 	    fprintf(stderr,"v4l2: overlay off\n");
-	h->ov_enabled = 0;
-	h->ov_on = 0;
-	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
+	if (h->ov_enabled) {
+	    h->ov_enabled = 0;
+	    h->ov_on = 0;
+	    xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
+	}
 	return 0;
     }
 
@@ -1092,7 +1050,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 	h->buf_me[i].fmt  = h->fmt_me;
 	h->buf_me[i].size = h->buf_me[i].fmt.bytesperline *
 	    h->buf_me[i].fmt.height;
-	h->buf_me[i].data = mmap(NULL, h->buf_me[i].size,
+	h->buf_me[i].data = mmap(NULL, h->buf_v4l2[i].length,
 				 PROT_READ | PROT_WRITE, MAP_SHARED,
 				 h->fd, h->buf_v4l2[i].offset);
 	if ((void*)-1 == h->buf_me[i].data) {
@@ -1308,5 +1266,5 @@ v4l2_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(&v4l2_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,PLUGNAME,&v4l2_driver);
 }

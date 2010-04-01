@@ -300,7 +300,7 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 	}
 	for (i = 0; i < nconv2; i++)
 	    lut2_list[i].fmtid_out = fmtid;
-	ng_conv_register(lut2_list,nconv2);
+	ng_conv_register(NG_PLUGIN_MAGIC,"built-in",lut2_list,nconv2);
 	break;
     case 32:
 	if (swap) {
@@ -312,7 +312,7 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 	}
 	for (i = 0; i < nconv4; i++)
 	    lut4_list[i].fmtid_out = fmtid;
-	ng_conv_register(lut4_list,nconv4);
+	ng_conv_register(NG_PLUGIN_MAGIC,"built-in",lut4_list,nconv4);
 	break;
     }
 }

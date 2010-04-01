@@ -4,20 +4,25 @@ VPATH=$(srcdir)
 include ../../Make.config
 
 CFLAGS=-g -fPIC @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I../.. -I..
-PLUGINS=flt-nop.so flt-invert.so conv-mjpeg.so write-avi.so \
+PLUGINS=flt-invert.so flt-gamma.so conv-mjpeg.so write-avi.so \
 	@PLUGINS@
 
 all build: $(PLUGINS)
 
-.SUFFIXES: .so .o
+.SUFFIXES: .so .o .c
 .o.so:
 	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $<
+.c.o:
+	gcc $(CFLAGS) -DPLUGNAME='"$<"' -c -o $@ $<
+
+flt-gamma.so: flt-gamma.o
+	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $< -lm
 
 write-qt.so: write-qt.o
 	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(QT_LIBS)
 
 clean:
-	rm -f $(PLUGINS) *.o
+	rm -f $(PLUGINS) flt-debug.so *.o
 
 distclean realclean: clean
 	rm -f Makefile *~ *.bak

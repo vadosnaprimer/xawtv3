@@ -534,7 +534,8 @@ new_attr(struct ng_attribute *attr, int val)
 	    XtVaSetValues(a->cmd,XtNlabel,label,NULL);
 	    break;
 	case ATTR_TYPE_INTEGER:
-	    set_float(a->scroll,XtNtopOfThumb,(float)val/65536);
+	    set_float(a->scroll,XtNtopOfThumb,
+		      (float)(val-attr->min) / (attr->max - attr->min));
 	    break;
 	}
 	return;
@@ -662,19 +663,21 @@ pixit(void)
     fmt = x11_fmt;
     fmt.width  = pix_width;
     fmt.height = pix_height;
-    if (NULL != (buf = ng_grabber_get_image(&fmt)) &&
-	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-				      fmt.width,fmt.height,
-				      channels[cur_sender]->name))) {
-	XtVaSetValues(channels[cur_sender]->button,
-		      XtNbackgroundPixmap,pix,
-		      XtNlabel,"",
-		      XtNwidth,pix_width,
-		      XtNheight,pix_height,
-		      NULL);
-	if (channels[cur_sender]->pixmap)
-	    XFreePixmap(dpy,channels[cur_sender]->pixmap);
-	channels[cur_sender]->pixmap = pix;
+    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
+	buf = ng_filter_single(cur_filter,buf);
+	if (0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
+					  fmt.width,fmt.height,
+					  channels[cur_sender]->name))) {
+	    XtVaSetValues(channels[cur_sender]->button,
+			  XtNbackgroundPixmap,pix,
+			  XtNlabel,"",
+			  XtNwidth,pix_width,
+			  XtNheight,pix_height,
+			  NULL);
+	    if (channels[cur_sender]->pixmap)
+		XFreePixmap(dpy,channels[cur_sender]->pixmap);
+	    channels[cur_sender]->pixmap = pix;
+	}
 	ng_release_video_buf(buf);
     }
     video_gd_restart();
@@ -963,20 +966,25 @@ static void
 jump_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct xaw_attribute *a = clientdata;
+    struct ng_attribute *attr = a->attr;
     const char *name;
     char val[16];
-    int  value;
+    int  value,range;
 
-    value = (int)(*(float*)call_data * 65535);
-    if (value > 65535) value = 65535;
-    if (value < 0)     value = 0;
+    range = attr->max - attr->min;
+    value = (int)(*(float*)call_data * range) + attr->min;
+    fprintf(stderr,"value is %d\n",value);
+    if (value < attr->min)
+	value = attr->min;
+    if (value > attr->max)
+	value = attr->max;
     sprintf(val,"%d",value);
 
     if (a) {
 	name = a->attr->name;
 	do_va_cmd(3,"setattr",name,val);
     } else {
-	name  = XtName(XtParent(widget));
+	name = XtName(XtParent(widget));
 	do_va_cmd(2,name,val);
     }
 }
@@ -986,7 +994,7 @@ scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     long      move = (long)call_data;
     Dimension length;
-    float    shown,top1,top2;
+    float     shown,top1,top2;
 
     XtVaGetValues(widget,
 		  XtNlength,     &length,
@@ -997,8 +1005,8 @@ scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
     top2 = top1 + (float)move/length/5;
     if (top2 < 0) top2 = 0;
     if (top2 > 1) top2 = 1;
-#if 0
-    fprintf(stderr,"scroll by %d\tlength %d\tshown %f\ttop %f => %f\n",
+#if 1
+    fprintf(stderr,"scroll by %ld\tlength %d\tshown %f\ttop %f => %f\n",
 	    move,length,shown,top1,top2);
 #endif
     jump_scb(widget,clientdata,&top2);

@@ -179,11 +179,9 @@ control.form.status.f.?.labelString:
 
 scale.form.shadowThickness:		0
 scale*XmScale.orientation:		HORIZONTAL
-scale*XmScale.showValue:		false
+scale*XmScale.showValue:		true
 scale*XmScale.highlightOnEnter:		true
 scale*XmScale.highlightThickness:	1
-scale*XmScale.minimum:			0
-scale*XmScale.maximum:			65535
 scale*XmScale.topAttachment:		ATTACH_WIDGET
 scale*XmScale.leftAttachment:		ATTACH_FORM
 scale*XmScale.rightAttachment:		ATTACH_FORM
@@ -192,6 +190,16 @@ scale*XmScale.BottomOffset:		5
 scale*XmScale.leftOffset:		10
 scale*XmScale.rightOffset:		10
 scale*XmScale.width:			160
+
+
+! ----------------------------------------------------------------------------
+! filter property controls
+
+filter*label.frameChildType:		FRAME_TITLE_CHILD
+filter*XmScale.showValue:		true
+filter*XmScale.highlightOnEnter:	true
+filter*XmScale.highlightThickness:	1
+filter*XmScale.orientation:		HORIZONTAL
 
 
 ! ----------------------------------------------------------------------------

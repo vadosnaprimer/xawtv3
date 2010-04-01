@@ -36,7 +36,7 @@ MoTV.about_box_popup.title:		Info su motv
 MoTV*about_box_popup*messageString:	\
 	motv - Motif TV application	\n\
 	\n\
-	(c) 2001 Gerd Knorr <kraxel@bytesex.org>
+	(c) 2002 Gerd Knorr <kraxel@bytesex.org>
 
 MoTV.errbox_popup.title:		Errori
 
@@ -176,8 +176,8 @@ control*menubar*norm.labelString:	Protocollo TV
 control*menubar*norm.mnemonic:		N
 
 ! filter menu
-!control*menubar*none.labelString:	No filter
-!control*menubar*none.mnemonic:		N
+!control*menubar*fnone.labelString:	No filter
+!control*menubar*fnone.mnemonic:	N
 
 ! help menu
 control*menubar*man.labelString:	Mostra la manpage
@@ -446,11 +446,9 @@ control.form.status.f.?.labelString:
 
 scale.form.shadowThickness:		0
 scale*XmScale.orientation:		HORIZONTAL
-scale*XmScale.showValue:		false
+scale*XmScale.showValue:		true
 scale*XmScale.highlightOnEnter:		true
 scale*XmScale.highlightThickness:	1
-scale*XmScale.minimum:			0
-scale*XmScale.maximum:			65535
 scale*XmScale.topAttachment:		ATTACH_WIDGET
 scale*XmScale.leftAttachment:		ATTACH_FORM
 scale*XmScale.rightAttachment:		ATTACH_FORM
@@ -459,6 +457,16 @@ scale*XmScale.BottomOffset:		5
 scale*XmScale.leftOffset:		10
 scale*XmScale.rightOffset:		10
 scale*XmScale.width:			160
+
+
+! ----------------------------------------------------------------------------
+! filter property controls
+
+filter*label.frameChildType:		FRAME_TITLE_CHILD
+filter*XmScale.showValue:		true
+filter*XmScale.highlightOnEnter:	true
+filter*XmScale.highlightThickness:	1
+filter*XmScale.orientation:		HORIZONTAL
 
 
 ! ----------------------------------------------------------------------------

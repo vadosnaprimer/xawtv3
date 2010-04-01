@@ -89,7 +89,7 @@ real: 3.638s   audio: [+-]0.023s   video: [+-]0.042s
    since you've started recording.
  - "audio" says how much audio data was recorded: simply the total
    number of bytes divided by the data rate (bytes/second).  It is
-   displayer relative to real time.
+   displayed relative to real time.
  - "video" is the same for video: total frames divided by the
    frames/second (also displayed relative to real time).
 

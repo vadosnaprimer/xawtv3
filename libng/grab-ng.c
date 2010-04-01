@@ -254,6 +254,51 @@ ng_attr_listchoices(struct ng_attribute *attr)
     fprintf(stderr,"\n");
 }
 
+int
+ng_attr_int2percent(struct ng_attribute *attr, int value)
+{
+    int range,percent;
+
+    range   = attr->max - attr->min;
+    percent = (value - attr->min) * 100 / range;
+    if (percent < 0)
+	percent = 0;
+    if (percent > 100)
+	percent = 100;
+    return percent;
+}
+
+int
+ng_attr_percent2int(struct ng_attribute *attr, int percent)
+{
+    int range,value;
+
+    range = attr->max - attr->min;
+    value = percent * range / 100 + attr->min;
+    if (value < attr->min)
+	value = attr->min;
+    if (value > attr->max)
+	value = attr->max;
+    return value;
+}
+
+int
+ng_attr_parse_int(struct ng_attribute *attr, char *str)
+{
+    int value,n;
+
+    if (0 == sscanf(str,"%d%n",&value,&n))
+	/* parse error */
+	return attr->defval;
+    if (str[n] == '%')
+	value = ng_attr_percent2int(attr,value);
+    if (value < attr->min)
+	value = attr->min;
+    if (value > attr->max)
+	value = attr->max;
+    return value;
+}
+
 /* --------------------------------------------------------------------- */
 
 void
@@ -318,43 +363,76 @@ static void ng_register_listadd(void ***list, void *add)
     (*list)[n++] = NULL;
 }
 
-void
-ng_conv_register(struct ng_video_conv *list, int count)
+static int ng_check_magic(int magic, char *plugname, char *type)
+{
+    if (magic != NG_PLUGIN_MAGIC) {
+	fprintf(stderr, "ERROR: plugin magic mismatch [xawtv=%d,%s=%d]\n",
+		NG_PLUGIN_MAGIC,plugname,magic);
+	return -1;
+    }
+#if 0
+    if (ng_debug)
+	fprintf(stderr,"plugins: %s registered by %s\n",type,plugname);
+#endif
+    return 0;
+}
+
+int
+ng_conv_register(int magic, char *plugname,
+		 struct ng_video_conv *list, int count)
 {
     int n;
-    
+
+    if (0 != ng_check_magic(magic,plugname,"converters"))
+	return -1;
     for (n = 0; n < count; n++)
 	ng_register_listadd((void***)(&ng_conv),&list[n]);
+    return 0;
 }
 
-void
-ng_filter_register(struct ng_filter *filter)
+int
+ng_filter_register(int magic, char *plugname, struct ng_filter *filter)
 {
+    if (0 != ng_check_magic(magic,plugname,"filter"))
+	return -1;
     ng_register_listadd((void***)(&ng_filters),filter);
+    return 0;
 }
 
-void
-ng_writer_register(struct ng_writer *writer)
+int
+ng_writer_register(int magic, char *plugname, struct ng_writer *writer)
 {
+    if (0 != ng_check_magic(magic,plugname,"writer"))
+	return -1;
     ng_register_listadd((void***)(&ng_writers),writer);
+    return 0;
 }
 
-void
-ng_vid_driver_register(struct ng_vid_driver *driver)
+int
+ng_vid_driver_register(int magic, char *plugname, struct ng_vid_driver *driver)
 {
+    if (0 != ng_check_magic(magic,plugname,"video drv"))
+	return -1;
     ng_register_listadd((void***)(&ng_vid_drivers),driver);
+    return 0;
 }
 
-void
-ng_dsp_driver_register(struct ng_dsp_driver *driver)
+int
+ng_dsp_driver_register(int magic, char *plugname, struct ng_dsp_driver *driver)
 {
+    if (0 != ng_check_magic(magic,plugname,"dsp drv"))
+	return -1;
     ng_register_listadd((void***)(&ng_dsp_drivers),driver);
+    return 0;
 }
 
-void
-ng_mix_driver_register(struct ng_mix_driver *driver)
+int
+ng_mix_driver_register(int magic, char *plugname, struct ng_mix_driver *driver)
 {
+    if (0 != ng_check_magic(magic,plugname,"mixer drv"))
+	return -1;
     ng_register_listadd((void***)(&ng_mix_drivers),driver);
+    return 0;
 }
 
 struct ng_video_conv*
@@ -363,7 +441,7 @@ ng_conv_find(int out, int *i)
     struct ng_video_conv *ret = NULL;
     
     for (; ng_conv[*i] != NULL; (*i)++) {
-#if 1
+#if 0
 	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
 		ng_vfmt_to_desc[ng_conv[*i]->fmtid_in],
 		ng_vfmt_to_desc[ng_conv[*i]->fmtid_out]);
@@ -487,6 +565,20 @@ ng_get_timestamp()
     ts += tv.tv_usec;
     ts *= 1000;
     return ts;
+}
+
+struct ng_video_buf*
+ng_filter_single(struct ng_filter *filter, struct ng_video_buf *in)
+{
+    struct ng_video_buf *out = in;
+    void *handle;
+
+    if (NULL != filter  &&  filter->fmts & (1 << in->fmt.fmtid)) {
+	handle = filter->init(&in->fmt);
+	out = filter->frame(handle,in);
+	filter->fini(handle);
+    }
+    return out;
 }
 
 /* --------------------------------------------------------------------- */

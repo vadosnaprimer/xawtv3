@@ -21,4 +21,5 @@ avi
  * grayscale avi recording (anybody knows how to do this?  256 color
    with a gray palette?)
  * OpenDML index support
- * showriff has problems with files > 2 GB.  Not sure if it's me or glibc...
+ * record even/odd fields separately instead of writing interlaced
+   frames.

@@ -148,12 +148,14 @@ grab_init(void)
 	return;
     
     /* check all available conversion functions */
+    fmt.bytesperline = fmt.width*ng_vfmt_to_depth[fmt.fmtid]/8;
     for (i = 0;;) {
 	conv = ng_conv_find(fmt.fmtid, &i);
 	if (NULL == conv)
 	    break;
 	gfmt = fmt;
 	gfmt.fmtid = conv->fmtid_in;
+	gfmt.bytesperline = 0;
 	if (0 == drv->setformat(h_drv,&gfmt)) {
 	    fmt.width  = gfmt.width;
 	    fmt.height = gfmt.height;

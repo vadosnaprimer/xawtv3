@@ -294,14 +294,16 @@ parse_time(char *time)
 static void
 do_rec_status(char *message)
 {
-    fprintf(stderr,"%s  \r",message);
+    if (!quiet)
+	fprintf(stderr,"%s  \r",message);
 }
 
 static void
 ctrlc(int signal)
 {
     static char text[] = "^C - one moment please\n";
-    write(2,text,strlen(text));
+    if (!quiet)
+	write(2,text,strlen(text));
     signaled=1;
 }
 

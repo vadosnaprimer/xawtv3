@@ -746,6 +746,9 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
     buf = ng_grabber_grab_image(0);
     if (NULL == buf)
 	return -1;
+#if 0 /* FIXME */
+    buf = ng_filter_single(cur_filter,buf);
+#endif
 
     /* rate control */
     expected = buf->info.ts * h->fps / 1000000000000;

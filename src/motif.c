@@ -1,7 +1,7 @@
 /*
  * OpenMotif user interface
  *
- *   (c) 2000-01 Gerd Knorr <kraxel@bytesex.org>
+ *   (c) 2000-2002 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -125,7 +125,7 @@ static Widget launch_menu,opt_menu,cap_menu,freq_menu;
 static Widget vtx_shell,vtx_label;
 static Widget chan_viewport,chan_box;
 static Widget st_freq,st_chan,st_name,st_key;
-static Widget scale_shell;
+static Widget scale_shell,filter_shell;
 static Widget w_full;
 
 /* properties */
@@ -164,6 +164,7 @@ static struct MY_TOPLEVELS {
     { "control",   &control_shell },
     { "streamer",  &str_shell     },
     { "scale",     &scale_shell   },
+    { "filter",    &filter_shell  },
     { "levels",    &levels_shell  },
 };
 #define TOPLEVELS (sizeof(my_toplevels)/sizeof(struct MY_TOPLEVELS))
@@ -174,6 +175,15 @@ struct motif_attribute {
     Widget                  widget;
 };
 static struct motif_attribute *motif_attrs;
+
+struct filter_attribute {
+    struct filter_attribute *next;
+    struct ng_filter        *filter;
+    struct ng_attribute     *attr;
+    int                     value;
+    Widget                  widget;
+};
+static struct filter_attribute *filter_attrs;
 
 /*----------------------------------------------------------------------*/
 /* debug/test code                                                      */
@@ -770,6 +780,127 @@ create_prop(void)
 /*----------------------------------------------------------------------*/
 
 static void
+filter_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    struct filter_attribute *f = clientdata;
+    Widget w;
+
+    switch (f->attr->type) {
+    case ATTR_TYPE_INTEGER:
+	XmScaleGetValue(f->widget,&f->value);
+	break;
+    case ATTR_TYPE_BOOL:
+	f->value = XmToggleButtonGetState(f->widget);
+	break;
+    case ATTR_TYPE_CHOICE:
+	w = NULL;
+	XtVaGetValues(f->widget,XmNmenuHistory,&w,NULL);
+	f->value = ng_attr_getint(f->attr,XtName(w));
+	break;
+    }
+    f->attr->write(f->attr,f->value);
+}
+
+static void
+filter_add_ctrls(Widget rc, struct ng_filter *filter,
+		 struct ng_attribute *attr)
+{
+    struct filter_attribute *f;
+    Widget opt,push;
+    XmString str;
+    Arg args[2];
+    int i;
+
+    f = malloc(sizeof(*f));
+    memset(f,0,sizeof(*f));
+    f->filter = filter;
+    f->attr   = attr;
+    f->next   = filter_attrs;
+    f->value  = attr->read(attr);
+    filter_attrs = f;
+    
+    str = XmStringGenerate((char*)attr->name, NULL, XmMULTIBYTE_TEXT, NULL);
+    switch (attr->type) {
+    case ATTR_TYPE_INTEGER:
+	f->widget = XtVaCreateManagedWidget("scale",
+					    xmScaleWidgetClass,rc,
+					    XmNtitleString,str,
+					    XmNminimum,attr->min,
+					    XmNmaximum,attr->max,
+					    XmNdecimalPoints,attr->points,
+					    NULL);
+	XmScaleSetValue(f->widget,f->value);
+	XtAddCallback(f->widget,XmNvalueChangedCallback,filter_cb,f);
+	break;
+    case ATTR_TYPE_BOOL:
+	f->widget = XtVaCreateManagedWidget("bool",
+					    xmToggleButtonWidgetClass,rc,
+					    XmNlabelString,str,
+					    NULL);
+	XmToggleButtonSetState(f->widget,f->value,False);
+	XtAddCallback(f->widget,XmNvalueChangedCallback,filter_cb,f);
+	break;
+    case ATTR_TYPE_CHOICE:
+	f->widget = XmCreatePulldownMenu(rc,"choiceM",NULL,0);
+	XtSetArg(args[0],XmNsubMenuId,f->widget);
+	XtSetArg(args[1],XmNlabelString,str);
+	opt = XmCreateOptionMenu(rc,"choiceO",args,2);
+	XtManageChild(opt);
+	for (i = 0; attr->choices[i].str != NULL; i++) {
+	    push = XtVaCreateManagedWidget(attr->choices[i].str,
+					   xmPushButtonWidgetClass,f->widget,
+					   NULL);
+	    XtAddCallback(push,XmNactivateCallback,filter_cb,f);
+	    if (f->value == attr->choices[i].nr)
+		XtVaSetValues(f->widget,XmNmenuHistory,push,NULL);
+	}
+	break;
+    }
+    XmStringFree(str);
+}
+
+static void
+create_filter_prop(void)
+{
+    Widget rc1,frame,rc2;
+    XmString str;
+    int i,j;
+
+    filter_shell = XtVaAppCreateShell("filter","MoTV",
+				      topLevelShellWidgetClass,
+				      dpy,
+				      XtNclientLeader,app_shell,
+				      XtNvisual,vinfo.visual,
+				      XtNcolormap,colormap,
+				      XtNdepth,vinfo.depth,
+				      XmNdeleteResponse,XmDO_NOTHING,
+				      NULL);
+    XmdRegisterEditres(filter_shell);
+    XmAddWMProtocolCallback(filter_shell,wm_delete_window,
+			    popupdown_cb,filter_shell);
+    
+    rc1 = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, filter_shell,
+				  NULL);
+
+    for (i = 0; NULL != ng_filters[i]; i++) {
+	if (NULL == ng_filters[i]->attrs)
+	    continue;
+	str = XmStringGenerate(ng_filters[i]->name, NULL,
+			       XmMULTIBYTE_TEXT, NULL);
+	frame = XtVaCreateManagedWidget("frame",xmFrameWidgetClass,rc1,NULL);
+	XtVaCreateManagedWidget("label",xmLabelWidgetClass,frame,
+				XmNlabelString,str,
+				NULL);
+	rc2 = XtVaCreateManagedWidget("rc",xmRowColumnWidgetClass,frame,NULL);
+	XmStringFree(str);
+	for (j = 0; NULL != ng_filters[i]->attrs[j].name; j++)
+	    filter_add_ctrls(rc2,ng_filters[i],&ng_filters[i]->attrs[j]);
+    }
+}
+
+/*----------------------------------------------------------------------*/
+
+static void
 scroll_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct motif_attribute *a = clientdata;
@@ -1203,7 +1334,7 @@ create_control(void)
 	menu = XmCreatePulldownMenu(menubar,"filterM",NULL,0);
 	XtVaCreateManagedWidget("filter",xmCascadeButtonWidgetClass,menubar,
 				XmNsubMenuId,menu,NULL);
-	push = XtVaCreateManagedWidget("none",
+	push = XtVaCreateManagedWidget("fnone",
 				       xmPushButtonWidgetClass,menu,
 				       NULL);
 	XtAddCallback(push,XmNactivateCallback,action_cb,"Filter()");
@@ -1214,6 +1345,10 @@ create_control(void)
 	    sprintf(action,"Filter(%s)",ng_filters[i]->name);
 	    XtAddCallback(push,XmNactivateCallback,action_cb,strdup(action));
 	}
+	XtVaCreateManagedWidget("sep",xmSeparatorWidgetClass,menu,NULL);
+	push = XtVaCreateManagedWidget("fopts",xmPushButtonWidgetClass,menu,
+				       NULL);
+	XtAddCallback(push,XmNactivateCallback,action_cb,"Popup(filter)");
     }
 
     /* menu - help */
@@ -1377,6 +1512,9 @@ create_scale(void)
 	    a->widget = XtVaCreateManagedWidget(attr->name,
 						xmScaleWidgetClass, form,
 						XmNtopWidget,attach,
+						XmNminimum,attr->min,
+						XmNmaximum,attr->max,
+						XmNdecimalPoints,attr->points,
 						NULL);
 	} else {
 	    str = XmStringGenerate((char*)attr->name, NULL,
@@ -1385,6 +1523,9 @@ create_scale(void)
 						xmScaleWidgetClass, form,
 						XmNtopWidget,attach,
 						XmNtitleString,str,
+						XmNminimum,attr->min,
+						XmNmaximum,attr->max,
+						XmNdecimalPoints,attr->points,
 						NULL);
 	    XmStringFree(str);
 	}
@@ -1434,17 +1575,19 @@ pixit(void)
     fmt = x11_fmt;
     fmt.width  = pix_width;
     fmt.height = pix_height;
-    if (NULL != (buf = ng_grabber_get_image(&fmt)) &&
-	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
-				      fmt.width,fmt.height,
-				      channels[cur_sender]->name))) {
-	XtVaSetValues(channels[cur_sender]->button,
-		      XmNlabelPixmap,pix,
-		      XmNlabelType,XmPIXMAP,
-		      NULL);
-	if (channels[cur_sender]->pixmap)
+    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
+	buf = ng_filter_single(cur_filter,buf);
+	if (0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
+					  fmt.width,fmt.height,
+					  channels[cur_sender]->name))) {
+	    XtVaSetValues(channels[cur_sender]->button,
+			  XmNlabelPixmap,pix,
+			  XmNlabelType,XmPIXMAP,
+			  NULL);
+	    if (channels[cur_sender]->pixmap)
 	    XFreePixmap(dpy,channels[cur_sender]->pixmap);
-	channels[cur_sender]->pixmap = pix;
+	    channels[cur_sender]->pixmap = pix;
+	}
 	ng_release_video_buf(buf);
     }
     video_gd_restart();
@@ -2452,6 +2595,7 @@ ipc_init(struct ipc_data *ipc)
     fmt = x11_fmt;
     fmt.fmtid = VIDEO_RGB24;
     buf = ng_grabber_get_image(&fmt);
+    buf = ng_filter_single(cur_filter,buf);
     ipc->buf = ng_malloc_video_buf(&buf->fmt,buf->size);
     ipc->buf->info = buf->info;
     memcpy(ipc->buf->data,buf->data,buf->size);
@@ -3011,6 +3155,7 @@ main(int argc, char *argv[])
     create_prop();
     create_pref();
     create_levels();
+    create_filter_prop();
     stderr_init();
 
     /* read config file + related settings */

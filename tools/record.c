@@ -44,7 +44,8 @@ static int     sound_blksize;
 static short  *sound_buffer;
 static int     maxl,maxr;
 static int     secl,secr;
-static struct  timeval tl,tr;
+static int     *histl,*histr,histn,histi;
+static int     peak_seconds = 2;
 static char    *audio_dev = "/dev/dsp";
 
 static int
@@ -106,6 +107,13 @@ sound_open(int rate)
 	sound_blksize = 4096;
     sound_buffer = malloc(sound_blksize);
 
+    /* peak level history */
+    histn = peak_seconds * rate * 4 / sound_blksize;
+    histl = malloc(histn * sizeof(int));
+    histr = malloc(histn * sizeof(int));
+    memset(histl,0,histn * sizeof(int));
+    memset(histr,0,histn * sizeof(int));
+
     /* trigger record */
     trigger = ~PCM_ENABLE_INPUT;
     ioctl(sound_fd,SNDCTL_DSP_SETTRIGGER,&trigger);
@@ -118,7 +126,6 @@ sound_open(int rate)
 static int
 sound_read(void)
 {
-    struct  timeval now;
     int     i,rc,have;
     short  *v;
 
@@ -154,22 +161,17 @@ sound_read(void)
     }
 
     /* max for the last second */
-    gettimeofday(&now,NULL);
-    if ((tl.tv_sec == now.tv_sec-1 && tl.tv_usec < now.tv_usec) ||
-	(tl.tv_sec  < now.tv_sec-1)) {
-	secl = 0;
-    }
-    if ((tr.tv_sec == now.tv_sec-1 && tr.tv_usec < now.tv_usec) ||
-	(tr.tv_sec  < now.tv_sec-1)) {
-	secr = 0;
-    }
-    if (secl < maxl) {
-	secl = maxl;
-	tl   = now;
-    }
-    if (secr < maxr) {
-	secr = maxr;
-	tr   = now;
+    histl[histi] = maxl;
+    histr[histi] = maxr;
+    histi++;
+    if (histn == histi)
+	histi = 0;
+
+    for (secl = 0, secr = 0, i = 0; i < histn; i++) {
+	if (secl < histl[i])
+	    secl = histl[i];
+	if (secr < histr[i])
+	    secr = histr[i];
     }
     return 0;
 }
@@ -408,55 +410,18 @@ enum MODE {
     NCURSES = 1,
     CONSOLE = 2,
 };
-
-char      *progname;
-int       stop,verbose;
-char      *input    = "line";
-char      *filename = "new";
 enum MODE mode = NCURSES;
+int       stop,verbose;
+char      *filename = "record";
 int       rate = 44100;
 
 static void
 ctrlc(int signal)
 {
     if (verbose)
-	fprintf(stderr,"%s - exiting \n",
+	fprintf(stderr,"\n%s - exiting\n",
 		sys_siglist[signal]);
     stop = 1;
-}
-
-static void
-usage(FILE *fp)
-{
-    fprintf(fp,
-	    "%s records sound in CD-Quality (44100/16bit/stereo).\n"
-	    "It has a nice ascii-art input-level meter.  It is a\n"
-	    "interactive curses application.  You'll need a fast\n"
-	    "terminal, don't try this on a 9600 bps vt100...\n"
-	    "\n"
-	    "%s has seven options:\n"
-	    "  -h        this text\n"
-	    "  -o file   output file name [%s], a number and the .wav\n"
-	    "            extention are added by %s.\n"
-	    "  -i ctrl   mixer control [%s].  This should be the one\n"
-	    "            where you can adjust the record level for\n"
-	    "            your audio source, line and igain are good\n"
-	    "            candidates.\n"
-	    "  -d dev    set audio device [%s]\n"
-	    "  -m dev    set mixer device [%s]\n"
-	    "  -r rate   set sample rate  [%d]\n"
-	    "\n"
-	    "for non-interactive usage only:\n"
-	    "  -c        enable console (non-interactive) mode\n"
-	    "  -v        be verbose (show progress)\n"
-	    "  -t mm:ss  limit the time to record.  By default it records\n"
-	    "            until stopped by a signal (^C)\n"
-	    "  -s size   set max file size [2GB]. You have to give number\n"
-	    "            and unit without space inbetween, i.e. \"100mb\".\n"
-	    "\n",
-	    progname,progname,filename,progname,input,
-	    audio_dev,mixer_dev,
-	    rate);
 }
 
 static int
@@ -465,7 +430,7 @@ record_start(char *outfile, int *nr)
     int wav;
     
     do {
-	sprintf(outfile,"%s%02d.wav",filename,(*nr)++);
+	sprintf(outfile,"%s%03d.wav",filename,(*nr)++);
 	wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
     } while ((-1 == wav) && (EEXIST == errno));
     if (-1 == wav) {
@@ -474,6 +439,22 @@ record_start(char *outfile, int *nr)
     }
     wav_start_write(wav,rate);
     return wav;
+}
+
+static void
+record_stop(int fd)
+{
+    wav_stop_write(fd);
+    close(fd);
+    switch (mode) {
+    case CONSOLE:
+	if (verbose)
+	    printf("\n");
+	break;
+    case NCURSES:
+	mvprintw(3,0,"%*.*s",COLS-1,COLS-1,blank);
+	break;
+    }
 }
 
 static off_t
@@ -502,12 +483,12 @@ str_mb(off_t value)
 {
     static char buf[32];
 
-    if (value > 1000000000) {
+    if (value > (1 << 30)) {
 	value = (value * 10) >> 30;
 	sprintf(buf,"%d.%d GB",(int)(value/10),(int)(value%10));
 	return buf;
     }
-    if (value > 1000000) {
+    if (value > (1 << 20)) {
 	value = (value * 10) >> 20;
 	sprintf(buf,"%d.%d MB",(int)(value/10),(int)(value%10));
 	return buf;
@@ -515,6 +496,52 @@ str_mb(off_t value)
     value >>= 10;
     sprintf(buf,"%3d kB",(int)value);
     return buf;
+}
+
+/* -------------------------------------------------------------------- */
+
+char      *progname;
+char      *input = "line";
+char      *str_maxsize = "2GB";
+int       level_trigger;
+
+static void
+usage(FILE *fp)
+{
+    fprintf(fp,
+	    "\n"
+	    "%s records sound in CD-Quality (44100/16bit/stereo).\n"
+	    "It has a nice ascii-art input-level meter.  It is a\n"
+	    "interactive curses application.  You'll need a fast\n"
+	    "terminal, don't try this on a 9600 bps vt100...\n"
+	    "\n"
+	    "%s has several options:\n"
+	    "  -h        this text\n"
+	    "  -o file   output file basename [%s], a number and the .wav\n"
+	    "            extention are added by %s.\n"
+	    "  -i ctrl   mixer control [%s].  This should be the one\n"
+	    "            where you can adjust the record level for\n"
+	    "            your audio source, \"line\", \"mic\" and \"igain\"\n"
+	    "            are good candidates.\n"
+	    "  -m dev    set mixer device [%s]\n"
+	    "  -d dev    set dsp device   [%s]\n"
+	    "  -r rate   set sample rate  [%d]\n"
+	    "  -p sec    peak seconds     [%d]\n"
+	    "\n"
+	    "for non-interactive usage only:\n"
+	    "  -c        enable console (non-interactive) mode\n"
+	    "  -v        be verbose (show progress)\n"
+	    "  -t mm:ss  limit the time to record.  By default it records\n"
+	    "            until stopped by a signal (^C)\n"
+	    "  -s size   set max file size [%s]. You have to give number\n"
+	    "            and unit without space inbetween, i.e. \"100mb\".\n"
+	    "  -l        signal level triggered recording.\n"
+	    "  -L level  same as above + specify trigger level [%d]\n"
+	    "\n",
+	    progname,progname,filename,progname,
+	    input,mixer_dev,audio_dev,
+	    rate,peak_seconds,str_maxsize,
+	    level_trigger ? level_trigger : 1000);
 }
 
 int
@@ -527,18 +554,28 @@ main(int argc, char *argv[])
     int             sec,maxhour,maxmin,maxsec;
     off_t           maxsize;
 
+    /* init some vars */
     progname = strrchr(argv[0],'/');
     progname = progname ? progname+1 : argv[0];
+    maxsec  = 0;
+    delay   = 0;
+    auto_adjust   = 1;
+    record = 0;
+    nr = 0;
 
     /* parse options */
-    maxsec  = 0;
-    maxsize = parse_size("2G");
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "vhci:o:d:m:r:t:s:")))
+	if (-1 == (c = getopt(argc, argv, "vhlci:o:d:m:r:t:s:L:p:")))
 	    break;
 	switch (c) {
 	case 'v':
 	    verbose = 1;
+	    break;
+	case 'l':
+	    level_trigger = 1000;
+	    break;
+	case 'L':
+	    level_trigger = atoi(optarg);
 	    break;
 	case 'i':
 	    input = optarg;
@@ -558,6 +595,9 @@ main(int argc, char *argv[])
 	case 'r':
 	    rate = atoi(optarg);
 	    break;
+	case 'p':
+	    peak_seconds = atoi(optarg);
+	    break;
 	case 't':
 	    if (3 != sscanf(optarg,"%d:%d:%d",&maxhour,&maxmin,&maxsec)) {
 		maxhour = 0;
@@ -570,11 +610,7 @@ main(int argc, char *argv[])
 	    maxsec += maxhour * 60 * 60;
 	    break;
 	case 's':
-	    maxsize = parse_size(optarg);
-	    if (-1 == maxsize) {
-		fprintf(stderr,"size parse error\n");
-		exit(1);
-	    }
+	    str_maxsize = optarg;
 	    break;
 	case 'h':
 	    usage(stdout);
@@ -584,13 +620,14 @@ main(int argc, char *argv[])
 	    exit(1);
 	}
     }
+    maxsize = parse_size(str_maxsize);
+    if (-1 == maxsize) {
+	fprintf(stderr,"maxsize parse error [%s]\n",str_maxsize);
+	exit(1);
+    }
 
     mixer_open(mixer_dev,input);
     sound_open(rate);
-    delay = 0;
-    auto_adjust = 1;
-    record = 0;
-    nr = 0;
     outfile = malloc(strlen(filename)+16);
 
     if (mode == NCURSES) {
@@ -671,8 +708,7 @@ main(int argc, char *argv[])
 		case 'N':
 		case 'n':
 		    if (record) {
-			wav_stop_write(wav);
-			close(wav);
+			record_stop(wav);
 			wav = record_start(outfile,&nr);
 		    }
 		    break;
@@ -686,10 +722,8 @@ main(int argc, char *argv[])
 			auto_adjust=0;
 		    } else {
 			/* stop */
-			wav_stop_write(wav);
-			close(wav);
+			record_stop(wav);
 			record=0;
-			mvprintw(3,0,"%*.*s",COLS-1,COLS-1,blank);
 		    }
 		    break;
 		case KEY_RIGHT:
@@ -712,18 +746,39 @@ main(int argc, char *argv[])
     }
 
     if (mode == CONSOLE) {
-	wav = record_start(outfile,&nr);
-	record=1;
+	if (!level_trigger) {
+	    wav = record_start(outfile,&nr);
+	    record=1;
+	}
 
 	for (;!stop;) {
 	    if (-1 == sound_read())
 		break;
+	    if (level_trigger) {
+		if (!record &&
+		    (maxl > level_trigger ||
+		     maxr > level_trigger)) {
+		    wav = record_start(outfile,&nr);
+		    record=1;
+		}
+		if (record &&
+		    secl < level_trigger &&
+		    secr < level_trigger) {
+		    record_stop(wav);
+		    record=0;
+		}
+	    }
+	    if (!record) {
+		printf("waiting for signal [%d/%d]...  \r",maxl,maxr);
+		fflush(stdout);
+		continue;
+	    }
+
             sec = (done_size + wav_size) / (rate*4);
 	    if (maxsec && sec >= maxsec)
 		break;
 	    if (wav_size + sound_blksize + sizeof(WAVEHDR) > maxsize) {
-		wav_stop_write(wav);
-		close(wav);
+		record_stop(wav);
 		wav = record_start(outfile,&nr);
 	    }
             wav_write_audio(wav,sound_buffer,sound_blksize);
@@ -742,14 +797,10 @@ main(int argc, char *argv[])
 		fflush(stdout);
 	    }
 	}
-	if (verbose)
-	    printf("\n");
     }
     
-    if (record) {
-	wav_stop_write(wav);
-	close(wav);
-    }
+    if (record)
+	record_stop(wav);
     mixer_close();
     exit(0);
 }
