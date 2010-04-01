@@ -220,7 +220,9 @@ static int XDSdecode(int data)
 		{
 			infoptr = info[mode][type];
 			memcpy(info[mode][type],newinfo[mode][type],length+1);
-			printf("\33[33m%%");
+			if (!plain)
+				printf("\33[33m");
+			putchar('%');
 			switch ((mode<<8) + type)
 			{
 				case 0x0101:
@@ -273,7 +275,9 @@ static int XDSdecode(int data)
 					printf("     DESC: %s",infoptr);
 					break;
 			}
-			printf("\33[0m\n");
+			if (!plain)
+				printf("\33[0m");
+			putchar('\n');
 			fflush(stdout);
 		}
 		mode = 0; type = 0;
@@ -335,7 +339,10 @@ static int webtv_check(char * buf,int len)
 	if(!strncmp(buf,temp,4))
 	{
 		buf[5]=0;
-		printf("\33[35mWEBTV: %s\33[0m\n",buf-nbytes-1);
+		if (!plain)
+			printf("\33[35mWEBTV: %s\33[0m\n",buf-nbytes-1);
+		else
+			printf("WEBTV: %s\n",buf-nbytes-1);
 		fflush(stdout);
 	}
 	return 0;
@@ -441,7 +448,10 @@ static int CCdecode(int data)
 								for (y=0;y<keywords;y++)
 									if (!strncasecmp(keyword[y], ccbuf[ccmode]+x, strlen(keyword[y])))
 										printf("\a");
-							printf("%s\33[m\n",ccbuf[ccmode]);
+							if (!plain)
+								printf("%s\33[m\n",ccbuf[ccmode]);
+							else
+								printf("%s\n",ccbuf[ccmode]);
 							fflush(stdout);
 							/* FALL */
 						case 0x2A: //text restart

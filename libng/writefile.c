@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <jpeglib.h>
 #include <pthread.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include "byteswap.h"
@@ -178,10 +179,10 @@ int write_pgm(char *filename, struct ng_video_buf *buf)
 
 /* Copyright (C) by Heiko Eissfeldt */
 
-typedef unsigned char  BYTE;
-typedef unsigned short WORD;
-typedef unsigned long  DWORD;
-typedef unsigned long  FOURCC;	/* a four character code */
+typedef uint8_t   BYTE;
+typedef uint16_t  WORD;
+typedef uint32_t  DWORD;
+typedef uint32_t  FOURCC;	/* a four character code */
 
 /* flags for 'wFormatTag' field of WAVEFORMAT */
 #define WAVE_FORMAT_PCM 1

@@ -606,7 +606,7 @@ int
 movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
 {
     struct ng_video_buf *buf;
-    int expected;
+    int expected,rc;
 
     if (debug > 1)
 	fprintf(stderr,"grab_put_video\n");
@@ -639,7 +639,7 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
     }
     h->frames++;
     h->vts = buf->info.ts;
-    buf->info.seq = h->seq++;
+    buf->info.seq = h->seq;
 
     /* return a pointer to the frame if requested */
     if (NULL != ret) {
@@ -648,13 +648,15 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
     }
     
     /* put into fifo */
-    if (h->cthreads) {
-	if (0 != fifo_put(&h->cfifo,buf))
-	    ng_release_video_buf(buf);    
-    } else {
-	if (0 != fifo_put(&h->vfifo,buf))
-	    ng_release_video_buf(buf);    
+    if (h->cthreads)
+	rc = fifo_put(&h->cfifo,buf);
+    else
+	rc = fifo_put(&h->vfifo,buf);
+    if (0 != rc) {
+	ng_release_video_buf(buf);    
+	return h->frames;
     }
+    h->seq++;
 
     /* feedback */
     movie_print_timestamps(h);

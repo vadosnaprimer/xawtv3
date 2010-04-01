@@ -62,7 +62,7 @@ char  *grab_norm  = NULL;
 /* jpeg stuff                                                             */
 
 static int
-write_file(int fd, char *data, int width, int height)
+write_file(int fd, unsigned char *data, int width, int height)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -415,7 +415,7 @@ add_text(char *image, int width, int height)
 {
     time_t      t;
     struct tm  *tm;
-    unsigned char line[MSG_MAXLEN+1],*ptr;
+    char        line[MSG_MAXLEN+1],*ptr;
     int         i,x,y,f,len;
 
     time(&t);

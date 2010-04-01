@@ -1,4 +1,11 @@
 
+3.95
+====
+
+ * misc minor fixes collected over time.
+ * make it build with gcc4.
+
+
 3.91
 ====
 

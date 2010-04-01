@@ -187,7 +187,6 @@ static struct KEYTAB keytab[] = {
 
 #define NKEYTAB (sizeof(keytab)/sizeof(struct KEYTAB))
 
-static char              *snapbase;
 static char              default_title[128] = "???";
 static char              message[128] = "";
 
@@ -195,12 +194,23 @@ static char              message[128] = "";
 /* framebuffer stuff                                                      */
 
 static void
-linear_palette(int bit)
+linear_palette(int r, int g, int b)
 {
-    int             i, size = 256 >> (8 - bit);
+    int i, size;
 
+    size = 256 >> (8 - r);
     for (i = 0; i < size; i++)
-	red[i] = green[i] = blue[i] = (unsigned short)(65535.0
+	red[i] = (unsigned short)(65535.0
+		* pow(i/(size - 1.0), fbgamma));
+
+    size = 256 >> (8 - g);
+    for (i = 0; i < size; i++)
+	green[i] = (unsigned short)(65535.0
+		* pow(i/(size - 1.0), fbgamma));
+
+    size = 256 >> (8 - b);
+    for (i = 0; i < size; i++)
+	blue[i] = (unsigned short)(65535.0
 		* pow(i/(size - 1.0), fbgamma));
 }
 
@@ -232,7 +242,7 @@ fb_initcolors(int fd, int gray)
     switch (fb_var.bits_per_pixel) {
     case 8:
 	if (gray) {
-	    linear_palette(8);
+	    linear_palette(8,8,8);
 	    x11_native_format = VIDEO_GRAY;
 	} else {
 	    dither_palette(5,9,5);
@@ -242,7 +252,9 @@ fb_initcolors(int fd, int gray)
     case 15:
     case 16:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
-	    linear_palette(5);
+	    linear_palette(fb_var.red.length,
+			   fb_var.green.length,
+			   fb_var.blue.length);
 #if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = (fb_var.green.length == 6) ?
 	    VIDEO_RGB16_BE : VIDEO_RGB15_BE;
@@ -253,7 +265,7 @@ fb_initcolors(int fd, int gray)
 	break;
     case 24:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
-	    linear_palette(8);
+	    linear_palette(8,8,8);
 #if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = VIDEO_RGB24;
 #else
@@ -262,7 +274,7 @@ fb_initcolors(int fd, int gray)
 	break;
     case 32:
 	if (fb_fix.visual == FB_VISUAL_DIRECTCOLOR)
-	    linear_palette(8);
+	    linear_palette(8,8,8);
 #if BYTE_ORDER == BIG_ENDIAN
 	x11_native_format = VIDEO_RGB32;
 #else

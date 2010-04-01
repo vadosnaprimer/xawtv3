@@ -2124,14 +2124,6 @@ int xt_vm_randr_input_init(Display *dpy)
     if (debug)
 	fprintf(stderr,"xt: checking for randr extention ...\n");
     xfree_randr_init(dpy);
-#if 0
-    if (fs_width && fs_height && !args.vidmode) {
-	if (debug)
-	    fprintf(stderr,"fullscreen mode configured (%dx%d), "
-		    "VidMode extention enabled\n",fs_width,fs_height);
-	args.vidmode = 1;
-    }
-#endif
     if (debug)
 	fprintf(stderr,"xt: checking for vidmode extention ...\n");
     xfree_vm_init(dpy);

@@ -112,6 +112,7 @@ x11/propwatch    : LDLIBS  += $(ATHENA_LIBS)
 # linker flags
 x11/xawtv        : LDFLAGS := $(DLFLAGS)
 x11/motv         : LDFLAGS := $(DLFLAGS)
+x11/mtt          : LDFLAGS := $(DLFLAGS)
 x11/v4lctl       : LDFLAGS := $(DLFLAGS)
 x11/pia          : LDFLAGS := $(DLFLAGS)
 

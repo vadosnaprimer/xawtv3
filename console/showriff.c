@@ -335,9 +335,9 @@ static void dump_jpeg(unsigned char *buf, int len)
 static unsigned char*
 off_t_to_char(off_t val, int base, int len)
 {
-    static const char digit[] = "0123456789abcdef";
-    static char outbuf[32];
-    char *p = outbuf + sizeof(outbuf);
+    static const unsigned char digit[] = "0123456789abcdef";
+    static unsigned char outbuf[32];
+    unsigned char *p = outbuf + sizeof(outbuf);
     int i;
 
     *(--p) = 0;
@@ -375,7 +375,7 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 			    FOURCC DesiredTag, int RekDepth,
 			    DWORD* chunksize)
 {
-    char   buf[BUFSIZE];
+    unsigned char   buf[BUFSIZE];
     int    buflen;
     char   tagstr[5];          /* FOURCC of chunk converted to string */
     FOURCC chunkid;            /* read FOURCC of chunk                */

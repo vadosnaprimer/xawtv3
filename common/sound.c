@@ -13,8 +13,8 @@ void
 oss_levels(struct ng_audio_buf *buf, int *left, int *right)
 {
     int lmax,rmax,i,level;
-    signed char *s = buf->data;
-    unsigned char *u = buf->data;
+    signed char   *s = (signed char*)   buf->data;
+    unsigned char *u = (unsigned char*) buf->data;
 
     lmax = 0;
     rmax = 0;

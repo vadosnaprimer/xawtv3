@@ -186,7 +186,7 @@ ftp_recv(struct ftp_state *s)
 		s->connected = 0;
 	    }
 	    if (NULL != strstr(p,"Not connected")) {
-		if (ftp_connected)
+		if (!ftp_connected(s))
 		    fprintf(stderr,"ftp: lost connection\n");
 		s->connected = 0;
 	    }
@@ -236,7 +236,7 @@ ftp_connect(struct ftp_state *s, char *host, char *user, char *pass, char *dir)
 	/* login */
 	ftp_send(s,3,"user",user,pass);
 	if (230 != ftp_recv(s)) {
-	    if (!ftp_connected)
+	    if (!ftp_connected(s))
 		continue;
 	    fprintf(stderr,"ftp: login incorrect\n");
 	    exit(1);

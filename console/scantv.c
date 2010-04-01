@@ -16,10 +16,10 @@
 #include <pthread.h>
 
 /* xawtv */
-#include "channel.h"
 #include "frequencies.h"
 #include "grab-ng.h"
 #include "commands.h"
+#include "channel.h"
 
 #include "vbi-data.h"
 

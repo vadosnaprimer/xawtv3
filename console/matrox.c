@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
@@ -24,7 +25,7 @@ void (*gfx_scaler_on)(int offscreen, int pitch, int width, int height,
 void (*gfx_scaler_off)(void);
 
 static unsigned char	*bmmio;
-static unsigned long	*mmio;
+static uint32_t	        *mmio;
 
 static void
 wrio4(int adr, unsigned long val)
@@ -227,6 +228,6 @@ gfx_init(int fd)
     off = (unsigned long)fb_fix.mmio_start -
 	((unsigned long)fb_fix.mmio_start & ~(PAGE_SIZE-1));
     bmmio += off;
-    mmio = (unsigned long*)bmmio;
+    mmio = (uint32_t*)bmmio;
     return 0;
 }

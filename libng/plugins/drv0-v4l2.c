@@ -342,6 +342,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	    h->attr[h->nattr].choices = v4l2_menu(h->fd, ctl);
 	    break;
 	default:
+	    memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
 	    return;
 	}
     } else {
