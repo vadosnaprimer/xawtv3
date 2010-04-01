@@ -1,10 +1,25 @@
 
+3.72 => 3.73
+============
+
+ * new YUV4MPEG format support (Juan Antonio Zubimendi
+   <andoni@ilex.lpsat.net>).
+ * made grabdisplay check the aspect ratio configuration.
+ * dropped quicktime4linux support, using libquicktime
+   (http://libquicktime.sf.net) instead.
+ * added "fixed" as last fallback to all font sets.
+ * made plugin Makefile delete old, incompatible plugins.
+ * added iso8859-15 led font, for all these foobar@euro
+   locales ...
+
+ 
 3.71 => 3.72
 ============
 
  * v4l2 fixes.
  * irish frequency table fix (Dan Lindstrom).
- * made the snap command write files using "write tmpfile + rename".
+ * made the snap command write files using "write tmpfile + rename"
+   to allow atomic updates.
 
 
 3.70 => 3.71

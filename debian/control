@@ -1,7 +1,7 @@
 Source: xawtv
 Section: graphics
 Priority: extra
-Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), xaw3dg-dev, liblircclient-dev, debhelper, xutils, libquicktime4linux-dev, xbase-clients, aalib1-dev, libasound2-dev
+Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), liblircclient-dev, debhelper, xutils, xbase-clients, aalib1-dev, libasound2-dev
 Maintainer: Gerd Knorr <kraxel@debian.org>
 Standards-Version: 3.5.2
 

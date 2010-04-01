@@ -167,12 +167,12 @@ struct ng_audio_buf {
 /* someone who receives video and/or audio data (writeavi, ...)          */
 
 struct ng_format_list {
-    const char  *name;
-    const char  *desc;  /* if standard fmtid description doesn't work
+    char  *name;
+    char  *desc;  /* if standard fmtid description doesn't work
 			   because it's converted somehow */
-    const char  *ext;
-    const int   fmtid;
-    const void  *priv;
+    char  *ext;
+    int   fmtid;
+    void  *priv;
 };
 
 struct ng_writer {

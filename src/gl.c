@@ -128,8 +128,8 @@ grab_init(char *dev)
     }
 }
 
-static void
-grab_size(int format, int width, int height)
+static int
+grab_size(int format, int width, int height, int allow_convert)
 {
     int i;
     
@@ -153,8 +153,10 @@ grab_size(int format, int width, int height)
 	drv->startvideo(h_drv,-1,4);
 	cap_on = 1;
 	fprintf(stderr,"grab: native [%s]\n",ng_vfmt_to_desc[fmt.fmtid]);
-	return;
+	return 0;
     }
+    if (!allow_convert)
+	return -1;
     
     /* check all available conversion functions */
     fmt.bytesperline = fmt.width*ng_vfmt_to_depth[fmt.fmtid]/8;
@@ -174,11 +176,10 @@ grab_size(int format, int width, int height)
 	    fprintf(stderr,"grab: convert [%s => %s]\n",
 		    ng_vfmt_to_desc[gfmt.fmtid],
 		    ng_vfmt_to_desc[fmt.fmtid]);
- 	    return;
+ 	    return 0;
 	}
     }
-    fprintf(stderr,"grab: can't get rgb24 data\n");
-    exit(1);
+    return -1;
 }
 
 static struct ng_video_buf*
@@ -217,6 +218,33 @@ static void grab_mute(int state)
 
 /* --------------------------------------------------------------------- */
 
+static struct {
+    int  fmtid;
+    int  glfmt;
+    int  gltype;
+    char *glext;
+} fmttab[] = {
+    {
+#ifdef GL_EXT_bgra
+	fmtid:  VIDEO_BGR24,
+	glfmt:  GL_BGR_EXT,
+	gltype: GL_UNSIGNED_BYTE,
+	glext:  "GL_EXT_bgra",
+    },{
+	fmtid:  VIDEO_BGR32,
+	glfmt:  GL_BGRA_EXT,
+	gltype: GL_UNSIGNED_BYTE,
+	glext:  "GL_EXT_bgra",
+    },{
+#endif
+	fmtid:  VIDEO_RGB24,
+	glfmt:  GL_RGB,
+	gltype: GL_UNSIGNED_BYTE,
+    },{
+	/* end of list */
+    }
+};
+
 static int gl_attrib[] = { GLX_RGBA,
 			   GLX_RED_SIZE, 1,
 			   GLX_GREEN_SIZE, 1,
@@ -224,6 +252,7 @@ static int gl_attrib[] = { GLX_RGBA,
 			   GLX_DOUBLEBUFFER,
 			   None };
 static Dimension wwidth,wheight;
+static int wfmt;
 
 static void gl_resize(Widget widget)
 {
@@ -267,7 +296,7 @@ static void gl_resize(Widget widget)
 	h = (1 << (i-1));
 	fprintf(stderr,"gl: texture size out: %dx%d\n",w,h);
     }
-    grab_size(VIDEO_RGB24,w,h);
+    grab_size(fmttab[wfmt].fmtid,w,h,1);
 }
 
 static void gl_redraw(Widget widget)
@@ -285,7 +314,7 @@ static void gl_blit_img(Widget widget, struct ng_video_buf *buf)
     glRasterPos2i(0, wheight);
     glPixelZoom(xs,-ys);
     glDrawPixels(buf->fmt.width, buf->fmt.height,
-		 GL_RGB,GL_UNSIGNED_BYTE,
+		 fmttab[wfmt].glfmt,fmttab[wfmt].gltype,
 		 buf->data);
     glXSwapBuffers(XtDisplay(widget), XtWindow(widget));
 }
@@ -304,13 +333,15 @@ static void gl_blit_tex(Widget widget, struct ng_video_buf *buf)
     if (width != buf->fmt.width || height != buf->fmt.height) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
 		     buf->fmt.width,buf->fmt.height,0,
-		     GL_RGB,GL_UNSIGNED_BYTE,buf->data);
+		     fmttab[wfmt].glfmt,fmttab[wfmt].gltype,
+		     buf->data);
 	width  = buf->fmt.width;
 	height = buf->fmt.height;
     } else {
 	glTexSubImage2D(GL_TEXTURE_2D, 0,
 			0,0,buf->fmt.width,buf->fmt.height,
-			GL_RGB,GL_UNSIGNED_BYTE,buf->data);
+			fmttab[wfmt].glfmt,fmttab[wfmt].gltype,
+			buf->data);
     }
 
     glEnable(GL_TEXTURE_2D);
@@ -333,10 +364,28 @@ static void gl_blit(Widget widget, struct ng_video_buf *buf)
 	gl_blit_img(view,buf);
 }
 
+static int gl_ext(GLubyte *find)
+{
+    int len = strlen(find);
+    const GLubyte *ext;
+    GLubyte *pos;
+    
+    ext = glGetString(GL_EXTENSIONS);
+    if (NULL == (pos = strstr(ext,find)))
+	return 0;
+    if (pos != ext && pos[-1] != ' ')
+	return 0;
+    if (pos[len] != ' ' && pos[len] != '\0')
+	return 0;
+    fprintf(stderr,"gl: extention %s available\n",find);
+    return 1;
+}
+
 static void gl_init(Widget widget)
 {
     XVisualInfo *visinfo;
     GLXContext ctx;
+    int i;
 
     fprintf(stderr,"gl: init\n");
     visinfo = glXChooseVisual(XtDisplay(widget),
@@ -353,6 +402,29 @@ static void gl_init(Widget widget)
     glClearColor (0.0, 0.0, 0.0, 0.0);
     glShadeModel(GL_FLAT);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    /* try without converting first ... */
+    for (i = 0; fmttab[i].fmtid != 0; i++) {
+	if (fmttab[i].glext)
+	    if (!gl_ext(fmttab[i].glext))
+		continue;
+	if (0 == grab_size(fmttab[i].fmtid,320,240,0)) {
+	    wfmt = i;
+	    return;
+	}
+    }
+    /* ... failing that with converting */
+    for (i = 0; fmttab[i].fmtid != 0; i++) {
+	if (fmttab[i].glext)
+	    if (!gl_ext(fmttab[i].glext))
+		continue;
+	if (0 == grab_size(fmttab[i].fmtid,320,240,1)) {
+	    wfmt = i;
+	    return;
+	}
+    }
+    fprintf(stderr,"sorry, no way to display images\n");
+    exit(1);
 }
 
 /* --------------------------------------------------------------------- */

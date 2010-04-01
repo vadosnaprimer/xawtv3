@@ -6,6 +6,7 @@ include ../../Make.config
 CFLAGS=-g -fPIC @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I../.. -I..
 PLUGINS=flt-invert.so flt-gamma.so conv-mjpeg.so write-avi.so \
 	@PLUGINS@
+GONE=invert.so nop.so flt-nop.so
 
 all build: $(PLUGINS)
 
@@ -30,6 +31,7 @@ distclean realclean: clean
 install: all
 	$(INSTALL_DIR) $(libdir)
 	$(INSTALL_PROGRAM) -s $(PLUGINS) $(libdir)
+	for f in $(GONE); do rm -f $(libdir)/$$f; done
 
 depend dep:
 	$(DEPEND) -- $(CFLAGS) -- *.c

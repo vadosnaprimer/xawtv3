@@ -4,11 +4,11 @@
 
 Xawtv*international:		true
 Xawtv*font:			7x13bold
-Xawtv*fontSet:			-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*
+Xawtv*fontSet:			-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*,fixed
 
 TopLevelShell*international:	true
 TopLevelShell*font:		7x13bold
-TopLevelShell*fontSet:		-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*
+TopLevelShell*fontSet:		-*-fixed-bold-R-*-*-*-120-*-*-*-*,-*-*-*-R-*-*-*-120-*-*-*-*,fixed
 
 
 *popup_help.title:		Welcome to xawtv!
@@ -346,7 +346,7 @@ xawtv.onscreen*borderColor:		black
 xawtv.onscreen*foreground:		lightgreen
 xawtv.onscreen.label.justify:		left
 xawtv.onscreen.label.font: -*-ledfixed-medium-r-semicondensed--39-*
-xawtv.onscreen.label.fontSet: -*-ledfixed-medium-r-semicondensed--39-*,-*-*-*-R-*-*-*-120-*-*-*-*
+xawtv.onscreen.label.fontSet: -*-ledfixed-medium-r-semicondensed--39-*,-*-*-*-R-*-*-*-120-*-*-*-*,fixed
 
 
 xawtv.vtx.allowShellResize:		true

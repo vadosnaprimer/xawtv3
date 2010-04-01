@@ -597,13 +597,13 @@ avi_close(void *handle)
 /* ----------------------------------------------------------------------- */
 /* data structures describing our capabilities                             */
 
-static const struct avi_video_priv avi_rgb15 = {
+static struct avi_video_priv avi_rgb15 = {
     bytesperpixel:  2,
 };
-static const struct avi_video_priv avi_rgb24 = {
+static struct avi_video_priv avi_rgb24 = {
     bytesperpixel:  3,
 };
-static const struct avi_video_priv avi_mjpeg = {
+static struct avi_video_priv avi_mjpeg = {
     handler:        {'M','J','P','G'},
     compress:       {'M','J','P','G'},
     bytesperpixel:  3,

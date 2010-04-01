@@ -17,12 +17,14 @@
 *renderTable.fontType: FONT_IS_FONTSET
 *renderTable.fontName: \
 	-*-helvetica-medium-r-normal--*-120-*-*-*-*, \
-	-*-*-*-r-normal--*-120-*-*-*-*
+	-*-*-*-r-normal--*-120-*-*-*-*, \
+	fixed
 
 MoTV.onscreen.label.renderTable:
 MoTV.onscreen.label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.onscreen.label.renderTable.fontName: \
-	-*-ledfixed-medium-r-semicondensed--39-*-*-*-*-*
+	-*-ledfixed-medium-r-semicondensed--39-*-*-*-*-*, \
+	fixed
 
 MoTV.vtx.label.renderTable:
 MoTV.vtx.label.renderTable.fontType: FONT_IS_FONT

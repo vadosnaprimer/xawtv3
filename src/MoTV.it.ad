@@ -17,12 +17,14 @@
 *renderTable.fontType: FONT_IS_FONTSET
 *renderTable.fontName: \
 	-*-helvetica-medium-r-normal--*-120-*-*-*-*, \
-	-*-*-*-r-normal--*-120-*-*-*-*
+	-*-*-*-r-normal--*-120-*-*-*-*, \
+	fixed
 
 MoTV.onscreen.label.renderTable:
 MoTV.onscreen.label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.onscreen.label.renderTable.fontName: \
-	-*-ledfixed-medium-r-semicondensed--39-*-*-*-*-*
+	-*-ledfixed-medium-r-semicondensed--39-*-*-*-*-*, \
+	fixed
 
 MoTV.vtx.label.renderTable:
 MoTV.vtx.label.renderTable.fontType: FONT_IS_FONT
@@ -577,10 +579,12 @@ MoTV.man_popup*label.marginHeight:		5
 MoTV.man_popup*label.renderTable: bold,underline
 MoTV.man_popup*label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.fontName: \
-	-*-fixed-medium-r-normal--13-*-*-*-*-*
+	-*-fixed-medium-r-normal--13-*-*-*-*-*, \
+	fixed
 MoTV.man_popup*label.renderTable.bold.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.bold.fontName: \
-	-*-fixed-bold-r-normal--13-*-*-*-*-*
+	-*-fixed-bold-r-normal--13-*-*-*-*-*, \
+	fixed
 MoTV.man_popup*label.renderTable.underline.underlineType: SINGLE_LINE
 
 

@@ -1,5 +1,5 @@
-# Generated automatically from Makefile.in by configure.
 srcdir=.
+
 
 PROGS=detect eeprom #scan
 

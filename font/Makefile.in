@@ -7,7 +7,8 @@ include ../Make.config
 FONTSERVER := unix/:7100
 FONTSPEC   := -misc-fixed-medium-r-semicondensed-*-13-120-75-75-c-60
 
-PCF        := led-iso8859-1.pcf led-iso8859-2.pcf led-koi8-r.pcf
+PCF        := led-iso8859-1.pcf led-iso8859-2.pcf led-iso8859-15.pcf \
+	      led-koi8-r.pcf
 BDF        := $(PCF:pcf=bdf)
 
 all build: $(PCF)

@@ -2,8 +2,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include <quicktime/quicktime.h>
+#include <quicktime/colormodels.h>
+#include <quicktime/lqt.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
@@ -13,14 +16,15 @@
 /* ----------------------------------------------------------------------- */
 
 struct qt_video_priv {
-    const char codec[4];
-    const int libencode;
-    const int yuvsign;
+    char  fcc[5];
+    int   yuvsign;
+    int   libencode;
+    int   cmodel;
 };
 
 struct qt_audio_priv {
-    const char codec[4];
-    const int libencode;
+    char  fcc[5];
+    int   libencode;
 };
 
 struct qt_handle {
@@ -80,20 +84,25 @@ qt_open(char *filename, char *dummy,
 			    ng_afmt_to_channels[h->audio.fmtid],
 			    h->audio.rate,
 			    ng_afmt_to_bits[h->audio.fmtid],
-			    (char*)paudio->codec);
+			    (char*)paudio->fcc);
 	h->audio_sample = ng_afmt_to_channels[h->audio.fmtid] *
 	    ng_afmt_to_bits[h->audio.fmtid] / 8;
-	if (h->lib_audio && !quicktime_supported_audio(h->fh, 0)) {
-	    fprintf(stderr,"libquicktime: audio codec not supported\n");
-	    goto fail;
+	if (h->lib_audio) {
+	    if (!quicktime_supported_audio(h->fh, 0)) {
+		fprintf(stderr,"libquicktime: audio codec not supported\n");
+		goto fail;
+	    }
 	}
     }
     if (h->video.fmtid != VIDEO_NONE) {
 	quicktime_set_video(h->fh,1,h->video.width,h->video.height,
-			    (float)fps/1000,(char*)pvideo->codec);
-	if (h->lib_video && !quicktime_supported_video(h->fh, 0)) {
-	    fprintf(stderr,"libquicktime: video codec not supported\n");
-	    goto fail;
+			    (float)fps/1000,(char*)pvideo->fcc);
+	if (h->lib_video) {
+	    quicktime_set_cmodel(h->fh,pvideo->cmodel);
+	    if (!quicktime_supported_video(h->fh, 0)) {
+		fprintf(stderr,"libquicktime: video codec not supported\n");
+		goto fail;
+	    }
 	}
     }
     quicktime_set_info(h->fh, "Dumme Bemerkungen gibt's hier umsonst.");
@@ -149,9 +158,13 @@ static int
 qt_audio(void *handle, struct ng_audio_buf *buf)
 {
     struct qt_handle *h = handle;
+    int16_t *ch[2];
+    
     if (h->lib_audio) {
-	/* not used yet */
-	return 0;
+	/* FIXME: works for one channel (mono) only */
+	ch[0] = (int16_t*)buf->data;
+	return quicktime_encode_audio(h->fh, ch, NULL,
+				      buf->size / h->audio_sample);
     } else {
 	return quicktime_write_audio(h->fh, buf->data,
 				     buf->size / h->audio_sample, 0);
@@ -174,31 +187,32 @@ qt_close(void *handle)
 
 /* ----------------------------------------------------------------------- */
 
-static const struct qt_video_priv qt_raw = {
-    codec:     QUICKTIME_RAW,
+static int cmodels[] = {
+    [BC_BGR888]  = VIDEO_BGR24,
+    [BC_RGB888]  = VIDEO_RGB24,
+    [BC_YUV422]  = VIDEO_YUV422,
+    [BC_YUV422P] = VIDEO_YUV422P,
+    [BC_YUV420P] = VIDEO_YUV420P,
+};
+
+static struct qt_video_priv qt_raw = {
+    fcc:       QUICKTIME_RAW,
     libencode: 0,
 };
-static const struct qt_video_priv qt_yuv2 = {
-    codec:     QUICKTIME_YUV2,
-    libencode: 0,
+static struct qt_video_priv qt_yuv2 = {
+    fcc:       QUICKTIME_YUV2,
     yuvsign:   1,
-};
-static const struct qt_video_priv qt_yv12 = {
-    codec:     QUICKTIME_YUV420,
     libencode: 0,
 };
-static const struct qt_video_priv qt_jpeg = {
-    codec:     QUICKTIME_JPEG,
+static struct qt_video_priv qt_yv12 = {
+    fcc:       QUICKTIME_YUV420,
     libencode: 0,
 };
-static const struct qt_video_priv qt_mjpa = {
-    codec:     QUICKTIME_MJPA,
-    libencode: 1,
+static struct qt_video_priv qt_jpeg = {
+    fcc:       QUICKTIME_JPEG,
+    libencode: 0,
 };
-static const struct qt_video_priv qt_png = {
-    codec:     QUICKTIME_PNG,
-    libencode: 1,
-};
+
 static const struct ng_format_list qt_vformats[] = {
     {
 	name:  "raw",
@@ -221,32 +235,20 @@ static const struct ng_format_list qt_vformats[] = {
 	fmtid: VIDEO_JPEG,
 	priv:  &qt_jpeg,
     },{
-	name:  "mjpa",
-	desc:  "Motion JPEG-A",
-	ext:   "mov",
-	fmtid: VIDEO_RGB24,
-	priv:  &qt_mjpa,
-    },{
-	name:  "png",
-	desc:  "PNG images",
-	ext:   "mov",
-	fmtid: VIDEO_RGB24,
-	priv:  &qt_png,
-    },{
 	/* EOF */
     }
 };
 
-static const struct qt_audio_priv qt_mono8 = {
-    codec:     QUICKTIME_RAW,
-    libencode: 0,
+static struct qt_audio_priv qt_mono8 = {
+    fcc:        QUICKTIME_RAW,
+    libencode:  0,
 };
-static const struct qt_audio_priv qt_mono16 = {
-    codec:	QUICKTIME_TWOS,
+static struct qt_audio_priv qt_mono16 = {
+    fcc:	QUICKTIME_TWOS,
     libencode:	0,
 };
-static const struct qt_audio_priv qt_stereo = {
-    codec:	QUICKTIME_TWOS,
+static struct qt_audio_priv qt_stereo = {
+    fcc:	QUICKTIME_TWOS,
     libencode:	0,
 };
 static const struct ng_format_list qt_aformats[] = {
@@ -282,8 +284,188 @@ struct ng_writer qt_writer = {
     wr_close:  qt_close,
 };
 
+/* ----------------------------------------------------------------------- */
+
+#if 0
+/* debug only */
+static void dump_codecs(void)
+{
+    lqt_codec_info_t **info;
+    int i,j;
+
+    info = lqt_query_registry(1, 1, 1, 1);
+    for (i = 0; info[i] != NULL; i++) {
+	fprintf(stderr,"lqt: %s codec: %s [%s]\n",
+		info[i]->type == LQT_CODEC_AUDIO ? "audio" : "video",
+		info[i]->name,info[i]->long_name);
+	fprintf(stderr,"   encode: %s\n",
+		info[i]->direction == LQT_DIRECTION_DECODE ? "no" : "yes");
+	fprintf(stderr,"   decode: %s\n",
+		info[i]->direction == LQT_DIRECTION_ENCODE ? "no" : "yes");
+	for (j = 0; j < info[i]->num_fourccs; j++)
+	    fprintf(stderr,"   fcc   : %s\n",info[i]->fourccs[j]);
+	for (j = 0; j < info[i]->num_encoding_colormodels; j++)
+	    fprintf(stderr,"   cmodel: %s\n",
+		    lqt_get_colormodel_string(info[i]->encoding_colormodels[j]));
+	fprintf(stderr,"\n");
+    }
+    lqt_destroy_codec_info(info);
+}
+#endif
+
+static struct ng_format_list*
+list_add(struct ng_format_list* list,
+	 char *name, char *desc, char *ext, int fmtid, void *priv)
+{
+    int n;
+
+    for (n = 0; list[n].name != NULL; n++)
+	/* nothing */;
+    list = realloc(list,sizeof(struct ng_format_list)*(n+2));
+    memset(list+n,0,sizeof(struct ng_format_list)*2);
+    list[n].name  = strdup(name);
+    list[n].desc  = strdup(desc);
+    list[n].ext   = strdup(ext);
+    list[n].fmtid = fmtid;
+    list[n].priv  = priv;
+    return list;
+}
+
+static struct ng_format_list* video_list(void)
+{
+    static int debug = 0;
+    lqt_codec_info_t **info;
+    struct ng_format_list *video;
+    int i,j,k,skip,fmtid,cmodel;
+    struct qt_video_priv *vp;
+
+    /* handle video encoders */
+    video = malloc(sizeof(qt_vformats));
+    memcpy(video,qt_vformats,sizeof(qt_vformats));
+    info = lqt_query_registry(0, 1, 1, 0);
+    for (i = 0; info[i] != NULL; i++) {
+	if (debug) {
+	    fprintf(stderr,"\nlqt: %s codec: %s [%s]\n",
+		    info[i]->type == LQT_CODEC_AUDIO ? "audio" : "video",
+		    info[i]->name,info[i]->long_name);
+	    for (j = 0; j < info[i]->num_fourccs; j++)
+		fprintf(stderr,"   fcc   : %s\n",info[i]->fourccs[j]);
+	    for (j = 0; j < info[i]->num_encoding_colormodels; j++)
+		fprintf(stderr,"   cmodel: %d [%s]\n",
+			info[i]->encoding_colormodels[j],
+			lqt_get_colormodel_string(info[i]->encoding_colormodels[j]));
+	}
+
+	/* sanity checks */
+	if (0 == info[i]->num_fourccs) {
+	    if (debug)
+		fprintf(stderr,"   skipping, no fourcc\n");
+	    continue;
+	}
+	
+	/* avoid dup entries */
+	skip = 0;
+	for (j = 0; video[j].name != NULL; j++) {
+	    const struct qt_video_priv *p = video[j].priv;
+	    for (k = 0; k < info[i]->num_fourccs; k++)
+		if (0 == strcmp(p->fcc,info[i]->fourccs[k]))
+		    skip = 1;
+	}
+	if (skip) {
+	    if (debug)
+		fprintf(stderr,"   skipping, fourcc already in list\n");
+	    continue;
+	}
+
+	/* pick colormodel */
+	fmtid  = VIDEO_NONE;
+	cmodel = 0;
+	for (j = 0; j < info[i]->num_encoding_colormodels; j++) {
+	    cmodel = info[i]->encoding_colormodels[j];
+	    if (cmodel>= sizeof(cmodels)/sizeof(int))
+		continue;
+	    if (!cmodels[cmodel])
+		continue;
+	    fmtid = cmodels[cmodel];
+	    break;
+	}
+	if (VIDEO_NONE == fmtid) {
+	    if (debug)
+		fprintf(stderr,"   skipping, can't handle color model\n");
+	    continue;
+	}
+
+	/* all fine */
+	if (debug)
+	    fprintf(stderr,"   ok, using fmtid %d [%s]\n",
+		    fmtid,ng_vfmt_to_desc[fmtid]);
+	vp = malloc(sizeof(*vp));
+	memset(vp,0,sizeof(*vp));
+	strcpy(vp->fcc,info[i]->fourccs[0]);
+	vp->libencode = 1;
+	vp->cmodel    = cmodel;
+	video = list_add(video,vp->fcc,info[i]->long_name,"mov",fmtid,vp);
+    }
+    lqt_destroy_codec_info(info);
+    return video;
+}
+
+static struct ng_format_list* audio_list(void)
+{
+    static int debug = 0;
+    lqt_codec_info_t **info;
+    struct ng_format_list *audio;
+    int i,j;
+    struct qt_audio_priv *ap;
+
+    /* handle video encoders */
+    audio = malloc(sizeof(qt_aformats));
+    memcpy(audio,qt_aformats,sizeof(qt_aformats));
+    info = lqt_query_registry(1, 0, 1, 0);
+    for (i = 0; info[i] != NULL; i++) {
+	if (debug) {
+	    fprintf(stderr,"\nlqt: %s codec: %s [%s]\n",
+		    info[i]->type == LQT_CODEC_AUDIO ? "audio" : "video",
+		    info[i]->name,info[i]->long_name);
+	    for (j = 0; j < info[i]->num_fourccs; j++)
+		fprintf(stderr,"   fcc   : %s\n",info[i]->fourccs[j]);
+	}
+
+	/* sanity checks */
+	if (0 == info[i]->num_fourccs) {
+	    if (debug)
+		fprintf(stderr,"   skipping, no fourcc\n");
+	    continue;
+	}
+
+	/* skip uncompressed formats */
+	if (0 == strcmp(info[i]->fourccs[0],QUICKTIME_RAW)  ||
+	    0 == strcmp(info[i]->fourccs[0],QUICKTIME_ULAW) ||
+	    0 == strcmp(info[i]->fourccs[0],QUICKTIME_IMA4) || /* ??? */
+	    0 == strcmp(info[i]->fourccs[0],QUICKTIME_TWOS)) {
+	    if (debug)
+		fprintf(stderr,"   skipping, uncompressed\n");
+	    continue;
+	}
+
+	/* all fine */
+	if (debug)
+	    fprintf(stderr,"   ok\n");
+	ap = malloc(sizeof(*ap));
+	memset(ap,0,sizeof(*ap));
+	strcpy(ap->fcc,info[i]->fourccs[0]);
+	ap->libencode = 1;
+	audio = list_add(audio,ap->fcc,info[i]->long_name,"mov",
+			 AUDIO_S16_NATIVE_MONO,ap);
+    }
+    lqt_destroy_codec_info(info);
+    return audio;
+}
+
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
+    qt_writer.video = video_list();
+    qt_writer.audio = audio_list();
     ng_writer_register(NG_PLUGIN_MAGIC,PLUGNAME,&qt_writer);
 }

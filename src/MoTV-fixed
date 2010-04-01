@@ -302,10 +302,12 @@ MoTV.man_popup*label.marginHeight:		5
 MoTV.man_popup*label.renderTable: bold,underline
 MoTV.man_popup*label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.fontName: \
-	-*-fixed-medium-r-normal--13-*-*-*-*-*
+	-*-fixed-medium-r-normal--13-*-*-*-*-*, \
+	fixed
 MoTV.man_popup*label.renderTable.bold.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.bold.fontName: \
-	-*-fixed-bold-r-normal--13-*-*-*-*-*
+	-*-fixed-bold-r-normal--13-*-*-*-*-*, \
+	fixed
 MoTV.man_popup*label.renderTable.underline.underlineType: SINGLE_LINE
 
 

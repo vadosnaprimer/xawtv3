@@ -1,8 +1,4 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader 2.13.  */
-
-/* Define if the X Window System is missing or not being used.  */
-#undef X_DISPLAY_MISSING
-
+/* config.h.in.  Generated automatically from configure.ac by autoheader.  */
 /* lirc lib */
 #undef HAVE_LIBLIRC_CLIENT
 
@@ -18,62 +14,65 @@
 /* ipv6 struct sockaddr_storage */
 #undef HAVE_SOCKADDR_STORAGE
 
-/* Define if you have the dlopen function.  */
-#undef HAVE_DLOPEN
-
-/* Define if you have the fseeko function.  */
-#undef HAVE_FSEEKO
-
-/* Define if you have the ftello function.  */
-#undef HAVE_FTELLO
-
-/* Define if you have the getnameinfo function.  */
-#undef HAVE_GETNAMEINFO
-
-/* Define if you have the getopt_long function.  */
-#undef HAVE_GETOPT_LONG
-
-/* Define if you have the getpt function.  */
-#undef HAVE_GETPT
-
-/* Define if you have the strcasestr function.  */
-#undef HAVE_STRCASESTR
-
-/* Define if you have the <alsa/asoundlib.h> header file.  */
+/* Define if you have the <alsa/asoundlib.h> header file. */
 #undef HAVE_ALSA_ASOUNDLIB_H
 
-/* Define if you have the <dev/ic/bt8xx.h> header file.  */
+/* Define if you have the <dev/ic/bt8xx.h> header file. */
 #undef HAVE_DEV_IC_BT8XX_H
 
-/* Define if you have the <endian.h> header file.  */
+/* Define if you have the `dlopen' function. */
+#undef HAVE_DLOPEN
+
+/* Define if you have the <endian.h> header file. */
 #undef HAVE_ENDIAN_H
 
-/* Define if you have the <getopt.h> header file.  */
+/* Define if you have the `fseeko' function. */
+#undef HAVE_FSEEKO
+
+/* Define if you have the `ftello' function. */
+#undef HAVE_FTELLO
+
+/* Define if you have the `getnameinfo' function. */
+#undef HAVE_GETNAMEINFO
+
+/* Define if you have the <getopt.h> header file. */
 #undef HAVE_GETOPT_H
 
-/* Define if you have the <linux/joystick.h> header file.  */
-#undef HAVE_LINUX_JOYSTICK_H
+/* Define if you have the `getopt_long' function. */
+#undef HAVE_GETOPT_LONG
 
-/* Define if you have the <machine/ioctl_bt848.h> header file.  */
-#undef HAVE_MACHINE_IOCTL_BT848_H
+/* Define if you have the `getpt' function. */
+#undef HAVE_GETPT
 
-/* Define if you have the <soundcard.h> header file.  */
-#undef HAVE_SOUNDCARD_H
-
-/* Define if you have the <sys/soundcard.h> header file.  */
-#undef HAVE_SYS_SOUNDCARD_H
-
-/* Define if you have the Xdpms library (-lXdpms).  */
+/* Define if you have the `Xdpms' library (-lXdpms). */
 #undef HAVE_LIBXDPMS
 
-/* Define if you have the Xinerama library (-lXinerama).  */
+/* Define if you have the `Xinerama' library (-lXinerama). */
 #undef HAVE_LIBXINERAMA
 
-/* Define if you have the Xv library (-lXv).  */
+/* Define if you have the `Xv' library (-lXv). */
 #undef HAVE_LIBXV
 
-/* Define if you have the Xxf86dga library (-lXxf86dga).  */
+/* Define if you have the `Xxf86dga' library (-lXxf86dga). */
 #undef HAVE_LIBXXF86DGA
 
-/* Define if you have the Xxf86vm library (-lXxf86vm).  */
+/* Define if you have the `Xxf86vm' library (-lXxf86vm). */
 #undef HAVE_LIBXXF86VM
+
+/* Define if you have the <linux/joystick.h> header file. */
+#undef HAVE_LINUX_JOYSTICK_H
+
+/* Define if you have the <machine/ioctl_bt848.h> header file. */
+#undef HAVE_MACHINE_IOCTL_BT848_H
+
+/* Define if you have the <soundcard.h> header file. */
+#undef HAVE_SOUNDCARD_H
+
+/* Define if you have the `strcasestr' function. */
+#undef HAVE_STRCASESTR
+
+/* Define if you have the <sys/soundcard.h> header file. */
+#undef HAVE_SYS_SOUNDCARD_H
+
+/* Define if the X Window System is missing or not being used. */
+#undef X_DISPLAY_MISSING

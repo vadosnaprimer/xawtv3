@@ -410,6 +410,7 @@ raw_open(char *videoname, char *audioname,
 {
     struct raw_handle *h;
     int frame_rate_code = 0;
+    int frame_rate_div = 1000;
     
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -435,13 +436,16 @@ raw_open(char *videoname, char *audioname,
     if (h->video.fmtid != VIDEO_NONE) {
 	if (h->vpriv && h->vpriv->yuv4mpeg) {
 	    switch (fps) {
-	    case 23976:  frame_rate_code = 1; break;   /* 24000 / 1001 */
+	    case 23976:  frame_rate_code = 1;
+			 frame_rate_div=1001; break;   /* 24000 / 1001 */
 	    case 24000:  frame_rate_code = 2; break;
 	    case 25000:  frame_rate_code = 3; break;
-	    case 29970:  frame_rate_code = 4; break;   /* 30000 / 1001 */
+	    case 29970:  frame_rate_code = 4;
+			 frame_rate_div=1001; break;   /* 30000 / 1001 */
 	    case 30000:  frame_rate_code = 5; break;
 	    case 50000:  frame_rate_code = 6; break;
-	    case 59940:  frame_rate_code = 7; break;   /* 60000 / 1001 */
+	    case 59940:  frame_rate_code = 7;
+			 frame_rate_div=1001; break;   /* 60000 / 1001 */
 	    case 60000:  frame_rate_code = 8; break;
 	    default:
 		fprintf(stderr,"illegal frame rate\n");
@@ -463,8 +467,16 @@ raw_open(char *videoname, char *audioname,
 	}
 	if (h->vpriv && h->vpriv->yuv4mpeg) {
 	    char header[64];
-	    sprintf(header, "YUV4MPEG %d %d %d\n",
-		    h->video.width, h->video.height,frame_rate_code);
+	    switch (h->vpriv->yuv4mpeg) {
+	    case 1:
+		sprintf(header, "YUV4MPEG %d %d %d\n",
+			h->video.width, h->video.height,frame_rate_code);
+		break;
+	    case 2:
+	    	sprintf(header, "YUV4MPEG2 W%d H%d F%d:%d\n",
+			h->video.width, h->video.height,fps, frame_rate_div);
+		break;
+	    }
 	    write(h->fd, header, strlen(header));
 	}
     }
@@ -477,9 +489,18 @@ raw_video(void *handle, struct ng_video_buf *buf)
 {
     struct raw_handle *h = handle;
 
-    if (h->vpriv && h->vpriv->yuv4mpeg)
-	if (6 != write(h->fd, "FRAME\n", 6))
-	    return -1;
+    if (h->vpriv && h->vpriv->yuv4mpeg) 
+	switch (h->vpriv->yuv4mpeg) {
+	case 1:
+	   if (6 != write(h->fd, "FRAME\n", 6))
+	   	return -1;
+	   break;
+	case 2:
+	   if (7 != write(h->fd, "FRAME \n", 7))
+	   	return -1;
+	   break;
+	}
+
     if (buf->size != write(h->fd,buf->data,buf->size))
 	return -1;
     return 0;
@@ -531,8 +552,12 @@ static const struct ng_format_list files_vformats[] = {
     }
 };
 
-static const struct raw_priv yuv4mpeg = {
+static struct raw_priv yuv4mpeg = {
     yuv4mpeg: 1
+};
+
+static struct raw_priv yuv4mpeg2 = {
+    yuv4mpeg: 2
 };
 
 static const struct ng_format_list raw_vformats[] = {
@@ -554,7 +579,13 @@ static const struct ng_format_list raw_vformats[] = {
 	fmtid: VIDEO_YUV422P,
     },{
 	name:  "4mpeg",
-	desc:  "yuv4mpeg (for mpeg2enc)",
+	desc:  "yuv4mpeg (mpeg2enc >= 1.6)",
+	ext:   "yuv",
+	fmtid: VIDEO_YUV420P,
+	priv:  &yuv4mpeg2,
+    },{
+	name:  "4mpeg-o",
+	desc:  "yuv4mpeg (old mpeg2enc)",
 	ext:   "yuv",
 	fmtid: VIDEO_YUV420P,
 	priv:  &yuv4mpeg,

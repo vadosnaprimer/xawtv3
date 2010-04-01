@@ -176,19 +176,14 @@ else
 fi
 
 if test "$enable_quicktime" != "no"; then
-    AC_CHECK_LIB(png, png_read_info, PNG="found")
-    if test "$PNG" = "found"; then
-	AC_CHECK_LIB(quicktime, quicktime_open,
-		QUICKTIME="found";AC_DEFINE(HAVE_LIBQUICKTIME),,
-		-ldl -lglib -ljpeg -lpng $LIBPTHREAD)
-    else
-	echo "*** libpng not found: no quicktime support, sorry"
-    fi
+    AC_CHECK_LIB(quicktime, lqt_query_registry,
+	QUICKTIME="found";AC_DEFINE(HAVE_LIBQUICKTIME),,
+	-ldl -lglib $LIBPTHREAD)
 else
     echo "*** quicktime disabled"
 fi
 if test "$QUICKTIME" = "found"; then
-    QTLIBS="-lquicktime -ldl -lglib -lpng -lz -lm" 
+    QTLIBS="-lquicktime -ldl -lglib -lm" 
     PLUGINS="$PLUGINS write-qt.so"
 else
     QTLIBS=""

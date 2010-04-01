@@ -61,7 +61,7 @@ static int v4l2_tuned(void *handle);
 
 /* ---------------------------------------------------------------------- */
 
-#define WANTED_BUFFERS 16
+#define WANTED_BUFFERS 32
 
 #define MAX_INPUT   16
 #define MAX_NORM    16

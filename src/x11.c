@@ -723,6 +723,8 @@ video_gd_configure(int width, int height)
     h->best.width   = width;
     h->best.height  = height;
     h->best.bytesperline = 0;
+    ng_ratio_fixup(&x11_fmt.width, &x11_fmt.height, NULL, NULL);
+    ng_ratio_fixup(&h->best.width, &h->best.height, NULL, NULL);
 
     if (0 == h->best.fmtid) {
 #ifdef HAVE_LIBXV
