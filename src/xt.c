@@ -13,6 +13,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/types.h>

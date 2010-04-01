@@ -1,8 +1,9 @@
 
 #define VTX_COUNT 256
+#define VTX_LEN   64
 
 struct TEXTELEM {
-    char  str[42];
+    char  str[VTX_LEN];
     char  *fg;
     char  *bg;
     int   len;

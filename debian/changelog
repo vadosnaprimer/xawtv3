@@ -1,3 +1,10 @@
+xawtv (3.71) unstable; urgency=low
+
+  * new release (closes: #133120).
+  * fixed dependences (closes: #132619,#132987).
+
+ -- Gerd Knorr <kraxel@debian.org>  Mon, 11 Feb 2002 13:21:05 +0100
+
 xawtv (3.70) unstable; urgency=low
 
   * new release.

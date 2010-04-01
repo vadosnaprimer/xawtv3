@@ -1208,6 +1208,12 @@ parse_vtx(int lines, char **text)
 	    } else {
 		tt[t].str[tt[t].len++] = text[i][n];
 		n++;
+		if (tt[t].len >= VTX_LEN-1) {
+		    t++;
+		    if (VTX_COUNT == t)
+			return tt;
+		    tt[t].line = i;
+		}
 	    }
 	}
 	if (tt[t].len) {

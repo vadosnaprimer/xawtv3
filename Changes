@@ -1,4 +1,14 @@
 
+3.70 => 3.71
+============
+
+ * The idea to drop ~/.lircrc altogether wasn't that great, doesn't
+   work well with multiple apps receiving lirc events...  xawtv
+   reads it again if present, but you don't need one.  Check
+   README.lirc for the details.
+ * Fixed buffer overflow in "xawtv-remote vtx aaaaaa..."
+
+
 3.69 => 3.70
 ============
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -20,6 +21,8 @@
 extern int debug;
 
 #ifdef HAVE_LIBLIRC_CLIENT
+static struct lirc_config *config = NULL;
+
 static struct event_entry lirc_events[] = {
     {
 	event:  "lirc-key-ch+",
@@ -91,6 +94,12 @@ int lirc_tv_init()
 	    fprintf(stderr,"lirc: no infrared remote support available\n");
 	return -1;
     }
+    if (0 != lirc_readconfig(NULL,&config,NULL)) {
+	config = NULL;
+    }
+    if (debug)
+	fprintf(stderr, "lirc: ~/.lircrc file %sfound\n", config?"":"not ");
+
     fcntl(fd,F_SETFL,O_NONBLOCK);
     fcntl(fd,F_SETFD,FD_CLOEXEC);
     event_register_list(lirc_events);
@@ -106,18 +115,36 @@ int lirc_tv_init()
 int lirc_tv_havedata()
 {
 #ifdef HAVE_LIBLIRC_CLIENT
-    char *code,event[32];
-    int dummy1,dummy2;
+    char *code,event[32],*cmd,**argv;
+    int dummy,repeat,argc;
     int ret=-1;
     
     strcpy(event,"lirc-key-");
     while (lirc_nextcode(&code)==0  &&  code!=NULL) {
 	ret = 0;
-	if (3 != sscanf(code,"%x %x %20s",&dummy1,&dummy2,event+9)) {
+	if (3 != sscanf(code,"%x %x %20s",&dummy,&repeat,event+9)) {
 	    fprintf(stderr,"lirc: oops, parse error: %s",code);
 	    continue;
 	}
-	event_dispatch(event);
+	if (debug)
+	    fprintf(stderr,"lirc: key=%s repeat=%d\n", event+9, repeat);
+	if (config) {
+	    /* use ~/.lircrc */
+	    while (lirc_code2char(config,code,&cmd)==0 && cmd != NULL) {
+		if (debug)
+		    fprintf(stderr,"lirc: cmd \"%s\"\n", cmd);
+		if (0 == strcasecmp(cmd,"eventmap")) {
+		    event_dispatch(event);
+		} else {
+		    argv = split_cmdline(cmd,&argc);
+		    do_command(argc,argv);
+		}
+	    }
+	} else {
+	    /* standalone mode */
+	    if (!repeat)
+		event_dispatch(event);
+	}
 	free(code);
     }
     return ret;
