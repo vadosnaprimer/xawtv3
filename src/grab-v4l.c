@@ -254,44 +254,124 @@ siginit(void)
 
 /* ---------------------------------------------------------------------- */
 
+#define PREFIX "ioctl: "
+
 static int
 xioctl(int fd, int cmd, void *arg)
 {
     int rc;
 
     rc = ioctl(fd,cmd,arg);
-    if (0 == rc && 0 == debug)
+    if (0 == rc && debug < 2)
 	return 0;
     switch (cmd) {
+    case VIDIOCGCAP:
+    {
+	struct video_capability *a = arg;
+	fprintf(stderr,PREFIX "VIDIOCGCAP(%s,type=0x%x,chan=%d,audio=%d,"
+		"size=%dx%d-%dx%d)",
+		a->name,a->type,a->channels,a->audios,
+		a->minwidth,a->minheight,a->maxwidth,a->maxheight);
+	break;
+    }
+    case VIDIOCGCHAN:
+    case VIDIOCSCHAN:
+    {
+	struct video_channel *a = arg;
+	fprintf(stderr,PREFIX "%s(%d,%s,flags=0x%x,type=%d,norm=%d)",
+		(cmd == VIDIOCGCHAN) ? "VIDIOCGCHAN" : "VIDIOCSCHAN",
+		a->channel,a->name,a->flags,a->type,a->norm);
+	break;
+    }
+    case VIDIOCGTUNER:
+    case VIDIOCSTUNER:
+    {
+	struct video_tuner *a = arg;
+	fprintf(stderr,PREFIX "%s(%d,%s,range=%ld-%ld,flags=0x%x,"
+		"mode=%d,signal=%d)",
+		(cmd == VIDIOCGTUNER) ? "VIDIOCGTUNER" : "VIDIOCSTUNER",
+		a->tuner,a->name,a->rangelow,a->rangehigh,
+		a->flags,a->mode,a->signal);
+	break;
+    }
     case VIDIOCGPICT:
     case VIDIOCSPICT:
     {
 	struct video_picture *a = arg;
-	fprintf(stderr,"v4l: %s(params=%d/%d/%d/%d/%d,depth=%d,pal=%d)",
+	fprintf(stderr,PREFIX "%s(params=%d/%d/%d/%d/%d,depth=%d,fmt=%d)",
 		(cmd == VIDIOCGPICT) ? "VIDIOCGPICT" : "VIDIOCSPICT",
 		a->brightness,a->hue,a->colour,a->contrast,a->whiteness,
 		a->depth,a->palette);
+	break;
+    }
+    case VIDIOCGAUDIO:
+    case VIDIOCSAUDIO:
+    {
+	struct video_audio *a = arg;
+	fprintf(stderr,PREFIX "%s(%d,%s,vol=%d,balance=%d,bass=%d,treble=%d,"
+		"mode=0x%x,step=%d)",
+		(cmd == VIDIOCGAUDIO) ? "VIDIOCGAUDIO" : "VIDIOCSAUDIO",
+		a->audio,a->name,a->volume,a->balance,a->bass,
+		a->treble,a->mode,a->step);
 	break;
     }
     case VIDIOCGWIN:
     case VIDIOCSWIN:
     {
 	struct video_window *a = arg;
-	fprintf(stderr,"v4l: %s(win=%dx%d+%d+%d,key=%d,flags=0x%x,clips=%d)",
+	fprintf(stderr,PREFIX "%s(win=%dx%d+%d+%d,key=%d,flags=0x%x,clips=%d)",
 		(cmd == VIDIOCGWIN) ? "VIDIOCGWIN" : "VIDIOCSWIN",
 		a->width,a->height,a->x,a->y,
 		a->chromakey,a->flags,a->clipcount);
 	break;
     }
+    case VIDIOCGFBUF:
+    case VIDIOCSFBUF:
+    {
+	struct video_buffer *a = arg;
+	fprintf(stderr,PREFIX "%s(base=%p,size=%dx%d,depth=%d,bpl=%d)",
+		(cmd == VIDIOCGFBUF) ? "VIDIOCGFBUF" : "VIDIOCSFBUF",
+		a->base,a->width,a->height,a->depth,a->bytesperline);
+	break;
+    }
+    case VIDIOCGFREQ:
+    case VIDIOCSFREQ:
+    {
+	unsigned long *a = arg;
+	fprintf(stderr,PREFIX "%s(%.3f MHz)",
+		(cmd == VIDIOCGFREQ) ? "VIDIOCGFREQ" : "VIDIOCSFREQ",
+		(float)*a/16);
+	break;
+    }
     case VIDIOCCAPTURE:
     {
 	int *a = arg;
-	fprintf(stderr,"v4l: VIDIOCCAPTURE(%s)",
+	fprintf(stderr,PREFIX "VIDIOCCAPTURE(%s)",
 		*a ? "on" : "off");
 	break;
     }
+    case VIDIOCGMBUF:
+    {
+	struct video_mbuf *a = arg;	
+	fprintf(stderr,PREFIX "VIDIOCGMBUF(size=%d,frames=%d)",
+		a->size,a->frames);
+	break;
+    }
+    case VIDIOCMCAPTURE:
+    {
+	struct video_mmap *a = arg;	
+	fprintf(stderr,PREFIX "VIDIOCMCAPTURE(%d,fmt=%d,size=%dx%d)",
+		a->frame,a->format,a->width,a->height);
+	break;
+    }
+    case VIDIOCSYNC:
+    {
+	int *a = arg;
+	fprintf(stderr,PREFIX "VIDIOCSYNC(%d)",*a);
+	break;
+    }
     default:
-	fprintf(stderr,"v4l: UNKNOWN(cmd=0x%x)",cmd);
+	fprintf(stderr,PREFIX "UNKNOWN(cmd=0x%x)",cmd);
 	break;
     }
     fprintf(stderr,": %s\n",(rc == 0) ? "ok" : strerror(errno));
@@ -344,8 +424,7 @@ grab_open(char *filename)
     memset(inputs,0,sizeof(struct STRTAB)*(capability.channels+1));
     for (i = 0; i < capability.channels; i++) {
 	channels[i].channel = i;
-	if (-1 == ioctl(fd,VIDIOCGCHAN,&channels[i]))
-	    perror("ioctl VIDIOCGCHAN");
+	xioctl(fd,VIDIOCGCHAN,&channels[i]);
 	inputs[i].nr  = i;
 	inputs[i].str = channels[i].name;
 	if (debug)
@@ -366,8 +445,7 @@ grab_open(char *filename)
 	fprintf(stderr,"  audios  : %d\n",capability.audios);
     if (capability.audios) {
 	audio.audio = 0;
-	if (-1 == ioctl(fd,VIDIOCGAUDIO,&audio))
-	    perror("ioctl VIDIOCGAUDIO");
+	xioctl(fd,VIDIOCGAUDIO,&audio);
 	if (debug) {
 	    fprintf(stderr,"    %d (%s): ",i,audio.name);
 	    if (audio.flags & VIDEO_AUDIO_MUTABLE)
@@ -399,8 +477,7 @@ grab_open(char *filename)
     if (capability.type & VID_TYPE_TUNER) {
 	tuner = malloc(sizeof(struct video_tuner));
 	memset(tuner,0,sizeof(struct video_tuner));
-	if (-1 == ioctl(fd,VIDIOCGTUNER,tuner))
-	    perror("ioctl VIDIOCGTUNER");
+	xioctl(fd,VIDIOCGTUNER,tuner);
 	if (debug)
 	    fprintf(stderr,"  tuner   : %s %lu-%lu",
 		    tuner->name,tuner->rangelow,tuner->rangehigh);
@@ -419,14 +496,14 @@ grab_open(char *filename)
 	memcpy(&vchan, &channels[0], sizeof(struct video_channel));
 	for (i = 0; norms[i].str != NULL; i++) {
 	    vchan.norm = i;
-	    if (-1 == ioctl(fd,VIDIOCSCHAN,&vchan))
+	    if (-1 == xioctl(fd,VIDIOCSCHAN,&vchan))
 		norms[i].nr = -1;
 	    else if (debug)
 		fprintf(stderr," %s",norms[i].str);
 	}
 	if (debug)
 	    fprintf(stderr,"\n");
-	if (-1 == ioctl(fd,VIDIOCSCHAN,&channels[0])) {
+	if (-1 == xioctl(fd,VIDIOCSCHAN,&channels[0])) {
 	    fprintf(stderr,"v4l: you need a newer bttv version (>= 0.5.14)\n");
 	    goto err;
 	}
@@ -439,10 +516,11 @@ grab_open(char *filename)
      * this adds support for a few less common PAL versions */
     if (-1 != (rc = ioctl(fd,BTTV_VERSION,0))) {
 	grab_v4l.norms = norms_bttv;
-	fprintf(stderr,"v4l: bttv version %d.%d.%d\n",
-		(rc >> 16) & 0xff,
-		(rc >> 8)  & 0xff,
-		rc         & 0xff);
+	if (debug || rc < 0x000700)
+	    fprintf(stderr,"v4l: bttv version %d.%d.%d\n",
+		    (rc >> 16) & 0xff,
+		    (rc >> 8)  & 0xff,
+		    rc         & 0xff);
 	if (rc < 0x000700)
 	    fprintf(stderr,
 		    "v4l: prehistoric bttv version found, please try to\n"
@@ -451,8 +529,7 @@ grab_open(char *filename)
 #endif
     
     /* frame buffer */
-    if (-1 == ioctl(fd,VIDIOCGFBUF,&ov_fbuf))
-	perror("ioctl VIDIOCGFBUF");
+    xioctl(fd,VIDIOCGFBUF,&ov_fbuf);
     if (debug)
 	fprintf(stderr,"  fbuffer : base=0x%p size=%dx%d depth=%d bpl=%d\n",
 		ov_fbuf.base, ov_fbuf.width, ov_fbuf.height,
@@ -463,8 +540,7 @@ grab_open(char *filename)
 	grab_v4l.colorkey = 0x00cc00ff;
 
     /* picture parameters */
-    if (-1 == ioctl(fd,VIDIOCGPICT,&ov_pict))
-	perror("ioctl VIDIOCGPICT");
+    xioctl(fd,VIDIOCGPICT,&ov_pict);
     rd_pict = ov_pict;
 
     if (debug) {
@@ -479,25 +555,26 @@ grab_open(char *filename)
 
     if (capability.type & VID_TYPE_CAPTURE) {
 	/* map grab buffer */
-	if (-1 == ioctl(fd,VIDIOCGMBUF,&gb_buffers)) {
-	    perror("ioctl VIDIOCGMBUF");
-	} else {
+	if (0 == xioctl(fd,VIDIOCGMBUF,&gb_buffers)) {
 	    if (debug)
 		fprintf(stderr,"  mbuf: size=%d frames=%d\n",
 			gb_buffers.size,gb_buffers.frames);
+	    map = mmap(0,gb_buffers.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+	    if ((char*)-1 != map)
+		perror("mmap");
+	} else {
+	    map = (char*)-1;
 	}
-	map = mmap(0,gb_buffers.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
 	if ((char*)-1 != map) {
 	    if (debug)
-		fprintf(stderr,"  mmap: worked, using mapped buffers\n");
+		fprintf(stderr,"  v4l: using mapped buffers for capture\n");
 	    grab_v4l.grab_setparams = grab_mm_setparams;
 	    grab_v4l.grab_start     = grab_mm_start;
 	    grab_v4l.grab_capture   = grab_mm_capture;
 	    grab_v4l.grab_stop      = grab_mm_stop;
 	} else {
 	    if (debug)
-		fprintf(stderr,"  mmap: failed (%s), using read()\n",
-			strerror(errno));
+		fprintf(stderr,"  v4l: using read() for capture\n");
 	    grab_v4l.grab_setparams = grab_read_setparams;
 	    grab_v4l.grab_start     = grab_read_start;
 	    grab_v4l.grab_capture   = grab_read_capture;
@@ -632,7 +709,7 @@ grab_overlay(int x, int y, int width, int height, int format,
 
 #if 1
     /* check against max. size */
-    ioctl(fd,VIDIOCGCAP,&capability);
+    xioctl(fd,VIDIOCGCAP,&capability);
     if (ov_win.width > capability.maxwidth) {
 	ov_win.width = capability.maxwidth;
 	ov_win.x += (width - ov_win.width)/2;
@@ -668,15 +745,6 @@ grab_overlay(int x, int y, int width, int height, int format,
 		fprintf(stderr,"v4l: clip=%dx%d+%d+%d\n",
 			ov_clips[i].width,ov_clips[i].height,
 			ov_clips[i].x,ov_clips[i].y);
-#if 0
-	    if (ov_clips[i].x < 0 || ov_clips[i].y < 0 ||
-		ov_clips[i].width < 0 || ov_clips[i].height < 0) {
-		fprintf(stderr,"v4l: bug trap - overlay off\n");
-		ioctl(fd, VIDIOCCAPTURE, &zero);
-		overlay = 0;
-		return 0;		
-	    }
-#endif
 	}
     }
     ov_pict.depth = ng_vfmt_to_depth[format];
@@ -732,26 +800,16 @@ grab_queue(void)
 {
     int frame = gb_grab++ % gb_bufcount;
 
-    if (debug > 1)
-	fprintf(stderr,"q%d",frame);
-
 #if 0
     /* might be useful for debugging driver problems */
     memset(map + gb_buffers.offsets[frame],0,
 	   gb_buffers.size/gb_buffers.frames);
 #endif
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,gb_buf+frame)) {
+    if (-1 == xioctl(fd,VIDIOCMCAPTURE,gb_buf+frame)) {
 	if (errno == EAGAIN)
 	    fprintf(stderr,"grabber chip can't sync (no station tuned in?)\n");
-	else
-	    fprintf(stderr,"ioctl VIDIOCMCAPTURE(%d,%s,%dx%d): %s\n",
-		    frame,PALETTE(gb_buf[frame].format),
-		    gb_buf[frame].width,gb_buf[frame].height,
-		    strerror(errno));
 	return -1;
     }
-    if (debug > 1)
-	fprintf(stderr,"* ");
     return 0;
 }
 
@@ -763,18 +821,13 @@ grab_wait(void)
 
     alarms=0;
     alarm(SYNC_TIMEOUT);
-    if (debug > 1)
-	fprintf(stderr,"s%d",frame);
 
  retry:
-    if (-1 == ioctl(fd,VIDIOCSYNC,gb_buf+frame)) {
+    if (-1 == xioctl(fd,VIDIOCSYNC,gb_buf+frame)) {
 	if (errno == EINTR && !alarms)
 	    goto retry;
-	perror("ioctl VIDIOCSYNC");
 	ret = -1;
     }
-    if (debug > 1)
-	fprintf(stderr,"* ");
     alarm(0);
     return (ret == 0) ? frame : ret;
 }
@@ -794,15 +847,11 @@ grab_probe(int format)
     if (debug)
 	fprintf(stderr, "v4l: capture probe %s...\t", device_pal[format]);
     gb.format = format;
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,&gb)) {
-	if (debug)
-	    perror("VIDIOCMCAPTURE");
+    if (-1 == xioctl(fd,VIDIOCMCAPTURE,&gb)) {
 	gb_pal[format] = 2;
 	goto done;
     }
-    if (-1 == ioctl(fd,VIDIOCSYNC,&gb)) {
-	if (debug)
-	    perror("VIDIOCSYNC");
+    if (-1 == xioctl(fd,VIDIOCSYNC,&gb)) {
 	gb_pal[format] = 2;
 	goto done;
     }
@@ -824,7 +873,7 @@ grab_mm_setparams(int format, int *width, int *height, int *linelength)
 	grab_wait();
 
     /* verify parameters */
-    ioctl(fd,VIDIOCGCAP,&capability);
+    xioctl(fd,VIDIOCGCAP,&capability);
     if (*width > capability.maxwidth)
 	*width = capability.maxwidth;
     if (*height > capability.maxheight)
@@ -942,6 +991,7 @@ grab_read_setparams(int format, int *width, int *height, int *linelength)
     if (rd_pict.palette == 0)
 	return -1;
 
+    fprintf(stderr,"set: palette=%d\n",rd_pict.palette);
     grab_overlay_set(0);
 
     /* set format */
@@ -1005,12 +1055,11 @@ grab_read_capture()
     if (NULL == rd_buf)
 	return NULL;
 
+    fprintf(stderr,"cap: palette=%d\n",rd_pict.palette);
     grab_overlay_set(0);
-    if (-1 == ioctl(fd,VIDIOCGPICT,&rd_pict) ||
-	-1 == ioctl(fd,VIDIOCSWIN,&rd_win)) {
-	perror("set grab args");
+    if (-1 == xioctl(fd,VIDIOCSPICT,&rd_pict) ||
+	-1 == xioctl(fd,VIDIOCSWIN,&rd_win))
 	goto fail;
-    }
 
  next_frame:
     rc = read(fd,rd_buf,rd_size);
@@ -1056,14 +1105,12 @@ static unsigned long
 grab_tune(unsigned long freq, int sat)
 {
     if (-1 == freq) {
-	if (-1 == ioctl(fd, VIDIOCGFREQ, &freq))
-	    perror("ioctl VIDIOCGFREQ");
+	xioctl(fd, VIDIOCGFREQ, &freq);
 	return freq;
     }
     if (debug)
 	fprintf(stderr,"v4l: freq: %.3f\n",(float)freq/16);
-    if (-1 == ioctl(fd, VIDIOCSFREQ, &freq))
-	perror("ioctl VIDIOCSFREQ");
+    xioctl(fd, VIDIOCSFREQ, &freq);
     return 0;
 }
 
@@ -1071,10 +1118,8 @@ static int
 grab_tuned(void)
 {
     usleep(10000);
-    if (-1 == ioctl(fd,VIDIOCGTUNER,tuner)) {
-	perror("ioctl VIDIOCGTUNER");
+    if (-1 == xioctl(fd,VIDIOCGTUNER,tuner))
 	return 0;
-    }
     return tuner->signal ? 1 : 0;
 }
 
@@ -1092,9 +1137,10 @@ grab_input(int input, int norm)
 	cur_norm = norm;
     }
 
+    grab_overlay_set(0);
     channels[cur_input].norm = cur_norm;
-    if (-1 == ioctl(fd, VIDIOCSCHAN, &channels[cur_input]))
-	perror("ioctl VIDIOCSCHAN");
+    xioctl(fd, VIDIOCSCHAN, &channels[cur_input]);
+    grab_overlay_set(ov_enabled);
     return 0;
 }
 
@@ -1121,8 +1167,7 @@ int grab_getattr(int id)
 	    break;
     if (i == NUM_ATTR)
 	return -1;
-    if (-1 == ioctl(fd,grab_attr[i].get,grab_attr[i].arg))
-	perror("ioctl get");
+    xioctl(fd,grab_attr[i].get,grab_attr[i].arg);
 
     switch (id) {
     case GRAB_ATTR_VOLUME:   return audio.volume;
@@ -1146,8 +1191,7 @@ int grab_setattr(int id, int val)
 	    break;
     if (i == NUM_ATTR)
 	return -1;
-    if (-1 == ioctl(fd,grab_attr[i].get,grab_attr[i].arg))
-	perror("ioctl get");
+    xioctl(fd,grab_attr[i].get,grab_attr[i].arg);
 
     /* ... modify ... */
     switch (id) {
@@ -1176,15 +1220,9 @@ int grab_setattr(int id, int val)
     default: return -1;
     }
 
-#if 0
-    /* bttv: avoid input switch */
-    audio.audio = cur_input;
-#endif
- 
     /* ... write */
-    if (-1 == ioctl(fd,grab_attr[i].set,grab_attr[i].arg))
-	perror("ioctl set");
-
+    xioctl(fd,grab_attr[i].set,grab_attr[i].arg);
+    
     /* keep the others up-to-date */
     ov_pict.colour     = pict.colour;
     rd_pict.colour     = pict.colour;

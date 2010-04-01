@@ -491,7 +491,7 @@ main(int argc, char *argv[])
 	    keep_dma_on = 1;
 	    break;
 	case 'v':
-	    debug = 1;
+	    debug++;
 	    break;
 	case 'q':
 	    quiet = 1;

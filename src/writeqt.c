@@ -52,7 +52,8 @@ qt_open(char *filename, char *dummy,
     h->video      = *video;
     h->audio      = *audio;
     h->lib_video  = pvideo->libencode;
-    h->lib_audio  = paudio->libencode;
+    if (h->audio.fmtid != AUDIO_NONE)
+	h->lib_audio  = paudio->libencode;
 
     if (NULL == (h->fh = quicktime_open(filename,0,1))) {
 	fprintf(stderr,"quicktime_open failed (%s)\n",filename);

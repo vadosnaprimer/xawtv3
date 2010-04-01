@@ -1,5 +1,15 @@
+ 
+3.27 => 3.28
+============
 
-3.27 => 3.27
+  * completed v4l ioctl tracking.
+  * bug fixed in quicktime code.
+  * scantv fixes.
+  * fixed bugs in the movie recording code (memory leak,
+    uncatched failures).
+
+ 
+3.26 => 3.27
 ============
 
   * (hopefully) fixed rpm build problems.

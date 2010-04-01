@@ -445,7 +445,8 @@ mouse_timeout(XtPointer clientData, XtIntervalId *id)
     Widget widget = clientData;
     if (debug)
 	fprintf(stderr,"xt: pointer hide\n");
-    XDefineCursor(dpy, XtWindow(widget), no_ptr);
+    if (XtWindow(widget))
+	XDefineCursor(dpy, XtWindow(widget), no_ptr);
     mouse_visible = 0;
     mouse_timer = 0;
 }
@@ -456,7 +457,8 @@ mouse_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
     if (!mouse_visible) {
 	if (debug)
 	    fprintf(stderr,"xt: pointer show\n");
-	XDefineCursor(dpy, XtWindow(widget), left_ptr);
+	if (XtWindow(widget))
+	    XDefineCursor(dpy, XtWindow(widget), left_ptr);
 	mouse_visible = 1;
     }
     if (mouse_timer)

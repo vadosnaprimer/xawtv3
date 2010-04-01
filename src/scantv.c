@@ -177,7 +177,7 @@ main(int argc, char **argv)
 {
     char *vbi_name = "/dev/vbi";
     struct vbi *vbi;
-    int c,i,j,unknown = 1, scan=1;
+    int c,i,j,scan=1;
     char *name,dummy[32];
     char *tvnorm  = NULL;
     char *freqtab = NULL;
@@ -244,10 +244,12 @@ main(int argc, char **argv)
     i = menu("please select your TV norm",grabber->norms,tvnorm);
     j = menu("please select a frequency table",chanlist_names,freqtab);
 
+    fprintf(conf,"[global]\n");
+    fprintf(conf,"freqtab = %s\n",chanlist_names[j].str);
+    fprintf(conf,"\n");
     fprintf(conf,"[defaults]\n");
     fprintf(conf,"input = Television\n");
     fprintf(conf,"norm = %s\n",grabber->norms[i].str);
-    fprintf(conf,"freqtab = %s\n",chanlist_names[j].str);
     fprintf(conf,"\n");
     if (!scan)
 	exit(0);
@@ -278,7 +280,7 @@ main(int argc, char **argv)
 	name = get_vbi_name();
 	fprintf(stderr,"%s\n",name ? name : "???");
 	if (NULL == name) {
-	    sprintf(dummy,"unknown %d",unknown++);
+	    sprintf(dummy,"unknown (%s)",chanlist[i].name);
 	    name = dummy;
 	}
 	fprintf(conf,"[%s]\nchannel = %s\n\n",name,chanlist[i].name);

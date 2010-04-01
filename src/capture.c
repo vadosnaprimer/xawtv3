@@ -191,6 +191,7 @@ movie_writer_init(char *moviename, char *audioname,
 {
     struct movie_handle *h = &movie_state;
     int linelength;
+    void *dummy;
 
     if (debug)
 	fprintf(stderr,"movie_init_writer start\n");
@@ -237,7 +238,23 @@ movie_writer_init(char *moviename, char *audioname,
 				audio,priv_audio);
     if (debug)
 	fprintf(stderr,"movie_init_writer end (h=%p)\n",h->handle);
-    return 0;
+    if (NULL != h->handle)
+	return 0;
+
+    /* Oops -- wr_open() didn't work.  cleanup.  */
+    if (h->afmt.fmtid != AUDIO_NONE) {
+	pthread_cancel(taudio);
+	pthread_join(taudio,&dummy);
+	sound_close();
+	free(baudio);
+    }
+    pthread_cancel(tvideo);
+    pthread_join(tvideo,&dummy);
+    free(bvideo);
+    pthread_cancel(tflush);
+    pthread_join(tflush,&dummy);
+
+    return -1;
 }
 
 int
@@ -293,9 +310,11 @@ movie_writer_stop()
     if (h->afmt.fmtid != AUDIO_NONE) {
 	fifo_put(&faudio,NULL,0);
 	pthread_join(taudio,&dummy);
+	free(baudio);
     }
     fifo_put(&fvideo,NULL,0);
     pthread_join(tvideo,&dummy);
+    free(bvideo);
     pthread_cancel(tflush);
     pthread_join(tflush,&dummy);
 

@@ -2032,7 +2032,7 @@ do_movie_record(int argc, char **argv)
     struct ng_video_fmt video;
     struct ng_audio_fmt audio;
     const struct ng_writer *wr;
-    int sound,i;
+    int sound,i,rc;
 
     /* set parameters */
     if (argc > 1 && 0 == strcasecmp(argv[0],"fvideo")) {
@@ -2100,10 +2100,18 @@ do_movie_record(int argc, char **argv)
 	    audio.fmtid  = AUDIO_NONE;
 	}
 
-	movie_writer_init(fvideo, faudio, wr,
-			  &video, wr->video[movie_video].priv, movie_fps,
-			  &audio, wr->audio[movie_audio].priv,
-			  16, &sound);
+	rc = movie_writer_init(fvideo, faudio, wr,
+			       &video, wr->video[movie_video].priv, movie_fps,
+			       &audio, wr->audio[movie_audio].priv,
+			       16, &sound);
+	if (0 != rc) {
+	    /* init failed */
+	    grabdisplay_restart();
+	    cur_movie = 0;
+	    /* hmm, not the most elegant way to flag an error ... */
+	    XtVaSetValues(w_movie_status,XtNlabel,"error",NULL);
+	    return;
+	}
 	movie_writer_start();
 	rec_work_id  = XtAppAddWorkProc(app_context,rec_work,NULL);
 	if (-1 != sound)
