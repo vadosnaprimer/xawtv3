@@ -1,4 +1,14 @@
 
+3.37 => 3.38
+============
+
+  * attribute fixes for v4l and v4l2.
+  * implemented boolean attributes.
+  * deleted some obsoleted (by the new attr handling) status
+    variables, fixed various places which used the old ones (with
+    *ahem* intresting side effects).
+
+
 3.36 => 3.37
 ============
 

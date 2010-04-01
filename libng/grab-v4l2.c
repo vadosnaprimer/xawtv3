@@ -588,7 +588,7 @@ v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
     int i;
 
     menu = malloc(sizeof(struct STRTAB) * (ctl->maximum-ctl->minimum+2));
-    for (i = ctl->minimum; i <= ctl->minimum; i++) {
+    for (i = ctl->minimum; i <= ctl->maximum; i++) {
 	item.id = ctl->id;
 	item.index = i;
 	if (-1 == xioctl(fd, VIDIOC_QUERYMENU, &item, 0)) {
@@ -607,6 +607,7 @@ static void
 v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	      int id, struct STRTAB *choices)
 {
+    static int private_ids = ATTR_ID_COUNT;
     int i;
     
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
@@ -615,9 +616,11 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	for (i = 0; i < NUM_ATTR; i++)
 	    if (v4l2_attr[i].v4l2 == ctl->id)
 		break;
-	if (i == NUM_ATTR)
-	    return;
-	h->attr[h->nattr].id      = v4l2_attr[i].id;
+	if (i != NUM_ATTR) {
+	    h->attr[h->nattr].id  = v4l2_attr[i].id;
+	} else {
+	    h->attr[h->nattr].id  = private_ids++;
+	}
 	h->attr[h->nattr].name    = ctl->name;
 	h->attr[h->nattr].priv    = ctl;
 	h->attr[h->nattr].defval  = ctl->default_value;
@@ -657,7 +660,7 @@ static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
 
     if (NULL != ctl) {
 	c.id = ctl->id;
-	xioctl(h->fd,VIDIOC_S_CTRL,&c,0);
+	xioctl(h->fd,VIDIOC_G_CTRL,&c,0);
 	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
 	    value = v4l2_to_me(ctl,c.value);
 	} else {

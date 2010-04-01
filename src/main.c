@@ -97,6 +97,7 @@ Status DPMSDisable(Display*);
 #define WIDTH_INC             64
 #define HEIGHT_INC            48
 #define LABEL_WIDTH         "16"
+#define BOOL_WIDTH          "24"
 #define VIDMODE_DELAY        100   /* 0.1 sec */
 
 /*--- public variables ----------------------------------------------------*/
@@ -919,7 +920,8 @@ static void
 new_volume(void)
 {
     if (s_volume)
-	set_float(s_volume,XtNtopOfThumb,(float)cur_volume/65536);
+	set_float(s_volume,XtNtopOfThumb,
+		  (float)cur_attrs[ATTR_ID_VOLUME]/65536);
 }
 
 static void
@@ -942,6 +944,12 @@ new_attr(struct ng_attribute *attr, int val)
 		    olabel,valstr ? valstr : "unknown");
 	    XtVaSetValues(a->cmd,XtNlabel,label,NULL);
 	    break;
+	case ATTR_TYPE_BOOL:
+	    XtVaGetValues(a->cmd,XtNlabel,&olabel,NULL);
+	    sprintf(label,"%-" BOOL_WIDTH "." BOOL_WIDTH "s  %s",
+		    olabel,val ? "on" : "off");
+	    XtVaSetValues(a->cmd,XtNlabel,label,NULL);
+	    break;
 	case ATTR_TYPE_INTEGER:
 	    set_float(a->scroll,XtNtopOfThumb,(float)val/65536);
 	    break;
@@ -950,46 +958,6 @@ new_attr(struct ng_attribute *attr, int val)
 	    grabdisplay_setsize(win_width,win_height);
 	return;
     }
-
-#if 0
-    switch (attr->id) {
-    case ATTR_ID_NORM:
-	if (c_norm) {
-	    sprintf(label,"%-" LABEL_WIDTH "s: %s","TV Norm",
-		    ng_attr_getstr(attr,val));
-	    XtVaSetValues(c_norm,XtNlabel,label,NULL);
-	}
-	if (win_width > 0)
-	    grabdisplay_setsize(win_width,win_height);
-	break;
-    case ATTR_ID_INPUT:
-	if (c_input) {
-	    sprintf(label,"%-" LABEL_WIDTH "s: %s","Video Source",
-		    ng_attr_getstr(attr,val));
-	    XtVaSetValues(c_input,XtNlabel,label,NULL);
-	}
-	break;
-    case ATTR_ID_COLOR:
-	if (s_color)
-	    set_float(s_color,XtNtopOfThumb,(float)val/65536);
-	break;
-    case ATTR_ID_BRIGHT:
-	if (s_bright)
-	    set_float(s_bright,XtNtopOfThumb,(float)val/65536);
-	break;
-    case ATTR_ID_HUE:
-	if (s_hue)
-	    set_float(s_hue,XtNtopOfThumb,(float)val/65536);
-	break;
-    case ATTR_ID_CONTRAST:
-	if (s_contrast)
-	    set_float(s_contrast,XtNtopOfThumb,(float)val/65536);
-	break;
-    default:
-	/* nothing */
-	break;
-    }
-#endif
 }
 
 static void
@@ -1541,7 +1509,7 @@ zap_timeout(XtPointer client_data, XtIntervalId *id)
 {
     static int muted = 0;
 
-    if (zap_fast && !cur_mute) {
+    if (zap_fast && !cur_attrs[ATTR_ID_MUTE]) {
 	/* mute for fast channel scan */
 	muted = 1;
 	do_va_cmd(2,"volume","mute","on");
@@ -1829,6 +1797,9 @@ attr_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	if (-1 != j)
 	    do_va_cmd(3,"setattr",a->attr->name,ng_attr_getstr(a->attr,j));
 	break;
+    case ATTR_TYPE_BOOL:
+	do_va_cmd(3,"setattr",a->attr->name,"toggle");
+	break;
     }
 }
 
@@ -1843,6 +1814,7 @@ add_attr_option(Widget paned, struct ng_attribute *attr)
     a->attr = attr;
     
     switch (attr->type) {
+    case ATTR_TYPE_BOOL:
     case ATTR_TYPE_CHOICE:
 	a->cmd = XtVaCreateManagedWidget(attr->name,
 					 commandWidgetClass, paned,
@@ -1864,6 +1836,9 @@ add_attr_option(Widget paned, struct ng_attribute *attr)
 					    NULL);
 	XtAddCallback(a->scroll, XtNjumpProc,   jump_scb,   a);
 	XtAddCallback(a->scroll, XtNscrollProc, scroll_scb, a);
+	if (attr->id >= ATTR_ID_COUNT)
+	    XtVaSetValues(l,XtNlabel,attr->name,NULL);
+	break;
     }
     a->next = xaw_attrs;
     xaw_attrs = a;
@@ -1921,7 +1896,8 @@ void create_optwin(void)
 				    PANED_FIX, NULL);
 	XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_top);
     }
-    
+
+    /* menus / multiple choice options */
     attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
     if (NULL != attr)
 	add_attr_option(opt_paned,attr);
@@ -1943,7 +1919,16 @@ void create_optwin(void)
     c_cap = XtVaCreateManagedWidget("cap", commandWidgetClass, opt_paned,
 				    PANED_FIX, NULL);
     XtAddCallback(c_cap,XtNcallback,menu_cb,(XtPointer)14);
+
+    for (attr = a_drv; attr->name != NULL; attr++) {
+	if (attr->id < ATTR_ID_COUNT)
+	    continue;
+	if (attr->type != ATTR_TYPE_CHOICE)
+	    continue;
+	add_attr_option(opt_paned,attr);
+    }
     
+    /* integer options */
     attr = ng_attr_byid(a_drv,ATTR_ID_BRIGHT);
     if (NULL != attr)
 	add_attr_option(opt_paned,attr);
@@ -1971,6 +1956,24 @@ void create_optwin(void)
 	XtAddCallback(s_volume,XtNscrollProc,scroll_scb,NULL);
     }
 
+    for (attr = a_drv; attr->name != NULL; attr++) {
+	if (attr->id < ATTR_ID_COUNT)
+	    continue;
+	if (attr->type != ATTR_TYPE_INTEGER)
+	    continue;
+	add_attr_option(opt_paned,attr);
+    }
+
+    /* boolean options */
+    for (attr = a_drv; attr->name != NULL; attr++) {
+	if (attr->id < ATTR_ID_COUNT)
+	    continue;
+	if (attr->type != ATTR_TYPE_BOOL)
+	    continue;
+	add_attr_option(opt_paned,attr);
+    }
+
+    /* quit */
     c = XtVaCreateManagedWidget("quit", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,ExitCB,NULL);
@@ -2495,7 +2498,7 @@ main(int argc, char *argv[])
     progname = strdup(argv[0]);
 
     /* toplevel */
-    XInitThreads();
+    /* XInitThreads(); */
     app_shell = XtVaAppInitialize(&app_context,
 				  "Xawtv",
 				  opt_desc, opt_count,

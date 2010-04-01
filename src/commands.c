@@ -54,7 +54,7 @@ int do_overlay;
 char *snapbase = "snap";
 
 struct ng_video_fmt x11_fmt;
-int cur_attrs[ATTR_ID_COUNT];
+int cur_attrs[256];
 
 /* current hardware driver */
 const struct ng_driver    *drv;
@@ -262,15 +262,15 @@ set_volume(void)
     
     if (have_mixer) {
 	/* sound card */
-	vol = cur_volume * 100 / 65536;
+	vol = cur_attrs[ATTR_ID_VOLUME] * 100 / 65536;
 	mixer_set_volume(vol);
-	cur_mute ? mixer_mute() : mixer_unmute();
+	cur_attrs[ATTR_ID_MUTE] ? mixer_mute() : mixer_unmute();
     } else {
 	/* v4l */
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_VOLUME)))
-	    drv->write_attr(h_drv,attr,cur_volume);
+	    drv->write_attr(h_drv,attr,cur_attrs[ATTR_ID_VOLUME]);
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
-	    drv->write_attr(h_drv,attr,cur_mute);
+	    drv->write_attr(h_drv,attr,cur_attrs[ATTR_ID_MUTE]);
     }
 
     if (volume_notify)
@@ -307,7 +307,8 @@ set_title(void)
 	    sprintf(title,"channel %s",chanlist[cur_channel].name);
 	    if (cur_fine != 0)
 		sprintf(title+strlen(title)," (%d)",cur_fine);
-	    norm = ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),cur_norm);
+	    norm = ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
+				  cur_attrs[ATTR_ID_NORM]);
 	    sprintf(title+strlen(title)," (%s/%s)",
 		    norm ? norm : "???", chanlists[chantab].name);
 	} else {
@@ -324,6 +325,17 @@ set_msg_int(const char *name, int val)
     
     if (display_message) {
 	sprintf(title,"%s: %d%%",name,val*100/65535);
+	display_message(title);
+    }
+}
+
+static void
+set_msg_bool(const char *name, int val)
+{
+    static char  title[256];
+    
+    if (display_message) {
+	sprintf(title,"%s: %s",name, val ? "on" : "off");
 	display_message(title);
     }
 }
@@ -374,6 +386,7 @@ attr_init()
     struct ng_attribute *attr;
     int val;
 
+    
     for (attr = a_drv; attr->name != NULL; attr++) {
 	if (attr->id == ATTR_ID_VOLUME ||
 	    attr->id == ATTR_ID_MUTE)
@@ -381,6 +394,7 @@ attr_init()
 	val = drv->read_attr(h_drv,attr);
 	if (attr_notify)
 	    attr_notify(attr,val);
+	cur_attrs[attr->id] = val;
     }
 }
 
@@ -390,13 +404,13 @@ audio_init()
     struct ng_attribute *attr;
 
     if (have_mixer) {
-	cur_volume = mixer_get_volume() * 65535/100;
-	cur_mute   = 0;
+	cur_attrs[ATTR_ID_VOLUME] = mixer_get_volume() * 65535/100;
+	cur_attrs[ATTR_ID_MUTE]   = 0;
     } else {
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_VOLUME)))
-	    cur_volume = drv->read_attr(h_drv,attr);
+	    cur_attrs[ATTR_ID_VOLUME] = drv->read_attr(h_drv,attr);
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_MUTE)))
-	    cur_mute = drv->read_attr(h_drv,attr);
+	    cur_attrs[ATTR_ID_MUTE] = drv->read_attr(h_drv,attr);
     }
     if (volume_notify)
 	volume_notify();
@@ -489,7 +503,7 @@ static int setstation_handler(char *name, int argc, char **argv)
     cur_sender = i;
 
     mute = ng_attr_byid(a_drv,ATTR_ID_MUTE);
-    if (!cur_mute) {
+    if (!cur_attrs[ATTR_ID_MUTE]) {
 	if (have_mixer)
 	    mixer_mute();
 	else if (mute)
@@ -506,18 +520,14 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_CONTRAST)))
 	set_attr(attr,channels[i]->contrast);
     set_capture(channels[i]->capture);
-    
+
     /* input / norm */
-    if (cur_input != channels[i]->input) {
+    if (cur_attrs[ATTR_ID_INPUT] != channels[i]->input)
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_INPUT)))
-	    drv->write_attr(h_drv,attr,channels[i]->input);
-	cur_input = channels[i]->input;
-    }
-    if (cur_norm != channels[i]->norm) {
+	    set_attr(attr,channels[i]->input);
+    if (cur_attrs[ATTR_ID_NORM] != channels[i]->norm)
 	if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)))
-	    drv->write_attr(h_drv,attr,channels[i]->norm);
-	cur_norm = channels[i]->norm;
-    }
+	    set_attr(attr,channels[i]->norm);
     
     /* station */
     cur_channel  = channels[i]->channel;
@@ -530,7 +540,7 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (setstation_notify)
 	setstation_notify();
 
-    if (!cur_mute) {
+    if (!cur_attrs[ATTR_ID_MUTE]) {
 	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
@@ -586,7 +596,7 @@ static int setchannel_handler(char *name, int argc, char **argv)
     cur_freq = get_freq(cur_channel)+cur_fine;
 
     mute = ng_attr_byid(a_drv,ATTR_ID_MUTE);
-    if (!cur_mute) {
+    if (!cur_attrs[ATTR_ID_MUTE]) {
 	if (have_mixer)
 	    mixer_mute();
 	else if (mute)
@@ -601,7 +611,7 @@ static int setchannel_handler(char *name, int argc, char **argv)
     if (setstation_notify)
 	setstation_notify();
 
-    if (!cur_mute) {
+    if (!cur_attrs[ATTR_ID_MUTE]) {
 	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
@@ -661,24 +671,25 @@ static int volume_handler(char *name, int argc, char **argv)
 	/* mute on/off/toggle */
 	if (argc > 1) {
 	    switch (str_to_int(argv[1],booltab)) {
-	    case 0:  cur_mute = 0; break;
-	    case 1:  cur_mute = 1; break;
-	    default: cur_mute = !cur_mute; break;
+	    case 0:  cur_attrs[ATTR_ID_MUTE] = 0; break;
+	    case 1:  cur_attrs[ATTR_ID_MUTE] = 1; break;
+	    default: cur_attrs[ATTR_ID_MUTE] = !cur_attrs[ATTR_ID_MUTE]; break;
 	    }
 	} else {
-	    cur_mute = !cur_mute;
+	    cur_attrs[ATTR_ID_MUTE] = !cur_attrs[ATTR_ID_MUTE];
 	}
     } else {
 	/* volume */
-	cur_volume = update_int(cur_volume,argv[0]);
+	cur_attrs[ATTR_ID_VOLUME] =
+	    update_int(cur_attrs[ATTR_ID_VOLUME],argv[0]);
     }
     set_volume();
 
  display:
-    if (cur_mute)
+    if (cur_attrs[ATTR_ID_MUTE])
 	set_msg_str("volume","muted");
     else
-	set_msg_int("volume",cur_volume);
+	set_msg_int("volume",cur_attrs[ATTR_ID_VOLUME]);
     return 0;
 }
 
@@ -702,7 +713,12 @@ static int attr_handler(char *name, int argc, char **argv)
     }
 
     if (NULL == attr) {
-	/* TODO: print error */
+	fprintf(stderr,"cmd: %s: attribute not found\nvalid choices are:",
+		(arg > 0) ? argv[0] : name);
+	for (attr = a_drv; attr->name != NULL; attr++)
+	    fprintf(stderr,"%s \"%s\"",
+		    (attr != a_drv) ? "," : "", attr->name);
+	fprintf(stderr,"\n");
 	return -1;
     }
 
@@ -710,7 +726,12 @@ static int attr_handler(char *name, int argc, char **argv)
     case ATTR_TYPE_CHOICE:
 	if (argc > arg) {
 	    val = ng_attr_getint(attr, argv[arg]);
-	    set_attr(attr,val);
+	    if (-1 == val) {
+		fprintf(stderr,"invalid value for %s: %s\n",attr->name,argv[arg]);
+		ng_attr_listchoices(attr);
+	    } else {
+		set_attr(attr,val);
+	    }
 	}
 	break;
     case ATTR_TYPE_INTEGER:
@@ -719,6 +740,17 @@ static int attr_handler(char *name, int argc, char **argv)
 	    set_attr(attr,val);
 	}
 	set_msg_int(attr->name,cur_attrs[attr->id]);
+	break;
+    case ATTR_TYPE_BOOL:
+	if (argc > arg) {
+	    val = str_to_int(argv[arg],booltab);
+	    if (-1 == val) {
+		if (0 == strcasecmp(argv[arg],"toggle"))
+		    val = !cur_attrs[attr->id];
+	    }
+	    set_attr(attr,val);
+	}
+	set_msg_bool(attr->name,cur_attrs[attr->id]);
 	break;
     }
     return 0;

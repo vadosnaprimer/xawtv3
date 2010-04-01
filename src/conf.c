@@ -78,7 +78,7 @@ static void add_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	channel->key = strdup(key);
     channel->cname = (cur_channel != -1) ? chanlist[cur_channel].name : "???";
     channel->channel = cur_channel;
-    channel->input = cur_input;
+    channel->input = cur_attrs[ATTR_ID_INPUT];
     channel->fine = cur_fine;
     configure_channel(channel);
     channel_menu();

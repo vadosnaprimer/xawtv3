@@ -64,9 +64,9 @@ int             alloc_count = 0;
 int             have_mixer  = 0;
 
 int last_sender = -1, cur_sender = -1, cur_channel = -1, cur_fine = 0;
-int cur_norm = -1, cur_input = -1, cur_freq;
+int cur_freq;
 
-int cur_capture, cur_movie, cur_mute = 0, cur_volume = 65535;
+int cur_capture, cur_movie;
 int have_config;
 int jpeg_quality = 75;
 int keypad_ntsc = 0;
@@ -296,22 +296,28 @@ init_channel(char *name, struct CHANNEL *c)
 	 NULL != (val = cfg_get_str(name,"source")))) { /* obsolete */
 	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->input = i;
-	else
+	else {
 	    fprintf(stderr,"config: invalid value for input: %s\n",val);
+	    ng_attr_listchoices(attr);
+	}
     }
     if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)) &&
 	NULL != (val = cfg_get_str(name,"norm"))) {
 	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->norm = i;
-	else
+	else {
 	    fprintf(stderr,"config: invalid value for norm: %s\n",val);
+	    ng_attr_listchoices(attr);
+	}
     }
     if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE)) &&
 	NULL != (val = cfg_get_str(name,"audio"))) {
 	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->audio = i;
-	else
+	else {
 	    fprintf(stderr,"config: invalid value for audio: %s\n",val);
+	    ng_attr_listchoices(attr);
+	}
     }
     
     if (NULL != (val = cfg_get_str(name,"channel")))
@@ -527,9 +533,11 @@ save_config()
     /* write defaults */
     fprintf(fp,"[defaults]\n");
     fprintf(fp,"norm = %s\n",
-	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),cur_norm));
+	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
+			   cur_attrs[ATTR_ID_NORM]));
     fprintf(fp,"input = %s\n",
-	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),cur_input));
+	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),
+			   cur_attrs[ATTR_ID_INPUT]));
     fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
     if (cur_attrs[ATTR_ID_COLOR] != 32768)
 	fprintf(fp,"color = %d\n",cur_attrs[ATTR_ID_COLOR]);
@@ -552,11 +560,11 @@ save_config()
 	    fprintf(fp,"freq = %.2f\n",(float)(channels[i]->freq)/16);
 	}
 	
-	if (cur_norm != channels[i]->norm)
+	if ( channels[i]->norm != cur_attrs[ATTR_ID_NORM])
 	    fprintf(fp,"norm = %s\n",
 		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
 				   channels[i]->norm));
-	if (channels[i]->input != cur_input)
+	if (channels[i]->input != cur_attrs[ATTR_ID_INPUT])
 	    fprintf(fp,"input = %s\n",
 		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),
 				   channels[i]->input));

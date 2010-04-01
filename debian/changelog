@@ -1,3 +1,10 @@
+xawtv (3.38) unstable; urgency=low
+
+  * new release (closes: #88396).
+  * fixed a number of lintian warnings.
+
+ -- Gerd Knorr <kraxel@debian.org>  Sun, 11 Mar 2001 10:18:20 +0100
+
 xawtv (3.37) unstable; urgency=low
 
   * new release.

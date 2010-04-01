@@ -617,7 +617,7 @@ static int v4l_read_attr(void *handle, struct ng_attribute *attr)
     case ATTR_ID_INPUT:
 	return h->input;
     case ATTR_ID_NORM:
-	xioctl(h->fd, VIDIOCSCHAN, &h->channels[h->input]);
+	xioctl(h->fd, VIDIOCGCHAN, &h->channels[h->input]);
 	return h->channels[h->input].norm;
     case ATTR_ID_MUTE:
 	xioctl(h->fd, VIDIOCGAUDIO, &h->audio);

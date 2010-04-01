@@ -16,8 +16,7 @@ install: all
 	done
 	if test "$(ROOT)" = ""; then		\
 		(cd $(FONTDIR); mkfontdir);	\
-		xset fp rehash;			\
-		true;				\
+		xset fp rehash || true;		\
 	fi
 
 .SUFFIXES: .bdf .pcf

@@ -27,7 +27,7 @@ extern int debug;
 extern int do_overlay;
 extern char *snapbase;
 extern struct ng_video_fmt x11_fmt;
-extern int cur_attrs[ATTR_ID_COUNT];
+extern int cur_attrs[256];
 
 extern const struct ng_driver     *drv;
 extern void                       *h_drv;

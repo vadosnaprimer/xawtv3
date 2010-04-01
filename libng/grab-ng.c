@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <ctype.h>
 #include <sys/time.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -122,12 +123,6 @@ void ng_release_video_buf(struct ng_video_buf *buf)
 void ng_wakeup_video_buf(struct ng_video_buf *buf)
 {
     pthread_cond_signal(&buf->cond);
-#if 0
-    pthread_mutex_lock(&mut);
-    /* modify x and y */
-    if (x > y) pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&mut);
-#endif
 }
 
 void ng_waiton_video_buf(struct ng_video_buf *buf)
@@ -136,14 +131,6 @@ void ng_waiton_video_buf(struct ng_video_buf *buf)
     while (buf->refcount)
 	pthread_cond_wait(&buf->cond, &buf->lock);
     pthread_mutex_unlock(&buf->lock);
-#if 0
-     pthread_mutex_lock(&mut);
-     while (x <= y) {
-             pthread_cond_wait(&cond, &mut);
-     }
-     /* operate on x and y */
-     pthread_mutex_unlock(&mut);
-#endif
 }
 
 static void ng_free_video_buf(struct ng_video_buf *buf)
@@ -218,7 +205,7 @@ ng_attr_getstr(struct ng_attribute *attr, int value)
 int
 ng_attr_getint(struct ng_attribute *attr, char *value)
 {
-    int i;
+    int i,val;
     
     if (NULL == attr)
 	return -1;
@@ -228,7 +215,30 @@ ng_attr_getint(struct ng_attribute *attr, char *value)
     for (i = 0; attr->choices[i].str != NULL; i++)
 	if (0 == strcasecmp(attr->choices[i].str,value))
 	    return attr->choices[i].nr;
+
+    if (isdigit(value[0])) {
+	/* Hmm.  String not found, but starts with a digit.
+	   Check if this is a valid number ... */
+	val = atoi(value);
+	for (i = 0; attr->choices[i].str != NULL; i++)
+	    if (val == attr->choices[i].nr)
+		return attr->choices[i].nr;
+	
+    }
     return -1;
+}
+
+void
+ng_attr_listchoices(struct ng_attribute *attr)
+{
+    int i;
+    
+    fprintf(stderr,"valid choices for \"%s\": ",attr->name);
+    for (i = 0; attr->choices[i].str != NULL; i++)
+	fprintf(stderr,"%s\"%s\"",
+		i ? ", " : "",
+		attr->choices[i].str);
+    fprintf(stderr,"\n");
 }
 
 /* --------------------------------------------------------------------- */

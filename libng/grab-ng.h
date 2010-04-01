@@ -181,6 +181,7 @@ struct ng_attribute* ng_attr_byid(struct ng_attribute *attrs, int id);
 struct ng_attribute* ng_attr_byname(struct ng_attribute *attrs, char *name);
 const char* ng_attr_getstr(struct ng_attribute *attr, int value);
 int ng_attr_getint(struct ng_attribute *attr, char *value);
+void ng_attr_listchoices(struct ng_attribute *attr);
 
 /* --------------------------------------------------------------------- */
 
