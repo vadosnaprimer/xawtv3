@@ -132,27 +132,32 @@ XtResource args_desc[] = {
 	"device",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,device),
-	XtRString, "default"
+	XtRString, NULL
     },{
 	"dspdev",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,dspdev),
-	XtRString, "default"
+	XtRString, NULL
     },{
 	"vbidev",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,vbidev),
-	XtRString, "default"
+	XtRString, NULL
     },{
 	"joydev",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,joydev),
-	XtRString, "default"
+	XtRString, NULL
     },{
 	"basename",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,basename),
 	XtRString, "snap"
+    },{
+	"conffile",
+	XtCString, XtRString, sizeof(char*),
+	XtOffset(struct ARGS*,conffile),
+	XtRString, NULL
     },{
 	/* Integer */
 	"debug",
@@ -249,6 +254,7 @@ XrmOptionDescRec opt_desc[] = {
     { "-joydev",     "joydev",      XrmoptionSepArg, NULL },
     { "-o",          "basename",    XrmoptionSepArg, NULL },
     { "-outfile",    "basename",    XrmoptionSepArg, NULL },
+    { "-conffile",   "conffile",    XrmoptionSepArg, NULL },
     
     { "-v",          "debug",       XrmoptionSepArg, NULL },
     { "-debug",      "debug",       XrmoptionSepArg, NULL },
@@ -312,7 +318,7 @@ ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
 void
 do_exit(void)
 {
-    ExitCB(NULL,NULL,NULL);    
+    ExitCB(NULL,NULL,NULL);
 }
 
 void
@@ -669,6 +675,52 @@ LaunchAction(Widget widget, XEvent *event,
     }
 }
 
+/*------------------------------------------------------------------------*/
+
+XtSignalId sig_id;
+
+static void termsig_handler(XtPointer data, XtSignalId *id)
+{
+    ExitCB(NULL,NULL,NULL);
+}
+
+static void
+termsig(int signal)
+{
+    if (debug)
+	fprintf(stderr,"received signal %d [%s]\n",signal,strsignal(signal));
+    XtNoticeSignal(sig_id);
+}
+
+static void
+segfault(int signal)
+{
+    fprintf(stderr,"[pid=%d] segfault catched, aborting\n",getpid());
+    abort();
+}
+
+void
+xt_siginit(void)
+{
+    struct sigaction act,old;
+
+    memset(&act,0,sizeof(act));
+    sigemptyset(&act.sa_mask);
+    act.sa_handler  = exec_done;
+    sigaction(SIGCHLD,&act,&old);
+
+    sig_id = XtAppAddSignal(app_context,termsig_handler,NULL);
+    act.sa_handler  = termsig;
+    sigaction(SIGINT,&act,&old);
+    sigaction(SIGTERM,&act,&old);
+    
+    if (debug) {
+	act.sa_handler  = segfault;
+	sigaction(SIGSEGV,&act,&old);
+	fprintf(stderr,"main thread [pid=%d]\n",getpid());
+    }
+}
+
 /*----------------------------------------------------------------------*/
 
 Boolean
@@ -950,10 +1002,8 @@ set_property(int freq, char *channel, char *name)
     char line[80];
 
     len  = sprintf(line,"%.3f",(float)freq/16)+1;
-    if (NULL != channel)
-	len += sprintf(line+len,"%s",channel)+1;
-    if (NULL != name)
-	len += sprintf(line+len,"%s",name)+1;
+    len += sprintf(line+len,"%s",channel ? channel : "?") +1;
+    len += sprintf(line+len,"%s",name    ? name    : "?") +1;
     XChangeProperty(dpy, XtWindow(app_shell),
                     xawtv_station, XA_STRING,
                     8, PropModeReplace,
@@ -1378,13 +1428,11 @@ handle_cmdline_args(void)
     debug    = args.debug;
     ng_debug = args.debug;
 
-    if (0 == strcmp(args.joydev,"default"))
-	args.joydev = NULL;
-    if (0 == strcmp(args.dspdev,"default"))
+    if (NULL == args.dspdev)
 	args.dspdev = ng_dev.dsp;
-    if (0 == strcmp(args.vbidev,"default"))
+    if (NULL == args.vbidev)
 	args.vbidev = ng_dev.vbi;
-    if (0 == strcmp(args.device,"default")) {
+    if (NULL == args.device) {
 	args.device = ng_dev.video;
     } else {
 	args.xv_video = 0;

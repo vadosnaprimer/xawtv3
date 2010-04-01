@@ -1,5 +1,5 @@
 /*
- * (c) 2000,01 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ * (c) 2000-2002 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
 #include "config.h"
@@ -183,7 +183,7 @@ main(int argc, char **argv)
 {
     struct vbi *vbi;
     struct ng_attribute *attr;
-    int c,i,j,scan=1;
+    int c,f,f1,f2,fc,fi,on,tuned,i,j,scan=1,fullscan=0;
     char *name,dummy[32];
     char *tvnorm  = NULL;
     char *freqtab = NULL;
@@ -195,7 +195,7 @@ main(int argc, char **argv)
     /* parse options */
     ng_init();
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hsdn:f:o:c:C:")))
+	if (-1 == (c = getopt(argc, argv, "hsadn:f:o:c:C:")))
 	    break;
 	switch (c) {
 	case 'd':
@@ -203,6 +203,9 @@ main(int argc, char **argv)
 	    break;
 	case 's':
 	    scan=0;
+	    break;
+	case 'a':
+	    fullscan=1;
 	    break;
 	case 'n':
 	    tvnorm = optarg;
@@ -258,6 +261,7 @@ main(int argc, char **argv)
     fprintf(conf,"input = Television\n");
     fprintf(conf,"norm = %s\n",ng_attr_getstr(attr,i));
     fprintf(conf,"\n");
+    fflush(conf);
     if (!scan)
 	exit(0);
 
@@ -274,26 +278,110 @@ main(int argc, char **argv)
     fdset_init(fds);
     if (not(vbi = vbi_open(ng_dev.vbi, 0, 0, -1)))
 	fatal("cannot open %s", ng_dev.vbi);
-
-    /* scan channels */
-    fprintf(stderr,"\nscanning...\n");
     vbi_add_handler(vbi, event, NULL);
-    for (i = 0; i < chancount; i++) {
-	fprintf(stderr,"%-4s (%6.2f MHz): ",chanlist[i].name,(float)chanlist[i].freq/1000);
-	do_va_cmd(2,"setchannel",chanlist[i].name);
-	usleep(200000); /* 0.2 sec */
-	if (0 == drv->is_tuned(h_drv)) {
-	    fprintf(stderr,"no station\n");
-	    continue;
+
+    if (!fullscan) {
+	/* scan channels */
+	fprintf(stderr,"\nscanning channel list %s...\n",
+		chanlist_names[j].str);
+	for (i = 0; i < chancount; i++) {
+	    fprintf(stderr,"%-4s (%6.2f MHz): ",chanlist[i].name,
+		    (float)chanlist[i].freq/1000);
+	    do_va_cmd(2,"setchannel",chanlist[i].name);
+	    usleep(200000); /* 0.2 sec */
+	    if (0 == drv->is_tuned(h_drv)) {
+		fprintf(stderr,"no station\n");
+		continue;
+	    }
+	    fdset_select(fds, 1000 * timeout);
+	    name = get_vbi_name();
+	    fprintf(stderr,"%s\n",name ? name : "???");
+	    if (NULL == name) {
+		sprintf(dummy,"unknown (%s)",chanlist[i].name);
+		name = dummy;
+	    }
+	    fprintf(conf,"[%s]\nchannel = %s\n\n",name,chanlist[i].name);
+	    fflush(conf);
 	}
-	fdset_select(fds, 1000 * timeout);
-	name = get_vbi_name();
-	fprintf(stderr,"%s\n",name ? name : "???");
-	if (NULL == name) {
-	    sprintf(dummy,"unknown (%s)",chanlist[i].name);
-	    name = dummy;
+    } else {
+	/* scan freqnencies */
+	fprintf(stderr,"\nscanning freqencies...\n");
+	on = 0;
+	fc = 0;
+	f1 = 0;
+	f2 = 0;
+	fi = -1;
+	for (f = 44*16; f <= 958*16; f += 4) {
+	    for (i = 0; i < chancount; i++)
+		if (chanlist[i].freq * 16 == f * 1000)
+		    break;
+	    fprintf(stderr,"?? %6.2f MHz (%-4s): ",f/16.0,
+		    (i == chancount) ? "-" : chanlist[i].name);
+	    drv->setfreq(h_drv,f);
+	    usleep(200000); /* 0.2 sec */
+	    tuned = drv->is_tuned(h_drv);
+
+	    /* state machine */
+	    if (0 == on && 0 == tuned) {
+		fprintf(stderr,"|   no\n");
+		continue;
+	    }
+	    if (0 == on && 0 != tuned) {
+		fprintf(stderr," \\  raise\n");
+		f1 = f;
+		if (i != chancount) {
+		    fi = i;
+		    fc = f;
+		}
+		on = 1;
+		continue;
+	    }
+	    if (0 != on && 0 != tuned) {
+		fprintf(stderr,"  | yes\n");
+		if (i != chancount) {
+		    fi = i;
+		    fc = f;
+		}
+		continue;
+	    }
+	    /* if (on != 0 && 0 == tuned)  --  found one, read name from vbi */
+	    fprintf(stderr," /  fall\n");
+	    f2 = f;
+	    if (0 == fc)
+		fc = (f1+f2)/2;
+
+	    fprintf(stderr,"=> %6.2f MHz (%-4s): ", fc/16.0,
+		    (-1 != fi) ? chanlist[fi].name : "-");
+	    drv->setfreq(h_drv,fc);
+	    
+	    fdset_select(fds, 1000 * timeout);
+	    name = get_vbi_name();
+	    fprintf(stderr,"%s\n",name ? name : "???");
+	    if (NULL == name) {
+		sprintf(dummy,"unknown (%s)",chanlist[fi].name);
+		name = dummy;
+	    }
+	    if (-1 != fi) {
+		if (NULL == name) {
+		    sprintf(dummy,"unknown (%s)",chanlist[fi].name);
+		    name = dummy;
+		}
+		fprintf(conf,"[%s]\nchannel = %s\n\n",name,chanlist[fi].name);
+	    } else {
+		if (NULL == name) {
+		    sprintf(dummy,"unknown (%.3f)", fc/16.0);
+		    name = dummy;
+		}
+		fprintf(conf,"[%s]\nfreq = %.3f\n\n", name, fc/16.0);
+	    }
+	    fflush(conf);
+
+	    on = 0;
+	    fc = 0;
+	    f1 = 0;
+	    f2 = 0;
+	    fi = -1;
 	}
-	fprintf(conf,"[%s]\nchannel = %s\n\n",name,chanlist[i].name);
     }
 
     /* cleanup */

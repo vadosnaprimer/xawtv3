@@ -6,6 +6,7 @@ struct ARGS {
     char *vbidev;
     char *joydev;
     char *basename;
+    char *conffile;
 
     /* int */
     int  debug;
@@ -107,6 +108,7 @@ void exec_done(int signal);
 /* static void exec_output(XtPointer data, int *fd, XtInputId * iproc); */
 int exec_x11(char **argv);
 void exec_player(char *moviefile);
+void xt_siginit(void);
 
 void new_title(char *txt);
 void new_message(char *txt);

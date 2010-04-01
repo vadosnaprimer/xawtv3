@@ -1,21 +1,13 @@
 
-For lirc support you have to install lirc-0.6.0pre1 or newer.  There
-is a library with the lirc client code now.  You can get it from the
-lirc snapshot directory:
-	http://fsinfo.cs.uni-sb.de/~columbus/lirc/software/snapshots/
+Starting with version 3.70 xawtv + friends do _not_ read $HOME/.lircrc
+any more.
 
-xawtv and fbtv accept the same commands via lirc as with xawtv-remote,
-i.e. if you stick the following lines into your .lircrc ...
+Check the xawtvrc manpage ([eventmap] section) for hints on
+configuring lirc support.  There is a default configuration througth,
+so lirc should work out-of-the-box.  You have to touch the
+$HOME/.xawtv config file only if you don't like my defaults.
 
-	begin
-		prog   = xawtv
-		button = MUTE
-		config = volume mute
-	end
-
-... this should have the same effect like "xawtv-remote volume mute".
-Check the xawtv-remote manpage for a more complete list.  A sample
-config file is in the contrib directory.
+Have fun,
 
   Gerd
 

@@ -184,6 +184,14 @@ control*menubar*man.mnemonic:		m
 control*menubar*about.labelString:	About ...
 control*menubar*about.mnemonic:		A
 
+! tooltips (needs openmotif 2.2)
+control*tool.prev.toolTipString:	previous station
+control*tool.next.toolTipString:	next station
+control*tool.snap.toolTipString:	grab image
+control*tool.movie.toolTipString:	record movie
+control*tool.mute.toolTipString:	mute audio
+control*tool.exit.toolTipString:	quit
+
 control*box.XmPushButton*menu.del.labelString:	Delete
 control*box.XmPushButton*menu.edit.labelString:	Edit ...
 

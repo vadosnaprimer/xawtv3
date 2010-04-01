@@ -1,4 +1,25 @@
 
+3.69 => 3.70
+============
+
+ * Hacked up configureable input event mapping infrastructure.  There
+   is a new [eventmap] section in the config file.  Check the xawtvrc
+   man page for details.
+ * Made lirc code use the event mapping.  xawtv does not use the
+   ~/.lircrc file config any more, but is configured using the
+   [eventmap] mentioned above.  xawtv also has a reasonable default
+   configuration now, so lirc works out-of-the-box.
+ * Made midi input configurable via event mapping.
+ * Made joystick input configurable via event mapping.
+ * Made fbtv's ncurses kbd keys go through event mapping.
+ * added -a switch to scantv.
+ * fixed some bugs in handling TV stations which are specified by
+   frequency instead of channel name.
+ * fixed volume control segfault.
+ * added tooltips for motv (needs OpenMotif 2.2).
+ * color support for bktr driver (Rolandas Naujikas <rolnauj@delfi.lt>).
+
+
 3.68 => 3.69
 ============
 

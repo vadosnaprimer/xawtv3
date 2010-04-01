@@ -180,6 +180,14 @@ control*menubar*man.mnemonic:		M
 control*menubar*about.labelString:	Über ...
 control*menubar*about.mnemonic:		b
 
+! tooltips (needs openmotif 2.2)
+control*tool.prev.toolTipString:	nächster Sender
+control*tool.next.toolTipString:	vorheriger Sender
+control*tool.snap.toolTipString:	Bild speichern
+control*tool.movie.toolTipString:	Film aufnehmen
+control*tool.mute.toolTipString:	Ton aus
+control*tool.exit.toolTipString:	Beenden
+
 control*box.XmPushButton*menu.del.labelString:	Löschen
 control*box.XmPushButton*menu.edit.labelString:	Ändern ...
 

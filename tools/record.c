@@ -45,7 +45,7 @@ static short  *sound_buffer;
 static int     maxl,maxr;
 static int     secl,secr;
 static int     *histl,*histr,histn,histi;
-static int     peak_seconds = 2;
+static float   peak_seconds = 1.5;
 static char    *audio_dev = "/dev/dsp";
 
 static int
@@ -526,7 +526,7 @@ usage(FILE *fp)
 	    "  -m dev    set mixer device [%s]\n"
 	    "  -d dev    set dsp device   [%s]\n"
 	    "  -r rate   set sample rate  [%d]\n"
-	    "  -p sec    peak seconds     [%d]\n"
+	    "  -p sec    peak seconds     [%.1f]\n"
 	    "\n"
 	    "for non-interactive usage only:\n"
 	    "  -c        enable console (non-interactive) mode\n"
@@ -596,7 +596,7 @@ main(int argc, char *argv[])
 	    rate = atoi(optarg);
 	    break;
 	case 'p':
-	    peak_seconds = atoi(optarg);
+	    peak_seconds = atof(optarg);
 	    break;
 	case 't':
 	    if (3 != sscanf(optarg,"%d:%d:%d",&maxhour,&maxmin,&maxsec)) {

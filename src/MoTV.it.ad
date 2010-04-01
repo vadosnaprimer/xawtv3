@@ -185,6 +185,14 @@ control*menubar*man.mnemonic:		m
 control*menubar*about.labelString:	Informazioni ...
 control*menubar*about.mnemonic:		A
 
+! tooltips (needs openmotif 2.2)
+control*tool.prev.toolTipString:	Stazione precedente
+control*tool.next.toolTipString:	Stazione successiva
+control*tool.snap.toolTipString:	Cattura immagine
+control*tool.movie.toolTipString:	Registra filmato
+control*tool.mute.toolTipString:	Muto
+control*tool.exit.toolTipString:	Esci
+
 control*box.XmPushButton*menu.del.labelString:	Cancella
 control*box.XmPushButton*menu.edit.labelString:	Modifica ...
 
@@ -356,6 +364,13 @@ control*highlightThickness:		0
 control*XmPushButton.highlightThickness: 1
 control.XmDialogShell*highlightThickness: 1
 
+control.toolTipEnable:			1
+control.toolTipPostDelay:		3000
+control.toolTipPostDuration:		8000
+control*TipLabel.foreground:		black
+control*TipLabel.background:		lightyellow
+control*TipShell.borderWidth:		1
+control*TipShell.borderColor:		black
 control*tool.orientation:		HORIZONTAL
 control*tool.?.shadowThickness:		1
 control*tool.?.labelType:		PIXMAP

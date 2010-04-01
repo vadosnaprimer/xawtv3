@@ -36,7 +36,7 @@ set sample rate.  Default is 44100.
 .B -p sec
 peak seconds (number of seconds which should be scanned for the volume
 maximum).  This affects both peak level display and level triggered
-recording (see below).  Default is two seconds.
+recording (see below).  Default is 1.5 seconds.
 .P
 record can also be used non-interactive:
 .TP
@@ -65,7 +65,7 @@ If level triggered recording is active, record will start and stop
 recording depending on the signal strength.  Recording will be started
 if the signal strength is above the trigger level (1000/32768 =>
 around 3%).  Recording will be stopped if the signal is below the
-trigger level for some time (two seconds by default, the -p switch
+trigger level for some time (1.5 seconds by default, the -p switch
 changes this).
 .SH AUTHOR
 Gerd Knorr <kraxel@bytesex.org>

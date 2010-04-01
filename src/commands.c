@@ -350,7 +350,7 @@ set_title(void)
 	    sprintf(title+strlen(title)," (%s/%s)",
 		    norm ? norm : "???", chanlists[chantab].name);
 	} else {
-	    sprintf(title,"???");
+	    sprintf(title,"%.3f MHz",cur_freq/16.0);
 	}
 	update_title(title);
     }
@@ -678,7 +678,12 @@ static int setchannel_handler(char *name, int argc, char **argv)
     set_capture(CAPTURE_OFF,1);
 
     cur_sender  = -1;
-    cur_freq = get_freq(cur_channel)+cur_fine;
+    if (-1 != cur_channel)
+	cur_freq = get_freq(cur_channel)+cur_fine;
+    else {
+	cur_freq += cur_fine;
+	cur_fine = 0;
+    }
 
     mute = ng_attr_byid(attrs,ATTR_ID_MUTE);
     if (mute && !cur_attrs[ATTR_ID_MUTE])
@@ -760,8 +765,11 @@ static int volume_handler(char *name, int argc, char **argv)
 	}
     } else {
 	/* volume */
-	cur_attrs[ATTR_ID_VOLUME] =
-	    update_int(vol,cur_attrs[ATTR_ID_VOLUME],argv[0]);
+	if (NULL != vol) {
+	    cur_attrs[ATTR_ID_VOLUME] = vol->read(vol);
+	    cur_attrs[ATTR_ID_VOLUME] =
+		update_int(vol,cur_attrs[ATTR_ID_VOLUME],argv[0]);
+	}
     }
     set_volume();
 
@@ -829,6 +837,7 @@ static int attr_handler(char *name, int argc, char **argv)
 	break;
     case ATTR_TYPE_INTEGER:
 	if (argc > arg) {
+	    cur_attrs[attr->id] = attr->read(attr);
 	    val = update_int(attr,cur_attrs[attr->id],argv[arg]);
 	    set_attr(attr,val);
 	}

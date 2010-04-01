@@ -9,7 +9,7 @@ CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) $(X11_FLAGS) $(LIB_FLAGS)	\
 
 # object files /libraries
 COMMON_OBJS	= sound.o webcam.o frequencies.o commands.o parseconfig.o \
-		  capture.o ../libng/libng.a
+		  capture.o event.o ../libng/libng.a
 
 XAWTV_OBJS	= main.o xt.o toolbox.o conf.o x11.o xv.o complete-xaw.o \
 		  wmhooks.o channel.o lirc.o midictrl.o joystick.o \

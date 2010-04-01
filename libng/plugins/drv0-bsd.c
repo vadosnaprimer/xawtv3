@@ -203,6 +203,14 @@ static struct ng_attribute bsd_attr[] = {
 	read:     bsd_read_attr,
 	write:    bsd_write_attr,
     },{
+	id:       ATTR_ID_COLOR,
+	name:     "color",
+	type:     ATTR_TYPE_INTEGER,
+	min:      BT848_CHROMAREGMIN,
+	max:      BT848_CHROMAREGMAX,
+	read:     bsd_read_attr,
+	write:    bsd_write_attr,
+    },{
 	/* end of list */
     }
 };
@@ -465,6 +473,10 @@ bsd_get_range(int id, int *get, int *set)
 	*get = BT848_GCONT;
 	*set = BT848_SCONT;
 	break;
+    case ATTR_ID_COLOR:
+	*get = BT848_GCSAT;
+	*set = BT848_SCSAT;
+	break;
     default:
 	return -1;
     }
@@ -497,6 +509,7 @@ static int bsd_read_attr(struct ng_attribute *attr)
     case ATTR_ID_HUE:
     case ATTR_ID_BRIGHT:
     case ATTR_ID_CONTRAST:
+    case ATTR_ID_COLOR:
 	bsd_get_range(attr->id,&get,&set);
 	if (-1 != xioctl(h->tfd,get,&arg))
 	    value = arg;
@@ -527,6 +540,7 @@ static void bsd_write_attr(struct ng_attribute *attr, int value)
     case ATTR_ID_HUE:
     case ATTR_ID_BRIGHT:
     case ATTR_ID_CONTRAST:
+    case ATTR_ID_COLOR:
 	bsd_get_range(attr->id,&get,&set);
 	arg = value;
 	xioctl(h->tfd,set,&arg);

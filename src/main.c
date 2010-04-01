@@ -1512,32 +1512,6 @@ create_launchwin(void)
 					  launch_shell, NULL);
 }
 
-/*------------------------------------------------------------------------*/
-
-static void
-segfault(int signal)
-{
-    fprintf(stderr,"[pid=%d] segfault catched\n",getpid());
-    abort();
-}
-
-
-static void
-siginit(void)
-{
-    struct sigaction act,old;
-
-    memset(&act,0,sizeof(act));
-    sigemptyset(&act.sa_mask);
-    act.sa_handler  = exec_done;
-    sigaction(SIGCHLD,&act,&old);
-    if (debug) {
-	act.sa_handler  = segfault;
-	sigaction(SIGSEGV,&act,&old);
-	fprintf(stderr,"main thread [pid=%d]\n",getpid());
-    }
-}
-
 /*--- main ---------------------------------------------------------------*/
 
 int
@@ -1640,7 +1614,7 @@ main(int argc, char *argv[])
     }
     if (debug)
 	fprintf(stderr,"main: install signal handlers...\n");
-    siginit();
+    xt_siginit();
     if (NULL == drv) {
 	if (debug)
 	    fprintf(stderr,"main: open grabber device...\n");
@@ -1666,7 +1640,7 @@ main(int argc, char *argv[])
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
-	read_config();
+	read_config(args.conffile ? args.conffile : NULL);
     }
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;

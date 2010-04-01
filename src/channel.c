@@ -46,14 +46,15 @@
 #include "frequencies.h"
 #include "sound.h"
 #include "parseconfig.h"
+#include "event.h"
 
 /* ----------------------------------------------------------------------- */
 /* misc common stuff, not only channel related                             */ 
 
 struct CHANNEL defaults = {
     name:     "defaults",
-    cname:    "none",
     capture:  CAPTURE_ON,
+    channel:  -1,
     audio:    -1,
     color:    -1,
     bright:   -1,
@@ -100,6 +101,9 @@ int lookup_channel(char *channel)
 {
     int    i,nr1,nr2;
     char   tag1[5],tag2[5];
+
+    if (NULL == channel)
+	return -1;
 
     if (isdigit(channel[0])) {
 	tag1[0] = 0;
@@ -280,14 +284,14 @@ calc_frequencies()
     int i;
 
     for (i = 0; i < count; i++) {
-	if (0 != strcmp(channels[i]->cname,"none")) { 
-	    channels[i]->channel = lookup_channel(channels[i]->cname);
-	    if (-1 == channels[i]->channel)
-		channels[i]->freq = -1;
-	    else
-		channels[i]->freq = get_freq(channels[i]->channel)
-		    + channels[i]->fine;
-	}
+	if (NULL == channels[i]->cname)
+	    continue;
+	channels[i]->channel = lookup_channel(channels[i]->cname);
+	if (-1 == channels[i]->channel)
+	    channels[i]->freq = -1;
+	else
+	    channels[i]->freq = get_freq(channels[i]->channel)
+		+ channels[i]->fine;
     }
 }
 
@@ -361,17 +365,22 @@ init_channel(char *name, struct CHANNEL *c)
 }
 
 void
-read_config(void)
+read_config(char *conffile)
 {
     char filename[100];
     char *val;
     int  i;
 
-    sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
-    if (0 == cfg_parse_file(CONFIGFILE))
-	have_config = 1;
-    if (0 == cfg_parse_file(filename))
-	have_config = 1;
+    if (conffile) {
+	if (0 == cfg_parse_file(conffile))
+	    have_config = 1;
+    } else {
+	sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
+	if (0 == cfg_parse_file(CONFIGFILE))
+	    have_config = 1;
+	if (0 == cfg_parse_file(filename))
+	    have_config = 1;
+    }
 
     /* misc global settings */
     if (NULL != (val = cfg_get_str("global","mixer"))) {
@@ -463,7 +472,7 @@ parse_config(void)
 #endif
 
     /* launch */
-    list = list = cfg_list_entries("launch");
+    list = cfg_list_entries("launch");
     if (NULL != list) {
 	for (; *list != NULL; list++) {
 	    if (NULL != (val = cfg_get_str("launch",*list)) &&
@@ -483,12 +492,16 @@ parse_config(void)
 	}
     }
 
+    /* events */
+    event_readconfig();
+
     /* channels */
     init_channel("defaults",&defaults);
     for (list = cfg_list_sections(); *list != NULL; list++) {
 	if (0 == strcmp(*list,"defaults")) continue;
 	if (0 == strcmp(*list,"global"))   continue;
 	if (0 == strcmp(*list,"launch"))   continue;
+	if (0 == strcmp(*list,"eventmap")) continue;
 	init_channel(*list,add_channel(*list));
     }
 
@@ -570,8 +583,10 @@ save_config()
 	fprintf(fp,"\n");
     }
 
-    /* write help */
+    /* events */
+    event_writeconfig(fp);
 
+    /* write help */
     fprintf(fp,"# [Station name]\n");
     fprintf(fp,"# capture = overlay | grabdisplay | on | off\n");
     fprintf(fp,"# input = Television | Composite1 | S-Video | ...\n");

@@ -3130,11 +3130,9 @@ main(int argc, char *argv[])
 	    args.bpp = 0;
 	}
     }
-#if 0
     if (debug)
 	fprintf(stderr,"main: install signal handlers...\n");
-    siginit();
-#endif
+    xt_siginit();
     if (NULL == drv) {
 	if (debug)
 	    fprintf(stderr,"main: open grabber device...\n");
@@ -3162,7 +3160,7 @@ main(int argc, char *argv[])
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: read config file ...\n");
-	read_config();
+	read_config(args.conffile ? args.conffile : NULL);
     }
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;

@@ -185,6 +185,14 @@ control*menubar*man.mnemonic:		m
 control*menubar*about.labelString:	Informazioni ...
 control*menubar*about.mnemonic:		A
 
+! tooltips (needs openmotif 2.2)
+control*tool.prev.toolTipString:	Stazione precedente
+control*tool.next.toolTipString:	Stazione successiva
+control*tool.snap.toolTipString:	Cattura immagine
+control*tool.movie.toolTipString:	Registra filmato
+control*tool.mute.toolTipString:	Muto
+control*tool.exit.toolTipString:	Esci
+
 control*box.XmPushButton*menu.del.labelString:	Cancella
 control*box.XmPushButton*menu.edit.labelString:	Modifica ...
 

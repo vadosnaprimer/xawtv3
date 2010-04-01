@@ -16,6 +16,7 @@
 #include "grab-ng.h"
 #include "commands.h"
 #include "joystick.h"
+#include "event.h"
 
 /*-----------------------------------------------------------------------*/
 
@@ -23,23 +24,46 @@ extern int debug;
 
 #ifdef HAVE_LINUX_JOYSTICK_H
 struct JOYTAB {
-    int class;
-    int number;
-    int value;
-    int argc;
-    char *argv[8];
+    int   class;
+    int   number;
+    int   value;
+    char  *event;
 };
 
 static struct JOYTAB joytab[] = {
-    { JS_EVENT_BUTTON, 0, 1,    1, {"quit"}},
-    { JS_EVENT_BUTTON, 1, 1,    1, {"fullscreen"}},
-    { JS_EVENT_AXIS, 1, -32767, 2, {"volume", "inc"}},
-    { JS_EVENT_AXIS, 1,  32767, 2, {"volume", "dec"}},
-    { JS_EVENT_AXIS, 0,  32767, 2, {"setchannel", "next"}},
-    { JS_EVENT_AXIS, 0, -32767, 2, {"setchannel", "prev"}},
+    { JS_EVENT_BUTTON, 0, 1,    "joy-button-0"   },
+    { JS_EVENT_BUTTON, 1, 1,    "joy-button-1"   },
+    { JS_EVENT_AXIS, 1, -32767, "joy-axis-up"    },
+    { JS_EVENT_AXIS, 1,  32767, "joy-axis-down"  },
+    { JS_EVENT_AXIS, 0,  32767, "joy-axis-left"  },
+    { JS_EVENT_AXIS, 0, -32767, "joy-axis-right" },
+};
+#define NJOYTAB (sizeof(joytab)/sizeof(struct JOYTAB))
+
+static struct event_entry joy_events[] = {
+    {
+	event:  "joy-button-0",
+	action: "quit",
+    },{
+	event:  "joy-button-1",
+	action: "fullscreen",
+    },{
+	event:  "joy-axis-up",
+	action: "volume inc",
+    },{
+	event:  "joy-axis-down",
+	action: "volume dec",
+    },{
+	event:  "joy-axis-left",
+	action: "setchannel prev",
+    },{
+	event:  "joy-axis-right",
+	action: "setchannel next",
+    },{
+	/* end of list */
+    }
 };
 
-#define NJOYTAB (sizeof(joytab)/sizeof(struct JOYTAB))
 #endif
 
 int joystick_tv_init(char *dev)
@@ -54,6 +78,7 @@ int joystick_tv_init(char *dev)
 	return -1;
     }
     fcntl(fd,F_SETFD,FD_CLOEXEC);
+    event_register_list(joy_events);
     return fd;
 #else
     return -1;
@@ -74,7 +99,7 @@ void joystick_tv_havedata(int js)
 		&& joytab[i].value == event.value)
 		break;
 	if (i != NJOYTAB)
-	    do_command(joytab[i].argc, joytab[i].argv);
+	    event_dispatch(joytab[i].event);
     }
 #endif
 }

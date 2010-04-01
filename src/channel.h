@@ -33,8 +33,6 @@ struct CHANNEL {
     Pixmap  pixmap;
     Widget  button;
 #endif
-
-    int ckey;
 };
 
 extern struct CHANNEL  defaults;
@@ -72,7 +70,7 @@ void configure_channel(struct CHANNEL *channel);
 void del_channel(int nr);
 void calc_frequencies(void);
 
-void read_config(void);
+void read_config(char *conffile);
 void parse_config(void);
 void save_config(void);
 

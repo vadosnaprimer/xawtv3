@@ -12,6 +12,7 @@
 #include "commands.h"
 #include "channel.h"
 #include "midictrl.h"
+#include "event.h"
 
 extern int debug;
 
@@ -248,7 +249,7 @@ int midi_read(struct midi_handle *h)
 	fprintf(stderr, "midi: snd_seq_event_input: %s\n",snd_strerror(rc));
 	return -1;
     }
-    if (debug)
+    if (debug > 1)
 	midi_dump_ev(stderr,h->ev);
     return 0;
 }
@@ -257,7 +258,7 @@ int midi_read(struct midi_handle *h)
 
 #ifdef STANDALONE
 
-int debug = 1;
+int debug = 2;
 
 int main(int argc, char *argv[])
 {
@@ -281,23 +282,28 @@ int main(int argc, char *argv[])
 
 void midi_translate(struct midi_handle *h)
 {
-    char val[8];
+    char event[64];
     int i;
     
     switch (h->ev->type) {
     case SND_SEQ_EVENT_NOTEON:
-	if (h->ev->data.note.velocity > 0) {
-	    for (i = 0; i < count; i++)
-		if (channels[i]->midi != 0 &&
-		    channels[i]->midi == h->ev->data.note.note)
-		    do_va_cmd(2,"setstation",channels[i]->name);
+	if (0 == h->ev->data.note.velocity)
+	    return;
+	for (i = 0; i < count; i++) {
+	    if (channels[i]->midi != 0 &&
+		channels[i]->midi == h->ev->data.note.note) {
+		do_va_cmd(2,"setstation",channels[i]->name);
+		return;
+	    }
 	}
+	sprintf(event,"midi-note-%d",h->ev->data.note.note);
+	event_dispatch(event);
 	break;
     case SND_SEQ_EVENT_CONTROLLER:
-	if (h->ev->data.control.param == 7 /* VOLUME */) {
-	    sprintf(val,"%d", h->ev->data.control.value * 65535/128);
-	    do_va_cmd(2,"volume",val);
-	}
+	sprintf(event,"midi-ctrl-%d(%d%%)",
+		h->ev->data.control.param,
+		h->ev->data.control.value*100/128);
+	event_dispatch(event);
     }
 }
 

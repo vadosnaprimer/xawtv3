@@ -39,6 +39,7 @@
 #include "lirc.h"
 #include "joystick.h"
 #include "midictrl.h"
+#include "event.h"
 
 #include "fbtools.h"
 #include "fs.h"
@@ -80,58 +81,109 @@ int x11_native_format,have_dga=1,debug;
 
 /*--- channels ------------------------------------------------------------*/
 
+struct event_entry kbd_events[] = {
+    {
+	event:  "kbd-key-+",
+	action: "volume inc",
+    },{
+	event:  "kbd-key--",
+	action: "volume dec",
+    },{
+	event:  "kbd-key-enter",
+	action: "volume mute",
+    },{
+	event:  "kbd-key-space",
+	action: "setstation next",
+    },{
+	event:  "kbd-key-backspace",
+	action: "setstation back",
+    },{
+	event:  "kbd-key-pgup",
+	action: "setstation prev",
+    },{
+	event:  "kbd-key-pgdown",
+	action: "setstation next",
+    },{
+	event:  "kbd-key-right",
+	action: "setchannel fine_up",
+    },{
+	event:  "kbd-key-left",
+	action: "setchannel fine_down",
+    },{
+	event:  "kbd-key-up",
+	action: "setchannel next",
+    },{
+	event:  "kbd-key-down",
+	action: "setchannel prev",
+    },{
+	event:  "kbd-key-g",
+	action: "snap ppm",
+    },{
+	event:  "kbd-key-j",
+	action: "snap jpeg",
+    },{
+	event:  "kbd-key-v",
+	action: "capture toggle",
+    },{
+	event:  "kbd-key-f",
+	action: "fullscreen toggle",
+    },{
+	event:  "kbd-key-0",
+	action: "keypad 0",
+    },{
+	event:  "kbd-key-1",
+	action: "keypad 1",
+    },{
+	event:  "kbd-key-2",
+	action: "keypad 2",
+    },{
+	event:  "kbd-key-3",
+	action: "keypad 3",
+    },{
+	event:  "kbd-key-4",
+	action: "keypad 4",
+    },{
+	event:  "kbd-key-5",
+	action: "keypad 5",
+    },{
+	event:  "kbd-key-6",
+	action: "keypad 6",
+    },{
+	event:  "kbd-key-7",
+	action: "keypad 7",
+    },{
+	event:  "kbd-key-8",
+	action: "keypad 8",
+    },{
+	event:  "kbd-key-9",
+	action: "keypad 9",
+    },{
+
+	/* end of list */
+    }
+};
 struct KEYTAB {
     int  key;
-    int  argc;
-    char *argv[8];
+    char *name;
 };
 
 static struct KEYTAB keytab[] = {
-    { '+',           2, { "volume",     "inc"       }},
-    { '-',           2, { "volume",     "dec"       }},
-    { 10,            2, { "volume",     "mute"      }},
-    { 13,            2, { "volume",     "mute"      }},
-    { KEY_ENTER,     2, { "volume",     "mute"      }},
+    { 9,             "tab"       },
+    { 10,            "enter"     },
+    { 13,            "enter"     },
+    { KEY_ENTER,     "enter"     },
 
-    { KEY_F(5),      2, { "bright",     "dec"       }},
-    { KEY_F(6),      2, { "bright",     "inc"       }},
-    { KEY_F(7),      2, { "hue",        "dec"       }},
-    { KEY_F(8),      2, { "hue",        "inc"       }},
-    { KEY_F(9),      2, { "contrast",   "dec"       }},
-    { KEY_F(10),     2, { "contrast",   "inc"       }},
-    { KEY_F(11),     2, { "color",      "dec"       }},
-    { KEY_F(12),     2, { "color",      "inc"       }},
+    { ' ',           "space"     },
+    { KEY_BACKSPACE, "backspace" },
 
-    { ' ',           2, { "setstation", "next"      }},
-    { KEY_BACKSPACE, 2, { "setstation", "back"      }},
-    { KEY_PPAGE,     2, { "setstation", "next"      }},
-    { KEY_NPAGE,     2, { "setstation", "prev"      }},
-    { KEY_RIGHT,     2, { "setchannel", "fine_up"   }},
-    { KEY_LEFT,      2, { "setchannel", "fine_down" }},
-    { KEY_UP,        2, { "setchannel", "next"      }},
-    { KEY_DOWN,      2, { "setchannel", "prev"      }},
-
-    { 'G',           2, { "snap",       "ppm"       }},
-    { 'g',           2, { "snap",       "ppm"       }},
-    { 'J',           2, { "snap",       "jpeg"      }},
-    { 'j',           2, { "snap",       "jpeg"      }},
-
-    { 'V',           2, { "capture",    "toggle"    }},
-    { 'v',           2, { "capture",    "toggle"    }},
-
-    { 'F',           2, { "fullscreen", "toggle"    }},
-    { 'f',           2, { "fullscreen", "toggle"    }},
-
-    { '0',           2, { "keypad",     "0"         }},
-    { '1',           2, { "keypad",     "1"         }},
-    { '2',           2, { "keypad",     "2"         }},
-    { '3',           2, { "keypad",     "3"         }},
-    { '4',           2, { "keypad",     "4"         }},
-    { '5',           2, { "keypad",     "5"         }},
-    { '6',           2, { "keypad",     "6"         }},
-    { '7',           2, { "keypad",     "7"         }},
-    { '8',           2, { "keypad",     "8"         }},
-    { '9',           2, { "keypad",     "9"         }},
+    { KEY_RIGHT,     "right"     },
+    { KEY_LEFT,      "left"      },
+    { KEY_UP,        "up"        },
+    { KEY_DOWN,      "down"      },
+    { KEY_PPAGE,     "pgup"      },
+    { KEY_NPAGE,     "pgdown"    },
+    { KEY_HOME,      "home"      },
+    { KEY_END,       "end"       },
 };
 
 #define NKEYTAB (sizeof(keytab)/sizeof(struct KEYTAB))
@@ -432,21 +484,17 @@ new_message(char *txt)
 static void
 channel_menu(void)
 {
-    int  i,f;
-    char key[32],ctrl[16];
+    char key[32],ctrl[16],event[64],action[128];
+    int  i;
 
     for (i = 0; i < count; i++) {
 	if (channels[i]->key) {
 	    if (2 != sscanf(channels[i]->key,"%15[A-Za-z0-9_]+%31[A-Za-z0-9_]",
 			    ctrl,key))
 		strcpy(key,channels[i]->key);
-	    if (1 == sscanf(key,"F%d",&f)) {
-		channels[i]->ckey = KEY_F(f);              /* Function keys */
-	    } else if (strlen(key) == 1) {
-		if (isalpha(key[0]))
-		    key[0] = tolower(key[0]);
-		channels[i]->ckey = (int)key[0];           /* single letter/digit */
-	    }
+	    sprintf(event,"kbd-key-%s",key);
+	    sprintf(action,"setstation \"%s\"",channels[i]->name);
+	    event_register(event,action);
 	}
     }
 }
@@ -532,7 +580,7 @@ main(int argc, char *argv[])
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
-    char            text[80],*env,*dst;
+    char            text[80],event[64],*env,*dst;
     fd_set          set;
 
     if (0 == geteuid() && 0 != getuid()) {
@@ -625,7 +673,7 @@ main(int argc, char *argv[])
 	strcat(ng_v4l_conf," -y ");
     
     grabber_init();
-    read_config();
+    read_config(NULL);
     if (0 != strlen(mixerdev)) {
 	struct ng_attribute *attr;
 	if (NULL != (attr = ng_mix_init(mixerdev,mixerctl)))
@@ -674,7 +722,8 @@ main(int argc, char *argv[])
 	}
     }
 
-    /* lirc + midi + joystick support */
+    /* keyboard, lirc + midi + joystick input support */
+    event_register_list(kbd_events);
     lirc = lirc_tv_init();
     js = joystick_tv_init(joydev);
 #ifdef HAVE_ALSA
@@ -800,33 +849,27 @@ main(int argc, char *argv[])
 #endif
 
 	    default:
-		/* look for station hotkeys */
-		if (isalpha(key))
-		    key = tolower(key);
-		for (i = 0; i < count; i++)
-		    if (channels[i]->ckey == key) {
-			cur_sender = i;
-			break;
+		event[0] = 0;
+		if (key > ' ' && key < 127) {
+		    /* as is */
+		    sprintf(event,"kbd-key-%c",key);
+		} else if (key >= KEY_F(0) && key <= KEY_F(12)) {
+		    /* function keys */
+		    sprintf(event,"kbd-key-f%d",key - KEY_F(0));
+		} else {
+		    /* other special keys */
+		    for (i = 0; i < NKEYTAB; i++) {
+			if (keytab[i].key == key)
+			    break;
 		    }
-		if (i < count) {
-		    do_va_cmd(2,"setstation",channels[i]->name);
-		    break;
+		    if (i != NKEYTAB)
+			sprintf(event,"kbd-key-%s",keytab[i].name);
 		}
-
-		/* for commands */
-		for (i = 0; i < NKEYTAB; i++) {
-		    if (keytab[i].key == key)
-			break;
+		if (0 != event[0]) {
+		    event_dispatch(event);
+		} else {
+		    sprintf(message,"unknown key: %d 0x%x ",key,key);
 		}
-		if (i != NKEYTAB) {
-		    do_command(keytab[i].argc,keytab[i].argv);
-		    break;
-		}
-		
-		/* nothing found -- some maybe useful debug output */
-		sprintf(message,"key: %d 0x%x ",key,key);
-		if (key > 0x20 && key < 128)
-		    sprintf(message+strlen(message),"'%c' ",key);
 
 	    }
 	}  /* if (FD_ISSET(0,&set)) */
