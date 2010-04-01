@@ -39,7 +39,8 @@ x
 size in the upper right corner.
 .TP
 .B -f font
-font for text. default is /usr/lib/kbd/consolefonts/lat1-16.psf.
+font for text.  Default is to look for lat1-16.psf in
+/usr/lib/kbd/consolefonts and /usr/share/consolefonts.
 .TP
 .B -m mode
 video mode for TV.  fbtv will look up the mode in /etc/fb.modes.
@@ -60,8 +61,8 @@ at runtime too ('F').
 .B -M
 EXPERIMENTAL: Turn on backend scaler mode (write yuv to offscreen
 memory and let the gfx board scale up the video).  Supported hardware:
-Matrox G200 (with matroxfb) and ATI Mach64 VT/GT (with atyfb, 16bpp
-only).  You'll need at least bttv-0.7.11 or kernel 2.3.34.
+Matrox G200/G400 (with matroxfb) and ATI Mach64 VT/GT (with atyfb,
+16bpp only).  You'll need at least bttv-0.7.16 or kernel 2.3.50.
 .SH USAGE
 fbtv is supported to work much like xawtv from user's point of view.
 You might have noticed that xawtv has alot of keyboard shortcuts.

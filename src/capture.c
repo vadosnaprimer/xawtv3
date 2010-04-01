@@ -4,315 +4,338 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <pthread.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "colorspace.h"
 #include "sound.h"
-#include "writeavi.h"
 #include "capture.h"
 
 /*-------------------------------------------------------------------------*/
-/* for streaming capture                                                   */
 
-/* buffer fifo */
-static int             grab_bfirst;
-static int             grab_blast;
-static int             grab_bufcount;
-static int             grab_bufsize;
-static char*           grab_buffers;
-
-/* timing */
-static struct timeval  grab_start;
-static int             grab_fps;
-static int             grab_lastsec,grab_lastsync;
-static int             grab_absqueued;
-static int             grab_secframes,grab_secqueued;
-static int             grab_missed;
-
-/* forks of a new process, returns a file handle for a pipe
- *   The new process will sync if it reads some char from the pipe
- *   and exit on EOF
- */
-int
-grab_syncer(int *talk, int quiet)
-{
-    char dummy[16];
-    int pid,rsync,p1[2];
-
-    if (-1 == pipe(p1)) {
-	perror("pipe");
-	exit(1);
-    }
-    switch(pid = fork()) {
-    case -1:
-	perror("fork");
-	exit(1);
-    case 0:
-	close(p1[1]);
-	rsync = p1[0];
-	fcntl(rsync,F_SETFL,0);
-	signal(SIGINT,SIG_IGN);
-	nice(10);
-	for (;;) {
-	    switch (read(rsync,dummy,16)) {
-	    case -1:
-		perror("syncer: read socket");
-		exit(1);
-	    case 0:
-		if (!quiet)
-		    fprintf(stderr,"syncer: done\n");
-		exit(0);
-	    default:
-		if (!quiet)
-		    fprintf(stderr,"s");
-		sync();
-	    }
-	}
-	break;
-    default:
-	close(p1[0]);
-	*talk = p1[1];
-	break;
-    }
-    return pid;
-}
-
-
-/* allocate shared memory for buffers, init variables for fifo/timing */
-char*
-grab_initbuffers(int size, int count)
-{
-    char *buffers;
-    int  shmid;
-
-    while (count > 0)
-	if (-1 != (shmid = shmget(IPC_PRIVATE, size*count, IPC_CREAT | 0700)))
-	    break;
-    if (0 == count) {
-	perror("shmget");
-	return NULL;
-    }
-    buffers = shmat(shmid, 0, 0);
-    if ((void *) -1 == buffers) {
-	perror("shmat");
-	return NULL;
-    }
-    if (-1 == shmctl(shmid, IPC_RMID, 0))
-	perror("shmctl");
-
-    gettimeofday(&grab_start,NULL);
-    grab_lastsec   = 0;
-    grab_lastsync  = 0;
-    grab_absqueued = 0;
-    grab_secframes = 0;
-    grab_secqueued = 0;
-
-    grab_bfirst    = 0;
-    grab_blast     = 0;
-    grab_bufcount  = count;
-    grab_bufsize   = size;
-    grab_buffers   = buffers;
-    return buffers;
-}
-
-/* free buffers */
 void
-grab_freebuffers(char *buffers)
+fifo_init(struct FIFO *fifo, char *name, int slots)
 {
-    if (-1 == shmdt(buffers))
-	perror("shmdt");
+    pthread_mutex_init(&fifo->lock, NULL);
+    pthread_cond_init(&fifo->hasdata, NULL);
+    fifo->name  = name;
+    fifo->slots = slots;
+    fifo->read  = 0;
+    fifo->write = 0;
+    fifo->eof   = 0;
+}
+
+int
+fifo_put(struct FIFO *fifo, unsigned char *data, int size)
+{
+    pthread_mutex_lock(&fifo->lock);
+    if (debug > 1)
+	fprintf(stderr,"put %s %p %d\n",fifo->name,data,size);
+    if (NULL == data) {
+	fifo->eof = 1;
+	pthread_cond_signal(&fifo->hasdata);
+	pthread_mutex_unlock(&fifo->lock);
+	return 0;
+    }
+    if ((fifo->write + 1) % fifo->slots == fifo->read) {
+	pthread_mutex_unlock(&fifo->lock);
+	fprintf(stderr,"fifo %s is full\n",fifo->name);
+	return 0;
+    }
+    fifo->data[fifo->write] = data;
+    fifo->size[fifo->write] = size;
+    fifo->write++;
+    if (fifo->write >= fifo->slots)
+	fifo->write = 0;
+    pthread_cond_signal(&fifo->hasdata);
+    pthread_mutex_unlock(&fifo->lock);
+    return size;
+}
+
+int
+fifo_get(struct FIFO *fifo, unsigned char **data)
+{
+    int size;
+
+    pthread_mutex_lock(&fifo->lock);
+    if (debug > 1)
+	fprintf(stderr,"get %s\n",fifo->name);
+    while (fifo->write == fifo->read && 0 == fifo->eof) {
+	pthread_cond_wait(&fifo->hasdata, &fifo->lock);
+    }
+    if (fifo->write == fifo->read) {
+	*data = NULL;
+	pthread_cond_signal(&fifo->hasdata);
+	pthread_mutex_unlock(&fifo->lock);
+	return 0;
+    }
+    *data = fifo->data[fifo->read];
+    size = fifo->size[fifo->read];
+    fifo->read++;
+    if (fifo->read >= fifo->slots)
+	fifo->read = 0;
+    pthread_cond_signal(&fifo->hasdata);
+    pthread_mutex_unlock(&fifo->lock);
+    return size;
+}
+
+static void*
+flushit(void *arg)
+{
+    int old;
+
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE,&old);
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,&old);
+    for (;;) {
+	sleep(1);
+	sync();
+    }
+    return NULL;
+}
+
+/*-------------------------------------------------------------------------*/
+
+struct movie_handle {
+    const struct ng_writer  *writer;
+    void                    *handle;
+    pthread_mutex_t         lock;
+    struct ng_video_fmt     vfmt;
+    struct ng_audio_fmt     afmt;
+    int                     fps;
+
+    struct FIFO             *vfifo;
+    struct FIFO             *afifo;
+};
+
+static struct movie_handle movie_state;
+
+static struct FIFO      faudio;
+static struct FIFO      fvideo;
+static pthread_t        taudio;
+static pthread_t        tvideo;
+static pthread_t        tflush;
+static char             *baudio,*bvideo;
+static int              saudio,svideo;
+static int              iaudio,ivideo;
+static int              naudio,nvideo;
+static int              caudio,cvideo;
+
+static void*
+writer_audio_thread(void *arg)
+{
+    struct movie_handle *h = arg;
+    struct ng_audio_buf buf;
+    unsigned char *data;
+    int size;
+
+    if (debug)
+	fprintf(stderr,"writer_audio_thread start\n");
+    for (;;) {
+	size = fifo_get(h->afifo,&data);
+	if (NULL == data)
+	    break;
+	pthread_mutex_lock(&h->lock);
+	buf.fmt  = h->afmt;
+	buf.data = data;
+	buf.size = size;
+	h->writer->wr_audio(h->handle,&buf);
+	pthread_mutex_unlock(&h->lock);
+    }
+    if (debug)
+	fprintf(stderr,"writer_audio_thread done\n");
+    return NULL;
+}
+
+static void *
+writer_video_thread(void *arg)
+{
+    struct movie_handle *h = arg;
+    struct ng_video_buf buf;
+    unsigned char *data;
+    int size;
+
+    if (debug)
+	fprintf(stderr,"writer_video_thread start\n");
+    for (;;) {
+	size = fifo_get(h->vfifo,&data);
+	if (NULL == data)
+	    break;
+	pthread_mutex_lock(&h->lock);
+	buf.fmt  = h->vfmt;
+	buf.data = data;
+	if (0 != size) {
+	    buf.size = size;
+	} else {
+	    buf.size = buf.fmt.width * buf.fmt.height *
+		ng_vfmt_to_depth[buf.fmt.fmtid] / 8;
+	}
+	h->writer->wr_video(h->handle,&buf);
+	pthread_mutex_unlock(&h->lock);
+    }
+    if (debug)
+	fprintf(stderr,"writer_video_thread done\n");
+    return NULL;
+}
+
+int
+movie_writer_init(char *moviename, char *audioname,
+		  const struct ng_writer *writer, 
+		  struct ng_video_fmt *video, const void *priv_video, int fps,
+		  struct ng_audio_fmt *audio, const void *priv_audio,
+		  int slots, int *sound)
+{
+    struct movie_handle *h = &movie_state;
+    int linelength;
+
+    if (debug)
+	fprintf(stderr,"movie_init_writer start\n");
+    memset(h,0,sizeof(*h));
+    pthread_mutex_init(&h->lock, NULL);
+    h->afifo  = &faudio;
+    h->vfifo  = &fvideo;
+    h->writer = writer;
+
+    /* audio */
+    *sound = -1;
+    if (audio->fmtid != AUDIO_NONE)
+	*sound = sound_open(audio);
+    if (audio->fmtid != AUDIO_NONE) {
+	fifo_init(&faudio,"audio",slots);
+	pthread_create(&taudio,NULL,writer_audio_thread,h);
+	iaudio = 0;
+	naudio = slots+2;
+	saudio = sound_bufsize();
+	baudio = malloc(saudio*naudio);
+	caudio = 0;
+    }
+    h->afmt = *audio;
+
+    /* video */
+    grabber_setparams(video->fmtid, &video->width, &video->height,
+		      &linelength,0,0);
+    fifo_init(&fvideo,"video",slots);
+    pthread_create(&tvideo,NULL,writer_video_thread,h);
+    ivideo  = 0;
+    nvideo  = slots+2;
+    svideo  = video->width * video->height *
+	ng_vfmt_to_depth[video->fmtid]/8;
+    if (0 == svideo)
+	svideo = video->width * video->height * 3;
+    bvideo  = malloc(svideo*nvideo);
+    cvideo  = 0;
+    h->vfmt = *video;
+    h->fps  = fps;
+    
+    /* open file */
+    h->handle = writer->wr_open(moviename,audioname,
+				video,priv_video,fps,
+				audio,priv_audio);
+    if (debug)
+	fprintf(stderr,"movie_init_writer end (h=%p)\n",h->handle);
+    return 0;
+}
+
+int
+movie_writer_start()
+{
+    struct movie_handle *h = &movie_state;
+
+    if (debug)
+	fprintf(stderr,"movie_writer_start\n");
+    if (grabber->grab_start)
+	grabber->grab_start(h->fps,0);
+    if (h->afmt.fmtid != AUDIO_NONE)
+	sound_startrec();
+    pthread_create(&tflush,NULL,flushit,NULL);
+    return 0;
+}
+
+int
+movie_writer_stop()
+{
+    struct movie_handle *h = &movie_state;
+    void *dummy;
+    long long ausec,vusec;
+    int soundbytes;
+
+    if (debug)
+	fprintf(stderr,"movie_writer_stop\n");
+
+    if (h->afmt.fmtid != AUDIO_NONE) {
+	vusec = cvideo * 1000 / h->fps;
+	ausec = ((long long)caudio*saudio*8*1000) /
+	    (h->afmt.rate * ng_afmt_to_bits[h->afmt.fmtid] *
+	     ng_afmt_to_channels[h->afmt.fmtid]);
+	while (vusec < ausec) {
+	    grab_put_video();
+	    vusec = cvideo * 1000 / h->fps;
+	}
+	soundbytes = (int)(vusec-ausec) * h->afmt.rate *
+	    ng_afmt_to_bits[h->afmt.fmtid] *
+	    ng_afmt_to_channels[h->afmt.fmtid]/8/1000;
+	soundbytes = (soundbytes+4) & ~0x03;
+	fprintf(stderr,"vs=%Ld as=%Ld %d/%d\n",vusec,ausec,
+		soundbytes,saudio);
+	while (soundbytes > saudio) {
+	    grab_put_audio();
+	    soundbytes -= saudio;
+	}
+	sound_read(baudio + iaudio*saudio);
+	fifo_put(&faudio,baudio + iaudio*saudio,soundbytes);
+    }
+
+    /* send EOF + join threads */
+    if (h->afmt.fmtid != AUDIO_NONE) {
+	fifo_put(&faudio,NULL,0);
+	pthread_join(taudio,&dummy);
+    }
+    fifo_put(&fvideo,NULL,0);
+    pthread_join(tvideo,&dummy);
+    pthread_cancel(tflush);
+    pthread_join(tflush,&dummy);
+
+    /* close file */
+    h->writer->wr_close(h->handle);
+    if (grabber->grab_stop)
+	grabber->grab_stop();
+    if (h->afmt.fmtid != AUDIO_NONE)
+	sound_close();
+    return 0;
 }
 
 /*-------------------------------------------------------------------------*/
 
 int
-grab_writer_fork(int *talk)
+grab_put_video()
 {
-    int ret, s[2];
-    
-    /* start up new proccess */
-    if (-1 == socketpair(AF_UNIX,SOCK_STREAM,PF_UNIX,s)) {
-	perror("socketpair");
-	return -1;
-    }
-    switch(ret = fork()) {
-    case -1:
-	perror("fork");
-	close(s[0]);
-	close(s[1]);
-	break;
-    case 0:
-	close(s[0]);
-	*talk = s[1];
-	fcntl(*talk,F_SETFL,O_RDWR);
-	signal(SIGINT,SIG_IGN);
-	signal(SIGPIPE,SIG_IGN);
-	nice(5);
-	break;
-    default:
-	close(s[1]);
-	*talk = s[0];
-	fcntl(*talk,F_SETFL,O_RDWR|O_NONBLOCK);
-	break;
-    }
-    return ret;
-}
+    int size;
 
-/* start up avi writer */
-int
-grab_writer_avi(char *filename, struct MOVIE_PARAMS *params,
-		unsigned char *buffers, int bufsize, int quiet, int *talk)
-{
-    char *sound_data;
-    int  args[2], sound = -1, sound_size=0, n=0, ret;
-    fd_set set;
-
-    grab_fps = params->fps;
-    grab_missed = 0;
-
-    /* start up new proccess */
-    if (0 != (ret = grab_writer_fork(talk)))
-	return ret;
-
-    /* work */
-    if (params->channels > 0) {
-	if (-1 != (sound = sound_open(params))) {
-	    sound_size = sound_bufsize();
-	    n = (*talk>sound) ? *talk+1 : sound+1;
-	}
-    }
-    avi_open(filename,params);
-    for (;;) {
-	if (sound != -1) {
-	    FD_ZERO(&set);
-	    FD_SET(*talk,&set);
-	    FD_SET(sound,&set);
-	    select(n,&set,NULL,NULL,NULL);
-	    if (FD_ISSET(sound,&set)) {
-		/* handle audio */
-		sound_data = sound_read();
-		avi_writesound(sound_data, sound_size);
-	    }
-	    if (!FD_ISSET(*talk,&set))
-		continue;
-	}
-
-	/* wait for frame */
-	switch (read(*talk,args,2*sizeof(int))) {
-	case -1:
-	    perror("writer: read socket");
-	    exit(1);
-	case 0:
-	    avi_close();
-	    if (!quiet)
-		fprintf(stderr,"writer: done\n");
-	    exit(0);
-	}
-
-	/* write video */
-	avi_writeframe(buffers + args[0]*bufsize,args[1]);
-
-	/* free buffer */
-	if (sizeof(int) != write(*talk,args,sizeof(int))) {
-	    perror("writer: write socket");
-	    exit(1);
-	}
-	if (!quiet)
-	    fprintf(stderr,"-");
-    }
-    
-    /* done */
-    exit(0);
-}
-
-void
-grab_set_fps(int fps)
-{
-    grab_fps = fps;
-    grab_missed = 0;
-}
-
-int
-grab_putbuffer(int quiet, int writer, int wsync)
-{
-    static int     synctime = 500;
-    int            timediff,args[2],size;
-    struct timeval tv;
+    if (debug > 1)
+	fprintf(stderr,"grab_put_video\n");
 
     /* get next frame */
-    grabber_capture(grab_buffers + grab_bufsize*grab_bfirst,0,0,&size);
+    grabber_capture(bvideo + ivideo*svideo,0,&size);
 
-    /* check time */
-    gettimeofday(&tv,NULL);
-    timediff  = (tv.tv_sec  - grab_start.tv_sec)  * 1000;
-    timediff += (tv.tv_usec - grab_start.tv_usec) / 1000;
-    if (grab_absqueued * 1000 / grab_fps > timediff)
-	return grab_absqueued;
+    fifo_put(&fvideo,bvideo + ivideo*svideo,size);
+    ivideo = (ivideo+1) % nvideo;
+    cvideo++;
+    return 0;
+}
 
-    if (timediff > grab_lastsync+synctime) {
-	/* sync */
-	grab_lastsync = timediff - timediff % synctime;
-	if (sizeof(grab_bfirst) != write(wsync,&grab_bfirst,sizeof(grab_bfirst))) {
-	    perror("grabber: write socket");
-	    exit(1);
-	}
-    }
-    
-    if (timediff > grab_lastsec+1000) {
-        /* print statistics */
-	grab_missed += (grab_fps - grab_secqueued);
-	if (!quiet && grab_secframes)
-	    fprintf(stderr," %2d/%2d (%d)\n",
-		    grab_secqueued,grab_secframes,-grab_missed);
-	grab_lastsec = timediff - timediff % 1000;
-	grab_secqueued = 0;
-	grab_secframes = 0;
-    }
+int
+grab_put_audio()
+{
+    if (debug > 1)
+	fprintf(stderr,"grab_put_audio\n");
 
-    /* check for free buffers */
-    switch(read(writer,args,sizeof(int))) {
-    case -1:
-	if (errno != EAGAIN) {
-	    perror("grabber: read socket");
-	    exit(1);
-	}
-	break;
-    case 0:
-	/* nothing */
-	break;
-    default:
-	grab_blast++;
-	if (grab_blast == grab_bufcount)
-	    grab_blast = 0;
-	break;
-    }
-
-    grab_secframes++;
-    if ((grab_bfirst+2) % grab_bufcount == grab_blast) {
-	/* no buffer free */
-	if (!quiet)
-	    fprintf(stderr,"o");
-	return grab_absqueued;
-    }
-
-    /* queue buffer */
-    args[0] = grab_bfirst;
-    args[1] = size;
-    if (2*sizeof(int) != write(writer,args,2*sizeof(int))) {
-	perror("grabber: write socket");
-	exit(1);
-    }
-    grab_secqueued++;
-    grab_absqueued++;
-    grab_bfirst++;
-    if (grab_bfirst == grab_bufcount)
-	grab_bfirst = 0;
-    if (!quiet)
-	fprintf(stderr,"+");
-    return grab_absqueued;
+    sound_read(baudio + iaudio*saudio);
+    fifo_put(&faudio,baudio + iaudio*saudio,saudio);
+    iaudio = (iaudio+1) % naudio;
+    caudio++;
+    return 0;
 }

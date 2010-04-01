@@ -19,7 +19,7 @@
 
 void (*gfx_scaler_on)(int offscreen, int pitch, int width, int height,
 		      int left, int right, int top, int bottom);
-void (*gfx_scaler_off)();
+void (*gfx_scaler_off)(void);
 
 static unsigned char	*bmmio;
 static unsigned long	*mmio;
@@ -36,7 +36,7 @@ wrio4(int adr, unsigned long val)
 }
 
 /* ---------------------------------------------------------------------- */
-/* Matrox G200                                                            */
+/* Matrox G200/G400                                                      */
 
 #define BES_BASE	0x3d00
 #define BESA1ORG	((BES_BASE+0x00)>>2)
@@ -106,7 +106,7 @@ matrox_scaler_on(int offscreen, int pitch, int width, int height,
 }
 
 void
-matrox_scaler_off()
+matrox_scaler_off(void)
 {
     /* turn off */
     wrio4(BESCTL, 0);
@@ -141,7 +141,7 @@ matrox_scaler_off()
 #define SCALER_H_COEFF3           0x0058
 #define SCALER_H_COEFF4           0x0059
 
-/* does'nt work yet... */
+/* does'nt work for all color depth yet... */
 static void
 mach64_scaler_on(int offscreen, int pitch, int width, int height,
 		 int left, int right, int top, int bottom)
@@ -181,7 +181,7 @@ mach64_scaler_on(int offscreen, int pitch, int width, int height,
 }
 
 void
-mach64_scaler_off()
+mach64_scaler_off(void)
 {
     /* off */
     wrio4(OVERLAY_SCALE_CNTL, 0);
@@ -197,6 +197,9 @@ gfx_init(int fd)
 
     switch (fb_fix.accel) {
     case FB_ACCEL_MATROX_MGAG200:
+#ifdef FB_ACCEL_MATROX_MGAG400
+    case FB_ACCEL_MATROX_MGAG400:
+#endif
 	gfx_scaler_on  = matrox_scaler_on;
 	gfx_scaler_off = matrox_scaler_off;
 	break;

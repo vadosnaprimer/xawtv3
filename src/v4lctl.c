@@ -9,24 +9,32 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
-#include <X11/Intrinsic.h>
 
 #include "config.h"
+
+#include <X11/Xlib.h>
+#include <X11/Intrinsic.h>
+#ifdef HAVE_LIBXV
+# include <X11/extensions/Xv.h>
+# include <X11/extensions/Xvlib.h>
+#endif
 
 #include "channel.h"
 #include "frequencies.h"
 #include "commands.h"
 #include "grab.h"
+#include "xv.h"
 
 int debug = 0;
 int have_dga = 0;
 char v4l_conf[] = "";
 char *device = "/dev/video";
+Display *dpy;
 
 /*--- main ---------------------------------------------------------------*/
 
 static void
-grabber_init()
+grabber_init(void)
 {
     grabber_open(device,0,0,0,0,0);
 }
@@ -69,14 +77,23 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
-    grabber_init();
+    if (NULL != getenv("DISPLAY"))
+	dpy = XOpenDisplay(NULL);
+    if (dpy)
+	xv_init(1,0,0);
+    if (NULL == grabber)
+	grabber_init();
     read_config();
 
     have_mixer = 0; /* don't use it */
     attr_init();
     audio_init();
+    audio_init();
 
     do_command(argc-optind,argv+optind);
-    grabber->grab_close();
+    if (grabber->grab_close)
+	grabber->grab_close();
+    if (dpy)
+	XCloseDisplay(dpy);
     return 0;
 }

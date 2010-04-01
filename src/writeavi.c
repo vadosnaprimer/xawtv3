@@ -4,11 +4,22 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <endian.h>
+#include <sys/param.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
+#include "byteorder.h"
 
-#include "grab.h"
-#include "writeavi.h"
-#include "colorspace.h"
+#include "grab-ng.h"
+/* #include "colorspace.h" */
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define AVI_SWAP2(a) SWAP2((a))
+#define AVI_SWAP4(a) SWAP4((a))
+#else
+#define AVI_SWAP2(a) (a)
+#define AVI_SWAP4(a) (a)
+#endif
 
 /*
  * M$ vidcap avi video+audio layout
@@ -38,12 +49,12 @@
 /* ----------------------------------------------------------------------- */
 
 #define TRAP(txt) fprintf(stderr,"%s:%d:%s\n",__FILE__,__LINE__,txt);exit(1);
-#define PERROR(action,file) \
-  {fprintf(stderr,"%s: %s: %s",action,file,strerror(errno));return -1;}
 
 #define WAVE_FORMAT_PCM                 (0x0001)
 #define WAVE_FORMAT_ALAW                (0x0006)
 #define WAVE_FORMAT_MULAW               (0x0007)
+
+#define AVIF_HASINDEX                   0x10
 
 typedef unsigned int   uint32;
 typedef unsigned short uint16;
@@ -112,7 +123,7 @@ struct RIFF_strf_auds {       /* == WaveHeader (?) */
 			sizeof(struct RIFF_strf_auds) + \
 			4*5)
 
-static struct AVI_HDR {
+static const struct AVI_HDR {
     char                     riff_id[4];
     uint32                   riff_size;
     char                     riff_type[4];
@@ -130,7 +141,20 @@ static struct AVI_HDR {
     {'a','v','i','h'}, AVI_SWAP4(sizeof(struct RIFF_avih)),      {}
 };
 
-static struct AVI_HDR_VIDEO {
+static const struct AVIX_HDR {
+    char                     riff_id[4];
+    uint32                   riff_size;
+    char                     riff_type[4];
+
+    char                       data_list_id[4];
+    uint32                     data_size;
+    char                       data_type[4];
+} avix_hdr = {
+    {'R','I','F','F'}, 0,                             {'A','V','I','X'},
+    {'L','I','S','T'}, 0,                             {'m','o','v','i'},
+};
+
+static const struct AVI_HDR_VIDEO {
     char                         strl_list_id[4];
     uint32                       strl_size;
     char                         strl_type[4];
@@ -145,11 +169,10 @@ static struct AVI_HDR_VIDEO {
 } avi_hdr_video = {
     {'L','I','S','T'}, AVI_SWAP4(size_strl_vids),                {'s','t','r','l'},
     {'s','t','r','h'}, AVI_SWAP4(sizeof(struct RIFF_strh)),      {{'v','i','d','s'}},
-    {'s','t','r','f'}, AVI_SWAP4(sizeof(struct RIFF_strf_vids)),
-    {AVI_SWAP4(sizeof(struct RIFF_strf_vids))}
+    {'s','t','r','f'}, AVI_SWAP4(sizeof(struct RIFF_strf_vids)), {}
 };
 
-static struct AVI_HDR_AUDIO {
+static const struct AVI_HDR_AUDIO {
     char                         strl_list_id[4];
     uint32                       strl_size;
     char                         strl_type[4];
@@ -167,7 +190,20 @@ static struct AVI_HDR_AUDIO {
     {'s','t','r','f'}, AVI_SWAP4(sizeof(struct RIFF_strf_auds)), {}
 };
 
-static struct AVI_DATA {
+static const struct AVI_HDR_ODML {
+    char                         strl_list_id[4];
+    uint32                       strl_size;
+    char                         strl_type[4];
+
+    char                           strh_id[4];
+    uint32                         strh_size;
+    uint32                         total_frames;
+} avi_hdr_odml = {
+    {'L','I','S','T'}, AVI_SWAP4(sizeof(uint32) + 4*3),  {'o','d','m','l'},
+    {'d','m','l','h'}, AVI_SWAP4(sizeof(uint32)),
+};
+
+static const struct AVI_DATA {
     char                       data_list_id[4];
     uint32                     data_size;
     char                       data_type[4];
@@ -183,13 +219,13 @@ struct CHUNK_HDR {
     uint32                     size;
 };
 
-static struct CHUNK_HDR frame_hdr = {
+static const struct CHUNK_HDR frame_hdr = {
     {'0','0','d','b'}, 0
 };
-static struct CHUNK_HDR sound_hdr = {
+static const struct CHUNK_HDR sound_hdr = {
     {'0','1','w','b'}, 0
 };
-static struct CHUNK_HDR idx_hdr = {
+static const struct CHUNK_HDR idx_hdr = {
     {'i','d','x','1'}, 0
 };
 
@@ -200,213 +236,394 @@ struct IDX_RECORD {
     uint32                    size;
 };
 
+/* ----------------------------------------------------------------------- */
 
-/* file handle */
-static int fd;
+struct avi_video_priv {
+    const char handler[4];
+    const char compress[4];
+    const int  bytesperpixel;
+};
 
-/* statistics */
-static int hdr_size;
-static int frames;
-static int audio_size;
-static int data_size;
-static int idx_size;
-static struct MOVIE_PARAMS params;
-static char file[256];
+struct avi_handle {
+    /* file name+handle */
+    char   file[MAXPATHLEN];
+    int    fd;
 
-/* video stuff */
-static int frame_bytes, screen_bytes;
-static unsigned char *framebuf;
+    /* format */
+    struct ng_video_fmt video;
+    struct ng_audio_fmt audio;
 
-/* audio stuff */
-static int have_audio;
+    /* headers */
+    struct AVI_HDR        avi_hdr;
+    struct AVIX_HDR       avix_hdr;
+    struct AVI_HDR_ODML   avi_hdr_odml;
+    struct AVI_HDR_AUDIO  avi_hdr_audio;
+    struct AVI_HDR_VIDEO  avi_hdr_video;
+    struct AVI_DATA       avi_data;
+    struct CHUNK_HDR      frame_hdr;
+    struct CHUNK_HDR      sound_hdr;
+    struct CHUNK_HDR      idx_hdr;
 
-/* frame index */
-static struct IDX_RECORD *idx_array;
-static int idx_index, idx_count, idx_offset;
+    /* statistics -- first chunk */
+    int    frames;
+    off_t  hdr_size;
+    off_t  audio_size;
+    off_t  data_size;
+
+    /* statistics -- current chunk */
+    int    bigfile;
+    int    framesx;
+    off_t  avix_start;
+    off_t  datax_size;
+    
+    /* statistics -- total */
+    int    frames_total;
+
+    /* frame index */
+    struct IDX_RECORD *idx_array;
+    int    idx_index, idx_count;
+    off_t  idx_offset;
+    off_t  idx_size;
+};
+
+/* ----------------------------------------------------------------------- */
+/* idx1 frame index                                                        */
+
+static void
+avi_addindex(struct avi_handle *h, char *fourcc,int flags,int chunksize)
+{
+    if (h->idx_index == h->idx_count) {
+	h->idx_count += 256;
+	h->idx_array = realloc(h->idx_array,h->idx_count*sizeof(struct IDX_RECORD));
+    }
+    memcpy(h->idx_array[h->idx_index].id,fourcc,4);
+    h->idx_array[h->idx_index].flags=AVI_SWAP4(flags);
+    h->idx_array[h->idx_index].offset=AVI_SWAP4(h->idx_offset-h->hdr_size-8);
+    h->idx_array[h->idx_index].size=AVI_SWAP4(chunksize);
+    h->idx_index++;
+    h->idx_offset += chunksize + sizeof(struct CHUNK_HDR);
+}
+
+static void
+avi_writeindex(struct avi_handle *h)
+{
+    /* write frame index */
+    h->idx_hdr.size = AVI_SWAP4(h->idx_index * sizeof(struct IDX_RECORD));
+    write(h->fd,&h->idx_hdr,sizeof(struct CHUNK_HDR));
+    write(h->fd,h->idx_array,h->idx_index*sizeof(struct IDX_RECORD));
+    h->idx_size += h->idx_index * sizeof(struct IDX_RECORD)
+	+ sizeof(struct CHUNK_HDR);
+
+    /* update header */
+    h->avi_hdr.avih.flags       |= AVI_SWAP4(AVIF_HASINDEX);
+}   
+
+static void
+avi_bigfile(struct avi_handle *h, int last)
+{
+    off_t avix_end;
+    
+    if (h->bigfile) {
+	/* finish this chunk */
+	avix_end = lseek(h->fd,0,SEEK_CUR);
+	lseek(h->fd,h->avix_start,SEEK_SET);
+	h->avix_hdr.riff_size = h->datax_size + 4*4;
+	h->avix_hdr.data_size = h->datax_size + 4;
+	write(h->fd,&h->avix_hdr,sizeof(struct AVIX_HDR));
+	lseek(h->fd,avix_end,SEEK_SET);
+	h->avix_start = avix_end;
+    } else {
+	h->avix_start = lseek(h->fd,0,SEEK_CUR);
+    }
+    if (last)
+	return;
+    h->bigfile++;
+    h->framesx = 0;
+    h->datax_size = 0;
+    write(h->fd,&h->avix_hdr,sizeof(struct AVIX_HDR));
+    if (debug)
+	fprintf(stderr,"avi bigfile #%d\n",h->bigfile);
+}
 
 /* ----------------------------------------------------------------------- */
 
-int
-avi_open(char *filename, struct MOVIE_PARAMS *par)
+static void*
+avi_open(char *filename, char *dummy,
+	 struct ng_video_fmt *video, const void *priv_video, int fps,
+	 struct ng_audio_fmt *audio, const void *priv_audio)
 {
-    /* reset */
-    hdr_size = frames = audio_size = 0;
-    memcpy(&params,par,sizeof(params));
-    strcpy(file,filename);
-    have_audio = (params.channels > 0);
-    memset(&avi_hdr_video.strf,0,sizeof(avi_hdr_video.strf));
-    memset(&avi_hdr_audio.strf,0,sizeof(avi_hdr_audio.strf));
-    
-    switch (params.video_format) {
-    case VIDEO_RGB15_LE:
-	frame_bytes  = params.width * params.height *2;
-	screen_bytes = 2;
-	break;
-    case VIDEO_BGR24:
-	frame_bytes  = params.width * params.height *3;
-	screen_bytes = 3;
-	break;
-    case VIDEO_MJPEG:
-	frame_bytes  = params.width * params.height *3;
-	screen_bytes = 3;
-        avi_hdr_video.strh.handler[0] = 'M';
-        avi_hdr_video.strh.handler[1] = 'J';
-        avi_hdr_video.strh.handler[2] = 'P';
-        avi_hdr_video.strh.handler[3] = 'G';
-        avi_hdr_video.strf.compression[0] = 'M';
-        avi_hdr_video.strf.compression[1] = 'J';
-        avi_hdr_video.strf.compression[2] = 'P';
-        avi_hdr_video.strf.compression[3] = 'G';
-	break;
-    default:
-	TRAP("unsupported video format");
-    }
-    if ((framebuf = malloc(frame_bytes)) == NULL)
-	exit(1);
+    const struct avi_video_priv  *pvideo = priv_video;
+    struct avi_handle      *h;
+    int i,frame_bytes,depth;
 
-    if (-1 == (fd = open(filename,O_CREAT | O_RDWR | O_TRUNC, 0666)))
-	PERROR("open",file);
+    if (NULL == (h = malloc(sizeof(*h))))
+	return NULL;
+
+    /* init */
+    memset(h,0,sizeof(*h));
+    h->video         = *video;
+    h->audio         = *audio;
+    h->avi_hdr       = avi_hdr;
+    h->avix_hdr      = avix_hdr;
+    h->avi_hdr_odml  = avi_hdr_odml;
+    h->avi_hdr_video = avi_hdr_video;
+    h->avi_hdr_audio = avi_hdr_audio;
+    h->avi_data      = avi_data;
+    h->frame_hdr     = frame_hdr;
+    h->sound_hdr     = sound_hdr;
+    h->idx_hdr       = idx_hdr;
+
+    strcpy(h->file,filename);
+    for (i = 0; i < 4; i++) {
+	h->avi_hdr_video.strh.handler[i]     = pvideo->handler[i];
+	h->avi_hdr_video.strf.compression[i] = pvideo->compress[i];
+    }
+    
+    if (-1 == (h->fd = open(h->file,O_CREAT | O_RDWR | O_TRUNC, 0666))) {
+	fprintf(stderr,"open %s: %s\n",h->file,strerror(errno));
+	free(h);
+	return NULL;
+    }
 
     /* general */
-    avi_hdr.avih.us_frame    = AVI_SWAP4(1000000/params.fps);
-    avi_hdr.avih.bps         =
-	AVI_SWAP4(frame_bytes * params.fps +
-	params.channels * (params.bits/8) * params.rate);
-    avi_hdr.avih.streams     = AVI_SWAP4(have_audio ? 2 : 1);
-    avi_hdr.avih.width       = AVI_SWAP4(params.width);
-    avi_hdr.avih.height      = AVI_SWAP4(params.height);
-    hdr_size += write(fd,&avi_hdr,sizeof(avi_hdr));
+    h->avi_hdr.avih.us_frame    = AVI_SWAP4(1000000/fps);
+    h->avi_hdr.avih.bps         =
+	AVI_SWAP4(pvideo->bytesperpixel * fps +
+		  ng_afmt_to_channels[h->audio.fmtid] *
+		  ng_afmt_to_bits[h->audio.fmtid] *
+		  h->audio.rate / 8);
+    h->avi_hdr.avih.streams     = AVI_SWAP4(h->audio.fmtid != AUDIO_NONE ? 2 : 1);
+    h->avi_hdr.avih.width       = AVI_SWAP4(h->video.width);
+    h->avi_hdr.avih.height      = AVI_SWAP4(h->video.height);
+    h->hdr_size += write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
 
     /* video */
-    frame_hdr.size                = AVI_SWAP4(frame_bytes);
-    avi_hdr_video.strh.scale      = AVI_SWAP4(1000000/params.fps);
-    avi_hdr_video.strh.rate       = AVI_SWAP4(1000000);
-    
-    avi_hdr_video.strf.width      = AVI_SWAP4(params.width);
-    avi_hdr_video.strf.height     = AVI_SWAP4(params.height);
-    avi_hdr_video.strf.planes     = AVI_SWAP2(1);
-    avi_hdr_video.strf.bit_cnt    = AVI_SWAP2(frame_bytes/params.width/params.height*8);
-    avi_hdr_video.strf.image_size = AVI_SWAP4(frame_bytes);
-    hdr_size += write(fd,&avi_hdr_video,sizeof(avi_hdr_video));
+    frame_bytes = pvideo->bytesperpixel * h->video.width * h->video.height;
+    depth = ng_vfmt_to_depth[h->video.fmtid];
+    h->frame_hdr.size                = AVI_SWAP4(frame_bytes);
+    h->avi_hdr_video.strh.scale      = AVI_SWAP4(1000000/fps);
+    h->avi_hdr_video.strh.rate       = AVI_SWAP4(1000000);
+    h->avi_hdr_video.strf.size       = AVI_SWAP4(sizeof(avi_hdr_video.strf));
+    h->avi_hdr_video.strf.width      = AVI_SWAP4(h->video.width);
+    h->avi_hdr_video.strf.height     = AVI_SWAP4(h->video.height);
+    h->avi_hdr_video.strf.planes     = AVI_SWAP2(1);
+    h->avi_hdr_video.strf.bit_cnt    = AVI_SWAP2(depth ? depth : 24);
+    h->avi_hdr_video.strf.image_size = AVI_SWAP4(frame_bytes);
+    h->hdr_size += write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
 
     /* audio */
-    if (have_audio) {
-	avi_hdr_audio.strh.scale      = AVI_SWAP4(params.channels * (params.bits/8));
-	avi_hdr_audio.strh.rate       =
-	    AVI_SWAP4(params.channels * (params.bits/8) * params.rate);
-	avi_hdr_audio.strh.samplesize = AVI_SWAP4(params.channels * (params.bits/8));
-
-	avi_hdr_audio.strf.format     = AVI_SWAP2(WAVE_FORMAT_PCM);
-	avi_hdr_audio.strf.channels   = AVI_SWAP2(params.channels);
-	avi_hdr_audio.strf.rate       = AVI_SWAP4(params.rate);
-	avi_hdr_audio.strf.av_bps     = 
-	    AVI_SWAP4(params.channels * (params.bits/8) * params.rate);
-	avi_hdr_audio.strf.blockalign = AVI_SWAP2(params.channels * (params.bits/8));
-	avi_hdr_audio.strf.size       = AVI_SWAP2(params.bits);
-	hdr_size += write(fd,&avi_hdr_audio,sizeof(avi_hdr_audio));
+    if (h->audio.fmtid != AUDIO_NONE) {
+	h->avi_hdr_audio.strh.scale      =
+	    AVI_SWAP4(ng_afmt_to_channels[h->audio.fmtid] *
+		      ng_afmt_to_bits[h->audio.fmtid] / 8);
+	h->avi_hdr_audio.strh.rate       =
+	    AVI_SWAP4(ng_afmt_to_channels[h->audio.fmtid] *
+		      ng_afmt_to_bits[h->audio.fmtid] *
+		      h->audio.rate / 8);
+	h->avi_hdr_audio.strh.samplesize =
+	    AVI_SWAP4(ng_afmt_to_channels[h->audio.fmtid] *
+		      ng_afmt_to_bits[h->audio.fmtid] / 8);
+	h->avi_hdr_audio.strf.format     =
+	    AVI_SWAP2(WAVE_FORMAT_PCM);
+	h->avi_hdr_audio.strf.channels   =
+	    AVI_SWAP2(ng_afmt_to_channels[h->audio.fmtid]);
+	h->avi_hdr_audio.strf.rate       =
+	    AVI_SWAP4(h->audio.rate);
+	h->avi_hdr_audio.strf.av_bps     = 
+	    AVI_SWAP4(ng_afmt_to_channels[h->audio.fmtid] *
+		      ng_afmt_to_bits[h->audio.fmtid] *
+		      h->audio.rate / 8);
+	h->avi_hdr_audio.strf.blockalign =
+	    AVI_SWAP2(ng_afmt_to_channels[h->audio.fmtid] *
+		      ng_afmt_to_bits[h->audio.fmtid] / 8);
+	h->avi_hdr_audio.strf.size       =
+	    AVI_SWAP2(ng_afmt_to_bits[h->audio.fmtid]);
+	h->hdr_size += write(h->fd,&h->avi_hdr_audio,
+			     sizeof(struct AVI_HDR_AUDIO));
     }
+    h->hdr_size += write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
 
     /* data */
-    if (-1 == write(fd,&avi_data,sizeof(avi_data)))
-	PERROR("write",file);
-    data_size  = 4; /* list type */
-
-    idx_index  = 0;
-    idx_offset = hdr_size + sizeof(avi_data);
-
-    return 0;
-}
-
-void avi_addindex(char * fourcc,int flags,int chunksize)
-{
-    if (idx_index == idx_count) {
-	idx_count += 256;
-	idx_array = realloc(idx_array,idx_count*sizeof(struct IDX_RECORD));
+    if (-1 == write(h->fd,&h->avi_data,sizeof(struct AVI_DATA))) {
+	fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+	free(h);
+	return NULL;
     }
-    memcpy(idx_array[idx_index].id,fourcc,4);
-    idx_array[idx_index].flags=AVI_SWAP4(flags);
-    idx_array[idx_index].offset=AVI_SWAP4(idx_offset-hdr_size-8);
-    idx_array[idx_index].size=AVI_SWAP4(chunksize);
-    idx_index++;
-    idx_offset += chunksize + sizeof(struct CHUNK_HDR);
+    h->data_size  = 4; /* list type */
+
+    h->idx_index  = 0;
+    h->idx_offset = h->hdr_size + sizeof(struct AVI_DATA);
+
+    return h;
 }
 
-int
-avi_writeframe(void *data, int datasize)
+static int
+avi_video(void *handle, struct ng_video_buf *buf)
 {
+    struct avi_handle *h = handle;
     unsigned char *d;
-    int y,size=0;
-    
-    switch (params.video_format) {
+    int y,bpl,size=0;
+
+    size = (buf->size + 3) & ~3;
+    h->frame_hdr.size = AVI_SWAP4(size);
+    if (-1 == write(h->fd,&h->frame_hdr,sizeof(struct CHUNK_HDR))) {
+	fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+	return -1;
+    }
+    switch (h->video.fmtid) {
     case VIDEO_RGB15_LE:
     case VIDEO_BGR24:
-	size = frame_bytes;
-	frame_hdr.size = AVI_SWAP4(size);
-	if (-1 == write(fd,&frame_hdr,sizeof(frame_hdr)))
-	    PERROR("write",file);
-	for (y = params.height-1; y >= 0; y--) {
-	    d = ((unsigned char*)data) + y*params.width * screen_bytes;
-	    if (-1 == write(fd,d,screen_bytes*params.width))
-		PERROR("write",file);
+	bpl = h->video.width * ng_vfmt_to_depth[h->video.fmtid] / 8;
+	for (y = h->video.height-1; y >= 0; y--) {
+	    d = ((unsigned char*)buf->data) + y * bpl;
+	    if (-1 == write(h->fd,d,bpl)) {
+		fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+		return -1;
+	    }
 	}
 	break;
     case VIDEO_MJPEG:
-	size = (datasize+3) & ~3;
-	frame_hdr.size = AVI_SWAP4(size);
-	if (-1 == write(fd,&frame_hdr,sizeof(frame_hdr)))
-	    PERROR("write",file);
-	if (-1 == write(fd,data,size))
-	    PERROR("write",file);
+	if (-1 == write(h->fd,buf->data,size)) {
+	    fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+	    return -1;
+	}
 	break;
     }
-    avi_addindex(frame_hdr.id,0x12,size);
-    data_size += size + sizeof(frame_hdr);
-    frames    += 1;
+    h->frames_total += 1;
+    if (!h->bigfile) {
+	avi_addindex(h,h->frame_hdr.id,0x12,size);
+	h->data_size  += size + sizeof(struct CHUNK_HDR);
+	h->frames     += 1;
+    } else {
+	h->datax_size += size + sizeof(struct CHUNK_HDR);
+	h->framesx    += 1;
+    }
+    if ((h->bigfile ? h->datax_size : h->data_size) > 1024*1024*1000)
+	avi_bigfile(h,0);
     return 0;
 }
 
-int
-avi_writesound(void *data, int datasize)
+static int
+avi_audio(void *handle, struct ng_audio_buf *buf)
 {
-    sound_hdr.size = AVI_SWAP4(datasize);
-    if (-1 == write(fd,&sound_hdr,sizeof(sound_hdr)))
-	PERROR("write",file);
-    if (-1 == write(fd,data,datasize))
-	PERROR("write",file);
-    avi_addindex(sound_hdr.id,0x0,datasize);
-    data_size  += datasize + sizeof(sound_hdr);
-    audio_size += datasize;
+    struct avi_handle *h = handle;
+
+    h->sound_hdr.size = AVI_SWAP4(buf->size);
+    if (-1 == write(h->fd,&h->sound_hdr,sizeof(struct CHUNK_HDR))) {
+	fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+	return -1;
+    }
+    if (-1 == write(h->fd,buf->data,buf->size)) {
+	fprintf(stderr,"write %s: %s\n",h->file,strerror(errno));
+	return -1;
+    }
+
+    if (!h->bigfile) {
+	avi_addindex(h,h->sound_hdr.id,0x0,buf->size);
+	h->data_size  += buf->size + sizeof(struct CHUNK_HDR);
+	h->audio_size += buf->size;
+    } else {
+	h->datax_size += buf->size + sizeof(struct CHUNK_HDR);
+    }
     return 0;
 }
 
-int
-avi_close()
+static int
+avi_close(void *handle)
 {
+    struct avi_handle *h = handle;
+
     /* write frame index */
-    idx_hdr.size= AVI_SWAP4(idx_index * sizeof(struct IDX_RECORD));
-    write(fd,&idx_hdr,sizeof(idx_hdr));
-    write(fd,idx_array,idx_index*sizeof(struct IDX_RECORD));
-    idx_size += idx_index * sizeof(struct IDX_RECORD)
-	+ sizeof(struct CHUNK_HDR);
+    if (!h->bigfile) {
+	avi_writeindex(h);
+    } else {
+	avi_bigfile(h,1);
+	h->idx_size = 0;
+    }
     
     /* fill in some statistic values ... */
-    avi_hdr.riff_size         = AVI_SWAP4(hdr_size+data_size+idx_size);
-    avi_hdr.hdrl_size         = AVI_SWAP4(hdr_size - 4*5);
-    avi_hdr.avih.frames       = AVI_SWAP4(frames);
-    avi_hdr_video.strh.length = AVI_SWAP4(frames);
-    if (have_audio)
-	avi_hdr_audio.strh.length = AVI_SWAP4(audio_size);
-    avi_data.data_size        = AVI_SWAP4(data_size);
+    h->avi_hdr.riff_size         = AVI_SWAP4(h->hdr_size+h->data_size+h->idx_size);
+    h->avi_hdr.hdrl_size         = AVI_SWAP4(h->hdr_size - 4*5);
+    h->avi_hdr.avih.frames       = AVI_SWAP4(h->frames);
+    h->avi_hdr_video.strh.length = AVI_SWAP4(h->frames);
+    if (h->audio.fmtid != AUDIO_NONE)
+	h->avi_hdr_audio.strh.length =
+	    AVI_SWAP4(h->audio_size/h->avi_hdr_audio.strh.scale);
+    h->avi_data.data_size        = AVI_SWAP4(h->data_size);
     
     /* ... and write header again */
-    lseek(fd,0,SEEK_SET);
-    write(fd,&avi_hdr,sizeof(avi_hdr));
-    write(fd,&avi_hdr_video,sizeof(avi_hdr_video));
-    if (have_audio)
-	write(fd,&avi_hdr_audio,sizeof(avi_hdr_audio));
-    write(fd,&avi_data,sizeof(avi_data));
+    lseek(h->fd,0,SEEK_SET);
+    write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
+    write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
+    if (h->audio.fmtid != AUDIO_NONE)
+	write(h->fd,&h->avi_hdr_audio,sizeof(struct AVI_HDR_AUDIO));
+    h->avi_hdr_odml.total_frames = h->frames_total;
+    write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
+    write(h->fd,&h->avi_data,sizeof(struct AVI_DATA));
 
-    close(fd);
-    free(framebuf);
+    close(h->fd);
+    free(h);
     return 0;
 }
+
+/* ----------------------------------------------------------------------- */
+/* data structures describing our capabilities                             */
+
+static const struct avi_video_priv avi_rgb15 = {
+    bytesperpixel:  2,
+};
+static const struct avi_video_priv avi_rgb24 = {
+    bytesperpixel:  3,
+};
+static const struct avi_video_priv avi_mjpeg = {
+    handler:        {'M','J','P','G'},
+    compress:       {'M','J','P','G'},
+    bytesperpixel:  3,
+};
+static const struct ng_format_list avi_vformats[] = {
+    {
+	name:  "rgb15",
+	ext:   "avi",
+	fmtid: VIDEO_RGB15_LE,
+	priv:  &avi_rgb15,
+    },{
+	name:  "rgb24",
+	ext:   "avi",
+	fmtid: VIDEO_BGR24,
+	priv:  &avi_rgb24,
+    },{
+	name:  "mjpeg",
+	ext:   "avi",
+	fmtid: VIDEO_MJPEG,
+	priv:  &avi_mjpeg,
+    },{
+	/* EOF */
+    }
+};
+
+static const struct ng_format_list avi_aformats[] = {
+    {
+	name:  "mono8",
+	fmtid: AUDIO_U8_MONO,
+    },{
+	name:  "mono16",
+	fmtid: AUDIO_S16_LE_MONO,
+    },{
+	name:  "stereo",
+	fmtid: AUDIO_S16_LE_STEREO,
+    },{
+	/* EOF */
+    }
+};
+
+const struct ng_writer avi_writer = {
+    name:      "avi",
+    desc:      "Microsoft AVI (RIFF) format",
+    combined:  1,
+    video:     avi_vformats,
+    audio:     avi_aformats,
+    wr_open:   avi_open,
+    wr_video:  avi_video,
+    wr_audio:  avi_audio,
+    wr_close:  avi_close,
+};

@@ -19,10 +19,6 @@ autoheader							|| exit 1
 ./configure && make						|| exit 1
 make distclean
 
-# no jpeg
-./configure --disable-jpeg && make				|| exit 1
-make distclean
-
 # no lirc
 ./configure --disable-lirc && make				|| exit 1
 make distclean
@@ -36,17 +32,18 @@ make distclean
 make distclean
 
 # library link order
-./configure && make CC="gcc -static"				|| exit 1
-make distclean
+#./configure && make CC="gcc -static"				|| exit 1
+#make distclean
 
-# 2.0.x
-kernel=`echo /usr/src/kernel/2.0.*`
+# 2.2.x kernel headers
+kernel=`echo /usr/src/kernel/2.2.17`
 ./configure && make CC="gcc -I$kernel/include"			|| exit 1
 make distclean
 
-# egcs
-#CC=egcs ./configure && make 					|| exit 1
-#make distclean
+# 2.4.x kernel headers
+kernel=`echo /usr/src/kernel/2.4.*`
+./configure && make CC="gcc -I$kernel/include"			|| exit 1
+make distclean
 
 
 ##########################################################################

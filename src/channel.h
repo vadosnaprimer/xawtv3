@@ -11,10 +11,12 @@ struct CHANNEL {
     int   channel;    /* index into tvtuner[] */
     int   fine;
     int   freq;
+    int   audio;
 
     int   capture;
     int   input;
     int   norm;
+    int   sat;
 
     int   color;
     int   bright;
@@ -42,7 +44,7 @@ extern int pix_width,pix_height,pix_cols;
 extern int last_sender, cur_sender;
 extern int cur_channel, cur_fine, cur_norm, cur_input;
 extern int cur_color, cur_bright, cur_hue, cur_contrast, cur_capture;
-extern int cur_mute, cur_volume, cur_freq;
+extern int cur_movie, cur_mute, cur_volume, cur_freq;
 
 int  lookup_channel(char *channel);
 int  get_freq(int i);
@@ -52,10 +54,10 @@ struct CHANNEL* add_channel(char *name);
 void hotkey_channel(struct CHANNEL *channel);
 void configure_channel(struct CHANNEL *channel);
 void del_channel(int nr);
-void calc_frequencies();
+void calc_frequencies(void);
 
-void read_config();
-void save_config();
+void read_config(void);
+void save_config(void);
 
 /* ----------------------------------------------------------------------- */
 
@@ -74,5 +76,5 @@ extern struct STRTAB booltab[];
 extern struct STRTAB captab[];
 
 int str_to_int(char *str, struct STRTAB *tab);
-char* int_to_str(int n, struct STRTAB *tab);
+const char* int_to_str(int n, struct STRTAB *tab);
 int attr_to_int(char *attr);

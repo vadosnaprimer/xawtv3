@@ -1,70 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <endian.h>
 #include <string.h>
+#include <sys/time.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 
 #include "config.h"
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "colorspace.h"
 #include "mjpeg.h"
 #include "commands.h"
+#include "webcam.h"
 
 extern struct GRABBER grab_v4l;
 extern struct GRABBER grab_v4l2;
+extern struct GRABBER grab_bsd;
 
 /*-------------------------------------------------------------------------*/
 
 int   fd_grab;
+int   grab_ratio_x;
+int   grab_ratio_y;
 
 struct        GRABBER *grabber;
 static struct GRABBER *grabbers[] = {
     &grab_v4l2,
     &grab_v4l,
+    &grab_bsd,
 };
 
 #define GRABBER_COUNT (sizeof(grabbers)/sizeof(struct GRABBERS*))
-
-unsigned int format2depth[] = {
-    0,               /* unused   */
-    8,               /* RGB8     */
-    8,               /* GRAY8    */
-    16,              /* RGB15 LE */
-    16,              /* RGB16 LE */
-    16,              /* RGB15 BE */
-    16,              /* RGB16 BE */
-    24,              /* BGR24    */
-    32,              /* BGR32    */
-    24,              /* RGB24    */
-    32,              /* RGB32    */
-    16,              /* LUT2     */
-    32,              /* LUT4     */
-    16,		     /* YUV422   */
-    16,		     /* YUV422P  */
-    12,		     /* YUV420P  */
-    0,		     /* MJPEG    */
-};
-
-unsigned char* format_desc[] = {
-    "",
-    "8 bit PseudoColor (dithering)",
-    "8 bit StaticGray",
-    "15 bit TrueColor (LE)",
-    "16 bit TrueColor (LE)",
-    "15 bit TrueColor (BE)",
-    "16 bit TrueColor (BE)",
-    "24 bit TrueColor (LE: bgr)",
-    "32 bit TrueColor (LE: bgr-)",
-    "24 bit TrueColor (BE: rgb)",
-    "32 bit TrueColor (BE: -rgb)",
-    "16 bit TrueColor (lut)",
-    "32 bit TrueColor (lut)",
-    "16 bit YUV 4:2:2",
-    "16 bit YUV 4:2:2 (planar)",
-    "12 bit YUV 4:2:0 (planar)",
-    "MJPEG"
-};
 
 /*-------------------------------------------------------------------------*/
 
@@ -72,19 +40,20 @@ extern char v4l_conf[];
 
 void
 grabber_run_v4l_conf(void)
-{    
-    if (do_overlay) {
-	switch (system(v4l_conf)) {
-	case -1: /* can't run */
-	    fprintf(stderr,"could'nt start v4l-conf\n");
-	    break;
-	case 0: /* ok */
-	    break;
-	default: /* non-zero return */
-	    fprintf(stderr,"v4l-conf had some trouble, "
-		    "trying to continue anyway\n");
-	    break;
-	}
+{
+    if (!do_overlay)
+	return;
+
+    switch (system(v4l_conf)) {
+    case -1: /* can't run */
+	fprintf(stderr,"could'nt start v4l-conf\n");
+	break;
+    case 0: /* ok */
+	break;
+    default: /* non-zero return */
+	fprintf(stderr,"v4l-conf had some trouble, "
+		"trying to continue anyway\n");
+	break;
     }
 }
 
@@ -95,6 +64,8 @@ grabber_open(char *device, int sw, int sh, void *base, int format, int width)
 
     /* check all grabber drivers */
     for (i = 0; i < GRABBER_COUNT; i++) {
+	if (NULL == grabbers[i]->name)
+	    continue;
 	if (debug)
 	    fprintf(stderr,"init: trying: %s... \n",grabbers[i]->name);
 	if (-1 != (fd_grab = grabbers[i]->grab_open(device))) {
@@ -123,6 +94,7 @@ static int         grabber_height;
 static float       grabber_depth;
 static int         grabber_linelength;
 static int         grabber_format;
+static int         output_format;
 static color_conv  grabber_conv;
 static void*       grabber_data;
 
@@ -131,7 +103,7 @@ struct CONV_LIST {
     int        lut;
     color_conv converter;
     void       (*init)(int width, int height);
-    void       (*cleanup)();
+    void       (*cleanup)(void);
 };
 
 static struct CONV_LIST gray_list[] = {
@@ -238,7 +210,6 @@ static struct CONV_LIST yuv420p_list[] = {
     { -1,0, NULL }
 };
 
-#ifdef HAVE_LIBJPEG
 static struct CONV_LIST mjpg_list[] = {
     { VIDEO_YUV420P, 0, mjpg_yuv420_compress, mjpg_yuv_init, mjpg_cleanup },
     { VIDEO_YUV422P, 0, mjpg_yuv422_compress, mjpg_yuv_init, mjpg_cleanup },
@@ -246,7 +217,6 @@ static struct CONV_LIST mjpg_list[] = {
     { VIDEO_BGR24,   0, mjpg_bgr_compress,    mjpg_rgb_init, mjpg_cleanup },
     { -1,0, NULL }
 };
-#endif
 
 
 static struct CONV_LIST *conv_lists[] = {
@@ -266,16 +236,12 @@ static struct CONV_LIST *conv_lists[] = {
     NULL,
     yuv422p_list,
     yuv420p_list,
-#ifdef HAVE_LIBJPEG
     mjpg_list,
-#else
-    NULL,
-#endif
 };
 
 int
 grabber_setparams(int format, int *width, int *height,
-		  int *linelength, int lut_valid)
+		  int *linelength, int lut_valid, int fix_ratio)
 {
     int w,h,i;
     struct CONV_LIST *list;
@@ -291,7 +257,7 @@ grabber_setparams(int format, int *width, int *height,
 	free(grabber_data);
     grabber_data  = NULL;
     grabber_conv  = NULL;
-    grabber_depth = format2depth[format]/8;
+    grabber_depth = ng_vfmt_to_depth[format]/8;
     w = *width;
     h = *height;
 
@@ -300,6 +266,7 @@ grabber_setparams(int format, int *width, int *height,
     grabber_height     = h;
     grabber_linelength = 0;
     grabber_format     = format;
+    output_format      = -1;
     if (0 == grabber->grab_setparams
 	(grabber_format,&grabber_width,&grabber_height,&grabber_linelength)) {
 	goto found;
@@ -323,14 +290,23 @@ grabber_setparams(int format, int *width, int *height,
 	}
     }
     fprintf(stderr,"grab: no match for: %dx%d %s\n",
-	    *width,*height,format_desc[format]);
+	    *width,*height,ng_vfmt_to_desc[format]);
     grabber_format = -1;
     return -1;
 
  found:
     if (debug)
 	fprintf(stderr,"grab: req: %dx%d %s\n",
-		*width,*height,format_desc[format]);
+		*width,*height,ng_vfmt_to_desc[format]);
+    if (fix_ratio) {
+	grabber_fix_ratio(&grabber_width,&grabber_height,NULL,NULL);
+	grabber_linelength = 0;
+	if (0 != grabber->grab_setparams
+	    (grabber_format,&grabber_width,&grabber_height,&grabber_linelength)) {
+	    fprintf(stderr,"Oops: ratio size renegotiation failed\n");
+	    exit(1);
+	}
+    }
     *width      = grabber_width;
     *height     = grabber_height;
     if (grabber_linelength == 0)
@@ -338,7 +314,8 @@ grabber_setparams(int format, int *width, int *height,
     *linelength = grabber_linelength;
     if (debug)
 	fprintf(stderr,"grab: use: %dx%d %s\n",
-		*width,*height,format_desc[grabber_format]);
+		*width,*height,ng_vfmt_to_desc[grabber_format]);
+    output_format = format;
     return 0;
 }
 
@@ -375,15 +352,15 @@ grabber_copy(unsigned char *dest, int dll,
 }
 
 void*
-grabber_capture(void *dest, int dest_linelength, int single, int *size)
+grabber_capture(void *dest, int dest_linelength, int *size)
 {
-    int rc;
+    int rc = 0;
     void *data;
 
     if (size) *size = 0;
     if (-1 == grabber_format)
 	return NULL;
-    if (NULL == (data = grabber->grab_capture(single)))
+    if (NULL == (data = grabber->grab_capture()))
 	return NULL;
 
     if (0 == dest_linelength)
@@ -391,19 +368,70 @@ grabber_capture(void *dest, int dest_linelength, int single, int *size)
 
     if (dest == NULL) {
 	if (grabber_conv == NULL && dest_linelength == grabber_linelength)
-	    return data;
+	    goto done;
 	if (grabber_data == NULL)
 	    grabber_data = malloc(grabber_height * dest_linelength);
 	rc = grabber_copy(grabber_data, dest_linelength,
 			  data, grabber_linelength,
 			  grabber_width, grabber_height, grabber_depth);
 	if (size) *size = rc;
-	return grabber_data;
+	data = grabber_data;
+	goto done;
     }
 
     rc = grabber_copy(dest, dest_linelength,
 		      data, grabber_linelength,
 		      grabber_width, grabber_height, grabber_depth);
+    data = dest;
+
+ done:
+    if (NULL != webcam &&
+	0 == webcam_put(webcam,output_format,grabber_width,grabber_height,
+			data,rc ? rc : (dest_linelength * grabber_height))) {
+	free(webcam);
+	webcam = NULL;
+    }
     if (size) *size = rc;
-    return dest;
+    return data;
+}
+
+int
+grabber_sw_rate(struct timeval *start, int fps, int count)
+{
+    struct timeval now;
+    int msecs,frames;
+
+    if (-1 == fps)
+	return 1;
+
+    gettimeofday(&now,NULL);
+    msecs  = now.tv_usec/1000 - start->tv_usec/1000;
+    msecs += now.tv_sec*1000  - start->tv_sec*1000;
+    frames = msecs * fps / 1000;
+    if (debug > 1)
+	fprintf(stderr,"rate: msecs=%d fps=%d -> frames=%d  |"
+		"  count=%d  ret=%d\n",
+		msecs,fps,frames,count,frames-count+1);
+    if (frames-count > 3)
+	fprintf(stderr,"rate: video is %d frames behind\n",frames-count);
+    return frames-count+1;
+}
+
+void
+grabber_fix_ratio(int *width, int *height, int *xoff, int *yoff)
+{
+    int h = *height;
+    int w = *width;
+
+    if (0 == grab_ratio_x || 0 == grab_ratio_y)
+	return;
+    if (w * grab_ratio_y < h * grab_ratio_x) {
+	*height = *width * grab_ratio_y / grab_ratio_x;
+	if (yoff)
+	    *yoff  += (h-*height)/2;
+    } else if (w * grab_ratio_y > h * grab_ratio_x) {
+	*width  = *height * grab_ratio_x / grab_ratio_y;
+	if (yoff)
+	    *xoff  += (w-*width)/2;
+    }
 }

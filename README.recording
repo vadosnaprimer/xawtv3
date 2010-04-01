@@ -1,0 +1,73 @@
+
+Audio
+=====
+
+If you don't get sound when recording avi movies, double-check the
+mixer settings first.  The record source defaults to micro on many
+linux sound drivers, you probably have to change this to line-in with
+one of the available mixer tools.
+
+/me uses kmix (because it is small).  The inputs where the sound cards
+record from have a red background color.  With the right mouse botton
+you'll get a menu where you can change the settings.
+
+
+Video
+=====
+
+xawtv/streamer handle video recording with tree processes.  Process #1
+is the main process.  It does the video capture.  It also does color
+space conversion / byteswapping / video compression if needed.  The
+processed video frames are stored in a shared memory area.  The shared
+memory is organizes as ring buffer wiht (by default) 8 buffers.
+
+Process #2 will simply write out the frames from the shared memory to
+the hard disk.  This way Process #1 can continue to work even if
+writing to the hard disk blocks (at least until the ring buffer is
+full).  Process #2 also handles the sound recording.
+
+Process #3 calls sync() from time to time.  The default intervall
+linux uses (5 seconds) is to big.  If the kernel tries to flush 5
+seconds uncompressed video to the hard disk, recording will loose some
+frames because the kernel is very busy with this...
+
+
+While recording you'll see lines like this one on stderr:
+
++--+-+-+-+-+-+-+-+-+-+-+-+s-+-+-+-+-++--+-+-+-+-+-+ 25/25 (-2)
+
+ "+"  = Process #1 has written one frame to the shmem ring buffer
+ "-"  = Process #2 has written a frame from the ring buffer to disk.
+ "o"  = Frame lost: Process #1 couldn't put a frame into the ring
+        buffer because it was full.
+ "s"  = Process #3 called sync().
+
+25/25 = # of frames stored in the ring buffer / # of frames captured
+        last second. 
+ (-2) = 2 frames lost (in total)
+
+
+When recording uncompressed video (avi15/avi24), most likely the hard
+disk is the bottleneck.  If you see a few o's from time to time,
+increasing the number of buffers might help.  If you see alot of o's,
+your harddisk is to slow.
+
+For compressed video (mjpeg) it is very unlikely that you see any
+"o"'s.  The bottleneck is the CPU which has to handle all the
+compressing.  If the CPU can't keep up, the number of captured
+frames/sec will be lower than the the rate you've asked for.  Again:
+if this only happens from time to time, increasing the number of
+buffers might help.  This time the number of capture buffers of the
+hardware driver (for bttv this requires version 0.7.15 or newer).
+
+
+both
+====
+
+Yes, I know, there are some syncronisation problems.  Unfortunality it
+is'nt trivial to fix them...
+
+  Gerd
+
+-- 
+Gerd Knorr <kraxel@goldbach.in-berlin.de>

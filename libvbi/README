@@ -1,0 +1,6 @@
+This is for vbi decoding.  Taken from alevt 1.5.1.
+Changes:
+  * Makefile written from scratch.
+  * cache.c:  removed help pages.
+  * vbi.c:    removed "static" from vbi_handler
+  * export.c: removed "static" from fmt_page

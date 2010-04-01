@@ -1,5 +1,5 @@
 /*
- *   (c) 1997-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1997-2000 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 #include "config.h"
@@ -13,6 +13,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -24,66 +25,42 @@
 #include <sys/wait.h>
 #include <X11/Intrinsic.h>
 
+#include "grab-ng.h"
 #include "colorspace.h"
 #include "writefile.h"
-#include "writeavi.h"
 #include "channel.h"
 #include "sound.h"
-#include "grab.h"
 #include "capture.h"
 #include "commands.h"
 
-#define DEVNAME "/dev/video"
-
-struct GRAB_FORMAT {
-    char *name;
-    int  bt848;
-    int  mul,div;
-    int  can_stdout;
-    int  can_singlefile;
-    int  can_multiplefile;
-};
-
-static struct GRAB_FORMAT formats[] = {
-    /* file formats */
-    { "ppm",  VIDEO_RGB24,     3,1,  0,0,1 },
-    { "pgm",  VIDEO_GRAY,      1,1,  0,0,1 },
-    { "jpeg", VIDEO_RGB24,     3,1,  0,0,1 },
-
-    /* video */
-    { "avi15",VIDEO_RGB15_LE,  2,1,  0,1,0 },
-    { "avi24",VIDEO_BGR24,     3,1,  0,1,0 },
-    { "mjpeg",VIDEO_MJPEG,     0,1,  0,1,0 },
-
-    /* raw data */
-    { "rgb",  VIDEO_RGB24,     3,1,  1,1,1 },
-    { "gray", VIDEO_GRAY,      1,1,  1,1,1 },
-    { "422",  VIDEO_YUV422,    2,1,  1,1,1 },
-    { "422p", VIDEO_YUV422P,   2,1,  1,1,1 },
-    { "420p", VIDEO_YUV420P,   3,2,  1,1,1 },
-
-    /* end of table */
-    { NULL,   0,               0,0,  0 },
-};
-
 /* ---------------------------------------------------------------------- */
 
-static unsigned char            *buffers;
-static int                      bufsize;
-static int                      bufcount = 6;
-static int                      writer;
-static int                      wsync;
-static struct timeval           start;
-static char*                    tvnorm = NULL;
-static char*                    input  = NULL;
-static char*                    device = "/dev/video";
+static int       sound = -1;
+static int       bufcount = 16;
+static char*     tvnorm = NULL;
+static char*     input  = NULL;
+static char*     v4l_device = "/dev/video";
+static char*     dsp_device = "/dev/dsp";
+static char*     moviename = NULL;
+static char*     audioname = NULL;
+static char*     vfmt_name;
+static char*     afmt_name;
 
-static char *filename = NULL;
+static const struct ng_writer     *writer;
+static const void                 *video_priv;
+static const void                 *audio_priv;
+static struct ng_video_fmt        video = {
+    width: 320,
+    height: 240,
+};
+static struct ng_audio_fmt        audio = {
+    rate: 44100,
+};
 
-static int  single = 1, format = -1, absframes = 1, with_audio = 0, gray = 0;
-static int  fd = -1, width = 320, height = 240, quiet = 0, fps = 30;
+static int  absframes = 1;
+static int  fd = -1, quiet = 0, fps = 10;
 
-static int  signaled = 0, linelength = 0;
+static int  signaled = 0, wait_seconds = 0;
 
 int debug = 0, have_dga = 0;
 char v4l_conf[] = "";
@@ -91,184 +68,139 @@ char v4l_conf[] = "";
 /* ---------------------------------------------------------------------- */
 
 void
-usage(char *prog)
+list_formats(FILE *out)
+{
+    const struct ng_writer *wr;
+    int i,j;
+    
+    fprintf(out,"\nmovie writers:\n");
+    for (i = 0; NULL != ng_writers[i]; i++) {
+	wr = ng_writers[i];
+	fprintf(out,"  %s - %s\n",wr->name,
+		wr->desc ? wr->desc : "-");
+	if (NULL != wr->video) {
+	    fprintf(out,"    video formats:\n");
+	    for (j = 0; NULL != wr->video[j].name; j++) {
+		fprintf(out,"      %-7s %-28s [%s]\n",wr->video[j].name,
+			wr->video[j].desc ? wr->video[j].desc :
+			ng_vfmt_to_desc[wr->video[j].fmtid],
+			wr->video[j].ext);
+	    }
+	}
+	if (NULL != wr->audio) {
+	    fprintf(out,"    audio formats:\n");
+	    for (j = 0; NULL != wr->audio[j].name; j++) {
+		fprintf(out,"      %-7s %-28s [%s]\n",wr->audio[j].name,
+			wr->audio[j].desc ? wr->audio[j].desc :
+			ng_afmt_to_desc[wr->audio[j].fmtid],
+			wr->audio[j].ext ? wr->audio[j].ext : "-");
+	    }
+	}
+	fprintf(out,"\n");
+    }
+}
+
+void
+usage(FILE *out, char *prog)
 {
     char *h;
 
     if (NULL != (h = strrchr(prog,'/')))
 	prog = h+1;
     
-    fprintf(stderr,
-	    "%s grabs image(s) from a bt848 card\n"
+    fprintf(out,
+	    "%s grabs image(s) from a video4linux device\n"
 	    "\n"
 	    "usage: %s [ options ]\n"
 	    "\n"
-	    "options:\n"
+	    "general options:\n"
+	    "  -h          print this help text\n"
 	    "  -q          quiet operation\n"
-	    "  -a m|s      audio recording mono/stereo [off]\n"
-	    "              (avi movies only).  Check the record source with\n"
-	    "              some mixer tool if you get silence.\n"
-	    "  -c device   specify device              [%s]\n"
-	    "  -f format   specify output format       [%s]\n"
-	    "  -s size     specify size                [%dx%d]\n"
-	    "  -b buffers  specify # of buffers        [%d]\n"
-	    "  -t times    number of frames            [%d]\n"
-	    "  -r fps      frame rate                  [%d]\n"
-	    "  -o file     output file name            [%s]\n"
-	    "  -n tvnorm   set pal/ntsc/secam          [no change]\n"
-	    "  -i input    set input source (int)      [no change]\n"
-	    "  -j quality  quality for mjpeg or jpeg   [%d]\n"
-	    "  -g          convert to grayscale (jpeg) [%s]\n"
+	    "  -w seconds  wait before grabbing         [%d]\n"
 	    "\n"
-	    "If the filename has some digits, %s will write multiple files,\n"
-	    "otherwise one huge file.  Writing to one file works with raw\n"
-	    "data only.  %s will switch the default format depending on the\n"
-	    "filename extention (ppm, pgm, jpg, jpeg, avi)\n"
+	    "video options:\n"
+	    "  -o file     video/movie file name\n"
+	    "  -f format   specify video format\n"
+	    "  -c device   specify video4linux device   [%s]\n"
+	    "  -r fps      frame rate                   [%d]\n"
+	    "  -s size     specify size                 [%dx%d]\n"
 	    "\n"
-	    "funny chars:\n"
-	    "  +      grabbed picture queued to fifo\n"
-	    "  o      grabbed picture not queued (fifo full)\n"
-	    "  -      picture written to disk and dequeued from fifo\n"
-	    "  s      sync\n"
-	    "  xx/yy  (at end of line) xx frames queued, yy frames grabbed\n" 
+	    "  -t times    number of frames             [%d]\n"
+	    "  -b buffers  specify # of buffers         [%d]\n"
+	    "  -j quality  quality for mjpeg or jpeg    [%d]\n"
+	    "  -n tvnorm   set pal/ntsc/secam\n"
+	    "  -i input    set video source\n"
 	    "\n"
-	    "formats:\n"
-	    "  raw data:      rgb, gray, 422, 422p, 420p\n"
-	    "  file formats:  ppm, pgm, jpeg\n"
-	    "  movie formats: avi15, avi24, mjpeg\n"
+	    "audio options:\n"
+	    "  -O file     wav file name\n"
+	    "  -F format   specify audio format\n"
+	    "  -C device   specify dsp device           [%s]\n"
+	    "  -R rate     sample rate                  [%d]\n"
+	    "\n",
+	    prog, prog,
+
+	    wait_seconds,
+	    v4l_device, fps, video.width, video.height,
+	    absframes, bufcount, jpeg_quality,
+	    dsp_device, audio.rate
+	);
+
+    list_formats(out);
+    fprintf(out,
+	    "If you want to capture to multiple image files you should include some\n"
+	    "digits into the movie filename (foo0000.jpeg for example), %s will\n"
+	    "use the digit block to enumerate the image files.\n"
+	    "For file formats which can hold *both* audio and video (like AVI and\n"
+	    "QuickTime) the -O option has no effect.\n"
 	    "\n"
-	    "examples:\n"
-	    "  %s -o image.ppm                             write single ppm file\n"
-	    "  %s -f 411 | display -size 320x240 yuv:-     yuv raw data to stdout\n"
-	    "  %s -s 320x240 -t 5 -o frame000.jpeg         write 5 jpeg files\n"
-	    "  %s -s 320x240 -am -r 10 -t 600 -o movie.avi record movie with sound\n"
-	    "\n"
-	    "--\n"
-	    "(c) 1998,99 Gerd Knorr <kraxel@goldbach.in-berlin.de>\n",
-	    prog, prog, device,
-	    (format == -1) ? "none" : formats[format].name,
-	    width, height, bufcount, absframes, fps,
-	    filename ? filename : "stdout",
-	    jpeg_quality,
-	    gray ? "yes" : "no",
-	    prog, prog, prog, prog, prog, prog);
+	    "-- \n"
+	    "(c) 1998-2000 Gerd Knorr <kraxel@bytesex.org>\n",
+	    prog);
 }
 
 /* ---------------------------------------------------------------------- */
 
-static int
-writer_single(int *talk)
+void
+find_formats(void)
 {
-    int  args[2];
-    int  fd = -1,ret;
-    
-    /* start up new proccess */
-    if (0 != (ret = grab_writer_fork(talk)))
-	return ret;
-    
-    if (filename) {
-	if (-1 == (fd = open(filename,O_RDWR | O_CREAT,0666))) {
-	    fprintf(stderr,"writer: open %s: %s\n",filename,strerror(errno));
-	    exit(1);
-	}
-    } else {
-	filename = "stdout";
-	fd = 1;
-    }
-    
-    for (;;) {
-	/* wait for frame */
-	switch (read(*talk,args,2*sizeof(int))) {
-	case -1:
-	    close(fd);
-	    perror("writer: read socket");
-	    exit(1);
-	case 0:
-	    close(fd);
-	    if (!quiet)
-		fprintf(stderr,"writer: done\n");
-	    exit(0);
-	}
+    const struct ng_writer *wr = NULL;
+    char *ext = NULL;
+    int w,v=-1,a=-1;
 
-	/* write out */
-	if (bufsize != write(fd,buffers + args[0]*bufsize, bufsize)) {
-	    fprintf(stderr,"writer: write %s: %s\n",filename,strerror(errno));
-	    exit(1);
-	}
-
-	/* free buffer */
-	if (sizeof(int) != write(*talk,args,sizeof(int))) {
-	    perror("writer: write socket");
-	    exit(1);
-	}
-	if (!quiet)
-	    fprintf(stderr,"-");
-    }
-}
-
-static int
-writer_files(int *talk)
-{
-    int  args[2];
-    int  fd = -1, ret;
-
-    /* start up new proccess */
-    if (0 != (ret = grab_writer_fork(talk)))
-	return ret;
-
-    for (;;) {
-	/* wait for frame */
-	switch (read(*talk,args,2*sizeof(int))) {
-	case -1:
-	    perror("writer: read socket");
-	    exit(1);
-	case 0:
-	    if (!quiet)
-		fprintf(stderr,"writer: done\n");
-	    exit(0);
-	}
-
-	/* write out */
-	switch (format) {
-	case 0:
-	    write_ppm(filename, buffers + args[0]*bufsize, width, height);
-	    patch_up(filename);
-	    break;
-	case 1:
-	    write_pgm(filename, buffers + args[0]*bufsize, width, height);
-	    patch_up(filename);
-	    break;
-	case 2:
-#ifdef HAVE_LIBJPEG
-	    write_jpeg(filename, buffers + args[0]*bufsize, width, height, jpeg_quality, gray);
-	    patch_up(filename);
-#else
-	    fprintf(stderr,"sorry, no jpeg support compiled in\n");
-	    exit(1);
-#endif
-	    break;
-	default:
-	    if (-1 == (fd = open(filename,O_RDWR | O_CREAT,0666))) {
-		fprintf(stderr,"writer: open %s: %s\n",filename,strerror(errno));
-		exit(1);
+    ext = strrchr(moviename,'.');
+    if (ext)
+	ext++;
+    for (w = 0; NULL != ng_writers[w]; w++) {
+	wr = ng_writers[w];
+	for (v = 0; NULL != wr->video[v].name; v++) {
+	    if (ext && 0 != strcasecmp(wr->video[v].ext,ext))
+		continue;
+	    if (vfmt_name && 0 != strcasecmp(wr->video[v].name,vfmt_name))
+		continue;
+	    if (!afmt_name)
+		break;
+	    if (wr->audio && NULL != afmt_name) {
+		for (a = 0; NULL != wr->audio[a].name; a++) {
+		    if (0 != strcasecmp(wr->audio[a].name,afmt_name))
+			continue;
+		    break;
+		}
+		if (NULL != wr->audio[a].name)
+		    break;
 	    }
-	    if (bufsize != write(fd,buffers + args[0]*bufsize, bufsize)) {
-		fprintf(stderr,"writer: write %s: %s\n",filename,strerror(errno));
-		exit(1);
-	    }
-	    close(fd);
-	    patch_up(filename);
+	}
+	if (NULL != wr->video[v].name)
 	    break;
-	}
-
-	/* free buffer */
-	if (sizeof(int) != write(*talk,args,sizeof(int))) {
-	    perror("writer: write socket");
-	    exit(1);
-	}
-	if (!quiet)
-	    fprintf(stderr,"-");
     }
+    if (NULL != wr->video[v].name) {
+	writer      = wr;
+	video.fmtid = wr->video[v].fmtid;
+	video_priv  = wr->video[v].priv;
+	if (-1 != a) {
+	    audio.fmtid = wr->audio[a].fmtid;
+	    audio_priv  = wr->audio[a].priv;
+	}
+    }	
 }
 
 /* ---------------------------------------------------------------------- */
@@ -286,61 +218,51 @@ ctrlc(int signal)
 int
 main(int argc, char **argv)
 {
-    int  c,s,count=0,i,n,queued=0;
+    int  c,count=0,queued=0;
 
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hqda:f:s:c:o:b:t:r:n:i:y:j:g")))
+	if (-1 == (c = getopt(argc, argv,
+			      "hqdw:" "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
 	    break;
 	switch (c) {
+	    /* general options */
 	case 'q':
 	    quiet = 1;
 	    break;
 	case 'd':
-	    debug = 1;
+	    debug++;
 	    break;
-	case 'a':
-	    with_audio = (optarg[0] == 's') ? 2 : 1;
+	case 'w':
+	    wait_seconds = atoi(optarg);
+	    break;
+
+	    /* video options */
+	case 'o':
+	    moviename = optarg;
 	    break;
 	case 'f':
-	    for (i = 0; formats[i].name != NULL; i++)
-		if (0 == strcasecmp(formats[i].name,optarg)) {
-		    format = i;
-		    break;
-		}
-	    if (formats[i].name == NULL) {
-		fprintf(stderr,"unknown format %s (available:",optarg);
-		for (i = 0; formats[i].name != NULL; i++)
-		    fprintf(stderr," %s",formats[i].name);
-		fprintf(stderr,")\n");
-		exit(1);
-	    }
-	    break;
-	case 's':
-	    if (2 != sscanf(optarg,"%dx%d",&width,&height))
-		width = height = 0;
+	    vfmt_name = optarg;
 	    break;
 	case 'c':
-	    device = optarg;
+	    v4l_device = optarg;
 	    break;
-	case 'o':
-	    filename = optarg;
-	    for (i = 0, n = strlen(filename); i < n; i++) {
-		if (isdigit(filename[i]))
-		    single = 0;
-	    }
-	    if (format == -1) {
-		if (strstr(filename,"ppm"))
-		    format = 0;
-		if (strstr(filename,"pgm"))
-		    format = 1;
-		if (strstr(filename,"jpeg"))
-		    format = 2;
-		if (strstr(filename,"jpg"))
-		    format = 2;
-		if (strstr(filename,"avi"))
-		    format = 3;
-	    }
+	case 'r':
+	    fps = atoi(optarg);
+	    break;
+	case 's':
+	    if (2 != sscanf(optarg,"%dx%d",&video.width,&video.height))
+		video.width = video.height = 0;
+	    break;
+	    
+	case 't':
+	    absframes = atoi(optarg);
+	    break;
+	case 'b':
+	    bufcount = atoi(optarg);
+	    break;
+	case 'j':
+	    jpeg_quality = mjpeg_quality = atoi(optarg);
 	    break;
 	case 'n':
 	    tvnorm = optarg;
@@ -348,68 +270,60 @@ main(int argc, char **argv)
 	case 'i':
 	    input = optarg;
 	    break;
-	case 'j':
-	    jpeg_quality = mjpeg_quality = atoi(optarg);
+
+	    /* audio options */
+	case 'O':
+	    audioname = optarg;
 	    break;
-	case 't':
-	    absframes = atoi(optarg);
+	case 'F':
+	    afmt_name = optarg;
 	    break;
-	case 'b':
-	    bufcount = atoi(optarg);
+	case 'C':
+	    dsp_device = optarg;
 	    break;
-	case 'r':
-	    fps = atoi(optarg);
+	case 'R':
+	    audio.rate = atoi(optarg);
 	    break;
-	case 'y':
-	    fd = atoi(optarg);
-	    break;
-	case 'g':
-	    gray = 1;
-	    break;
+
+	    /* errors / help */
 	case 'h':
+	    usage(stdout,argv[0]);
+	    exit(0);
 	default:
-	    usage(argv[0]);
+	    usage(stderr,argv[0]);
 	    exit(1);
 	}
     }
-    if (format == -1) {
-	fprintf(stderr,"no format specified\n");
+
+    if (NULL == moviename) {
+	fprintf(stderr,"no movie filename specified\n");
 	exit(1);
     }
-    if (gray && (format == 2)) {
-	formats[format].mul = 1;
-	formats[format].div = 1;
-	formats[format].bt848 = VIDEO_GRAY;
-    }
-    if (filename == NULL && !formats[format].can_stdout) {
-	fprintf(stderr,"writing to stdout is not supported for %s\n",
-		formats[format].name);
+    find_formats();
+
+    /* sanity checks */
+    if (video.fmtid == VIDEO_NONE) {
+	fprintf(stderr,"no video (and/or audio) format found\n");
 	exit(1);
     }
-    if (absframes > 1 && !single && !formats[format].can_multiplefile) {
-#if 0
-	fprintf(stderr,"writing to multiple files is not supported for %s\n",
-		formats[format].name);
-	exit(1);
-#else
-	single = 1;
-#endif
-    }
-    if (absframes > 1 && single && !formats[format].can_singlefile) {
-	fprintf(stderr,"writing to a single file is not supported for %s\n",
-		formats[format].name);
+    if (audio.fmtid != AUDIO_NONE && !writer->combined && NULL == audioname) {
+	fprintf(stderr,"no audio file name specified\n");
 	exit(1);
     }
 
     /* open */
-    fd = grabber_open(device,0,0,0,0,0);
+    if (!quiet)
+	fprintf(stderr,"%s / video: %s / audio: %s\n",writer->name,
+		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
+
+    fd = grabber_open(v4l_device,0,0,0,0,0);
     if (grabber->grab_setparams == NULL ||
 	grabber->grab_capture   == NULL) {
-	fprintf(stderr,"%s\ncapture not supported\n",grabber->name);
+	fprintf(stderr,"%s: capture not supported\n",grabber->name);
 	exit(1);
     }
-    audio_init();
     audio_on();
+    audio_init();
 
     /* modify settings */
     if (input != NULL)
@@ -417,69 +331,46 @@ main(int argc, char **argv)
     if (tvnorm != NULL)
 	do_va_cmd(2,"setnorm",tvnorm);
 
-    /* set capture parameters */
-    grabber_setparams(formats[format].bt848,&width,&height,
-		      &linelength,0);
+    /* init movie writer */
+    movie_writer_init(moviename, audioname,
+		      writer,
+		      &video, video_priv, fps,
+		      &audio, audio_priv,
+		      bufcount, &sound);
 
-    /* TODO: Add a shortcut for single frame captures here.  Forking
-     *       off twice is overkill unless we really do streaming
-     *       capture.
-     */
-
-    /* buffer initialisation */
-    if (absframes < bufcount)
-	bufcount = absframes+2;
-    bufsize = width*height*formats[format].mul/formats[format].div;
-    if (0 == bufsize)
-	bufsize = width*height*3; /* compressed - should be enouth */
-    if ((buffers = grab_initbuffers(bufsize, bufcount)) == NULL)
-	exit(1);
-
-    /* start up writer */
-    if (format >= 3 && format <= 5) {
-	struct MOVIE_PARAMS params;
-	memset(&params,0,sizeof(params));
-	params.video_format = formats[format].bt848;
-        params.width        = width;
-        params.height       = height;
-        params.fps          = fps;
-        if (with_audio) {
-            params.bits         = 16;
-            params.channels     = with_audio;
-            params.rate         = 44100;
-        }
-	grab_writer_avi(filename,&params,
-			buffers,bufsize,quiet,&writer);
-    } else if (single && formats[format].can_singlefile) {
-	grab_set_fps(fps);
-	writer_single(&writer);
-    } else {
-	grab_set_fps(fps);
-	writer_files(&writer);
-    }
-    
-    /* start up syncer */
-    grab_syncer(&wsync, quiet);
+    /* wait for some cameras to wake up and adjust light and all that */
+    sleep(wait_seconds);
 
     /* catch ^C */
     signal(SIGINT,ctrlc);
 
     /* main loop */
-    gettimeofday(&start,NULL);
+    movie_writer_start();
     for (;queued < absframes && !signaled; count++) {
-	queued = grab_putbuffer(quiet,writer,wsync);
+	/* audio */
+	if (-1 != sound) {
+	    for (;;) {
+		struct timeval tv;
+		fd_set set;
+		
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		FD_ZERO(&set);
+		FD_SET(sound,&set);
+		if (0 == select(sound+1,&set,NULL,NULL,&tv))
+		    break;
+		grab_put_audio();
+	    }
+	}
+	/* video */
+	grab_put_video();
+	queued++;
     }
+    movie_writer_stop();
 
     /* done */
     audio_off();
     grabber->grab_close();
-    if (!quiet)
-	fprintf(stderr,"\n");
     close(fd);
-    shutdown(writer,1);
-    close(wsync);
-    wait(&s);
-    wait(&s);
-    close(writer);
     return 0;
 }

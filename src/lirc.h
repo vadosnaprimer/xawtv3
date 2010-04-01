@@ -1,2 +1,2 @@
-int lirc_tv_init();
-int lirc_tv_havedata();
+int lirc_tv_init(void);
+int lirc_tv_havedata(void);

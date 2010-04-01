@@ -1,0 +1,13 @@
+/usr/bin/xawtv
+/usr/bin/xawtv-remote
+/usr/bin/v4lctl
+/usr/bin/rootv
+/usr/bin/scantv
+/usr/share/man/man1/v4lctl.1
+/usr/share/man/man1/xawtv.1
+/usr/share/man/man1/rootv.1
+/usr/share/man/man1/xawtv-remote.1
+/usr/X11R6/lib/X11/fonts/misc/led-latin1.pcf
+/usr/X11R6/lib/X11/fonts/misc/led-latin2.pcf
+/usr/X11R6/lib/X11/fonts/misc/led-koi8.pcf
+/etc/X11/app-defaults/Xawtv

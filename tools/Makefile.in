@@ -2,17 +2,19 @@ srcdir=@srcdir@
 VPATH=$(srcdir)
 
 ROOT=
-prefix=$(ROOT)@prefix@
-bindir=$(prefix)/bin
-mandir=$(prefix)/man
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=$(ROOT)@bindir@
+mandir=$(ROOT)@mandir@
 
 CC=@CC@
+DEPEND=@DEPEND@
 INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_DIR=mkdir -p
 
-CFLAGS=-g -Wall @CFLAGS@ @X_CFLAGS@
+CFLAGS=-g -Wall -I$(srcdir)/.. -I.. @CFLAGS@ @X_CFLAGS@
 XLDLIBS=@X_LIBS@ @LIBS@ -l@XAWLIB@ -lXmu -lXt @X_PRE_LIBS@ -lXext \
 	-lX11 @X_EXTRA_LIBS@
 
@@ -20,16 +22,16 @@ PROGS=dump-mixers record showriff propwatch
 
 ##########################################################################
 
-all: $(PROGS)
+all build: $(PROGS)
 
 dump-mixers: dump-mixers.o
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< @LIBSOUND@
 
 showriff: showriff.o
 	$(CC) $(CFLAGS) -o $@ $<
 
 record: record.o
-	$(CC) $(CFLAGS) -o $@ $< -lncurses
+	$(CC) $(CFLAGS) -o $@ $< @LIBCURSES@ @LIBSOUND@
 
 propwatch: propwatch.o
 	$(CC) $(CFLAGS) -o $@ $< $(XLDLIBS)
@@ -41,15 +43,19 @@ install: all
 	$(INSTALL_PROGRAM) -s record $(bindir)
 	$(INSTALL_PROGRAM) -s showriff $(bindir)
 	$(INSTALL_PROGRAM) -s propwatch $(bindir)
-	for page in $(srcdir)/*.man; do						\
+	for page in $(srcdir)/*.man; do					\
 		dest=`basename $$page .man`;				\
 		$(INSTALL_DATA) $$page $(mandir)/man1/$$dest.1;		\
 	done
 
 clean:
-	-rm -f *.o *.moc *~ core* *.bak TAGS
+	-rm -f *.o *.moc core* TAGS
 
 realclean distclean: clean
-	-rm -f $(PROGS) Makefile
+	-rm -f $(PROGS) Makefile *~ *.bak
 
 dep depend:
+	$(DEPEND) -- $(CFLAGS) -- *.c
+
+#-------------------------------------------------------------------------
+# DO NOT DELETE THIS LINE -- make depend depends on it.

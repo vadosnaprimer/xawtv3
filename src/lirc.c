@@ -46,22 +46,21 @@ int lirc_tv_init()
 int lirc_tv_havedata()
 {
 #ifdef HAVE_LIBLIRC_CLIENT
-    char *ir,*cmd,**argv;
+    char *code,*cmd,**argv;
     int argc;
+    int ret=-1;
     
-    if (NULL == (ir = lirc_nextir()))
-	return -1;
-    while (NULL != ir) {
-	while (NULL != (cmd = lirc_ir2char(config,ir))) {
+    while (lirc_nextcode(&code)==0 && code!=NULL) {
+	ret = 0;
+	while (lirc_code2char(config,code,&cmd)==0 && cmd!=NULL) {
 	    if (debug)
 		fprintf(stderr,"lirc: \"%s\"\n", cmd);
 	    argv = split_cmdline(cmd,&argc);
 	    do_command(argc,argv);
 	}
-	free(ir);
-	ir = lirc_nextir();
+	free(code);
     }
-    return 0;
+    return ret;
 #else
     return 0;
 #endif

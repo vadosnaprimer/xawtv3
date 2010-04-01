@@ -1,0 +1,159 @@
+body		{ background-color: white; color: black }
+
+pre.vt		{ border: 1pt solid black; padding: 12pt }
+pre.vt		{ background-color: #c0c0c0; width: auto; float: left }
+pre.vt		{ white-space: pre }
+
+div.quick	{ clear: both }
+
+/* please don't re-color my links (underline is fine) */
+/* it would be that simple in theory,
+   but Mozilla/4 does not understand "inherit"  *grumble*
+span a		{ color: inherit; background-color: inherit }
+*/
+
+/* videotext colors */
+span.c00	{ color: #000000; background-color: #000000 }
+span.c10	{ color: #ff0000; background-color: #000000 }
+span.c20	{ color: #00ff00; background-color: #000000 }
+span.c30	{ color: #ffff00; background-color: #000000 }
+span.c40	{ color: #0000ff; background-color: #000000 }
+span.c50	{ color: #ff00ff; background-color: #000000 }
+span.c60	{ color: #00ffff; background-color: #000000 }
+span.c70	{ color: #ffffff; background-color: #000000 }
+
+span.c01	{ color: #000000; background-color: #ff0000 }
+span.c11	{ color: #ff0000; background-color: #ff0000 }
+span.c21	{ color: #00ff00; background-color: #ff0000 }
+span.c31	{ color: #ffff00; background-color: #ff0000 }
+span.c41	{ color: #0000ff; background-color: #ff0000 }
+span.c51	{ color: #ff00ff; background-color: #ff0000 }
+span.c61	{ color: #00ffff; background-color: #ff0000 }
+span.c71	{ color: #ffffff; background-color: #ff0000 }
+
+span.c02	{ color: #000000; background-color: #00ff00 }
+span.c12	{ color: #ff0000; background-color: #00ff00 }
+span.c22	{ color: #00ff00; background-color: #00ff00 }
+span.c32	{ color: #ffff00; background-color: #00ff00 }
+span.c42	{ color: #0000ff; background-color: #00ff00 }
+span.c52	{ color: #ff00ff; background-color: #00ff00 }
+span.c62	{ color: #00ffff; background-color: #00ff00 }
+span.c72	{ color: #ffffff; background-color: #00ff00 }
+
+span.c03	{ color: #000000; background-color: #ffff00 }
+span.c13	{ color: #ff0000; background-color: #ffff00 }
+span.c23	{ color: #00ff00; background-color: #ffff00 }
+span.c33	{ color: #ffff00; background-color: #ffff00 }
+span.c43	{ color: #0000ff; background-color: #ffff00 }
+span.c53	{ color: #ff00ff; background-color: #ffff00 }
+span.c63	{ color: #00ffff; background-color: #ffff00 }
+span.c73	{ color: #ffffff; background-color: #ffff00 }
+
+span.c04	{ color: #000000; background-color: #0000ff }
+span.c14	{ color: #ff0000; background-color: #0000ff }
+span.c24	{ color: #00ff00; background-color: #0000ff }
+span.c34	{ color: #ffff00; background-color: #0000ff }
+span.c44	{ color: #0000ff; background-color: #0000ff }
+span.c54	{ color: #ff00ff; background-color: #0000ff }
+span.c64	{ color: #00ffff; background-color: #0000ff }
+span.c74	{ color: #ffffff; background-color: #0000ff }
+
+span.c05	{ color: #000000; background-color: #ff00ff }
+span.c15	{ color: #ff0000; background-color: #ff00ff }
+span.c25	{ color: #00ff00; background-color: #ff00ff }
+span.c35	{ color: #ffff00; background-color: #ff00ff }
+span.c45	{ color: #0000ff; background-color: #ff00ff }
+span.c55	{ color: #ff00ff; background-color: #ff00ff }
+span.c65	{ color: #00ffff; background-color: #ff00ff }
+span.c75	{ color: #ffffff; background-color: #ff00ff }
+
+span.c06	{ color: #000000; background-color: #00ffff }
+span.c16	{ color: #ff0000; background-color: #00ffff }
+span.c26	{ color: #00ff00; background-color: #00ffff }
+span.c36	{ color: #ffff00; background-color: #00ffff }
+span.c46	{ color: #0000ff; background-color: #00ffff }
+span.c56	{ color: #ff00ff; background-color: #00ffff }
+span.c66	{ color: #00ffff; background-color: #00ffff }
+span.c76	{ color: #ffffff; background-color: #00ffff }
+
+span.c07	{ color: #000000; background-color: #ffffff }
+span.c17	{ color: #ff0000; background-color: #ffffff }
+span.c27	{ color: #00ff00; background-color: #ffffff }
+span.c37	{ color: #ffff00; background-color: #ffffff }
+span.c47	{ color: #0000ff; background-color: #ffffff }
+span.c57	{ color: #ff00ff; background-color: #ffffff }
+span.c67	{ color: #00ffff; background-color: #ffffff }
+span.c77	{ color: #ffffff; background-color: #ffffff }
+
+/* The same again for all the links... */
+span.c00 a	{ color: #000000; background-color: #000000 }
+span.c10 a	{ color: #ff0000; background-color: #000000 }
+span.c20 a	{ color: #00ff00; background-color: #000000 }
+span.c30 a	{ color: #ffff00; background-color: #000000 }
+span.c40 a	{ color: #0000ff; background-color: #000000 }
+span.c50 a	{ color: #ff00ff; background-color: #000000 }
+span.c60 a	{ color: #00ffff; background-color: #000000 }
+span.c70 a	{ color: #ffffff; background-color: #000000 }
+
+span.c01 a	{ color: #000000; background-color: #ff0000 }
+span.c11 a	{ color: #ff0000; background-color: #ff0000 }
+span.c21 a	{ color: #00ff00; background-color: #ff0000 }
+span.c31 a	{ color: #ffff00; background-color: #ff0000 }
+span.c41 a	{ color: #0000ff; background-color: #ff0000 }
+span.c51 a	{ color: #ff00ff; background-color: #ff0000 }
+span.c61 a	{ color: #00ffff; background-color: #ff0000 }
+span.c71 a	{ color: #ffffff; background-color: #ff0000 }
+
+span.c02 a	{ color: #000000; background-color: #00ff00 }
+span.c12 a	{ color: #ff0000; background-color: #00ff00 }
+span.c22 a	{ color: #00ff00; background-color: #00ff00 }
+span.c32 a	{ color: #ffff00; background-color: #00ff00 }
+span.c42 a	{ color: #0000ff; background-color: #00ff00 }
+span.c52 a	{ color: #ff00ff; background-color: #00ff00 }
+span.c62 a	{ color: #00ffff; background-color: #00ff00 }
+span.c72 a	{ color: #ffffff; background-color: #00ff00 }
+
+span.c03 a	{ color: #000000; background-color: #ffff00 }
+span.c13 a	{ color: #ff0000; background-color: #ffff00 }
+span.c23 a	{ color: #00ff00; background-color: #ffff00 }
+span.c33 a	{ color: #ffff00; background-color: #ffff00 }
+span.c43 a	{ color: #0000ff; background-color: #ffff00 }
+span.c53 a	{ color: #ff00ff; background-color: #ffff00 }
+span.c63 a	{ color: #00ffff; background-color: #ffff00 }
+span.c73 a	{ color: #ffffff; background-color: #ffff00 }
+
+span.c04 a	{ color: #000000; background-color: #0000ff }
+span.c14 a	{ color: #ff0000; background-color: #0000ff }
+span.c24 a	{ color: #00ff00; background-color: #0000ff }
+span.c34 a	{ color: #ffff00; background-color: #0000ff }
+span.c44 a	{ color: #0000ff; background-color: #0000ff }
+span.c54 a	{ color: #ff00ff; background-color: #0000ff }
+span.c64 a	{ color: #00ffff; background-color: #0000ff }
+span.c74 a	{ color: #ffffff; background-color: #0000ff }
+
+span.c05 a	{ color: #000000; background-color: #ff00ff }
+span.c15 a	{ color: #ff0000; background-color: #ff00ff }
+span.c25 a	{ color: #00ff00; background-color: #ff00ff }
+span.c35 a	{ color: #ffff00; background-color: #ff00ff }
+span.c45 a	{ color: #0000ff; background-color: #ff00ff }
+span.c55 a	{ color: #ff00ff; background-color: #ff00ff }
+span.c65 a	{ color: #00ffff; background-color: #ff00ff }
+span.c75 a	{ color: #ffffff; background-color: #ff00ff }
+
+span.c06 a	{ color: #000000; background-color: #00ffff }
+span.c16 a	{ color: #ff0000; background-color: #00ffff }
+span.c26 a	{ color: #00ff00; background-color: #00ffff }
+span.c36 a	{ color: #ffff00; background-color: #00ffff }
+span.c46 a	{ color: #0000ff; background-color: #00ffff }
+span.c56 a	{ color: #ff00ff; background-color: #00ffff }
+span.c66 a	{ color: #00ffff; background-color: #00ffff }
+span.c76 a	{ color: #ffffff; background-color: #00ffff }
+
+span.c07 a	{ color: #000000; background-color: #ffffff }
+span.c17 a	{ color: #ff0000; background-color: #ffffff }
+span.c27 a	{ color: #00ff00; background-color: #ffffff }
+span.c37 a	{ color: #ffff00; background-color: #ffffff }
+span.c47 a	{ color: #0000ff; background-color: #ffffff }
+span.c57 a	{ color: #ff00ff; background-color: #ffffff }
+span.c67 a	{ color: #00ffff; background-color: #ffffff }
+span.c77 a	{ color: #ffffff; background-color: #ffffff }

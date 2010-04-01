@@ -396,15 +396,15 @@ fb_init(char *device, char *font, char *mode, int vt)
 	if (NULL == device) {
 #ifdef FBIOGET_CON2FBMAP
 	    struct fb_con2fbmap c2m;
-	    if (-1 == (fb = open("/dev/fb0",O_RDWR,0))) {
+	    if (-1 == (fb = open("/dev/fb0",O_WRONLY,0))) {
 		fprintf(stderr,"open /dev/fb0: %s\n",strerror(errno));
-		goto err;
+		exit(1);
 	    }
 	    fstat(tty,&st);
 	    c2m.console = st.st_rdev & 0xff /* FIXME: where is MAJOR() ??? */;
 	    if (-1 == ioctl(fb, FBIOGET_CON2FBMAP, &c2m)) {
 		perror("ioctl FBIOGET_CON2FBMAP");
-		goto err;
+		exit(1);
 	    }
 	    close(fb);
 	    fprintf(stderr,"map: vt%02d => fb%d\n",c2m.console,c2m.framebuffer);
@@ -415,13 +415,13 @@ fb_init(char *device, char *font, char *mode, int vt)
 #endif
 	}
     }
-
+    
     fb_readfont(font ? fonts : default_font);
     
     /* get current settings (which we have to restore) */
     if (-1 == (fb = open(device,O_RDWR /* O_WRONLY */))) {
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
-	goto err;
+	exit(1);
     }
     if (-1 == ioctl(fb,FBIOGET_VSCREENINFO,&fb_ovar)) {
 	perror("ioctl FBIOGET_VSCREENINFO");

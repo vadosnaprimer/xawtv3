@@ -1,13 +1,20 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-
+#include <errno.h>
 #include <sys/ioctl.h>
-#include <sys/soundcard.h>
+#ifdef HAVE_SOUNDCARD_H
+# include <soundcard.h>
+#endif
+#ifdef HAVE_SYS_SOUNDCARD_H
+# include <sys/soundcard.h>
+#endif
 
-#include "writeavi.h"
+#include "grab-ng.h"
 #include "sound.h"
 
 /* -------------------------------------------------------------------- */
@@ -15,19 +22,29 @@
 static char *names[] = SOUND_DEVICE_NAMES;
 
 static int   fd, blocksize;
-static char  *buffer;
 
 static int  mix;
 static int  dev = -1;
 static int  volume;
 static int  muted;
+extern int  debug;
 
 /* -------------------------------------------------------------------- */
 
+static const int afmt_to_oss[] = {
+    0,
+    AFMT_U8,
+    AFMT_U8,
+    AFMT_S16_LE,
+    AFMT_S16_LE,
+    AFMT_S16_BE,
+    AFMT_S16_BE
+};
+
 int
-sound_open(struct MOVIE_PARAMS *params)
+sound_open(struct ng_audio_fmt *fmt)
 {
-    int afmt,trigger,frag;
+    int afmt,channels,frag;
     
     if (-1 == (fd = open("/dev/dsp", O_RDONLY))) {
 	perror("open /dev/dsp");
@@ -35,54 +52,47 @@ sound_open(struct MOVIE_PARAMS *params)
     }
     fcntl(fd,F_SETFD,FD_CLOEXEC);
     
+    afmt     = afmt_to_oss[fmt->fmtid];
+    channels = ng_afmt_to_channels[fmt->fmtid];
+    frag     = 0x7fff000c; /* 4k */
+
     /* format */
-    switch (params->bits) {
-    case 16:
-	afmt = AFMT_S16_LE;
-	ioctl(fd, SNDCTL_DSP_SETFMT, &afmt);
-	if (afmt == AFMT_S16_LE)
-	    break;
-	fprintf(stderr,"no 16 bit sound, trying 8 bit...\n");
-	params->bits = 8;
-	/* fall */
-    case 8:
-	afmt = AFMT_U8;
-	ioctl(fd, SNDCTL_DSP_SETFMT, &afmt);
-	if (afmt != AFMT_U8) {
-	    fprintf(stderr,"Oops: no 8 bit sound ?\n");
-	    goto err;
-	}
-	break;
-    default:
-	fprintf(stderr,"%d bit sound not supported\n",
-		params->bits);
+    ioctl(fd, SNDCTL_DSP_SETFMT, &afmt);
+    if (afmt != afmt_to_oss[fmt->fmtid]) {
+	fprintf(stderr,"SNDCTL_DSP_SETFMT(%d): %s\n",
+		afmt_to_oss[fmt->fmtid],strerror(errno));
 	goto err;
     }
 
-    frag = 0x7fff000c; /* 4k */
+    /* channels */
+    ioctl(fd, SNDCTL_DSP_CHANNELS, &channels);
+    if (channels != ng_afmt_to_channels[fmt->fmtid]) {
+	fprintf(stderr,"SNDCTL_DSP_CHANNELS(%d): %s\n",
+		ng_afmt_to_channels[fmt->fmtid],strerror(errno));
+	goto err;
+    }
+
+    /* sample rate */
+    ioctl(fd, SNDCTL_DSP_SPEED, &fmt->rate);
     ioctl(fd, SNDCTL_DSP_SETFRAGMENT, &frag);
 
-    /* channels */
-    ioctl(fd, SNDCTL_DSP_CHANNELS, &params->channels);
-    /* sample rate */
-    ioctl(fd, SNDCTL_DSP_SPEED,    &params->rate);
-
-    if (-1 == ioctl(fd, SNDCTL_DSP_GETBLKSIZE,  &blocksize))
+    if (-1 == ioctl(fd, SNDCTL_DSP_GETBLKSIZE,  &blocksize)) {
+	perror("SNDCTL_DSP_GETBLKSIZE");
         goto err;
-    buffer = malloc(blocksize);
+    }
 
-    /* trigger record */
-    trigger = ~PCM_ENABLE_INPUT;
-    ioctl(fd,SNDCTL_DSP_SETTRIGGER,&trigger);
-    trigger = PCM_ENABLE_INPUT;
-    ioctl(fd,SNDCTL_DSP_SETTRIGGER,&trigger);
-
+    if (debug)
+	fprintf(stderr,"sound rec: rate=%d channels=%d bits=%d (%s)\n",
+		fmt->rate,
+		ng_afmt_to_channels[fmt->fmtid],
+		ng_afmt_to_bits[fmt->fmtid],
+		ng_afmt_to_desc[fmt->fmtid]);
     return fd;
     
  err:
-    params->channels = 0;
-    params->bits     = 0;
-    params->rate     = 0;
+    fprintf(stderr,"oss: requested sound format not supported by driver\n");
+    fmt->rate  = 0;
+    fmt->fmtid = AUDIO_NONE;
     return -1;
 }
 
@@ -92,20 +102,28 @@ sound_bufsize()
     return blocksize;
 }
 
-void*
-sound_read()
+void
+sound_startrec()
+{
+    int trigger;
+    
+    /* trigger record */
+    trigger = PCM_ENABLE_INPUT;
+    ioctl(fd,SNDCTL_DSP_SETTRIGGER,&trigger);
+}
+
+void
+sound_read(char *buffer)
 {
     if (blocksize != read(fd,buffer,blocksize)) {
 	perror("read /dev/dsp");
 	exit(1);
     }
-    return buffer;
 }
 
 void
 sound_close()
 {
-    free(buffer);
     close(fd);
 }
 

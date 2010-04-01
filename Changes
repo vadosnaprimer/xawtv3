@@ -1,4 +1,257 @@
 
+3.27 => 3.27
+============
+
+  * (hopefully) fixed rpm build problems.
+  * started adding ioctl tracking to the v4l code.
+  * fixed a bug in overlay code (uninitialized video_picture.depth)
+
+
+3.25 => 3.26
+============
+
+  * initialization order bug in volume control fixed (thanks to
+    rolf.siebrecht@t-online.de).
+  * added a few options to scantv, allowing it to be used
+    non-interactive.
+  * added GUI support for the rewritten capture code, recording
+    movies with xawtv works again.
+
+
+3.24 => 3.25 [non-public release]
+=================================
+
+  * teached the v4l code to turn off (and back on) overlay when fiddeling
+    with SPICT and SWIN ioctls for read() capture.  Mixing overlay and
+    read() capture works now without funny effects.
+  * fixed a bug in grabdisplay error handling (which made xawtv die with
+    "aiee: grab_fps==0" because it forgot to clean up on capture errors).
+  * started a major rewrite of the core capture code.  See grab-ng.h
+    Step one:
+     - rewrote the movie output code.
+     - writeavi.c is reentrant now.
+     - Added quicktime support (lousely based on W. Michael Petullo's
+       quicktime patches).
+     - Added support for recording image files with audio in a separate
+       wav file.
+     - xawtv's movie recording is temporarely broken, GUI updates not in
+       place yet.  You'll have to use streamer for now, sorry.
+
+
+3.23 => 3.24
+============
+
+  * -xvport does _really_ work now...
+  * Improved the OpenBSD port.  Clipping works better now, single frame
+    capture works.
+  * decreased the timeout for hiding the mouse pointer.
+  * fixed onscreen display logic.
+  * removed 320x240 capture size limit for yuv (Xvideo-scaled) grabdisplay
+    mode.
+  * fixed rate control (and killed the anonying but harmless error message
+    in grabdisplay mode).
+  * Added cc.c patches (Adam <adam@cfar.umd.edu>).
+
+ 
+3.22 => 3.23
+============
+
+  * added -xvport option to set the Xv port.
+  * Killed all the old mouse pointer handling code and the assorted config
+    config options / cmd line switches.  Replaced it with a simple timeout
+    logic:  If you don't move the mouse for some time xawtv will hide the
+    pointer.  Any pointer motion event will show the pointer again.
+  * new xawtv-remote command: showtime.
+
+    
+3.21 => 3.22
+============
+
+  * FastText for alevtd (Malcolm Parsons <malcolm@bits.bris.ac.uk>).
+  * xawtv-remote patch (Adam <adam@cfar.umd.edu>)
+  * misc bugfixes
+  * netwm support (Dirk Mueller <dmuell@gmx.net>)
+
+
+3.20 => 3.21
+============
+
+  * specfile fixed (app-defaults are missing).
+  * compile fix for alevtd.
+  * bugfix in v4l2 code.
+  * removed the boring core dump from the source tree.
+
+
+3.19 => 3.20
+============
+
+  * minor man-page updates.
+  * OpenBSD port starts working:  xawtv compiles, overlay works.
+    Clipping doesn´t work for some reason (It´s me or the driver?).
+    As FreeBSD uses the same driver it should be easy to make xawtv
+    work there too.
+  * Plenty of autoconf tweaks to make the whole package compile
+    cleanly on BSD.
+  * converted a number of structs to "field: value" style
+    initialization.
+  * Added audio= option to ~/.xawtv
+  * manpage updates.
+
+
+3.18 => 3.19
+============
+
+  * Added libvbi (vbi decoding code from alevt)
+  * Added scantv: does a channel scan, picks up the station id from
+    vbi, writes a xawtv config file.
+  * minor webcam tweaks
+  * Added alevtd - a http server for videotext pages.
+
+
+3.17 => 3.18
+============
+
+  * off-by-one bug in colorspace.c fixed.
+  * Documentation updates
+  * webcam patches from les Niles <lniles@narus.com>
+  * libjpeg dependency changed from optional to required (webcam
+    never worked without libjpeg before, and libjpeg is present
+    on nearly any linux system anyway, so...)
+  * Added triggers to the webcam - compare the current image with the
+    last uploaded one, try to figure if it has changed and upload only
+    if it has...
+
+
+3.16 => 3.17
+============
+
+  * new -w switch for streamer (Santiago Garcia Mantinan <manty@i.am>)
+
+
+3.15 => 3.16
+============
+
+  * The 3.15 tarball had a big binary included by mistake.
+  * Some v4l2 fixes.
+
+
+3.14 => 3.15
+============
+
+  * fixed a bug in the channel editor (did'nt saved the input for
+    new channels)
+  * shuffled around some code -- split Xaw and general Xt/X11 code.
+  * added max size check to v4l2 overlay code.
+  * added (un)mute to rootv
+
+
+3.13 => 3.14
+============
+
+  * Added a "fix-aspect-ratio" option (quick guide: add
+    "radio=4:3" to the [global] section).
+  * fixed a few bugs in the new avi recording code.
+    audio+video should work again.
+  * A fullscreen option in the config file enables the VidMode
+    extention now.
+  * added read()-based capture support to the webcam.  Untested.
+
+
+3.12 => 3.13
+============
+
+  * some xvideo finetuning
+  * Added xvideo support to v4lctl
+  * Added rootv utility
+  * Added debian package information
+  * Added small script to pick up channels from videotext (*.de,
+    Kabel1 pages, from Kai Fett, it is in contrib/vtx2xawtv)
+  * webcam: moved ftp code to another source file, made it runtime
+    configurable, wrote a man-page
+  * wrote a manpage for showriff
+
+
+3.11 => 3.12
+============
+
+  * Added the missing -D_REENTRANT to the Makefile
+  * picked up the r@dio.mp3 client from the v4l list, put it
+    into the contrib directory.
+  * avi recording fix (audio+video stream length are identical now).
+  * xawtv-remote protocol supports more than one command now.  Commands
+    are separated by a zero-length string, i.e. 'xawtv-remote foo "" bar'
+  * new xawtv-remote command:  vtx (interface for subtitles).  Check
+    the man-page for details.
+  * webcam fixes.
+
+
+3.10 => 3.11
+============
+
+  * fbtv grabdisplay fix, added G400 (works with G200 code too).
+  * lirc code update (Ilya Konstantinov <future@galanet.net>).  You might
+    have to upgrade lirc to compile this version.
+  * fixed the bool ressources.  They are /really/ boolean now,
+    i.e. "xawtv.vidmode: true" works now.
+  * fixed a few bugs in the new recording code.
+  * added support for freq= in ~/.xawtv.  Untested.
+  * avi writing code fix (broken size for one header field,
+    found by David Gesswein <djg@drs-esg.com>).  Now the windows media
+    player accepts xawtv's movies, cool...
+  * Added command line parsing to showriff.  Added a option to make it
+    not stop on errors.
+  * Fixed avi initialization code.  It forgot to reset some counters,
+    and thats why xawtv wrote broken avi files if you've recorded more
+    than one...
+  * Added new command to xawtv-remote: webcam.
+
+
+3.09 => 3.10
+============
+
+  * fixed pthread compile problems.
+  * first cut of the new recording code is active.  It still needs
+    some tweaking, but the basics work.  v4l2 is'nt updated yet.
+    audio+video syncronisation should work better.  It is also possible
+    to start/stop xawtv's avi-recording with xawtv-remote (see manpage).
+
+
+3.08 => 3.09
+============
+
+  * extended showriff a bit
+  * fixed broken rpm build
+  * started rewriting the capture code.  Switching over to threads,
+    hope I get the audio/video syncronisation issues fixed this way.
+    Right now it is dead code only...
+
+
+3.07 => 3.08
+============
+
+  * reverted the frequency table split for europe.  Turned out this
+    was a bad idea...
+  * Added options to enable dga/vidmode/... extentions.  Vidmode is
+    off by default now.  This is the X Extention used for switching
+    video modes, i.e. you'll have to start xawtv with "-vm" now to
+    make it switching the video mode when going to fullscreen mode.
+  * Added chroma keying support.
+  * OpenDML support for avi.  Now the intresting question:  Who can
+    playback or at least read these files?  I don't know how to test
+    this stuff...
+  * Documentation updates
+
+
+3.06 => 3.07
+============
+
+  * added troggle-mouse option (turn on/off mouse when swithing to
+    fullscreen).
+  * Added "stay on bottom".  The "stay-on-top" command does now cycle
+    between normal, top and bottom.
+  * Added support for more than two capture buffers to grab-v4l.c
+
+
 3.06 => 3.07
 ============
 

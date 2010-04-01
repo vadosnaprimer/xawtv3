@@ -9,9 +9,9 @@ CFLAGS=-Wall
 all: $(PROGS)
 
 clean:
-	rm -f $(PROGS) *~
+	rm -f $(PROGS)
 
 distclean realclean: clean
-	rm -f Makefile
+	rm -f Makefile *~ *.bak
 
 dep depend install:

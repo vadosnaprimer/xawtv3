@@ -1,0 +1,103 @@
+.TH webcam 1 "(c) 1998-2000 Gerd Knorr"
+.SH NAME
+webcam - capture images and upload them to a webserver using ftp
+.SH SYNOPSIS
+.B webcam
+.SH DESCRIPTION
+.B webcam
+captures images from a video4linux device like bttv, annotates them
+and and uploads them to a webserver using ftp in a endless loop.
+.SH CONFIGURATION
+At startup
+.B webcam
+reads the configuration file ~/.webcamrc.  It looks like this (the
+given values are the defaults):
+.nf
+
+[ftp]
+host = www
+user = webcam
+pass = xxxxxx
+dir  = public_html/images
+file = webcam.jpeg
+tmp  = uploading.jpeg
+passive = 1
+debug = 0
+auto = 0
+local= 0
+
+[grab]
+device = /dev/video0
+text = "webcam %Y-%m-%d %H:%M:%S"
+width = 320
+height = 240
+delay = 3
+input = 0
+norm = 0
+rotate = 0
+top = 0
+left = 0
+bottom = -1
+right = -1
+quality = 75
+trigger = 0
+once = 0
+
+.fi
+The annotation
+.B text
+is processed with strftime.  Check the strftime(3) or date(1) manpage
+to see how you can format the timestamps.
+.B input
+is the video source (TV/composite/whatever),
+.B norm
+the TV norm (0=PAL, 1=NTSC, 2=SECAM).
+.B delay
+is the delay between two images in seconds.
+.B quality
+is the JPEG quality for the stored images.
+.P
+If
+.B debug
+in the ftp section is set to 1 the complete communication between
+webcam and the ftp utility is printed to stderr.
+.B auto
+enables autologin via ~/.netrc (starts the ftp utility without the '-n'
+switch).
+If
+.B local
+in the ftp section is non-zero, files will be stored locally (using
+the 
+.B dir, tmp,
+and
+.B file
+parameters) rather than ftped.
+.P
+.B top, bottom, left,
+and 
+.B right
+in the grab section allow cropping the image after it is grabbed.
+They should satisfy 0<=top<bottom<=height and 
+0<=left<right<=width.  (0,0 is the top, left corner.)
+If
+.B rotate
+is positive, the output image will be rotated clockwise 90 degrees 
+that number of times (1, 2, or 3).
+.P
+With
+.B trigger
+set to a non-zero value webcam will upload the image only if the
+content of the image has changed.  It just looks for the maximum
+difference between the last uploaded and current image and if it is
+greater than the specified value the image will be uploaded.
+If 
+.B once
+is set to 1 webcam will upload a single frame and quit.
+.SH AUTHOR
+Gerd Knorr <kraxel@goldbach.in-berlin.de>
+.SH COPYRIGHT
+Copyright (C) 1997-2000 Gerd Knorr
+.br
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

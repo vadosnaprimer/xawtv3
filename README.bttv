@@ -2,6 +2,11 @@
 Some hints to get the bttv driver up and running
 ================================================
 
+[ Note1: this applies to 0.6.x versions, 0.7.x (also kernel 2.4.x)
+         users should check out the README included there instead.
+  Note2: If you have trouble with 0.6.x, try to upgrade to 0.7.x
+         first.  The list of supported cards is much longer. ]
+
 You need configured kernel sources to compile the bttv driver.  The
 driver uses some Makefile magic to compile the modules with your
 kernel's configuration (wrt. module-versions, SMP, ...).  If you

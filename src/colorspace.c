@@ -234,7 +234,7 @@ rgb24_to_bgr24(unsigned char *dest, unsigned char *src, int p)
     register unsigned char *s = src;
     register unsigned char *d = dest;
 
-    while (--p) {
+    while (p--) {
 	*(d++) = s[2];
 	*(d++) = s[1];
 	*(d++) = s[0];

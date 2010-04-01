@@ -1,6 +1,6 @@
 .TH xawtv-remote 1 "(c) 1997-99 Gerd Knorr"
 .SH NAME
-xxx
+xawtv-remote, v4lctl -- control video4linux devices
 .SH SYNOPSIS
 .B xawtv-remote [ options ] command
 .br
@@ -84,11 +84,33 @@ accepted too and increase/decrease the parameter by one percent.
 .B snap [ jpeg | ppm ] [ full | win | widthxheight ] <filename>
 Capture one image.
 .TP
+.B webcam <filename>
+Capture one image.  Does basically the same as "snap jpeg win
+<filename>".  Works also while avi recording is active.  It writes
+to a temporary file and renames it when done, so there is never
+a invalid file.
+.TP
+.B movie file <filename> | start | stop
+control xawtv's avi recorder.
+.TP
 .B fullscreen
 Toggle fullscreen mode.
 .TP
 .B msg text
-Display text on the on-screen display.
+Display text on the on-screen display (window title / upper left corner in
+fullscreen mode).
+.TP
+.B vtx line1 line2 [ ... ]
+Display subtitles.  It pops up a small window at the bottom of the screen.
+It is supported to be used as interface for displaying subtitles (often on
+videotext page 150 in europe, thats why the name) by external programs.
+.br
+Every command line argument is one line, zero lines removes the window.
+You can colorize the text with the control sequence "ESC foreground
+background".  foreground/background has the range 0-7 (ansi term colors).
+Example: "\\03347 hello world " is blue on white.  "\\033" must be a real
+escape character, the string does'nt work.  With the bash you'll get it
+with ^V ESC.
 .TP
 .B quit
 quit xawtv

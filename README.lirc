@@ -14,9 +14,8 @@ i.e. if you stick the following lines into your .lircrc ...
 	end
 
 ... this should have the same effect like "xawtv-remote volume mute".
-Check the xawtv-remote manpage for a more complete list.
-
-And please don't ask /me/ how to make lirc work, I don't use it.
+Check the xawtv-remote manpage for a more complete list.  A sample
+config file is in the contrib directory.
 
   Gerd
 

@@ -33,7 +33,6 @@ Hit Return to start watching TV...\n\
 \n
 
 Options*mute.label:		Audio (un)mute                  A
-Options*ptr.label:		Mouse Pointer on/off            M
 Options*fs.label:		Full Screen on/off              F
 Options*grabppm.label:		Grab Image (ppm)                G
 Options*grabjpeg.label:		Grab Image (jpeg)               J
@@ -106,6 +105,7 @@ TopLevelShell*menu.translations:	#override	\n\
 
 xawtv.tv.width:			384
 xawtv.tv.height:		288
+xawtv.tv.background:		green
 xawtv.winGravity:		Static
 xawtv.translations:		#override			\n\
 	<PropertyNotify>:	Remote()			\n\
@@ -131,7 +131,6 @@ xawtv.tv.translations:		#override			\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
 	<Key>KP_Enter:		Command(volume,mute)		\n\
 	<Key>A:			Command(volume,mute)		\n\
-	<Key>M:			Pointer()			\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -189,7 +188,6 @@ Options.paned.translations:	#override\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
 	<Key>KP_Enter:		Command(volume,mute)		\n\
 	<Key>A:			Command(volume,mute)		\n\
-	<Key>M:			Pointer()			\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -219,16 +217,16 @@ Options*Command.translations:	#override			\n\
 ! Streamer frontend window
 
 Streamer.title:			record movies (*.avi)
-Streamer*flabel.label:		output filename
-Streamer*olabel.label:		command output
+Streamer*vlabel.label:		movie/images filename
+Streamer*alabel.label:		*.wav filename
 Streamer*streamer.label:	start/stop recording
 Streamer*xanim.label:		playback (start xanim)
 
-Streamer*Label.width:		320
+Streamer*Label.width:		360
 Streamer*Label.resize:		false
 Streamer*Label.borderWidth:	0
 Streamer*Label.shadowWidth:	0
-Streamer*Text.width:		320
+Streamer*Text.width:		360
 Streamer*Text*background:	white
 Streamer*Text*Scrollbar.background: lightgray
 Streamer*Text*autoFill:		false
@@ -237,24 +235,30 @@ Streamer*Text*type:		string
 Streamer*Text*useStringInPlace:	false
 Streamer*status.foreground:	darkred
 
-Streamer*format.vertDistance:	0
+Streamer*vlabel.vertDistance:	5
+Streamer*vname.vertDistance:	0
+Streamer*alabel.vertDistance:	15
+Streamer*aname.vertDistance:	0
+Streamer*driver.vertDistance:	15
+Streamer*audio.vertDistance:	5
+Streamer*rate.vertDistance:	0
+Streamer*video.vertDistance:	5
 Streamer*fps.vertDistance:	0
 Streamer*size.vertDistance:	0
-Streamer*status.vertDistance:	0
-Streamer*audio.vertDistance:	15
-Streamer*streamer.vertDistance:	15
-Streamer*olabel.vertDistance:	15
+Streamer*status.vertDistance:	5
+Streamer*streamer.vertDistance:	5
+Streamer*xanim.vertDistance:	5
 
-Streamer*output.height:		80
-Streamer*output.scrollVertical:	always
-!Streamer*output.sensitive:	false
-
-Streamer*fname.translations:	#override			\n\
+Streamer*vname.translations:	#override			\n\
+	<Key>Tab:		Complete()			\n\
+	<EnterWindow>:		SetBg(lightyellow)		\n\
+	<LeaveWindow>:		SetBg(white)
+Streamer*aname.translations:	#override			\n\
 	<Key>Tab:		Complete()			\n\
 	<EnterWindow>:		SetBg(lightyellow)		\n\
 	<LeaveWindow>:		SetBg(white)
 
-Streamer*Command.width:		320
+Streamer*Command.width:		360
 Streamer*Command.resize:	false
 Streamer*Command.justify:	left
 Streamer*Command.shadowWidth:	0
@@ -296,7 +300,6 @@ Channels.viewport.translations:	#override\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
 	<Key>KP_Enter:		Command(volume,mute)		\n\
 	<Key>A:			Command(volume,mute)		\n\
-	<Key>M:			Pointer()			\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -328,6 +331,17 @@ xawtv.onscreen*foreground:		lightgreen
 xawtv.onscreen*shadowWidth:		0
 xawtv.onscreen.label.justify:		left
 xawtv.onscreen.label.font: -*-ledfixed-medium-r-semicondensed--39-*
+
+
+xawtv.vtx.allowShellResize:		true
+xawtv.vtx.label.resize:			true
+
+xawtv.vtx*background:			black
+xawtv.vtx*borderColor:			black
+xawtv.vtx*foreground:			lightgreen
+xawtv.vtx*shadowWidth:			0
+xawtv.vtx.label.justify:		center
+xawtv.vtx.label.font: 7x13bold
 
 
 ! ----------------------------------------------------------------------------

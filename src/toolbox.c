@@ -27,31 +27,15 @@
 #include "config.h"
 #include "grab.h"
 #include "toolbox.h"
+#include "wmhooks.h"
 
 extern Display       *dpy;
 extern XVisualInfo    vinfo;
 extern Colormap       colormap;
+extern int stay_on_top;
 
-Cursor left_ptr;
-Cursor menu_ptr;
-Cursor qu_ptr;
-Cursor no_ptr;
-
-Pixmap bm_yes;
-Pixmap bm_no;
-
-static unsigned char bm_yes_data[] = {
-    /* -------- -------- */  0x00,
-    /* -------- -------- */  0x00,
-    /* ------xx xx------ */  0x18,			   
-    /* ----xxxx xxxx---- */  0x3c,
-    /* ----xxxx xxxx---- */  0x3c,
-    /* ------xx xx------ */  0x18,
-    /* -------- -------- */  0x00,
-    /* -------- -------- */  0x00
-};
-
-static unsigned char bm_no_data[] = { 0,0,0,0, 0,0,0,0 };
+extern Cursor  menu_ptr;
+extern Cursor  left_ptr;
 
 /* ---------------------------------------------------------------------- */
 /* simple and handy error rotine                                          */
@@ -82,7 +66,7 @@ add_pulldown_menu(Widget menubar,
 }
 
 Widget
-add_menu_entry(Widget menu, char *name,
+add_menu_entry(Widget menu, const char *name,
 	       XtCallbackProc callback, XtPointer data)
 {
     Widget entry;
@@ -490,43 +474,8 @@ help_AC(Widget widget,  XEvent *event,
 
     XtVaSetValues(help,XtNlabel,l,NULL);
     XtPopup(shell,XtGrabNonexclusive);
+    if (wm_stay_on_top && stay_on_top > 0)
+	wm_stay_on_top(dpy,XtWindow(shell),1);
+
     XDefineCursor(dpy,XtWindow(shell),left_ptr);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void
-create_pointers(Widget app_shell)
-{
-    XColor white,red,dummy;
-    Screen *scr;
-    
-    left_ptr = XCreateFontCursor(dpy,XC_left_ptr);
-    menu_ptr = XCreateFontCursor(dpy,XC_right_ptr);
-    qu_ptr   = XCreateFontCursor(dpy,XC_question_arrow);
-    scr = DefaultScreenOfDisplay(dpy);
-    if (vinfo.depth > 1) {
-	if (XAllocNamedColor(dpy,colormap,"white",&white,&dummy) &&
-	    XAllocNamedColor(dpy,colormap,"red",&red,&dummy)) {
-	    XRecolorCursor(dpy,left_ptr,&red,&white);
-	    XRecolorCursor(dpy,menu_ptr,&red,&white);
-	    XRecolorCursor(dpy,qu_ptr,&red,&white);
-	} 
-    }
-}
-
-void
-create_bitmaps(Widget app_shell)
-{
-    XColor black, dummy;
-
-    bm_yes = XCreateBitmapFromData(dpy, XtWindow(app_shell),
-				   bm_yes_data, 8,8);
-    bm_no = XCreateBitmapFromData(dpy, XtWindow(app_shell),
-				  bm_no_data, 8,8);
-
-    XAllocNamedColor(dpy,colormap,"black",&black,&dummy);
-    no_ptr = XCreatePixmapCursor(dpy, bm_no, bm_no,
-				 &black, &black,
-				 0, 0);
 }

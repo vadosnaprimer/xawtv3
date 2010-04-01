@@ -1,8 +1,8 @@
 /*
- * (c) 1998,99 Gerd Knorr
+ * (c) 1998-2000 Gerd Knorr
  *
  *    capture a image, compress as jpeg and upload to the webserver
- *    using ftp
+ *    using ftp the ftp utility
  *
  */
 
@@ -20,39 +20,46 @@
 #include "videodev.h"	/* change this to "videodev2.h" for v4l2 */
 
 #include "jpeglib.h"
+#include "ftp.h"
+#include "parseconfig.h"
+
 
 /* ---------------------------------------------------------------------- */
 /* configuration                                                          */
 
-#define FTP_HOST          "www"
-#define FTP_USER          "webcam"
-#define FTP_PASS          "xxxxxx"
-#define FTP_DIRECTORY     "public_html/images"
-#define FTP_FILE          "webcam.jpeg"
-#define FTP_TMPFILE       "uploading.jpeg"
-#define FTP_INIT_ONCE     "pass"		/* call once at start */
-#define FTP_INIT_CONN     "bin"			/* per connection */
-
 #define JPEG_FILE         "/tmp/webcam.jpeg"
-#define JPEG_QUALITY      75
 
-#define GRAB_DEVICE       "/dev/video0"
-#define GRAB_WIDTH        320
-#define GRAB_HEIGHT       240
-#define GRAB_TEXT         "webcam %d.%m.%Y %H:%M:%S"        /* strftime */
+char *ftp_host  = "www";
+char *ftp_user  = "webcam";
+char *ftp_pass  = "xxxxxx";
+char *ftp_dir   = "public_html/images";
+char *ftp_file  = "webcam.jpeg";
+char *ftp_tmp   = "uploading.jpeg";
+int ftp_passive = 1;
+int ftp_auto    = 0;
+int ftp_local   = 0;
 
-#ifdef VIDIOCGCAP
+char *grab_device = "/dev/video0";
+char *grab_text   = "webcam %Y-%m-%d %H:%M:%S"; /* strftime */
+int   grab_width  = 320;
+int   grab_height = 240;
+int   grab_delay  = 3;
+int   grab_rotate = 0;
+int   grab_top    = 0;
+int   grab_left   = 0;
+int   grab_bottom = -1;
+int   grab_right  = -1;
+int   grab_quality= 75;
+int   grab_trigger=  0;
+int   grab_once   =  0;
+
 /* these work for v4l only, not v4l2 */
-# define GRAB_SOURCE      1
-# define GRAB_NORM        VIDEO_MODE_PAL
-#endif
-
-#define GRAB_DELAY        3
+int   grab_input = 0;
+int   grab_norm  = VIDEO_MODE_PAL;
 
 /* ---------------------------------------------------------------------- */
 
 void swap_rgb24(char *mem, int n);
-static int ftp_debug = 0;
 
 /* ---------------------------------------------------------------------- */
 /* jpeg stuff                                                             */
@@ -80,7 +87,7 @@ write_jpeg(char *filename, char *data, int width, int height)
     cinfo.input_components = 3;
     cinfo.in_color_space = JCS_RGB;
     jpeg_set_defaults(&cinfo);
-    jpeg_set_quality(&cinfo, JPEG_QUALITY, TRUE);
+    jpeg_set_quality(&cinfo, grab_quality, TRUE);
     jpeg_start_compress(&cinfo, TRUE);
 
     for (i = 0, line = data; i < height; i++, line += width*3)
@@ -92,214 +99,6 @@ write_jpeg(char *filename, char *data, int width, int height)
 
     return 0;
 }
-
-/* ---------------------------------------------------------------------- */
-/* FTP stuff                                                              */
-
-static int ftp_pty, ftp_pid,ftp_connected;
-
-static char pty_name[32];
-static char tty_name[32];
-
-void ftp_send(char *command);
-int  ftp_recv();
-
-int open_pty()
-{
-    static char s1[] = "pqrs";
-    static char s2[] = "0123456789abcdef";
-    
-    char *p1,*p2;
-    int pty;
-
-    for (p1 = s1; *p1; p1++) {
-        for (p2 = s2; *p2; p2++) {
-            sprintf(pty_name,"/dev/pty%c%c",*p1,*p2);
-            sprintf(tty_name,"/dev/tty%c%c",*p1,*p2);
-	    if (-1 == access(tty_name,R_OK|W_OK))
-		continue;
-            if (-1 != (pty = open(pty_name,O_RDWR)))
-                return pty;
-        }
-    }
-    return -1;
-}
-
-void
-ftp_init()
-{
-    static char *argv[] = { "ftp", "-n", NULL };
-    static char *init_commands[] = { FTP_INIT_ONCE, NULL };
-    int i;
-
-    if (-1 == (ftp_pty = open_pty())) {
-	fprintf(stderr,"can't grab pty\n");
-        exit(1);
-    }
-    switch (ftp_pid = fork()) {
-    case -1:
-        perror("fork");
-	exit(1);
-    case 0:
-        /* child */
-	close(ftp_pty);
-        close(0); close(1); close(2);
-	setsid();
-        open(tty_name,O_RDWR); dup(0); dup(0);
-        execvp(argv[0],argv);
-        perror("execvp");
-        exit(1);
-    default:
-        /* parent */
-        break;
-    }
-    ftp_recv();
-
-    /* initialisation */
-    for (i = 0; init_commands[i] != NULL; i++) {
-	ftp_send(init_commands[i]);
-	ftp_recv();
-    }
-    return;
-}
-
-void
-ftp_send(char *command)
-{
-    char line[128];
-    int length;
-
-    length = sprintf(line,"%s\n",command);
-    if (ftp_debug)
-	fprintf(stderr,">> %s",line);
-    if (length != write(ftp_pty,line,length)) {
-	fprintf(stderr,"ftp: write error\n");
-	exit(1);
-    }
-}
-
-int
-ftp_recv()
-{
-    char line[512],*p,*n;
-    int length, done, status, ret=0;
-    fd_set set;
-
-    for (done = 0; !done;) {
-	FD_ZERO(&set);
-	FD_SET(ftp_pty,&set);
-	select(ftp_pty+1,&set,NULL,NULL,NULL);
-	
-	switch (length = read(ftp_pty,line,511)) {
-	case -1:
-	    perror("ftp: read error");
-	    exit(1);
-	case 0:
-	    fprintf(stderr,"ftp: EOF\n");
-	    exit(1);
-	}
-	line[length] = 0;
-
-	for (p=line; p && *p; p = n) {
-	    /* split into lines */
-	    if (NULL != (n = strchr(p,'\n')) || NULL != (n = strchr(p,'\r')))
-		*(n++) = 0;
-	    else
-		n = NULL;
-	    if (ftp_debug)
-		fprintf(stderr,"<< %s\n",p);
-
-	    /* prompt? */
-	    if (NULL != strstr(p,"ftp>")) {
-		done = 1;
-	    }
-
-	    /* line dropped ? */
-	    if (NULL != strstr(p,"closed connection")) {
-		fprintf(stderr,"ftp: lost connection\n");
-		ftp_connected = 0;
-	    }
-	    if (NULL != strstr(p,"Not connected")) {
-		if (ftp_connected)
-		    fprintf(stderr,"ftp: lost connection\n");
-		ftp_connected = 0;
-	    }
-
-	    /* status? */
-	    if (1 == sscanf(p,"%d",&status)) {
-		ret = status;
-	    }
-	}
-    }
-    return ret;
-}
-
-void
-ftp_connect()
-{
-    int i,delay = 0;
-    static char *init_commands[] = { FTP_INIT_CONN, NULL };
-
-    for (;;) {
-	/* Wiederholungsversuche mit wachsendem Intervall, 10 min max. */
-	if (delay) {
-	    fprintf(stderr,"ftp: connect failed, sleeping %d sec\n",delay);
-	    sleep(delay);
-	    delay *= 2;
-	    if (delay > 600)
-		delay = 600;
-	} else {
-	    delay = 5;
-	}
-
-	/* (re-) connect */
-	ftp_send("close");
-	ftp_recv();
-	ftp_send("open " FTP_HOST);
-	if (220 != ftp_recv())
-	    continue;
-
-	fprintf(stderr,"ftp: connected to " FTP_HOST "\n");
-	ftp_connected = 1;
-
-	/* login */
-	ftp_send("user " FTP_USER " " FTP_PASS);
-	if (230 != ftp_recv()) {
-	    if (!ftp_connected)
-		continue;
-	    fprintf(stderr,"ftp: login incorrect\n");
-	    exit(1);
-	}
-	
-	/* set directory */
-	ftp_send("cd " FTP_DIRECTORY);
-	if (250 != ftp_recv()) {
-	    if (!ftp_connected)
-		continue;
-	    fprintf(stderr,"ftp: login incorrect\n");
-	    exit(1);
-	}
-
-	/* initialisation */
-	for (i = 0; init_commands[i] != NULL; i++) {
-	    ftp_send(init_commands[i]);
-	    ftp_recv();
-	}
-
-	/* ok */
-	break;
-    }
-}
-
-void
-ftp_upload()
-{
-    ftp_send("put " JPEG_FILE " " FTP_TMPFILE);
-    ftp_recv();
-    ftp_send("rename " FTP_TMPFILE " " FTP_FILE);
-    ftp_recv();
-}
-
 
 /* ---------------------------------------------------------------------- */
 /* capture stuff  - v4l2                                                  */
@@ -314,29 +113,32 @@ static unsigned char            *grab_data;
 void
 grab_init()
 {
-    if (-1 == (grab_fd = open(GRAB_DEVICE,O_RDWR))) {
-	perror("open " GRAB_DEVICE);
+    if (-1 == (grab_fd = open(grab_device,O_RDWR))) {
+	fprintf(stderr,"open %s: %s\n",grab_device,strerror(errno));
 	exit(1);
     }
     if (-1 == ioctl(grab_fd,VIDIOC_QUERYCAP,&grab_cap)) {
-	fprintf(stderr,"wrong device\n");
+	fprintf(stderr,"%s: no v4l2 device\n",grab_device);
 	exit(1);
     }
     if (-1 == ioctl(grab_fd, VIDIOC_G_FMT, &grab_pix)) {
         perror("ioctl VIDIOC_G_FMT");
 	exit(1);
     }
-    grab_pix.pixelformat = V4L2_PIX_FMT_BGR24;
-    grab_pix.depth  = 24;
-    grab_pix.width  = GRAB_WIDTH;
-    grab_pix.height = GRAB_HEIGHT;
+    grab_pix.type = V4L2_BUF_TYPE_CAPTURE;
+    grab_pix.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
+    grab_pix.fmt.pix.depth  = 24;
+    grab_pix.fmt.pix.width  = grab_width;
+    grab_pix.fmt.pix.height = grab_height;
     if (-1 == ioctl(grab_fd, VIDIOC_S_FMT, &grab_pix)) {
 	perror("ioctl VIDIOC_S_FMT");
 	exit(1);
     }
-    grab_size = grab_pix.width * grab_pix.height * ((grab_pix.depth+7)/8);
+    grab_size = grab_pix.fmt.pix.width * grab_pix.fmt.pix.height *
+	((grab_pix.fmt.pix.depth+7)/8);
     fprintf(stderr,"grabber: using %dx%dx%d => %d byte\n",
-	    grab_pix.width,grab_pix.height,grab_pix.depth,grab_size);
+	    grab_pix.fmt.pix.width,grab_pix.fmt.pix.height,
+	    grab_pix.fmt.pix.depth,grab_size);
     if (NULL == (grab_data = malloc(grab_size))) {
 	fprintf(stderr,"out of virtual memory\n");
 	exit(1);
@@ -351,9 +153,10 @@ grab_one(int *width, int *height)
     for (;;) {
 	rc = read(grab_fd,grab_data,grab_size);
 	if (rc == grab_size) {
-	    swap_rgb24(grab_data,grab_pix.width*grab_pix.height);
-	    *width  = grab_pix.width;
-	    *height = grab_pix.height;
+	    swap_rgb24(grab_data,grab_pix.fmt.
+		       pix.width*grab_pix.fmt.pix.height);
+	    *width  = grab_pix.fmt.pix.width;
+	    *height = grab_pix.fmt.pix.height;
 	    return grab_data;
 	}
 	fprintf(stderr,"grabber: read: %d != %d\n",grab_size,rc);
@@ -373,59 +176,104 @@ grab_one(int *width, int *height)
 static struct video_capability   grab_cap;
 static struct video_mmap         grab_buf;
 static struct video_channel	 grab_chan;
-static int                       grab_fd, grab_size;
+static struct video_picture      grab_pict;
+static struct video_window       grab_win;
+static int                       grab_fd, grab_size, have_mmap;
 static unsigned char            *grab_data;
 
 void
 grab_init()
 {
-    if (-1 == (grab_fd = open(GRAB_DEVICE,O_RDWR))) {
-	perror("open " GRAB_DEVICE);
+    if (-1 == (grab_fd = open(grab_device,O_RDWR))) {
+	fprintf(stderr,"open %s: %s\n",grab_device,strerror(errno));
 	exit(1);
     }
     if (-1 == ioctl(grab_fd,VIDIOCGCAP,&grab_cap)) {
-	fprintf(stderr,"wrong device\n");
+	fprintf(stderr,"%s: no v4l device\n",grab_device);
 	exit(1);
     }
 
     /* set image source and TV norm */
-    grab_chan.channel = GRAB_SOURCE;
+    grab_chan.channel = grab_input;
     if (-1 == ioctl(grab_fd,VIDIOCGCHAN,&grab_chan)) {
 	perror("ioctl VIDIOCGCHAN");
 	exit(1);
     }
-    grab_chan.channel = GRAB_SOURCE;    
-    grab_chan.norm    = GRAB_NORM;
+    grab_chan.channel = grab_input;
+    grab_chan.norm    = grab_norm;
     if (-1 == ioctl(grab_fd,VIDIOCSCHAN,&grab_chan)) {
 	perror("ioctl VIDIOCSCHAN");
 	exit(1);
     }
 
+    /* try to setup mmap-based capture */
     grab_buf.format = VIDEO_PALETTE_RGB24;
     grab_buf.frame  = 0;
-    grab_buf.width  = GRAB_WIDTH;
-    grab_buf.height = GRAB_HEIGHT;
+    grab_buf.width  = grab_width;
+    grab_buf.height = grab_height;
     grab_size = grab_buf.width * grab_buf.height * 3;
     grab_data = mmap(0,grab_size,PROT_READ|PROT_WRITE,MAP_SHARED,grab_fd,0);
-    if (-1 == (int)grab_data) {
-	perror("mmap");
+    if (-1 != (int)grab_data) {
+	have_mmap = 1;
+	return;
+    }
+
+    /* fallback to read() */
+    fprintf(stderr,"no mmap support available, using read()\n");
+    have_mmap = 0;
+    grab_pict.depth   = 24;
+    grab_pict.palette = VIDEO_PALETTE_RGB24;
+    if (-1 == ioctl(grab_fd,VIDIOCSPICT,&grab_pict)) {
+	perror("ioctl VIDIOCSPICT");
 	exit(1);
     }
+    if (-1 == ioctl(grab_fd,VIDIOCGPICT,&grab_pict)) {
+	perror("ioctl VIDIOCGPICT");
+	exit(1);
+    }
+    memset(&grab_win,0,sizeof(struct video_window));
+    grab_win.width  = grab_width;
+    grab_win.height = grab_height;
+    if (-1 == ioctl(grab_fd,VIDIOCSWIN,&grab_win)) {
+	perror("ioctl VIDIOCSWIN");
+	exit(1);
+    }
+    if (-1 == ioctl(grab_fd,VIDIOCGWIN,&grab_win)) {
+	perror("ioctl VIDIOCGWIN");
+	exit(1);
+    }
+    grab_size = grab_win.width * grab_win.height * 3;
+    grab_data = malloc(grab_size);
 }
 
 unsigned char*
 grab_one(int *width, int *height)
 {
+    int rc;
+    
     for (;;) {
-	if (-1 == ioctl(grab_fd,VIDIOCMCAPTURE,&grab_buf)) {
-	    perror("ioctl VIDIOCMCAPTURE");
-        } else {
-	    if (-1 == ioctl(grab_fd,VIDIOCSYNC,&grab_buf)) {
-		perror("ioctl VIDIOCSYNC");
+	if (have_mmap) {
+	    if (-1 == ioctl(grab_fd,VIDIOCMCAPTURE,&grab_buf)) {
+		perror("ioctl VIDIOCMCAPTURE");
 	    } else {
-		swap_rgb24(grab_data,grab_buf.width*grab_buf.height);
-		*width  = grab_buf.width;
-		*height = grab_buf.height;
+		if (-1 == ioctl(grab_fd,VIDIOCSYNC,&grab_buf)) {
+		    perror("ioctl VIDIOCSYNC");
+		} else {
+		    swap_rgb24(grab_data,grab_buf.width*grab_buf.height);
+		    *width  = grab_buf.width;
+		    *height = grab_buf.height;
+		    return grab_data;
+		}
+	    }
+	} else {
+	    rc = read(grab_fd,grab_data,grab_size);
+	    if (grab_size != rc) {
+		fprintf(stderr,"grabber read error (rc=%d)\n",rc);
+		return NULL;
+	    } else {
+		swap_rgb24(grab_data,grab_win.width*grab_win.height);
+		*width  = grab_win.width;
+		*height = grab_win.height;
 		return grab_data;
 	    }
         }
@@ -437,17 +285,10 @@ grab_one(int *width, int *height)
 
 /* ---------------------------------------------------------------------- */
 
-#if 0
-# define CHAR_HEIGHT  8
-# define CHAR_WIDTH   8
-# define CHAR_START   1
-# include "font_8x8.h"
-#else
-# define CHAR_HEIGHT  11
-# define CHAR_WIDTH   6
-# define CHAR_START   4
-# include "font_6x11.h"
-#endif
+#define CHAR_HEIGHT  11
+#define CHAR_WIDTH   6
+#define CHAR_START   4
+#include "font_6x11.h"
 
 void
 add_text(char *image, int width, int height)
@@ -459,7 +300,7 @@ add_text(char *image, int width, int height)
 
     time(&t);
     tm = localtime(&t);
-    len = strftime(line,127,GRAB_TEXT,tm);
+    len = strftime(line,127,grab_text,tm);
     fprintf(stderr,"%s\n",line);
 
     for (y = 0; y < CHAR_HEIGHT; y++) {
@@ -491,35 +332,244 @@ swap_rgb24(char *mem, int n)
     }
 }
 
+unsigned char *
+rotate_image(unsigned char * in, int *wp, int *hp, int rot,
+	     int top, int left, int bottom, int right)
+{
+    static unsigned char * rotimg = NULL;
+
+    int i, j;
+
+    int w = *wp;
+    int ow = (right-left);
+    int oh = (bottom-top);
+
+    if (rotimg == NULL && (rotimg = malloc(ow*oh*3)) == NULL ) {
+	fprintf(stderr, "out of memory\n");
+	exit(1);
+    }
+    switch ( rot ) {
+    default:
+    case 0:
+	for (j = 0; j < oh; j++) {
+	    int ir = (j+top)*w+left;
+	    int or = j*ow;
+	    for (i = 0; i < ow; i++) {
+		rotimg[3*(or + i)]   = in[3*(ir+i)];
+		rotimg[3*(or + i)+1] = in[3*(ir+i)+1];
+		rotimg[3*(or + i)+2] = in[3*(ir+i)+2];
+	    }
+	}
+	*wp = ow;
+	*hp = oh;
+	break;
+    case 1:
+	for (i = 0; i < ow; i++) {
+	    int rr = (ow-1-i)*oh;
+	    int ic = i+left;
+	    for (j = 0; j < oh; j++) {
+		rotimg[3*(rr+(oh-1-j))] = in[3*((j+top)*w+ic)];
+		rotimg[3*(rr+(oh-1-j))+1] = in[3*((j+top)*w+ic)+1];
+		rotimg[3*(rr+(oh-1-j))+2] = in[3*((j+top)*w+ic)+2];
+	    }
+	}
+	*wp = oh;
+	*hp = ow;
+	break;
+    case 2:
+	for (j = 0; j < oh; j++) {
+	    int ir = (j+top)*w;
+	    for (i = 0; i < ow; i++) {
+		rotimg[3*((oh-1-j)*ow + (ow-1-i))] = in[3*(ir+i+left)];
+		rotimg[3*((oh-1-j)*ow + (ow-1-i))+1] = in[3*(ir+i+left)+1];
+		rotimg[3*((oh-1-j)*ow + (ow-1-i))+2] = in[3*(ir+i+left)+2];
+	    }
+	}
+	*wp = ow;
+	*hp = oh;
+	break;
+    case 3:
+	for (i = 0; i < ow; i++) {
+	    int rr = i*oh;
+	    int ic = i+left;
+	    rr += oh-1;
+	    for (j = 0; j < oh; j++) {
+		rotimg[3*(rr-j)]   = in[3*((j+top)*w+ic)];
+		rotimg[3*(rr-j)+1] = in[3*((j+top)*w+ic)+1];
+		rotimg[3*(rr-j)+2] = in[3*((j+top)*w+ic)+2];
+	    }
+	}
+	*wp = oh;
+	*hp = ow;
+	break;
+    }
+    return rotimg;	
+}
+
+unsigned int
+compare_images(unsigned char *last, unsigned char *current,
+	       int width, int height)
+{
+    unsigned char *p1 = last;
+    unsigned char *p2 = current;
+    int avg, diff, max, i = width*height*3;
+
+    for (max = 0, avg = 0; --i; p1++,p2++) {
+	diff = (*p1 < *p2) ? (*p2 - *p1) : (*p1 - *p2);
+	avg += diff;
+	if (diff > max)
+	    max = diff;
+    }
+    avg = avg / width / height;
+    fprintf(stderr,"compare: max=%d,avg=%d\n",max,avg);
+    /* return avg */
+    return max;
+}
+
+/* ---------------------------------------------------------------------- */
+
 int
 main(int argc, char *argv[])
 {
-    unsigned char *image;
-    int width, height;
+    unsigned char *image,*val,*gimg,*lastimg = NULL;
+    char filename[100];
+    int width, height, i;
 
-    if (argc > 1)
-	ftp_debug = 1;
-    fprintf(stderr,"video4linux webcam v1.1 - (c) 1998,99 Gerd Knorr\n");
-    fprintf(stderr,"grabber config: size %dx%d, jpeg quality %d\n",
-		   GRAB_WIDTH,GRAB_HEIGHT,JPEG_QUALITY);
-    fprintf(stderr,"ftp config:\n  " FTP_USER "@" FTP_HOST ":" FTP_DIRECTORY
-		   "\n  " FTP_TMPFILE " => " FTP_FILE "\n");
-    
+    /* read config */
+    sprintf(filename,"%s/%s",getenv("HOME"),".webcamrc");
+    fprintf(stderr,"reading config file: %s\n",filename);
+    cfg_parse_file(filename);
+
+    if (NULL != (val = cfg_get_str("ftp","host")))
+	ftp_host = val;
+    if (NULL != (val = cfg_get_str("ftp","user")))
+	ftp_user = val;
+    if (NULL != (val = cfg_get_str("ftp","pass")))
+	ftp_pass = val;
+    if (NULL != (val = cfg_get_str("ftp","dir")))
+	ftp_dir = val;
+    if (NULL != (val = cfg_get_str("ftp","file")))
+	ftp_file = val;
+    if (NULL != (val = cfg_get_str("ftp","tmp")))
+	ftp_tmp = val;
+    if (-1 != (i = cfg_get_int("ftp","passive")))
+	ftp_passive = i;
+    if (-1 != (i = cfg_get_int("ftp","auto")))
+	ftp_auto = i;
+    if (-1 != (i = cfg_get_int("ftp","debug")))
+	ftp_debug = i;
+    if (-1 != (i = cfg_get_int("ftp","local")))
+	ftp_local = i;
+
+    if (NULL != (val = cfg_get_str("grab","device")))
+	grab_device = val;
+    if (NULL != (val = cfg_get_str("grab","text")))
+	grab_text = val;
+    if (-1 != (i = cfg_get_int("grab","width")))
+	grab_width = i;
+    if (-1 != (i = cfg_get_int("grab","height")))
+	grab_height = i;
+    if (-1 != (i = cfg_get_int("grab","delay")))
+	grab_delay = i;
+    if (-1 != (i = cfg_get_int("grab","input")))
+	grab_input = i;
+    if (-1 != (i = cfg_get_int("grab","norm")))
+	grab_norm = i;
+    if (-1 != (i = cfg_get_int("grab","rotate")))
+	grab_rotate = i;
+    if (-1 != (i = cfg_get_int("grab","top")))
+	grab_top = i;
+    if (-1 != (i = cfg_get_int("grab","left")))
+	grab_left = i;
+    grab_bottom = cfg_get_int("grab","bottom");
+    grab_right = cfg_get_int("grab","right");
+    if (-1 != (i = cfg_get_int("grab","quality")))
+	grab_quality = i;
+    if (-1 != (i = cfg_get_int("grab","trigger")))
+	grab_trigger = i;
+    if (-1 != (i = cfg_get_int("grab","once")))
+	grab_once = i;
+
+    if ( grab_top < 0 ) grab_top = 0;
+    if ( grab_left < 0 ) grab_left = 0;
+    if ( grab_bottom > grab_height ) grab_bottom = grab_height;
+    if ( grab_right > grab_width ) grab_right = grab_width;
+    if ( grab_bottom < 0 ) grab_bottom = grab_height;
+    if ( grab_right < 0 ) grab_right = grab_width;
+    if ( grab_top >= grab_bottom ) grab_top = 0;
+    if ( grab_left >= grab_right ) grab_left = 0;
+
+    if ( ftp_local ) {
+	if ( ftp_dir != NULL && ftp_dir[0] != '\0' ) {
+	    char * t = malloc(strlen(ftp_tmp)+strlen(ftp_dir)+2);
+	    sprintf(t, "%s/%s", ftp_dir, ftp_tmp);
+	    ftp_tmp = t;
+	
+	    t = malloc(strlen(ftp_file)+strlen(ftp_dir)+2);
+	    sprintf(t, "%s/%s", ftp_dir, ftp_file);
+	    ftp_file = t;
+	}
+    }
+
+    /* print config */
+    fprintf(stderr,"video4linux webcam v1.3 - (c) 1998-2000 Gerd Knorr\n");
+    fprintf(stderr,"grabber config: size %dx%d, input %d, norm %d, "
+	    "jpeg quality %d\n",
+	    grab_width,grab_height,grab_input,grab_norm, grab_quality);
+    fprintf(stderr, "rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
+	   grab_rotate, grab_top, grab_left, grab_bottom, grab_right);
+
+    if ( ftp_local )
+	fprintf(stderr,"ftp config:\n  local transfer %s => %s\n",
+		ftp_tmp,ftp_file);
+    else 
+	fprintf(stderr,"ftp config:\n  %s@%s:%s\n  %s => %s\n",
+		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
+
+    /* init everything */
     grab_init();
-    
-    ftp_init();
-    ftp_connect();
+    if ( ! ftp_local ) {
+	ftp_init(ftp_auto,ftp_passive);
+	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
+    }
 
+    /* main loop */
     for (;;) {
-	if (!ftp_connected)
-	    ftp_connect();
-	image = grab_one(&width,&height);
+	/* grab a new one */
+	gimg = grab_one(&width,&height);
+	image = rotate_image(gimg, &width, &height, grab_rotate,
+			     grab_top, grab_left, grab_bottom, grab_right);
+
+	if (grab_trigger) {
+	    /* look if it has changed */
+	    if (NULL != lastimg) {
+		i = compare_images(lastimg,image,width,height);
+		if (i < grab_trigger)
+		    continue;
+	    } else {
+		lastimg = malloc(width*height*3);
+	    }
+	    memcpy(lastimg,image,width*height*3);
+	}
+
+	/* ok, label it and upload */
 	add_text(image,width,height);
-	write_jpeg(JPEG_FILE,image,width,height);
-	ftp_upload();
-#if GRAB_DELAY > 0
-	sleep(GRAB_DELAY);
-#endif
+	if ( ftp_local ) {
+	    write_jpeg(ftp_tmp, image, width, height);
+	    if ( rename(ftp_tmp, ftp_file) ) {
+		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
+	    }
+	} else {
+	    write_jpeg(JPEG_FILE, image, width, height);
+	    if (!ftp_connected)
+		ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
+	    ftp_upload(JPEG_FILE,ftp_file,ftp_tmp);
+	}
+
+	if (grab_once)
+	    break;
+	if (grab_delay > 0)
+	    sleep(grab_delay);
     }
     return 0;
 }

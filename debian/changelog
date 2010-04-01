@@ -1,0 +1,109 @@
+xawtv (3.27) unstable; urgency=low
+
+  * new release.
+  * xawtv postinst script fixes (closes: #80611, #80578)
+
+ -- Gerd Knorr <kraxel@debian.org>  Sat, 30 Dec 2000 15:07:25 +0100
+
+xawtv (3.26) unstable; urgency=low
+
+  * new release
+  * added debconf support
+
+ -- Gerd Knorr <kraxel@debian.org>  Thu, 21 Dec 2000 22:58:42 +0100
+
+xawtv (3.24) unstable; urgency=low
+
+  * new release
+  * updated (build) dependences to require xfree4 libraries + xutils
+    (mkfontdir+bdftopcf have been moved)
+  * build binary packages with Xvideo support
+    [i386 only, powerpc has no xfree4 packages yet]
+
+ -- Gerd Knorr <kraxel@debian.org>  Sat,  4 Nov 2000 15:56:55 +0100
+
+xawtv (3.23) unstable; urgency=low
+
+  * new release
+  * fixed (build) dependences (closes: #69918, #74428)
+
+ -- Gerd Knorr <kraxel@debian.org>  Sat, 21 Oct 2000 22:41:37 +0200
+
+xawtv (3.22) unstable; urgency=low
+
+  * new release
+  * added liblircclient-dev to build-depends, compiled packages
+    with lirc support
+
+ -- Gerd Knorr <kraxel@debian.org>  Sun,  1 Oct 2000 17:40:52 +0200
+
+xawtv (3.21) unstable; urgency=low
+
+  * new release
+
+ -- Gerd Knorr <kraxel@debian.org>  Wed,  6 Sep 2000 00:04:21 +0200
+
+xawtv (3.20) unstable; urgency=low
+
+  * new release
+  * packaging bug fixed: v4l-conf was not installed suid-root because
+    dh_fixperm killed my suid bit...
+
+ -- Gerd Knorr <kraxel@debian.org>  Wed,  6 Sep 2000 00:04:11 +0200
+
+xawtv (3.19) unstable; urgency=low
+
+  * new release.  Starting with this release /me maintains debian package,
+    i.e. xawtv is a native debian package now.  Going to close a number of
+    bugs...
+  * closes: #48118 - not xawtv's fault, it is a driver problem.
+  * closes: #52538 - This can be changed with keypad-ntsc in ~/.xawtv,
+    see man-page.  Don't remember which version introduces this, seems
+    I forgot this one in the Changes file...
+  * closes: #54906 - It's not a bug, it's a feature.  xawtv uses the
+    maximun size supported by the driver which is 844x576 with bttv.
+    If one needs a fixed 4:3 aspect ratio, this can be set in the
+    config file (>= version 3.14)
+  * closes: #55956 - same as 54906 ...
+  * closes: #57161, #52351 (packaging is completely different)
+  * closes: #61590 - was fixed in 3.11
+  * closes: #61698, #65802 - bug in the 2.2.x kernel bttv driver
+  * closes: #64064 - this is newer than 3.14 :-)
+
+ -- Gerd Knorr <kraxel@debian.org>  Sun, 20 Aug 2000 23:47:15 +0200
+
+xawtv (3.18) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Wed, 16 Aug 2000 21:39:03 +0200
+
+xawtv (3.17) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Thu, 22 Jun 2000 23:43:00 +0200
+
+xawtv (3.16) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Mon,  5 Jun 2000 21:35:30 +0200
+
+xawtv (3.15) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Thu,  1 Jun 2000 22:58:00 +0200
+
+xawtv (3.14) unstable; urgency=low
+
+  * new release.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Mon,  8 May 2000 23:13:03 +0200
+
+xawtv (3.13) unstable; urgency=low
+
+  * deianized.
+
+ -- Gerd Knorr <kraxel@goldbach.in-berlin.de>  Sun, 16 Apr 2000 15:57:04 +0200

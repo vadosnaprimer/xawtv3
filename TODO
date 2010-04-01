@@ -3,18 +3,27 @@ TODO list isn't exactly right for this.  It is more a collection of
 ideas I'm thinking about.  It *might* mean I have plans to implement
 this in near future.
 
- * frequency= option for .xawtv
- * volume= option for .xawtv
+
+general
+=======
+
+ * volume= option for .xawtv (not trivial - to make this a useful feature
+   it should be a station-specific offset to the overall volume.  Try to
+   get this right for every soundcard / high + low volume / ... ).
+ * mono/stereo config file options.
  * videotext decoder (for station ID, maybe subtitles)
+ * switch to another toolkit, Xaw keyboard/menu support sucks
+   gtk?  Motif?
+ * config file args for avi-params?
+ * i18n/locale
+ * hotkeys/remote commands for mono/stereo/...
+ * two (more?) channel lists: "all" & "frequently used".
+
+
+avi
+===
+
  * grayscale avi recording (anybody knows how to do this?  256 color
    with a gray palette?)
- * keep-aspect-ratio option
- * switch to another toolkit, Xaw keyboard/menu support sucks
-   (gtk maybe?)
- * use threads (instead of fork()ing off children)
- * mjpeg compression has alot of (partly design) problems, have to think
-   about how to handle this in a clever way...
- * config file args for avi-params, numerate movies?
- * grab-v4l: use more than two buffers
- * i18n
-
+ * OpenDML index support
+ * showriff has problems with files > 2 GB.  Not sure if it's me or glibc...

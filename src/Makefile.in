@@ -2,9 +2,14 @@ srcdir=@srcdir@
 VPATH=$(srcdir)
 
 ROOT=
-prefix=$(ROOT)@prefix@
-bindir=$(prefix)/bin
-mandir=$(prefix)/man
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=$(ROOT)@bindir@
+mandir=$(ROOT)@mandir@
+resdir=$(ROOT)@resdir@
+config=@x11conf@/xawtvrc
+
+OS:=$(shell uname -s | tr "A-Z" "a-z")
 
 CC=@CC@
 DEPEND=@DEPEND@
@@ -12,73 +17,99 @@ INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_DIR=mkdir -p
-SUID_ROOT=-m4711 -o root -g root
+SUID_ROOT=-m4755 -o root -g root
 
 VERSION=xawtv-@XAWTV_VERSION@
 
-CFLAGS=-g -Wall @CFLAGS@ -I$(srcdir)/.. -I.. @X_CFLAGS@ -DVERSION='"$(VERSION)"'
-LDLIBS=@X_LIBS@ @LIBS@ -l@XAWLIB@ -lXmu -lXt @X_PRE_LIBS@ -lXext \
+WARN=-Wall -Wstrict-prototypes
+CFLAGS=-g $(WARN) @CFLAGS@ -I$(srcdir)/.. -I.. @X_CFLAGS@ -D_REENTRANT \
+	-DVERSION='"$(VERSION)"' -DCONFIGFILE='"$(config)"' \
+	-I$(srcdir)/../libvbi -L../libvbi
+
+GFXLIBS=@GFXLIBS@
+X11LIBS=@X_LIBS@ @LIBS@ -l@XAWLIB@ -lXmu -lXt @X_PRE_LIBS@ -lXext \
 	-lX11 @X_EXTRA_LIBS@
+MOLIBS=@X_LIBS@ @LIBS@ -lXm -lXmu -lXt @X_PRE_LIBS@ -lXext \
+	-lX11 @X_EXTRA_LIBS@
+SCRLIBS=@LIBCURSES@
+IRLIBS=@LIRC@
+LDLIBS=@LIBPTHREAD@ @LIBSOUND@
 
-PROGS=xawtv xawtv-remote v4l-conf v4lctl streamer xvideo fbtv
+ifeq ($(OS),linux)
+  PROGS=xawtv xawtv-remote v4l-conf v4lctl streamer fbtv xvideo rootv scantv @MOTIF@
+else
+  PROGS=xawtv xawtv-remote v4lctl streamer xvideo rootv scantv
+endif
 
-COMMON_OBJS= sound.o grab.o grab-v4l.o grab-v4l2.o colorspace.o \
-	frequencies.o writefile.o commands.o parseconfig.o mjpeg.o
-CAPTURE_OBJS= capture.o writeavi.o
+COMMON_OBJS= sound.o grab.o grab-ng.o grab-v4l.o grab-v4l2.o grab-bsd.o	\
+	colorspace.o webcam.o frequencies.o commands.o parseconfig.o mjpeg.o
+CAPTURE_OBJS=capture.o writefile.o writeavi.o writeqt.o
 LIRC_OBJS=lirc.o
 
-XAWTV_OBJS=  main.o toolbox.o conf.o x11.o xv.o complete.o wmhooks.o \
+XAWTV_OBJS=  main.o xt.o toolbox.o conf.o x11.o xv.o complete.o wmhooks.o \
 	channel.o $(COMMON_OBJS) $(CAPTURE_OBJS) $(LIRC_OBJS)
 FBTV_OBJS=   fbtv.o fbtools.o channel-no-x11.o matrox.o \
 	$(COMMON_OBJS) $(CAPTURE_OBJS) $(LIRC_OBJS)
 
 ##########################################################################
 
-all: $(PROGS)
+all build: $(PROGS)
 
 xawtv: $(XAWTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ @JPEG@ @LIRC@ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(X11LIBS) $(LDLIBS)
 	-test -f Xawtv.ad || cp -v $(srcdir)/Xawtv.ad .
 
-fbtv: $(FBTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ @JPEG@ @LIRC@ -lncurses -lm
+motv: motif.o xt.o x11.o xv.o channel-no-x11.o $(COMMON_OBJS) $(CAPTURE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(MOLIBS) $(LDLIBS)
 
-v4lctl: v4lctl.o channel-no-x11.o $(COMMON_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ @JPEG@
+fbtv: $(FBTV_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(SCRLIBS) $(LDLIBS) -lm
+
+v4lctl: v4lctl.o channel-no-x11.o xv.o $(COMMON_OBJS) $(CAPTURE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(X11LIBS) $(LDLIBS)
 
 streamer: streamer.o channel-no-x11.o $(COMMON_OBJS) $(CAPTURE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ @JPEG@
+	$(CC) $(CFLAGS) -o $@ $^ $(GFXLIBS) $(IRLIBS) $(LDLIBS)
+
+xvideo: xvideo.o
+	$(CC) $(CFLAGS) -o $@ $^ $(X11LIBS) #$(LDLIBS)
+
+rootv: rootv.o parseconfig.o
+	$(CC) $(CFLAGS) -o $@ $^ $(X11LIBS)
 
 v4l-conf: v4l-conf.o
-	$(CC) $(CFLAGS) -o $@ $< @X_LIBS@ @LIBS@ -lXext -lX11 @X_EXTRA_LIBS@
+	$(CC) $(CFLAGS) -o $@ $< $(X11LIBS)
+
+scantv: scantv.o channel-no-x11.o xv.o $(COMMON_OBJS) $(CAPTURE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ -lvbi $(GFXLIBS) $(X11LIBS) $(LDLIBS)
 
 xawtv-remote: xawtv-remote.o
-	$(CC) $(CFLAGS) -o $@ $< @X_LIBS@ @LIBS@ -lXmu -lXt @X_PRE_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@
+	$(CC) $(CFLAGS) -o $@ $< $(X11LIBS)
 
 channel-no-x11.o: channel.c
 	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $<
 
 install: all
 	$(INSTALL_DIR) $(bindir)
-	$(INSTALL_DIR) $(mandir)/man1
-	$(INSTALL_DIR) $(ROOT)@x_libraries@/X11/app-defaults
+	$(INSTALL_DIR) $(resdir)
 	$(INSTALL_PROGRAM) -s xawtv $(bindir)
 	$(INSTALL_PROGRAM) -s xawtv-remote $(bindir)
 	$(INSTALL_PROGRAM) -s fbtv $(bindir);
 	$(INSTALL_PROGRAM) -s streamer $(bindir)
 	$(INSTALL_PROGRAM) -s v4lctl $(bindir)
+	$(INSTALL_PROGRAM) -s rootv $(bindir)
+	$(INSTALL_PROGRAM) -s scantv $(bindir)
 	$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir)
-	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(ROOT)@x_libraries@/X11/app-defaults/Xawtv
+	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(resdir)/Xawtv
 
 clean:
-	-rm -f *.o *.moc *~ core* *.bak TAGS
+	-rm -f *.o *.moc *core TAGS
 
 realclean distclean: clean
-	-rm -f $(PROGS) Makefile
+	-rm -f $(PROGS) Makefile *~ *.bak
 
 depend dep:
 	$(DEPEND) -- $(CFLAGS) -- *.c
 
 #-------------------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend depends on it.
-

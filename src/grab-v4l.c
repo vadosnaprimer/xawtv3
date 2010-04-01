@@ -14,18 +14,22 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
-#include <endian.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 
 #include <X11/Intrinsic.h>
 
-#include "grab.h"
-#include "colorspace.h"
-#include "commands.h"
+#include "grab-ng.h"
+
+#ifndef __linux__
+struct GRABBER grab_v4l = {};
+#else /* __linux__ */
 
 #include <asm/types.h>		/* XXX glibc */
 #include "videodev.h"
@@ -36,7 +40,7 @@
 
 /* open+close */
 static int   grab_open(char *filename);
-static int   grab_close();
+static int   grab_close(void);
 
 /* overlay */
 static int   grab_setupfb(int sw, int sh, int format, void *base, int width);
@@ -47,23 +51,25 @@ static int   grab_offscreen(int y, int width, int height, int format);
 /* capture */
 static int   grab_mm_setparams(int format, int *width, int *height,
 			       int *linelength);
-static void* grab_mm_capture(int single);
-static void  grab_mm_cleanup();
+static void  grab_mm_start(int fps, int buffers);
+static void* grab_mm_capture(void);
+static void  grab_mm_stop(void);
 static int   grab_read_setparams(int format, int *width, int *height,
 				 int *linelength);
-static void* grab_read_capture(int single);
-static void  grab_read_cleanup();
+static void  grab_read_start(int fps, int buffers);
+static void* grab_read_capture(void);
+static void  grab_read_stop(void);
 
 /* control */
-static int   grab_tune(unsigned long freq);
-static int   grab_tuned();
+static unsigned long grab_tune(unsigned long freq, int sat);
+static int   grab_tuned(void);
 static int   grab_input(int input, int norm);
 static int   grab_hasattr(int id);
 static int   grab_getattr(int id);
 static int   grab_setattr(int id, int val);
 
 /* internal helpers */
-static int   grab_wait(struct video_mmap *gb);
+static int   grab_wait(void);
 
 /* ---------------------------------------------------------------------- */
 
@@ -80,28 +86,28 @@ static char *device_pal[] = {
 #define PALETTE(x) ((x < sizeof(device_pal)/sizeof(char*)) ? device_pal[x] : "UNKNOWN")
 
 static struct STRTAB stereo[] = {
-    {  0, "auto"    },
-    {  1, "mono"    },
-    {  2, "stereo"  },
-    {  4, "lang1"   },
-    {  8, "lang2"   },
-    { -1, NULL,     },
+    {  0,                  "auto"    },
+    {  VIDEO_SOUND_MONO,   "mono"    },
+    {  VIDEO_SOUND_STEREO, "stereo"  },
+    {  VIDEO_SOUND_LANG1,  "lang1"   },
+    {  VIDEO_SOUND_LANG2,  "lang2"   },
+    { -1, NULL },
 };
 static struct STRTAB norms[] = {
-    {  0, "PAL" },
-    {  1, "NTSC" },
-    {  2, "SECAM" },
-    {  3, "AUTO" },
+    {  VIDEO_MODE_PAL,     "PAL"   },
+    {  VIDEO_MODE_NTSC,    "NTSC"  },
+    {  VIDEO_MODE_SECAM,   "SECAM" },
+    {  VIDEO_MODE_AUTO,    "AUTO"  },
     { -1, NULL }
 };
 static struct STRTAB norms_bttv[] = {
-    {  0, "PAL" },
-    {  1, "NTSC" },
-    {  2, "SECAM" },
-    {  3, "PAL-NC" },
-    {  4, "PAL-M" },
-    {  5, "PAL-N" },
-    {  6, "NTSC-JP" },
+    {  VIDEO_MODE_PAL,   "PAL"     },
+    {  VIDEO_MODE_NTSC,  "NTSC"    },
+    {  VIDEO_MODE_SECAM, "SECAM"   },
+    {  3,                "PAL-NC"  },
+    {  4,                "PAL-M"   },
+    {  5,                "PAL-N"   },
+    {  6,                "NTSC-JP" },
     { -1, NULL }
 };
 static struct STRTAB *inputs;
@@ -119,24 +125,27 @@ static int                      cur_norm;
 
 /* overlay */
 static struct video_window      ov_win;
+static struct video_picture     ov_pict;
 static struct video_clip        ov_clips[32];
 static struct video_buffer      ov_fbuf;
 
 /* screen grab */
-static struct video_mmap        gb_even;
-static struct video_mmap        gb_odd;
-static int                      even,pixmap_bytes;
-static int                      gb_grab,gb_sync;
+#define MAX_BUFFERS 16
+static struct video_mmap        gb_buf[MAX_BUFFERS];
+static int                      pixmap_bytes;
+static int                      gb_grab,gb_sync,gb_bufcount = 1;
 static struct video_mbuf        gb_buffers = { 2*0x151000, 0, {0,0x151000 }};
-static int gb_pal[] = {
-    0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0
-};
+static int                      gb_pal[64];
 
-static int   grab_read_size;
-static char *grab_read_buf;
+static struct video_window      rd_win;
+static struct video_picture     rd_pict;
+static int                      rd_size;
+static char                     *rd_buf;
+
+/* rate control */
+static struct timeval           grab_start;
+static int                      grab_fps;
+static int                      grab_frames;
 
 static unsigned short format2palette[] = {
     0,				/* unused */
@@ -165,7 +174,7 @@ static unsigned short format2palette[] = {
     0,                          /* LUT 4    */
     VIDEO_PALETTE_YUV422,       /* YUV422   */
     VIDEO_PALETTE_YUV422P,      /* YUV422P  */
-#if 0 /* broken in bttv */
+#if 0 /* broken in bttv (fixed in 0.8.x) */
     VIDEO_PALETTE_YUV420P,      /* YUV420P  */
 #else
     0,                          /* YUV420P  */
@@ -175,33 +184,29 @@ static unsigned short format2palette[] = {
 static char *map = NULL;
 
 /* state */
-static int                      overlay, swidth, sheight;
+static int                      swidth, sheight;
+static int                      ov_enabled;  /* turned on? */
+static int                      ov_on;       /* real state (for tmp off) */
 
 /* pass 0/1 by reference */
 static int                      one = 1, zero = 0;
 
 struct GRABBER grab_v4l = {
-    "v4l",
-    0,
-    norms,NULL,stereo,
+    name:         "v4l",
+    norms:        norms,
+    audio_modes:  stereo,
 
-    grab_open,
-    grab_close,
+    grab_open:    grab_open,
+    grab_close:   grab_close,
 
-    grab_setupfb,
-    NULL /* grab_overlay */,
-    NULL /* grab_offscreen */,
+    grab_setupfb: grab_setupfb,
 
-    NULL /* grab_setparams */,
-    NULL /* grab_capture */,
-    NULL /* grab_cleanup */,
-
-    grab_tune,
-    grab_tuned,
-    grab_input,
-    grab_hasattr,
-    grab_getattr,
-    grab_setattr
+    grab_tune:    grab_tune,
+    grab_tuned:   grab_tuned,
+    grab_input:   grab_input,
+    grab_hasattr: grab_hasattr,
+    grab_getattr: grab_getattr,
+    grab_setattr: grab_setattr,
 };
 
 /* ---------------------------------------------------------------------- */
@@ -213,23 +218,26 @@ static struct GRAB_ATTR {
     int   set;
     void  *arg;
 } grab_attr [] = {
-    { GRAB_ATTR_VOLUME,   1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio },
-    { GRAB_ATTR_MUTE,     1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio },
-    { GRAB_ATTR_MODE,     1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio },
+    { GRAB_ATTR_VOLUME,   1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio   },
+    { GRAB_ATTR_MUTE,     1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio   },
+    { GRAB_ATTR_MODE,     1, VIDIOCGAUDIO, VIDIOCSAUDIO, &audio   },
     
-    { GRAB_ATTR_COLOR,    1, VIDIOCGPICT,  VIDIOCSPICT,  &pict  },
-    { GRAB_ATTR_BRIGHT,   1, VIDIOCGPICT,  VIDIOCSPICT,  &pict  },
-    { GRAB_ATTR_HUE,      1, VIDIOCGPICT,  VIDIOCSPICT,  &pict  },
-    { GRAB_ATTR_CONTRAST, 1, VIDIOCGPICT,  VIDIOCSPICT,  &pict  },
+    { GRAB_ATTR_COLOR,    1, VIDIOCGPICT,  VIDIOCSPICT,  &pict    },
+    { GRAB_ATTR_BRIGHT,   1, VIDIOCGPICT,  VIDIOCSPICT,  &pict    },
+    { GRAB_ATTR_HUE,      1, VIDIOCGPICT,  VIDIOCSPICT,  &pict    },
+    { GRAB_ATTR_CONTRAST, 1, VIDIOCGPICT,  VIDIOCSPICT,  &pict    },
 };
 
 #define NUM_ATTR (sizeof(grab_attr)/sizeof(struct GRAB_ATTR))
 
 /* ---------------------------------------------------------------------- */
 
+static int alarms;
+
 static void
 sigalarm(int signal)
 {
+    alarms++;
     fprintf(stderr,"v4l: oops: got sigalarm\n");
 }
 
@@ -247,9 +255,55 @@ siginit(void)
 /* ---------------------------------------------------------------------- */
 
 static int
+xioctl(int fd, int cmd, void *arg)
+{
+    int rc;
+
+    rc = ioctl(fd,cmd,arg);
+    if (0 == rc && 0 == debug)
+	return 0;
+    switch (cmd) {
+    case VIDIOCGPICT:
+    case VIDIOCSPICT:
+    {
+	struct video_picture *a = arg;
+	fprintf(stderr,"v4l: %s(params=%d/%d/%d/%d/%d,depth=%d,pal=%d)",
+		(cmd == VIDIOCGPICT) ? "VIDIOCGPICT" : "VIDIOCSPICT",
+		a->brightness,a->hue,a->colour,a->contrast,a->whiteness,
+		a->depth,a->palette);
+	break;
+    }
+    case VIDIOCGWIN:
+    case VIDIOCSWIN:
+    {
+	struct video_window *a = arg;
+	fprintf(stderr,"v4l: %s(win=%dx%d+%d+%d,key=%d,flags=0x%x,clips=%d)",
+		(cmd == VIDIOCGWIN) ? "VIDIOCGWIN" : "VIDIOCSWIN",
+		a->width,a->height,a->x,a->y,
+		a->chromakey,a->flags,a->clipcount);
+	break;
+    }
+    case VIDIOCCAPTURE:
+    {
+	int *a = arg;
+	fprintf(stderr,"v4l: VIDIOCCAPTURE(%s)",
+		*a ? "on" : "off");
+	break;
+    }
+    default:
+	fprintf(stderr,"v4l: UNKNOWN(cmd=0x%x)",cmd);
+	break;
+    }
+    fprintf(stderr,": %s\n",(rc == 0) ? "ok" : strerror(errno));
+    return rc;
+}
+
+/* ---------------------------------------------------------------------- */
+
+static int
 grab_open(char *filename)
 {
-    int i;
+    int i,rc;
 
     if (-1 != fd)
 	goto err;
@@ -291,7 +345,7 @@ grab_open(char *filename)
     for (i = 0; i < capability.channels; i++) {
 	channels[i].channel = i;
 	if (-1 == ioctl(fd,VIDIOCGCHAN,&channels[i]))
-	    perror("ioctl VIDIOCGCHAN"), exit(0);
+	    perror("ioctl VIDIOCGCHAN");
 	inputs[i].nr  = i;
 	inputs[i].str = channels[i].name;
 	if (debug)
@@ -307,19 +361,13 @@ grab_open(char *filename)
     inputs[i].str = NULL;
     grab_v4l.inputs =inputs;
 
-    /* ioctl probe, switch to input 0 */
-    if (-1 == ioctl(fd,VIDIOCSCHAN,&channels[0])) {
-	fprintf(stderr,"v4l: you need a newer bttv version (>= 0.5.14)\n");
-	goto err;
-    }
-
     /* audios */
     if (debug)
 	fprintf(stderr,"  audios  : %d\n",capability.audios);
     if (capability.audios) {
 	audio.audio = 0;
 	if (-1 == ioctl(fd,VIDIOCGAUDIO,&audio))
-	    perror("ioctl VIDIOCGCAUDIO") /* , exit(0) */ ;
+	    perror("ioctl VIDIOCGAUDIO");
 	if (debug) {
 	    fprintf(stderr,"    %d (%s): ",i,audio.name);
 	    if (audio.flags & VIDEO_AUDIO_MUTABLE)
@@ -389,8 +437,16 @@ grab_open(char *filename)
 #define BTTV_VERSION  	        _IOR('v' , BASE_VIDIOCPRIVATE+6, int)
     /* dirty hack time / v4l design flaw -- works with bttv only
      * this adds support for a few less common PAL versions */
-    if (-1 != ioctl(fd,BTTV_VERSION,0)) {
+    if (-1 != (rc = ioctl(fd,BTTV_VERSION,0))) {
 	grab_v4l.norms = norms_bttv;
+	fprintf(stderr,"v4l: bttv version %d.%d.%d\n",
+		(rc >> 16) & 0xff,
+		(rc >> 8)  & 0xff,
+		rc         & 0xff);
+	if (rc < 0x000700)
+	    fprintf(stderr,
+		    "v4l: prehistoric bttv version found, please try to\n"
+		    "     upgrade the driver before mailing bug reports\n");
     }
 #endif
     
@@ -402,35 +458,51 @@ grab_open(char *filename)
 		ov_fbuf.base, ov_fbuf.width, ov_fbuf.height,
 		ov_fbuf.depth, ov_fbuf.bytesperline);
 
+    /* chroma keying */
+    if (capability.type & VID_TYPE_CHROMAKEY)
+	grab_v4l.colorkey = 0x00cc00ff;
+
     /* picture parameters */
-    if (-1 == ioctl(fd,VIDIOCGPICT,&pict))
+    if (-1 == ioctl(fd,VIDIOCGPICT,&ov_pict))
 	perror("ioctl VIDIOCGPICT");
+    rd_pict = ov_pict;
 
     if (debug) {
 	fprintf(stderr,
 		"  picture : brightness=%d hue=%d colour=%d contrast=%d\n",
-		pict.brightness, pict.hue, pict.colour, pict.contrast);
+		ov_pict.brightness, ov_pict.hue,
+		ov_pict.colour, ov_pict.contrast);
 	fprintf(stderr,
 		"  picture : whiteness=%d depth=%d palette=%s\n",
-		pict.whiteness, pict.depth, PALETTE(pict.palette));
+		ov_pict.whiteness, ov_pict.depth, PALETTE(ov_pict.palette));
     }
 
-    /* map grab buffer */
-    if (-1 == ioctl(fd,VIDIOCGMBUF,&gb_buffers)) {
-	if (debug)
+    if (capability.type & VID_TYPE_CAPTURE) {
+	/* map grab buffer */
+	if (-1 == ioctl(fd,VIDIOCGMBUF,&gb_buffers)) {
 	    perror("ioctl VIDIOCGMBUF");
-    }
-    map = mmap(0,gb_buffers.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-    if ((char*)-1 != map) {
-	grab_v4l.grab_setparams = grab_mm_setparams;
-	grab_v4l.grab_capture   = grab_mm_capture;
-	grab_v4l.grab_cleanup   = grab_mm_cleanup;
-    } else {
-	if (debug)
-	    perror("mmap");
-	grab_v4l.grab_setparams = grab_read_setparams;
-	grab_v4l.grab_capture   = grab_read_capture;
-	grab_v4l.grab_cleanup   = grab_read_cleanup;
+	} else {
+	    if (debug)
+		fprintf(stderr,"  mbuf: size=%d frames=%d\n",
+			gb_buffers.size,gb_buffers.frames);
+	}
+	map = mmap(0,gb_buffers.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+	if ((char*)-1 != map) {
+	    if (debug)
+		fprintf(stderr,"  mmap: worked, using mapped buffers\n");
+	    grab_v4l.grab_setparams = grab_mm_setparams;
+	    grab_v4l.grab_start     = grab_mm_start;
+	    grab_v4l.grab_capture   = grab_mm_capture;
+	    grab_v4l.grab_stop      = grab_mm_stop;
+	} else {
+	    if (debug)
+		fprintf(stderr,"  mmap: failed (%s), using read()\n",
+			strerror(errno));
+	    grab_v4l.grab_setparams = grab_read_setparams;
+	    grab_v4l.grab_start     = grab_read_start;
+	    grab_v4l.grab_capture   = grab_read_capture;
+	    grab_v4l.grab_stop      = grab_read_stop;
+	}
     }
 
     return fd;
@@ -444,13 +516,13 @@ err:
 }
 
 static int
-grab_close()
+grab_close(void)
 {
     if (-1 == fd)
 	return 0;
 
-    if (gb_grab > gb_sync)
-	grab_wait(even ? &gb_even : &gb_odd);
+    while (gb_grab > gb_sync)
+	grab_wait();
 
     if ((char*)-1 != map)
 	munmap(map,gb_buffers.size);
@@ -473,6 +545,13 @@ grab_setupfb(int sw, int sh, int format, void *base, int bpl)
     swidth  = sw;
     sheight = sh;
 
+    /* overlay supported ?? */
+    if (!(capability.type & VID_TYPE_OVERLAY)) {
+	if (debug)
+	    fprintf(stderr,"v4l: device has no overlay support\n");
+	return -1;
+    }
+
     /* double-check settings */
     fprintf(stderr,"v4l: %dx%d, %d bit/pixel, %d byte/scanline\n",
 	    ov_fbuf.width,ov_fbuf.height,
@@ -484,10 +563,10 @@ grab_setupfb(int sw, int sh, int format, void *base, int bpl)
 	fprintf(stderr,"WARNING: Is v4l-conf installed correctly?\n");
 	settings_ok = 0;
     }
-    if (format2depth[format] != ((ov_fbuf.depth+7)&0xf8)) {
+    if (ng_vfmt_to_depth[format] != ((ov_fbuf.depth+7)&0xf8)) {
 	fprintf(stderr,"WARNING: v4l and dga disagree about the color depth\n");
 	fprintf(stderr,"WARNING: Is v4l-conf installed correctly?\n");
-	fprintf(stderr,"%d %d\n",format2depth[format],ov_fbuf.depth);
+	fprintf(stderr,"%d %d\n",ng_vfmt_to_depth[format],ov_fbuf.depth);
 	settings_ok = 0;
     }
     if (have_dga) {
@@ -510,6 +589,26 @@ grab_setupfb(int sw, int sh, int format, void *base, int bpl)
     }
 }
 
+static void
+grab_overlay_set(int state)
+{
+    if (0 == state) {
+	/* off */
+	if (0 == ov_on)
+	    return;
+	xioctl(fd, VIDIOCCAPTURE, &zero);
+	ov_on = 0;
+    } else {
+	/* on */
+	xioctl(fd,VIDIOCSPICT,&ov_pict);
+	xioctl(fd, VIDIOCSWIN, &ov_win);
+	if (0 != ov_on)
+	    return;
+	xioctl(fd, VIDIOCCAPTURE, &one);
+	ov_on = 1;
+    }
+}
+
 static int
 grab_overlay(int x, int y, int width, int height, int format,
 	     struct OVERLAY_CLIP *oc, int count)
@@ -519,8 +618,8 @@ grab_overlay(int x, int y, int width, int height, int format,
     if (width == 0 || height == 0) {
 	if (debug)
 	    fprintf(stderr,"v4l: overlay off\n");
-	ioctl(fd, VIDIOCCAPTURE, &zero);
-	overlay = 0;
+	ov_enabled = 0;
+	grab_overlay_set(ov_enabled);
 	return 0;
     }
 
@@ -529,6 +628,7 @@ grab_overlay(int x, int y, int width, int height, int format,
     ov_win.width      = width;
     ov_win.height     = height;
     ov_win.flags      = 0;
+    ov_win.chromakey  = grab_v4l.colorkey;
 
 #if 1
     /* check against max. size */
@@ -541,6 +641,7 @@ grab_overlay(int x, int y, int width, int height, int format,
 	ov_win.height = capability.maxheight;
 	ov_win.y +=  (height - ov_win.height)/2;
     }
+    grabber_fix_ratio(&ov_win.width,&ov_win.height,&ov_win.x,&ov_win.y);
 
     /* pass aligned values -- the driver does'nt get it right yet */
     ov_win.width  &= ~3;
@@ -578,23 +679,13 @@ grab_overlay(int x, int y, int width, int height, int format,
 #endif
 	}
     }
-    if (capability.type & VID_TYPE_CHROMAKEY) {
-	ov_win.chromakey  = 0;    /* XXX */
-    }
-    pict.palette =
+    ov_pict.depth = ng_vfmt_to_depth[format];
+    ov_pict.palette =
 	(format < sizeof(format2palette)/sizeof(unsigned short))?
 	format2palette[format] : 0;
 
-    if (-1 == ioctl(fd,VIDIOCSPICT,&pict))
-	perror("ioctl VIDIOCSPICT");
-    if (-1 == ioctl(fd, VIDIOCSWIN, &ov_win))
-	perror("ioctl VIDIOCSWIN");
-
-    if (!overlay) {
-	if (-1 == ioctl(fd, VIDIOCCAPTURE, &one))
-	    perror("ioctl VIDIOCCAPTURE");
-	overlay = 1;
-    }
+    ov_enabled = 1;
+    grab_overlay_set(ov_enabled);
 
     if (debug)
 	fprintf(stderr,"v4l: overlay win=%dx%d+%d+%d, %d clips\n",
@@ -609,8 +700,8 @@ grab_offscreen(int y, int width, int height, int format)
     if (width == 0 || height == 0) {
 	if (debug)
 	    fprintf(stderr,"v4l: offscreen off\n");
-	ioctl(fd, VIDIOCCAPTURE, &zero);
-	overlay = 0;
+	ov_enabled = 0;
+	grab_overlay_set(ov_enabled);
 	return 0;
     }
 
@@ -619,16 +710,14 @@ grab_offscreen(int y, int width, int height, int format)
     ov_win.width   = width;
     ov_win.height  = height;
     ov_win.flags   = 0;
-    pict.palette   = 
+    ov_pict.depth  = ng_vfmt_to_depth[format];
+    ov_pict.palette =
 	(format < sizeof(format2palette)/sizeof(unsigned short))?
 	format2palette[format] : 0;
 
-    if (-1 == ioctl(fd,VIDIOCSPICT,&pict))
-	perror("ioctl VIDIOCSPICT");
-    if (-1 == ioctl(fd, VIDIOCSWIN, &ov_win))
-	perror("ioctl VIDIOCSWIN");
-    if (-1 == ioctl(fd_grab,VIDIOCCAPTURE,&one))
-	perror("ioctl VIDIOCCAPTURE");
+    ov_enabled = 1;
+    grab_overlay_set(ov_enabled);
+
     if (debug)
 	fprintf(stderr,"v4l: offscreen size=%dx%d\n",
 		width,height);
@@ -639,49 +728,55 @@ grab_offscreen(int y, int width, int height, int format)
 /* capture using mmaped buffers (with double-buffering, ...)              */
 
 static int
-grab_queue(struct video_mmap *gb, int probe)
+grab_queue(void)
 {
+    int frame = gb_grab++ % gb_bufcount;
+
     if (debug > 1)
-	fprintf(stderr,"g%d",gb->frame);
+	fprintf(stderr,"q%d",frame);
+
 #if 0
     /* might be useful for debugging driver problems */
-    memset(map + gb_buffers.offsets[gb->frame],0,
+    memset(map + gb_buffers.offsets[frame],0,
 	   gb_buffers.size/gb_buffers.frames);
 #endif
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,gb)) {
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,gb_buf+frame)) {
 	if (errno == EAGAIN)
 	    fprintf(stderr,"grabber chip can't sync (no station tuned in?)\n");
 	else
-	    if (!probe || debug)
-		fprintf(stderr,"ioctl VIDIOCMCAPTURE(%d,%s,%dx%d): %s\n",
-			gb->frame,PALETTE(gb->format),gb->width,gb->height,
-			strerror(errno));
+	    fprintf(stderr,"ioctl VIDIOCMCAPTURE(%d,%s,%dx%d): %s\n",
+		    frame,PALETTE(gb_buf[frame].format),
+		    gb_buf[frame].width,gb_buf[frame].height,
+		    strerror(errno));
 	return -1;
     }
     if (debug > 1)
 	fprintf(stderr,"* ");
-    gb_grab++;
     return 0;
 }
 
 static int
-grab_wait(struct video_mmap *gb)
+grab_wait(void)
 {
+    int frame = gb_sync++ % gb_bufcount;
     int ret = 0;
-    
+
+    alarms=0;
     alarm(SYNC_TIMEOUT);
     if (debug > 1)
-	fprintf(stderr,"s%d",gb->frame);
+	fprintf(stderr,"s%d",frame);
 
-    if (-1 == ioctl(fd,VIDIOCSYNC,&(gb->frame))) {
+ retry:
+    if (-1 == ioctl(fd,VIDIOCSYNC,gb_buf+frame)) {
+	if (errno == EINTR && !alarms)
+	    goto retry;
 	perror("ioctl VIDIOCSYNC");
 	ret = -1;
     }
-    gb_sync++;
     if (debug > 1)
 	fprintf(stderr,"* ");
     alarm(0);
-    return ret;
+    return (ret == 0) ? frame : ret;
 }
 
 static int
@@ -699,11 +794,15 @@ grab_probe(int format)
     if (debug)
 	fprintf(stderr, "v4l: capture probe %s...\t", device_pal[format]);
     gb.format = format;
-    if (-1 == grab_queue(&gb,1)) {
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,&gb)) {
+	if (debug)
+	    perror("VIDIOCMCAPTURE");
 	gb_pal[format] = 2;
 	goto done;
     }
-    if (-1 == grab_wait(&gb)) {
+    if (-1 == ioctl(fd,VIDIOCSYNC,&gb)) {
+	if (debug)
+	    perror("VIDIOCSYNC");
 	gb_pal[format] = 2;
 	goto done;
     }
@@ -718,9 +817,11 @@ grab_probe(int format)
 static int
 grab_mm_setparams(int format, int *width, int *height, int *linelength)
 {
+    int v4l_format,i;
+    
     /* finish old stuff */
-    if (gb_grab > gb_sync)
-	grab_wait(even ? &gb_even : &gb_odd);
+    while (gb_grab > gb_sync)
+	grab_wait();
 
     /* verify parameters */
     ioctl(fd,VIDIOCGCAP,&capability);
@@ -728,9 +829,9 @@ grab_mm_setparams(int format, int *width, int *height, int *linelength)
 	*width = capability.maxwidth;
     if (*height > capability.maxheight)
 	*height = capability.maxheight;    
-    *linelength = *width * format2depth[format] / 8;
+    *linelength = *width * ng_vfmt_to_depth[format] / 8;
 
-#if 1
+#if 0
     /* XXX bttv bug workaround - it returns a larger size than it can handle */
     if (*width > 768+76) {
 	*width = 768+76;
@@ -738,61 +839,95 @@ grab_mm_setparams(int format, int *width, int *height, int *linelength)
     }
 #endif
 
-    /* initialize everything */
-    gb_even.format = gb_odd.format =
-	(format < sizeof(format2palette)/sizeof(unsigned short)) ?
+    /* check if we can handle the format */
+    v4l_format = (format < sizeof(format2palette)/sizeof(unsigned short)) ?
 	format2palette[format] : 0;
-    if (gb_even.format == 0 || !grab_probe(gb_even.format)) {
+    if (v4l_format == 0 || !grab_probe(v4l_format))
 	return -1;
+
+    /* initialize everything */
+    gb_grab = 0;
+    gb_sync = 0;
+    pixmap_bytes   = ng_vfmt_to_depth[format] / 8;
+    for (i = 0; i < MAX_BUFFERS; i++) {
+	gb_buf[i].format = v4l_format;
+	gb_buf[i].frame  = i;
+	gb_buf[i].width  = *width;
+	gb_buf[i].height = *height;
     }
-    pixmap_bytes   = format2depth[format] / 8;
-    gb_even.frame  = 0;
-    gb_odd.frame   = 1;
-    gb_even.width  = *width;
-    gb_even.height = *height;
-    gb_odd.width   = *width;
-    gb_odd.height  = *height;
-    even = 0;
 
     return 0;
 }
 
-static void*
-grab_mm_capture(int single)
+static void
+grab_mm_start(int fps, int buffers)
 {
-    void *buf;
-
-    if (!single && gb_grab == gb_sync)
-	/* streaming capture started */
-	if (-1 == grab_queue(even ? &gb_even : &gb_odd,0))
-	    return NULL;
-
-    if (single && gb_grab > gb_sync)
-	/* clear streaming capture */
-	grab_wait(even ? &gb_even : &gb_odd);
-
-    /* queue */
-    if (-1 == grab_queue(even ? &gb_odd : &gb_even,0))
-	return NULL;
-    if (gb_grab > gb_sync+1) {
-	/* wait -- streaming */
-	grab_wait(even ? &gb_even : &gb_odd);
-	buf = map + gb_buffers.offsets[even ? 0 : 1];
-    } else {
-	/* wait -- single */
-	grab_wait(even ? &gb_odd : &gb_even);
-	buf = map + gb_buffers.offsets[even ? 1 : 0];
+    if (grab_fps) {
+	fprintf(stderr,"grab_mm_start: aiee: grab_fps!=0\n");
+	exit(1);
     }
-    even = !even;
 
-    return buf;
+    gb_bufcount = MAX_BUFFERS;
+    if (gb_buffers.frames < gb_bufcount)
+	gb_bufcount = gb_buffers.frames;
+    if (buffers > 0 && buffers < gb_bufcount)
+	gb_bufcount = buffers;
+
+    while ((gb_grab - gb_sync) < gb_bufcount)
+	grab_queue();
+    gettimeofday(&grab_start,NULL);
+    grab_fps = fps;
+    grab_frames = 0;
+}
+
+static void*
+grab_mm_capture(void)
+{
+    int frame,rc;
+
+    if (0 == grab_fps) {
+	/* grab one buffer */
+	if (debug)
+	    fprintf(stderr,"grab_mm_capture: one\n");
+	if (-1 == grab_queue())
+	    return NULL;
+	frame = grab_wait();
+	if (-1 == frame)
+	    return NULL;
+	return map + gb_buffers.offsets[frame];
+    }
+
+    /* next buffer (streaming) */
+    if (debug > 1)
+	fprintf(stderr,"grab_mm_capture: next\n");
+ next_frame:
+    while ((gb_grab - gb_sync) < gb_bufcount)
+	if (-1 == grab_queue())
+	    return NULL;
+    frame = grab_wait();
+    if (-1 == frame)
+	return NULL;
+
+    /* rate control */
+    rc = grabber_sw_rate(&grab_start,grab_fps,grab_frames);
+    if (rc <= 0)
+	goto next_frame;
+    grab_frames++;
+    
+    return map + gb_buffers.offsets[frame];
 }
 
 static void
-grab_mm_cleanup()
+grab_mm_stop(void)
 {
-    if (gb_grab > gb_sync)
-	grab_wait(even ? &gb_even : &gb_odd);
+    if (!grab_fps) {
+	fprintf(stderr,"grab_mm_stop: aiee: grab_fps==0\n");
+	exit(1);
+    }
+    /* stop streaming */
+    while (gb_grab > gb_sync)
+	grab_wait();
+    grab_fps = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -801,85 +936,130 @@ grab_mm_cleanup()
 static int
 grab_read_setparams(int format, int *width, int *height, int *linelength)
 {
-    struct video_window win;
-    
-    pict.depth   = format2depth[format];
-    pict.palette = format2palette[format];
+    rd_pict.depth   = ng_vfmt_to_depth[format];
+    rd_pict.palette = (format < sizeof(format2palette)/sizeof(unsigned short)) ?
+	format2palette[format] : 0;
+    if (rd_pict.palette == 0)
+	return -1;
+
+    grab_overlay_set(0);
 
     /* set format */
-    if (-1 == ioctl(fd,VIDIOCSPICT,&pict)) {
-	if (debug)
-	    perror("ioctl VIDIOCSPICT");
-	return -1;
-    }
-    if (-1 == ioctl(fd,VIDIOCGPICT,&pict)) {
-	if (debug)
-	    perror("ioctl VIDIOCGPICT");
-	return -1;
-    }
+    if (-1 == xioctl(fd,VIDIOCSPICT,&rd_pict))
+	goto fail;
+    if (-1 == xioctl(fd,VIDIOCGPICT,&rd_pict))
+	goto fail;
 	
     /* set size */
-    ioctl(fd,VIDIOCGCAP,&capability);
+    xioctl(fd,VIDIOCGCAP,&capability);
     if (*width > capability.maxwidth)
 	*width = capability.maxwidth;
     if (*height > capability.maxheight)
 	*height = capability.maxheight;
-    memset(&win,0,sizeof(struct video_window));
-    win.width  = *width;
-    win.height = *height;
-    if (-1 == ioctl(fd,VIDIOCSWIN,&win)) {
-	if (debug)
-	    perror("ioctl VIDIOCSWIN");
-	return -1;
-    }
-    if (-1 == ioctl(fd,VIDIOCGWIN,&win)) {
-	if (debug)
-	    perror("ioctl VIDIOCGWIN");
-	return -1;
-    }
+    memset(&rd_win,0,sizeof(struct video_window));
+    rd_win.width  = *width;
+    rd_win.height = *height;
+    if (-1 == xioctl(fd,VIDIOCSWIN,&rd_win))
+	goto fail;
+    if (-1 == xioctl(fd,VIDIOCGWIN,&rd_win))
+	goto fail;
 
-    *width  = win.width;
-    *height = win.height;
-    *linelength = *width * format2depth[format] / 8;
+    *width  = rd_win.width;
+    *height = rd_win.height;
+    *linelength = *width * ng_vfmt_to_depth[format] / 8;
 
     /* alloc buffer */
-    grab_read_size = *linelength * *height;
-    if (grab_read_buf)
-	free(grab_read_buf);
-    grab_read_buf = malloc(grab_read_size);
-    if (NULL == grab_read_buf)
-	return -1;
-    
+    rd_size = *linelength * *height;
+    fprintf(stderr,"format: %d  %dx%d  size=%d  depth=%d\n",
+	    format,*width,*height,rd_size,ng_vfmt_to_depth[format]);
+    if (rd_buf)
+	free(rd_buf);
+    rd_buf = NULL;
+    grab_overlay_set(ov_enabled);
     return 0;
-}
 
-static void*
-grab_read_capture(int single)
-{
-    int rc;
-
-    rc = read(fd,grab_read_buf,grab_read_size);
-    if (grab_read_size != rc) {
-	fprintf(stderr,"grabber read error (rc=%d)\n",rc);
-	return NULL;
-    }
-    return grab_read_buf;
+ fail:
+    grab_overlay_set(ov_enabled);
+    return -1;
 }
 
 static void
-grab_read_cleanup()
+grab_read_start(int fps, int buffers)
 {
-    if (grab_read_buf) {
-	free(grab_read_buf);
-	grab_read_buf = NULL;
+    if (grab_fps) {
+	fprintf(stderr,"grab_read_stop: aiee: grab_fps!=0\n");
+	exit(1);
     }
+    gettimeofday(&grab_start,NULL);
+    grab_fps = fps;
+    grab_frames = 0;
+}
+
+static void*
+grab_read_capture()
+{
+    int rc;
+
+    if (NULL == rd_buf)
+	rd_buf = malloc(rd_size);
+    if (NULL == rd_buf)
+	return NULL;
+
+    grab_overlay_set(0);
+    if (-1 == ioctl(fd,VIDIOCGPICT,&rd_pict) ||
+	-1 == ioctl(fd,VIDIOCSWIN,&rd_win)) {
+	perror("set grab args");
+	goto fail;
+    }
+
+ next_frame:
+    rc = read(fd,rd_buf,rd_size);
+    if (rd_size != rc) {
+	fprintf(stderr,"grabber read error (rc=%d, expect=%d, errno=%s)\n",
+		rc,rd_size,strerror(errno));
+	goto fail;
+    }
+
+    if (grab_fps > 0) {
+	/* rate control */
+	rc = grabber_sw_rate(&grab_start,grab_fps,grab_frames);
+	if (rc <= 0)
+	    goto next_frame;
+	grab_frames++;
+    }
+    grab_overlay_set(ov_enabled);
+    return rd_buf;
+
+ fail:
+    grab_overlay_set(ov_enabled);
+    return NULL;
+}
+
+static void
+grab_read_stop(void)
+{
+    if (!grab_fps) {
+	fprintf(stderr,"grab_read_stop: aiee: grab_fps==0\n");
+	exit(1);
+    }
+    if (rd_buf) {
+	free(rd_buf);
+	rd_buf = NULL;
+    }
+    grab_overlay_set(ov_enabled);
+    grab_fps = 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
-static int
-grab_tune(unsigned long freq)
+static unsigned long
+grab_tune(unsigned long freq, int sat)
 {
+    if (-1 == freq) {
+	if (-1 == ioctl(fd, VIDIOCGFREQ, &freq))
+	    perror("ioctl VIDIOCGFREQ");
+	return freq;
+    }
     if (debug)
 	fprintf(stderr,"v4l: freq: %.3f\n",(float)freq/16);
     if (-1 == ioctl(fd, VIDIOCSFREQ, &freq))
@@ -888,7 +1068,7 @@ grab_tune(unsigned long freq)
 }
 
 static int
-grab_tuned()
+grab_tuned(void)
 {
     usleep(10000);
     if (-1 == ioctl(fd,VIDIOCGTUNER,tuner)) {
@@ -966,7 +1146,7 @@ int grab_setattr(int id, int val)
 	    break;
     if (i == NUM_ATTR)
 	return -1;
-    if (-1 == ioctl(fd,grab_attr[i].set,grab_attr[i].arg))
+    if (-1 == ioctl(fd,grab_attr[i].get,grab_attr[i].arg))
 	perror("ioctl get");
 
     /* ... modify ... */
@@ -978,11 +1158,21 @@ int grab_setattr(int id, int val)
 	else
 	    audio.flags &= ~VIDEO_AUDIO_MUTE;
 	break;
-    case GRAB_ATTR_MODE:     audio.mode      = val; break;
-    case GRAB_ATTR_COLOR:    pict.colour     = val; break;
-    case GRAB_ATTR_BRIGHT:   pict.brightness = val; break;
-    case GRAB_ATTR_HUE:      pict.hue        = val; break;
-    case GRAB_ATTR_CONTRAST: pict.contrast   = val; break;
+    case GRAB_ATTR_MODE:
+	audio.mode = val;
+	break;
+    case GRAB_ATTR_COLOR:
+	pict.colour     = val;
+	break;
+    case GRAB_ATTR_BRIGHT:
+	pict.brightness = val;
+	break;
+    case GRAB_ATTR_HUE:
+	pict.hue        = val;
+	break;
+    case GRAB_ATTR_CONTRAST:
+	pict.contrast   = val;
+	break;
     default: return -1;
     }
 
@@ -990,9 +1180,22 @@ int grab_setattr(int id, int val)
     /* bttv: avoid input switch */
     audio.audio = cur_input;
 #endif
-    
+ 
     /* ... write */
     if (-1 == ioctl(fd,grab_attr[i].set,grab_attr[i].arg))
 	perror("ioctl set");
+
+    /* keep the others up-to-date */
+    ov_pict.colour     = pict.colour;
+    rd_pict.colour     = pict.colour;
+    ov_pict.brightness = pict.brightness;
+    rd_pict.brightness = pict.brightness;
+    ov_pict.hue        = pict.hue;
+    rd_pict.hue        = pict.hue;
+    ov_pict.contrast   = pict.contrast;
+    rd_pict.contrast   = pict.contrast;
+
     return 0;
 }
+
+#endif /* __linux__ */

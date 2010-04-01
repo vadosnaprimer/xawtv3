@@ -4,13 +4,20 @@
  *   (c) 1998 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <sys/soundcard.h>
+#ifdef HAVE_SOUNDCARD_H
+# include <soundcard.h>
+#endif
+#ifdef HAVE_SYS_SOUNDCARD_H
+# include <sys/soundcard.h>
+#endif
 
 char *labels[] = SOUND_DEVICE_LABELS;
 char *names[]  = SOUND_DEVICE_NAMES;
@@ -18,15 +25,19 @@ char *names[]  = SOUND_DEVICE_NAMES;
 int
 dump_mixer(char *devname)
 {
+#ifdef SOUND_MIXER_INFO
     struct mixer_info info;
+#endif
     int               mix,i,devmask,recmask,recsrc,stereomask,volume;
 
     if (-1 == (mix = open(devname,O_RDONLY)))
 	return -1;
 
     printf("%s",devname);
+#ifdef SOUND_MIXER_INFO
     if (-1 != ioctl(mix,SOUND_MIXER_INFO,&info))
 	printf(" = %s (%s)",info.id,info.name);
+#endif
     printf("\n");
 
     if (-1 == ioctl(mix,MIXER_READ(SOUND_MIXER_DEVMASK),&devmask) ||

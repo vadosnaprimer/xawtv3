@@ -36,7 +36,7 @@
 # include <X11/Xaw/Paned.h>
 #endif
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "channel.h"
 #include "frequencies.h"
 #include "sound.h"
@@ -45,10 +45,18 @@
 /* ----------------------------------------------------------------------- */
 /* misc common stuff, not only channel related                             */ 
 
-struct CHANNEL  defaults    = { "defaults", NULL,
-				"5", 0, 0, 0,
-				CAPTURE_OVERLAY, 0, 0,
-				32768, 32768, 32768, 32768 };
+struct CHANNEL defaults = {
+    name:     "defaults",
+    cname:    "none",
+    capture:  CAPTURE_OVERLAY,
+    audio:    -1,
+    sat:      -1,
+    color:    32768,
+    bright:   32768,
+    hue:      32768,
+    contrast: 32768,
+};
+				
 struct CHANNEL  **channels  = NULL;
 int             count       = 0;
 int             alloc_count = 0;
@@ -58,7 +66,7 @@ int last_sender = -1, cur_sender = -1, cur_channel = -1, cur_fine = 0;
 int cur_norm = -1, cur_input = -1, cur_freq;
 
 int cur_color,cur_bright,cur_hue,cur_contrast,cur_capture;
-int cur_mute = 0, cur_volume = 65535;
+int cur_movie, cur_mute = 0, cur_volume = 65535;
 int have_config;
 int jpeg_quality = 75;
 int mjpeg_quality = 75;
@@ -112,7 +120,7 @@ int lookup_channel(char *channel)
     return i;
 }
 
-int  get_freq(int i)
+int get_freq(int i)
 {
     if (i < 0 || i >= chancount)
 	return -1;
@@ -258,12 +266,14 @@ calc_frequencies()
     int i;
 
     for (i = 0; i < count; i++) {
-	channels[i]->channel = lookup_channel(channels[i]->cname);
-	if (-1 == channels[i]->channel)
-	    channels[i]->freq = -1;
-	else
-	    channels[i]->freq = get_freq(channels[i]->channel)
-		+ channels[i]->fine;
+	if (0 != strcmp(channels[i]->cname,"none")) { 
+	    channels[i]->channel = lookup_channel(channels[i]->cname);
+	    if (-1 == channels[i]->channel)
+		channels[i]->freq = -1;
+	    else
+		channels[i]->freq = get_freq(channels[i]->channel)
+		    + channels[i]->fine;
+	}
     }
 }
 
@@ -280,24 +290,37 @@ init_channel(char *name, struct CHANNEL *c)
 	else
 	    fprintf(stderr,"config: invalid value for capture: %s\n",val);
     }
-    if (NULL != (val = cfg_get_str(name,"input")) ||
-	NULL != (val = cfg_get_str(name,"source"))) { /* obsolete */
+    if (NULL != grabber->inputs &&
+	(NULL != (val = cfg_get_str(name,"input")) ||
+	 NULL != (val = cfg_get_str(name,"source")))) { /* obsolete */
 	if (-1 != (i = str_to_int(val,grabber->inputs)))
 	    c->input = i;
 	else
 	    fprintf(stderr,"config: invalid value for input: %s\n",val);
     }
-    if (NULL != (val = cfg_get_str(name,"norm"))) {
+    if (NULL != grabber->norms &&
+	NULL != (val = cfg_get_str(name,"norm"))) {
 	if (-1 != (i = str_to_int(val,grabber->norms)))
 	    c->norm = i;
 	else
 	    fprintf(stderr,"config: invalid value for norm: %s\n",val);
     }
+    if (NULL != grabber->audio_modes &&
+	NULL != (val = cfg_get_str(name,"audio"))) {
+	if (-1 != (i = str_to_int(val,grabber->audio_modes)))
+	    c->audio = i;
+	else
+	    fprintf(stderr,"config: invalid value for audio: %s\n",val);
+    }
     
     if (NULL != (val = cfg_get_str(name,"channel")))
 	c->cname   = strdup(val);
+    if (NULL != (val = cfg_get_str(name,"freq")))
+	c->freq   = (int)(atof(val)*16);
     if (-1 != (n = cfg_get_int(name,"fine")))
 	c->fine = n;
+    if (-1 != (n = cfg_get_int(name,"sat")))
+	c->sat = n;
 
     if (NULL != (val = cfg_get_str(name,"key")))
 	c->key   = strdup(val);
@@ -320,7 +343,7 @@ read_config()
     char **list,*val;
     int  i;
 
-    cfg_parse_file("/usr/X11R6/lib/X11/xawtvrc");
+    cfg_parse_file(CONFIGFILE);
     sprintf(filename,"%s/%s",getenv("HOME"),".xawtv");
     if (0 == cfg_parse_file(filename))
 	have_config = 1;
@@ -372,6 +395,12 @@ read_config()
 	if (2 != sscanf(val,"%d %d",&fs_xoff,&fs_yoff)) {
 	    fprintf(stderr,"invalid value for wm-off-by: %s\n",val);
 	    fs_xoff = fs_yoff = 0;
+	}
+    }
+    if (NULL != (val = cfg_get_str("global","ratio"))) {
+	if (2 != sscanf(val,"%d:%d",&grab_ratio_x,&grab_ratio_y)) {
+	    fprintf(stderr,"invalid value for ratio: %s\n",val);
+	    grab_ratio_x = grab_ratio_y = 0;
 	}
     }
 	
@@ -458,6 +487,8 @@ save_config()
 	fprintf(fp,"fullscreen = %d x %d\n",fs_width,fs_height);
     if (fs_xoff || fs_yoff)
 	fprintf(fp,"wm-off-by = %+d%+d\n",fs_xoff,fs_yoff);
+    if (grab_ratio_x || grab_ratio_y)
+	fprintf(fp,"ratio = %d:%d\n",grab_ratio_x,grab_ratio_y);
     fprintf(fp,"freqtab = %s\n",chanlists[chantab].name);
     fprintf(fp,"pixsize = %d x %d\n",pix_width,pix_height);
     fprintf(fp,"pixcols = %d\n",pix_cols);
@@ -497,7 +528,7 @@ save_config()
     fprintf(fp,"[defaults]\n");
     fprintf(fp,"norm = %s\n",int_to_str(cur_norm,grabber->norms));
     fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
-    fprintf(fp,"source = %s\n",
+    fprintf(fp,"input = %s\n",
 	    int_to_str(cur_input,grabber->inputs));
     if (cur_color != 32768)
 	fprintf(fp,"color = %d\n",cur_color);
@@ -513,9 +544,15 @@ save_config()
     for (i = 0; i < count; i++) {
 
 	fprintf(fp,"[%s]\n",channels[i]->name);
-	fprintf(fp,"channel = %s\n",chanlist[channels[i]->channel].name);
-	if (0 != channels[i]->fine)
-	    fprintf(fp,"fine = %+d\n", channels[i]->fine);
+	if (0 != strcmp(channels[i]->cname,"none")) {
+	    fprintf(fp,"channel = %s\n",chanlist[channels[i]->channel].name);
+	    if (0 != channels[i]->fine)
+		fprintf(fp,"fine = %+d\n", channels[i]->fine);
+	} else {
+	    fprintf(fp,"freq = %.2f\n",(float)(channels[i]->freq)/16);
+	}
+	if (-1 != channels[i]->sat)
+	    fprintf(fp,"sat = %+d\n", channels[i]->sat);
 	if (cur_norm != channels[i]->norm)
 	    fprintf(fp,"norm = %s\n",
 		    int_to_str(cur_norm,grabber->norms));
@@ -569,7 +606,7 @@ str_to_int(char *str, struct STRTAB *tab)
     return -1;
 }
 
-char*
+const char*
 int_to_str(int n, struct STRTAB *tab)
 {
     int i;

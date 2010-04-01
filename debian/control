@@ -1,0 +1,81 @@
+Source: xawtv
+Section: graphics
+Priority: extra
+Build-Depends: libjpeg62-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), xaw3dg-dev, liblircclient-dev, debhelper, xutils
+Maintainer: Gerd Knorr <kraxel@debian.org>
+Standards-Version: 3.0.1
+
+Package: xawtv
+Section: x11
+Architecture: any
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, pciutils
+Description: X11 TV application
+ TV application for X11.  Supports video4linux
+ devices and the Xvideo extension.
+ .
+ For Xvideo support xawtv must be compiled with
+ the XFree86 4.0+ client libraries installed.
+
+Package: fbtv
+Architecture: any
+Depends: ${shlibs:Depends}, v4l-conf
+Suggests: xawtv
+Description: linux console (fbcon) TV application
+ TV application for the linux console, requires a
+ framebuffer device (vesafb, matroxfb, atyfb, ...)
+ and a video4linux driver like bttv.
+
+Package: streamer
+Architecture: any
+Depends: ${shlibs:Depends}
+Suggests: xawtv
+Description: capture tool (images / movies)
+ A tool to capture single/multiple images or
+ record movies from a video4linux device.
+
+Package: radio
+Section: sound
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: ncurses-bases radio application
+ This is a ncurses-based radio application.  It
+ supports the video4linux API.
+
+Package: v4l-conf
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: tool to configure video4linux drivers
+ This is a small tool to configure a video4linux
+ device driver.  It is required to make the video
+ overlay work in fbtv and xawtv.
+
+Package: xawtv-tools
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: Miscellaneous tools distributed with xawtv
+ This package has a few tools you might find useful.  They
+ have not to do very much to do with xawtv.  I've used/wrote
+ them for debugging:
+  * propwatch   - monitors properties of X11 windows.  If you
+                  want to know how to keep track of xawtv's
+                  _XAWTV_STATION property, look at this.
+  * dump-mixers - dump mixer settings to stdout
+  * record      - console sound recorder.  Has a simple input
+                  level meter which might be useful to trouble
+                  shoot sound problems.
+  * showriff    - display the structure of RIFF files (avi, wav).
+
+Package: webcam
+Architecture: any
+Depends: ${shlibs:Depends},ftp
+Description: capture and upload images
+ webcam captures images from a video4linux device like
+ bttv, annotates them and and uploads them to a webserver
+ using ftp in a endless loop.
+
+Package: alevtd
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: http daemon for videotext pages
+ alevtd is http daemon which servers videotext pages as
+ HTML.

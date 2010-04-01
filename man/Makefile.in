@@ -1,14 +1,14 @@
 srcdir=@srcdir@
 
 ROOT=
-prefix=$(ROOT)@prefix@
-mandir=$(prefix)/man
+prefix=@prefix@
+mandir=$(ROOT)@mandir@
 
 INSTALL=@INSTALL@
 INSTALL_DATA=@INSTALL_DATA@
 INSTALL_DIR=mkdir -p
 
-all:
+all build:
 
 install: all
 	$(INSTALL_DIR) $(mandir)/man1
@@ -18,10 +18,10 @@ install: all
 	done
 
 clean:
-	-rm -f *.o *.moc *~ core* *.bak TAGS
+	-rm -f *.o core* TAGS
 
 distclean realclean: clean
-	-rm -f Makefile
+	-rm -f Makefile *~ *.bak
 
 dep depend:
 

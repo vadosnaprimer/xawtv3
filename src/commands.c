@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include <X11/Intrinsic.h>
 
@@ -13,8 +14,9 @@
 
 #include "commands.h"
 #include "writefile.h"
-#include "grab.h"
+#include "grab-ng.h"
 #include "channel.h"
+#include "webcam.h"
 #include "frequencies.h"
 #include "sound.h"
 
@@ -23,6 +25,7 @@
 /* feedback for the user */
 void (*update_title)(char *message);
 void (*display_message)(char *message);
+void (*vtx_message)(int argc, char **argv);
 
 /* for updating GUI elements / whatever */
 void (*norm_notify)(void);
@@ -33,15 +36,17 @@ void (*setfreqtab_notify)(void);
 void (*setstation_notify)(void);
 
 /* gets called _before_ channel switches */
-void (*channel_switch_hook)();
+void (*channel_switch_hook)(void);
 
 /* capture overlay/grab/off */
 void (*set_capture_hook)(int old, int new);
 
 /* toggle fullscreen */
-void (*fullscreen_hook)();
-void (*exit_hook)();
-void (*reconfigure_hook)();
+void (*fullscreen_hook)(void);
+void (*exit_hook)(void);
+void (*capture_get_hook)(void);
+void (*capture_rel_hook)(void);
+void (*movie_hook)(int argc, char **argv);
 
 int do_overlay;
 char *snapbase = "snap";
@@ -60,10 +65,15 @@ static int capture_handler(char *name, int argc, char **argv);
 
 static int volume_handler(char *name, int argc, char **argv);
 static int attr_handler(char *name, int argc, char **argv);
+static int dattr_handler(char *name, int argc, char **argv);
 
 static int snap_handler(char *name, int argc, char **argv);
+static int webcam_handler(char *name, int argc, char **argv);
+static int movie_handler(char *name, int argc, char **argv);
 static int fullscreen_handler(char *name, int argc, char **argv);
 static int msg_handler(char *name, int argc, char **argv);
+static int showtime_handler(char *name, int argc, char **argv);
+static int vtx_handler(char *name, int argc, char **argv);
 static int exit_handler(char *name, int argc, char **argv);
 
 static int keypad_handler(char *name, int argc, char **argv);
@@ -86,16 +96,21 @@ static struct COMMANDS {
     { "hue",        0, attr_handler       },
     { "bright",     0, attr_handler       },
     { "contrast",   0, attr_handler       },
+    { "attr",       0, dattr_handler      },
 
     { "snap",       0, snap_handler       },
+    { "webcam",     1, webcam_handler     },
+    { "movie",      1, movie_handler      },
     { "fullscreen", 0, fullscreen_handler },
     { "msg",        1, msg_handler        },
+    { "vtx",        0, vtx_handler        },
     { "message",    0, msg_handler        },
     { "exit",       0, exit_handler       },
     { "quit",       0, exit_handler       },
     { "bye",        0, exit_handler       },
 
     { "keypad",     1, keypad_handler     },
+    { "showtime",   0, showtime_handler   },
 
     { NULL, 0, NULL }
 };
@@ -112,6 +127,10 @@ static struct PICT_ATTR {
 };
 
 #define NUM_ATTR (sizeof(pict_attr)/sizeof(struct PICT_ATTR))
+
+static int cur_dattr = 0;
+static char *dattr[] = { "volume", "bright", "contrast", "color", "hue" };
+#define NUM_DATTR (sizeof(dattr)/sizeof(char*))
 
 static int keypad_state = -1;
 
@@ -133,11 +152,6 @@ missing_feature(int id)
 	sprintf(message,"Grabbing is not supported by \"%s\".",
 		grabber->name);
 	break;
-#ifndef HAVE_LIBJPEG
-    case MISSING_JPEG:
-	sprintf(message,"This binary has no JPEG support.");
-	break;
-#endif
     default:
 	strcpy(message,"Oops, you should'nt see this message.");
 	break;
@@ -192,7 +206,7 @@ do_command(int argc, char **argv)
 	return -1;
     }
     if (argc-1 < commands[i].min_args) {
-	fprintf(stderr,"no enouth args for %s\n",argv[0]);
+	fprintf(stderr,"no enough args for %s\n",argv[0]);
 	return -1;
     } else {
 	return commands[i].handler(argv[0],argc-1,argv+1);
@@ -291,6 +305,9 @@ set_attr(int id, int val)
 {
     int i;
 
+    if (!grabber->grab_hasattr(id))
+	return;
+
     for (i = 0; i < NUM_ATTR; i++)
 	if (id == pict_attr[i].id)
 	    break;	
@@ -320,7 +337,7 @@ set_freqtab(int j)
 }
 
 static void
-set_volume()
+set_volume(void)
 {
     int vol;
     
@@ -340,23 +357,20 @@ set_volume()
 }
 
 static void
-set_title()
+set_title(void)
 {
     static char  title[256];
 
     keypad_state = -1;
     if (update_title) {
 	if (-1 != cur_sender) {
-#if 0
-	    sprintf(title,"%d - %s",cur_sender+1,channels[cur_sender]->name);
-#endif
 	    sprintf(title,"%s",channels[cur_sender]->name);
 	} else if (-1 != cur_channel) {
 	    sprintf(title,"channel %s",chanlist[cur_channel].name);
 	    if (cur_fine != 0)
 		sprintf(title+strlen(title)," (%d)",cur_fine);
 	    sprintf(title+strlen(title)," (%s/%s)",
-		    grabber->norms[cur_norm].str,
+		    (-1 != cur_norm) ? grabber->norms[cur_norm].str : "???",
 		    chanlists[chantab].name);
 	} else {
 	    sprintf(title,"???");
@@ -492,7 +506,7 @@ set_defaults()
     cur_fine     = defaults.fine;
     cur_freq     = defaults.freq;
     if (grabber->grab_tune)
-	grabber->grab_tune(defaults.freq);
+	grabber->grab_tune(defaults.freq,defaults.sat);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -560,14 +574,14 @@ static int setstation_handler(char *name, int argc, char **argv)
     cur_fine     = channels[i]->fine;
     cur_freq     = channels[i]->freq;
     if (grabber->grab_tune)
-	grabber->grab_tune(channels[i]->freq);
+	grabber->grab_tune(channels[i]->freq,channels[i]->sat);
     
     set_title();
     if (setstation_notify)
 	setstation_notify();
 
     if (!cur_mute) {
-	usleep(2000);
+	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
 	else
@@ -630,14 +644,14 @@ static int setchannel_handler(char *name, int argc, char **argv)
 
     set_capture(defaults.capture);    
     if (grabber->grab_tune)
-	grabber->grab_tune(cur_freq);
+	grabber->grab_tune(cur_freq,-1);
 
     set_title();
     if (setstation_notify)
 	setstation_notify();
 
     if (!cur_mute) {
-	usleep(2000);
+	usleep(20000);
 	if (have_mixer)
 	    mixer_unmute();
 	else
@@ -762,6 +776,30 @@ static int attr_handler(char *name, int argc, char **argv)
     return 0;
 }
 
+static int dattr_handler(char *name, int argc, char **argv)
+{
+    int i;
+    
+    if (argc > 0 && 0 == strcasecmp(argv[0],"next")) {
+	cur_dattr++;
+	cur_dattr %= NUM_DATTR;
+	argc = 0;
+    }
+    if (argc > 0) {
+	for (i = 0; i < NUM_DATTR; i++)
+	    if (0 == strcasecmp(argv[0],dattr[i]))
+		break;
+	if (i < NUM_DATTR) {
+	    cur_dattr = i;
+	    argc = 0;
+	}
+    }
+    if (0 == cur_dattr)
+	return volume_handler("volume",argc,argv);
+    else
+	return attr_handler(dattr[cur_dattr],argc,argv);
+}
+
 /* ----------------------------------------------------------------------- */
 
 static int snap_handler(char *hname, int argc, char **argv)
@@ -782,6 +820,15 @@ static int snap_handler(char *hname, int argc, char **argv)
 	fprintf(stderr,"grabbing: not supported\n");
 	return -1;
     }
+
+    if (0 != cur_movie) {
+	if (display_message)
+	    display_message("grabber busy");
+	return -1;
+    }
+
+    if (capture_get_hook)
+	capture_get_hook();
 
     /* format */
     if (argc > 0) {
@@ -812,8 +859,8 @@ static int snap_handler(char *hname, int argc, char **argv)
 	filename = argv[2];
     
     if (0 != grabber_setparams(VIDEO_RGB24,&width,&height,
-			       &linelength,0) ||
-	NULL == (buffer = grabber_capture(NULL,0,1,NULL))) {
+			       &linelength,0,1) ||
+	NULL == (buffer = grabber_capture(NULL,0,NULL))) {
 	if (display_message)
 	    display_message("grabbing failed");
 	ret = -1;
@@ -832,15 +879,11 @@ static int snap_handler(char *hname, int argc, char **argv)
     }
 
     if (jpeg) {
-#ifdef HAVE_LIBJPEG
 	if (-1 == write_jpeg(filename,buffer,width,height, jpeg_quality, 0)) {
 	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
 	} else {
 	    sprintf(message,"saved jpeg: %s",filename);
 	}
-#else
-	missing_feature(MISSING_JPEG);
-#endif
     } else {
 	if (-1 == write_ppm(filename,buffer,width,height)) {
 	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
@@ -848,16 +891,49 @@ static int snap_handler(char *hname, int argc, char **argv)
 	    sprintf(message,"saved ppm: %s",filename);
 	}
     }
-    if (grabber->grab_cleanup)
-	grabber->grab_cleanup();
     if (display_message)
 	display_message(message);
 
-    /* set parameters to main window size (for grabdisplay) */
 done:
-    if (reconfigure_hook)
-	reconfigure_hook();
+    if (capture_rel_hook)
+	capture_rel_hook();
     return ret;
+}
+
+static int webcam_handler(char *hname, int argc, char **argv)
+{
+    int width = grab_width, height = grab_height, linelength = 0;
+
+    if (webcam)
+	free(webcam);
+    webcam = strdup(argv[0]);
+
+    /* if either avi recording or grabdisplay is active, we do
+       /not/ stop capture and switch the video format.  The next
+       capture will send a copy of the frame to the webcam thread
+       and it has to deal with it as-is */
+    if (cur_movie)
+	return 0;
+    if (cur_capture == CAPTURE_GRABDISPLAY)
+	return 0;
+
+    /* if no capture is running we can switch to RGB first to make
+       the webcam happy */
+    if (capture_get_hook)
+	capture_get_hook();
+    grabber_setparams(VIDEO_RGB24,&width,&height,&linelength,0,0);
+    grabber_capture(NULL,0,NULL);
+    if (capture_rel_hook)
+	capture_rel_hook();
+    return 0;
+}
+
+static int movie_handler(char *name, int argc, char **argv)
+{
+    if (!movie_hook)
+	return 0;
+    movie_hook(argc,argv);
+    return 0;
 }
 
 static int
@@ -873,6 +949,29 @@ msg_handler(char *name, int argc, char **argv)
 {
     if (display_message)
 	display_message(argv[0]);
+    return 0;
+}
+
+static int
+showtime_handler(char *name, int argc, char **argv)
+{
+    char timestr[6];
+    struct tm *times;
+    time_t timet;
+
+    timet = time(NULL);
+    times = localtime(&timet);
+    strftime(timestr, 6, "%k:%M", times);
+    if (display_message)
+	display_message(timestr);
+    return 0;
+}
+
+static int
+vtx_handler(char *name, int argc, char **argv)
+{
+    if (vtx_message)
+	vtx_message(argc,argv);
     return 0;
 }
 

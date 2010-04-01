@@ -1,0 +1,59 @@
+# Generated automatically from Makefile.in by configure.
+srcdir=.
+
+ROOT=
+prefix=/usr/X11R6
+FONTDIR=$(ROOT)$(prefix)/lib/X11/fonts/misc
+PCF=led-latin1.pcf led-latin2.pcf led-koi8.pcf
+
+all build: $(PCF)
+	mkfontdir
+
+install: all
+	mkdir -p $(R)$(FONTDIR)
+	for file in $(PCF); do \
+		install -m 644 $$file $(R)$(FONTDIR); \
+	done
+	if test "$(ROOT)" = ""; then		\
+		(cd $(FONTDIR); mkfontdir);	\
+		xset fp rehash;			\
+		true;				\
+	fi
+
+%.pcf: %.bdf
+	bdftopcf -o $@ $<
+
+dep:
+
+clean:
+	rm -f $(PCF)
+
+distclean: clean
+	rm -f Makefile *~ *.bak
+
+
+###########################################################################
+# don't use these, unless you know what you are doing...
+
+SERVER=tcp/goldbach:7100
+
+bdf: led-latin1.bdf led-latin2.bdf led-koi8.bdf
+
+led-latin1.bdf:
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-1" > led-latin1.bdf
+
+led-latin2.bdf:
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-2" > led-latin2.bdf
+
+led-koi8.bdf:
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-koi8-r" > led-koi8.bdf
+
+
+realclean: clean
+	rm -f *.bdf fonts.dir
+
+dist: realclean bdf
+

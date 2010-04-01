@@ -150,8 +150,9 @@ main(int argc, char *argv[])
 
     XtAppContext app_context;
     Display *dpy;
+    Atom attr;
 
-    int ver, rel, req, ev, err;
+    int ver, rel, req, ev, err, val;
     int adaptors,encodings,attributes,formats;
     int i,j,p,c;
 
@@ -240,11 +241,17 @@ main(int argc, char *argv[])
 	    printf("  attribute list for port %d\n",p);
 	    at = XvQueryPortAttributes(dpy,p,&attributes);
 	    for (j = 0; j < attributes; j++) {
-		fprintf(stderr,"    %s%s%s, %i -> %i\n",
+		fprintf(stderr,"    %s%s%s, %i -> %i",
 			at[j].name,
 			(at[j].flags & XvGettable) ? " get" : "",
 			(at[j].flags & XvSettable) ? " set" : "",
 			at[j].min_value,at[j].max_value);
+		attr = XInternAtom(dpy, at[j].name, False);
+		if (at[j].flags & XvGettable) {
+		    XvGetPortAttribute(dpy, p, attr, &val);
+		    fprintf(stderr,", val=%d",val);
+		}
+		fprintf(stderr,"\n");
 	    }
 	    if (at)
 		XFree(at);

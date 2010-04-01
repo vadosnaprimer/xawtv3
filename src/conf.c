@@ -31,9 +31,9 @@
 
 /*-------------------------------------------------------------------------*/
 
-void pixit();
+void pixit(void);
 void set_channel(struct CHANNEL *channel);
-void channel_menu();
+void channel_menu(void);
 
 extern Widget   app_shell,conf_shell;
 extern Display  *dpy;
@@ -50,7 +50,7 @@ static String *channel_list;
 
 /*-------------------------------------------------------------------------*/
 
-void conf_station_switched();
+void conf_station_switched(void);
 
 static void list_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
@@ -76,6 +76,7 @@ static void add_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	channel->key = strdup(key);
     channel->cname = (cur_channel != -1) ? chanlist[cur_channel].name : "???";
     channel->channel = cur_channel;
+    channel->input = cur_input;
     channel->fine = cur_fine;
     configure_channel(channel);
     channel_menu();
@@ -161,7 +162,7 @@ static void key_eh(Widget widget, XtPointer client_data,
     XtNtop,XawChainTop,     \
     XtNbottom,XawChainTop
 
-void create_confwin()
+void create_confwin(void)
 {
     Widget form, label, command;
     
@@ -271,7 +272,7 @@ void create_confwin()
 
 /*-------------------------------------------------------------------------*/
 
-void conf_station_switched()
+void conf_station_switched(void)
 {
     char line[128] = "???";
 
@@ -297,7 +298,7 @@ void conf_station_switched()
     }
 }
 
-void conf_list_update()
+void conf_list_update(void)
 {
     int i;
     

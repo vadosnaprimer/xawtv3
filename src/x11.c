@@ -6,23 +6,24 @@
  *
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <errno.h>
-#include <endian.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/socket.h>
-
-#include "config.h"
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
-#include <X11/Xaw/XawInit.h>
-#include <X11/Xaw/Simple.h>
 
 #ifdef HAVE_MITSHM
 # include <sys/ipc.h>
@@ -34,7 +35,7 @@
 # include <X11/extensions/Xvlib.h>
 #endif
 
-#include "grab.h"
+#include "grab-ng.h"
 #include "x11.h"
 #include "xv.h"
 #include "colorspace.h"
@@ -149,11 +150,11 @@ x11_init(Display *dpy, XVisualInfo *vinfo)
 	fprintf(stderr,"x11: server byte order: %s\n",
 		ImageByteOrder(dpy)==LSBFirst ? "little endian":"big endian");
 	fprintf(stderr,"x11: client byte order: %s\n",
-		__BYTE_ORDER==__LITTLE_ENDIAN ? "little endian":"big endian");
+		BYTE_ORDER==LITTLE_ENDIAN ? "little endian":"big endian");
     }
-    if (ImageByteOrder(dpy)==LSBFirst && __BYTE_ORDER!=__LITTLE_ENDIAN)
+    if (ImageByteOrder(dpy)==LSBFirst && BYTE_ORDER!=LITTLE_ENDIAN)
 	x11_byteswap=1;
-    if (ImageByteOrder(dpy)==MSBFirst && __BYTE_ORDER!=__BIG_ENDIAN)
+    if (ImageByteOrder(dpy)==MSBFirst && BYTE_ORDER!=BIG_ENDIAN)
 	x11_byteswap=1;
     if (vinfo->class == TrueColor /* || vinfo->class == DirectColor */) {
 	/* pixmap format */
@@ -256,6 +257,8 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
 		if (errno == ENOSYS)
 		    fprintf(stderr, "WARNING: Your kernel has no support "
 			    "for SysV IPC\n");
+		XDestroyImage(ximage);
+		ximage = NULL;
 		goto no_sysvipc;
 	    }
 	    shminfo->shmaddr = (char *) shmat(shminfo->shmid, 0, 0);
@@ -449,7 +452,7 @@ add_clip(int x1, int y1, int x2, int y2)
 } 
 
 static void
-get_clips()
+get_clips(void)
 {
     int x1,y1,x2,y2,lastcount;
     Display *dpy;
@@ -549,7 +552,7 @@ refresh_timer(XtPointer clientData, XtIntervalId *id)
 }
 
 static void
-configure_overlay()
+configure_overlay(void)
 {
     if (!overlay_cb)
 	return;
@@ -737,7 +740,7 @@ video_overlay(set_overlay cb)
 }
 
 Widget
-video_init(Widget parent, XVisualInfo *vinfo)
+video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class)
 {
     Window root = DefaultRootWindow(DISPLAY(parent));
 
@@ -746,7 +749,7 @@ video_init(Widget parent, XVisualInfo *vinfo)
 
     x11_native_format = x11_init(XtDisplay(parent),vinfo);
     video_parent = parent;
-    video = XtVaCreateManagedWidget("tv",simpleWidgetClass,parent,
+    video = XtVaCreateManagedWidget("tv",class,parent,
 				    NULL);
 
     /* Shell widget -- need map, unmap, configure */

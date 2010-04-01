@@ -10,6 +10,8 @@
 #include <X11/Xatom.h>
 #include <X11/Xmu/WinUtil.h>    /* for XmuClientWindow() */
 
+unsigned int debug=0;
+
 int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
@@ -53,10 +55,12 @@ find_window(Display * dpy, Atom atom)
 
         if (!args)
             continue;
-	printf("query 0x%08lx: ",w);
-	for (i = 0; i < nitems; i += strlen(args + i) + 1)
-	    printf("%s ", args + i);
-	printf("\n");
+	if (debug) {
+	    printf("query 0x%08lx: ",w);
+	    for (i = 0; i < nitems; i += strlen(args + i) + 1)
+		printf("%s ", args + i);
+	    printf("\n");
+	}
         XFree(args);
 
         result = w;
@@ -73,12 +77,15 @@ pass_cmd(Display *dpy, Atom atom, Window win, int argc, char **argv)
     int             i, len;
     char           *pass;
 
-    printf("ctrl  0x%08lx: ",win);
+    if (debug)
+	printf("ctrl  0x%08lx: ",win);
     for (len = 0, i = 0; i < argc; i++) {
-	printf("%s ",argv[i]);
+	if (debug)
+	    printf("%s ",argv[i]);
         len += strlen(argv[i]) + 1;
     }
-    printf("\n");
+    if (debug)
+	printf("\n");
     pass = malloc(len);
     pass[0] = 0;
     for (len = 0, i = 0; i < argc; i++)
@@ -110,28 +117,17 @@ usage(char *argv0)
 "        set X11 display\n"
 "    -i window ID\n"
 "        select xawtv window\n"
+"    -v n\n"
+"        Set debug level to n, default 0."
 "\n"
-"available commands:\n"
+"available commands (most frequently used ones):\n"
 "    setstation <name> | <nr> | next | prev\n"
-"        Tune in some station from $HOME/.xawtv. Takes either name or the\n"
-"        number (0 = first entry) of the config file entry as argument.\n"
 "    setchannel <name> | next | prev\n"
-"        Tune in some channel.  Takes the channel number as argument\n"
 "    capture on | off\n"
-"        Turn on/off video\n"
 "    volume mute | dec | inc | <number>\n"
-"        number (range 0 - 65536) sets the volume, the other arguments\n"
-"        (un)mute sound or increase/decrease volume\n"
-"    grab [ <format> [ <size> [ <filename> ]]]\n"
-"        capture a single image\n"
-"        format     ppm | jpeg                     ppm is default\n"
-"        size       full | win | <width>x<height>  full is default\n"
-"        filename   default is snap*.jpeg (the same xawtv uses\n"
-"                   if you press the G or J key to capture an image)\n"
-"                   You should use absolute paths here...\n"
-"    msg text\n"
-"        display \"text\" in the window title (onscreen display if in\n"
-"        fullscreen mode\n"
+"    snap [ <format> [ <size> [ <filename> ]]]\n"
+"\n"
+"Check the man-page for a full list and detailed descriptions.\n"
 "\n"
 	    ,prog);
 }
@@ -146,7 +142,7 @@ main(int argc, char *argv[])
     int      c;
 
     for (;;) {
-	c = getopt(argc, argv, "hd:i:");
+	c = getopt(argc, argv, "hd:i:v:");
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -155,6 +151,9 @@ main(int argc, char *argv[])
 	    break;
 	case 'i':
 	    id = atoi(optarg);
+	    break;
+	case 'v':
+	    debug = atoi(optarg);
 	    break;
 	case 'h':
 	default:

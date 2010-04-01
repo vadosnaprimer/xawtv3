@@ -1,13 +1,19 @@
-# Installs in /usr/X11R6/bin
+%define		prefix	/usr/X11R6
+
+# workaround a bug in rpm 3.0.4:
+#   by default it modifies the files installed by my %install
+#   scriptlet (compresses the man-pages), but failes to update
+#   the %files section too.
+%define __os_install_post       true
+
 Summary: Video4Linux Stream Capture Viewer
 Name: xawtv
 Version: @XAWTV_VERSION@
 Release: 1
-Source0: xawtv-%{version}.tar.gz
+Source0: xawtv_%{version}.tar.gz
 Group: X11/Applications
 Copyright: GNU GENERAL PUBLIC LICENSE
-URL: http://www.in-berlin.de/User/kraxel/v4l/xawtv-%{version}.tar.gz
-Vendor: Gerd Knorr <kraxel@goldbach.in-berlin.de>
+URL: http://www.strusel007.de/linux/xawtv/xawtv_%{version}.tar.gz
 BuildRoot: /var/tmp/xawtv-%{version}.root
 
 %package radio
@@ -17,6 +23,14 @@ Group: Applications/Sound
 %package misc
 Summary: misc
 Group: X11/Applications
+
+%package webcam
+Summary: webcam
+Group: Graphics
+
+%package -n alevtd
+Summary: alevtd
+Group: Applications/Internet
 
 %description
 A collection tools for video4linux:
@@ -41,49 +55,58 @@ them for debugging:
                  shoot sound problems.
  * showriff    - display the structure of RIFF files (avi, wav).
 
+%description webcam
+webcam captures images from a video4linux device like bttv,
+annotates them and and uploads them to a webserver using ftp
+in a endless loop.
+
+%description -n alevtd
+http daemon which serves videotext pages as HTML.
+
 %prep
 %setup
 
 %build
 mkdir build
 cd build
-CFLAGS="$RPM_OPT_FLAGS" ../configure --prefix=/usr/X11R6
+CFLAGS="$RPM_OPT_FLAGS" ../configure --prefix=%{prefix}
 make
 
 %install
 cd build
 make ROOT="$RPM_BUILD_ROOT" SUID_ROOT="" install
+find "$RPM_BUILD_ROOT" -type f -print		\
+	| sed -e "s|$RPM_BUILD_ROOT||"		\
+	| grep -v "^/usr/doc"			\
+	> rpm.all
 
-%files
-%attr(4711,root,root) /usr/X11R6/bin/v4l-conf
+egrep -e "/radio"					rpm.all	> rpm.radio
+egrep -e "/(dump-mixers|record|showriff|propwatch)"	rpm.all	> rpm.misc
+egrep -e "/webcam"					rpm.all	> rpm.webcam
+egrep -e "/alevtd"					rpm.all	> rpm.alevtd
+egrep -ve "/(radio|dump-mixers|record|showriff|propwatch|webcam|alevtd|v4l-conf)"	\
+	rpm.all > rpm.xawtv
+
+%files -f build/rpm.xawtv
 %defattr(-,root,root)
-/usr/X11R6/bin/fbtv
-/usr/X11R6/bin/streamer
-/usr/X11R6/bin/xawtv-remote
-/usr/X11R6/bin/xawtv
-/usr/X11R6/bin/v4lctl
-/usr/X11R6/man/man1/fbtv.1
-/usr/X11R6/man/man1/v4l-conf.1
-/usr/X11R6/man/man1/v4lctl.1
-/usr/X11R6/man/man1/xawtv-remote.1
-/usr/X11R6/man/man1/xawtv.1
-/usr/X11R6/lib
+%attr(4711,root,root) %{prefix}/bin/v4l-conf
 %doc README Changes COPYING Programming-FAQ Trouble-Shooting Sound-FAQ
-%doc README.lirc README.bttv UPDATE_TO_v3.0
+%doc README.* UPDATE_TO_v3.0
+%doc contrib/dot.lircrc contrib/frequencies*
 
-%files radio
+%files radio -f build/rpm.radio
 %defattr(-,root,root)
-/usr/X11R6/bin/radio
-/usr/X11R6/man/man1/radio.1
 
-%files misc
+%files misc -f build/rpm.misc
 %defattr(-,root,root)
-/usr/X11R6/bin/dump-mixers
-/usr/X11R6/bin/propwatch
-/usr/X11R6/bin/record
-/usr/X11R6/bin/showriff
-/usr/X11R6/man/man1/propwatch.1
 %doc tools/README
+
+%files webcam -f build/rpm.webcam
+%defattr(-,root,root)
+%doc webcam/webcam.cgi
+
+%files -n alevtd -f build/rpm.alevtd
+%defattr(-,root,root)
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -92,4 +115,3 @@ rm -rf $RPM_BUILD_ROOT
 cd /usr/X11R6/lib/X11/fonts/misc
 mkfontdir
 xset fp rehash || true
-

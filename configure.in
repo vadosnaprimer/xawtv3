@@ -8,14 +8,20 @@ AC_CONFIG_HEADER(config.h)
 dnl ---------------------------------------------------------------------
 dnl Options
 
-AC_ARG_ENABLE(jpeg,
-  [  --enable-jpeg           jpeg support (for snapshots)])
+AC_ARG_ENABLE(xaw3d,
+  [  --enable-xaw3d          use Xaw3D])
 AC_ARG_ENABLE(xfree-ext,
   [  --enable-xfree-ext      use XFree extentions (DGA,VidMode,DPMS)])
 AC_ARG_ENABLE(xvideo,
   [  --enable-xvideo         use the Xvideo extention])
 AC_ARG_ENABLE(lirc,
   [  --enable-lirc           lirc support])
+AC_ARG_ENABLE(quicktime,
+  [  --enable-quicktime      quicktime support])
+AC_ARG_ENABLE(efence,
+  [  --enable-efence         link against ElectricFence (malloc debug)])
+AC_ARG_ENABLE(motif,
+  [  --enable-motif          enable experimental motif support])
 
 
 dnl ---------------------------------------------------------------------
@@ -26,6 +32,34 @@ AC_PROG_CPP
 
 AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
+
+
+dnl ---------------------------------------------------------------------
+dnl Checks for functions
+
+AC_CHECK_FUNC(open64,
+	AC_DEFINE(HAVE_LFS)
+	CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64")
+AC_CHECK_FUNCS(ftello getpt getnameinfo)
+AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
+AC_CHECK_HEADERS(endian.h soundcard.h sys/soundcard.h)
+
+AC_CHECK_LIB(pthread,pthread_create,LIBPTHREAD="-lpthread")
+if test "$LIBPTHREAD" = ""; then
+  AC_CHECK_LIB(c_r,pthread_create,LIBPTHREAD="-lc_r")
+fi
+AC_CHECK_LIB(ossaudio,main,LIBSOUND="-lossaudio")
+AC_CHECK_LIB(ncurses,initscr,LIBCURSES="-lncurses")
+if test "$LIBCURSES" = ""; then
+  AC_CHECK_LIB(curses,initscr,LIBCURSES="-lcurses")
+fi
+if test "$LIBCURSES" = ""; then
+  echo "Oops: (n)curses library not found.  You need this one, please install."
+  exit 1
+fi
+AC_SUBST(LIBPTHREAD)
+AC_SUBST(LIBSOUND)
+AC_SUBST(LIBCURSES)
 
 
 dnl ---------------------------------------------------------------------
@@ -41,17 +75,27 @@ AC_SUBST(X_EXTRA_LIBS)
 AC_SUBST(X_LIBS)
 AC_SUBST(x_libraries)
 
-AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB, 
-  XAWLIB=Xaw3d, XAWLIB=Xaw, 
-  $X_LIBS $X_PRE_LIBS -lXext -lXmu -lXt -lX11)
+if test "$enable_xaw3d" != "no"; then
+    AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB, 
+      XAWLIB=Xaw3d, XAWLIB=Xaw, 
+      $X_LIBS $X_PRE_LIBS -lXext -lXmu -lXt -lX11)
+else
+    echo "*** Xaw3D disabled"
+    XAWLIB=Xaw
+fi
 AC_SUBST(XAWLIB)
 
-AC_SUBST(JPEG)
-JPEG=""
-if test "$enable_jpeg" != "no"; then
-    AC_CHECK_LIB(jpeg, jpeg_start_compress,AC_DEFINE(HAVE_LIBJPEG) JPEG="-ljpeg",,)
-else
-    echo "*** jpeg disabled"
+AC_SUBST(GFXLIBS)
+GFXLIBS="";
+AC_CHECK_LIB(jpeg, jpeg_start_compress, GFXLIBS="-ljpeg"; JPEG="found",,)
+if test "$JPEG" != "found"; then
+    echo "Oops: jpeg library not found.  You need this one, please install."
+    exit 1
+fi
+
+if test "$enable_efence" = "yes"; then
+    echo "*** ElectricFence (malloc debugger) enabled"
+    AC_CHECK_LIB(efence, EF_Print)
 fi
 
 AC_SUBST(LIRC)
@@ -63,6 +107,19 @@ else
     echo "*** lirc disabled"
 fi
 
+if test "$enable_quicktime" != "no"; then
+    AC_CHECK_LIB(png, png_read_info, GFXLIBS="-lpng $GFXLIBS"; PNG="found")
+    if test "$PNG" = "found"; then
+	AC_CHECK_LIB(quicktime, quicktime_open,
+		GFXLIBS="-lquicktime -lglib $GFXLIBS";AC_DEFINE(HAVE_LIBQUICKTIME),,
+		-lglib -ljpeg -lpng $LIBPTHREAD)
+    else
+	echo "*** libpng not found: no quicktime support, sorry"
+    fi
+else
+    echo "*** quicktime disabled"
+fi
+
 if test "$enable_xfree_ext" != "no"; then
     AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
@@ -70,6 +127,10 @@ if test "$enable_xfree_ext" != "no"; then
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
     AC_CHECK_LIB(Xdpms, DPMSQueryExtension,,, 
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+    if test "$ac_cv_lib_Xdpms_DPMSQueryExtension" = "no"; then
+	AC_CHECK_LIB(Xext, DPMSQueryExtension,AC_DEFINE(HAVE_LIBXDPMS),,
+	    $X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+    fi
 else
     echo "*** XFree extentions disabled"
 fi
@@ -81,13 +142,37 @@ else
     echo "*** Xvideo extention disabled"
 fi
 
+AC_SUBST(MOTIF)
+MOTIF=""
+if test "$enable_motif" = "yes"; then
+    MOTIF="motv"
+fi
+
 AC_CHECK_LIB(Xext, XShmAttach,AC_DEFINE(HAVE_MITSHM),,
 	$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
 
-
-XAWTV_VERSION="`pwd | sed -e 's/.*xawtv-\([[a-z0-9.]]\+\).*/\1/'`"
+XAWTV_VERSION="`(cd $srcdir; pwd) | sed -e 's/.*-//'`"
 AC_SUBST(XAWTV_VERSION)
 
 dnl ---------------------------------------------------------------------
+AC_MSG_CHECKING(for X11 config directory)
+x11conf=/usr/X11R6/lib/X11
+if test -d /etc/X11; then
+	x11conf=/etc/X11
+fi
+AC_MSG_RESULT($x11conf)
+AC_SUBST(x11conf)
+
+AC_MSG_CHECKING(for X11 app-defaults directory)
+resdir=/usr/X11R6/lib/X11/app-defaults
+if test -d /etc/X11/app-defaults; then
+	resdir=/etc/X11/app-defaults
+fi
+AC_MSG_RESULT($resdir)
+AC_SUBST(resdir)
+
+
+dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile src/Makefile tools/Makefile radio/Makefile 
-	man/Makefile i2c/Makefile font/Makefile webcam/Makefile xawtv.spec)
+	man/Makefile i2c/Makefile font/Makefile webcam/Makefile
+	http/Makefile libvbi/Makefile xawtv.spec)

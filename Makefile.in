@@ -1,35 +1,40 @@
 
-SUBDIRS=src man radio font tools #i2c webcam 
+SUBDIRS=libvbi src man radio font tools webcam http #i2c vtx
 
-all dep depend install clean distclean realclean::
-	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done
+all build dep depend install clean distclean realclean::
+	set -e; for dir in $(SUBDIRS); do $(MAKE) -C $$dir $@; done
 
 distclean realclean::
-	-rm -f *~ config.cache config.h config.log config.status Makefile
-	@echo "default:" > Makefile
-	@echo "	./configure && make dep && make" >> Makefile
+	-rm -f *~ debian/*~ config.cache config.h config.log config.status Makefile
+	cp Makefile.clean Makefile
 
 
-###########################################
-# just for me, some maintaining jobs...
+#########################################################
+# just for me, some maintaining jobs.  Don't use them
 
-DEST=$(HOME)/www/v4l
 RPM=/home/ftp/rpm
 VERSION=@XAWTV_VERSION@
 
-tar: distclean
+realclean::
 	find . -name snap0*.ppm  -print | xargs -i rm -f
 	find . -name snap0*.jpeg -print | xargs -i rm -f
-	make -C vtx distclean
-	cd ..;tar cvzf $(DEST)/xawtv-$(VERSION).tar.gz xawtv-$(VERSION)
-	rm -f $(RPM)/SOURCES/xawtv-*.tar.gz
-	cp $(DEST)/xawtv-$(VERSION).tar.gz $(RPM)/SOURCES
+	find . -name .nfs* -print | xargs -i rm -f
+	set -e; for dir in i2c; do make -C $$dir distclean; done
 
-diff: distclean 
-	echo $(VERSION)
-	(cd /tmp; tar xvzf `ls -t $(HOME)/2/src/Archives/xawtv-*.tar.gz | head -n 1`)
-	(cd ..; diff -urN /tmp/xawtv-* xawtv-$(VERSION) | gzip > $(DEST)/xawtv-$(VERSION).diff.gz)
+checkit: distclean
+	dpkg-buildpackage -tc -us -uc -rfakeroot
+	rpm -ta ../xawtv_*.tar.gz
+	lintian ../xawtv_*.changes
+
+diff:
+	(cd /tmp; tar xvzf `ls -t $(HOME)/debian/Archive/xawtv_*.tar.gz | head -n 1`)
+	(cd ..; diff -urN /tmp/xawtv-* xawtv-$(VERSION) | gzip > xawtv_$(VERSION).diff.gz)
 	rm -rf /tmp/xawtv-*
 
-dist: tar diff
+release: realclean diff
+	make -C font bdf
+	dpkg-buildpackage -tc -rfakeroot
+
+port:
+	dpkg-buildpackage -b -tc -rfakeroot
 

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include "frequencies.h"
 #include "grab.h"
@@ -510,6 +511,7 @@ static struct CHANLIST pal_australia[] = {
     { "3",	 86250 },
     { "4",  	 95250 },
     { "5",  	102250 },
+    { "5A",  	138250 },
     { "6",  	175250 },
     { "7",  	182250 },
     { "8",  	189250 },
@@ -634,7 +636,7 @@ static struct CHANLIST pal_australia[] = {
     { "R2",       59250 },	\
 				\
     { "R3",       77250 },	\
-    { "R4",       84250 },	\
+    { "R4",       85250 },	\
     { "R5",       93250 },	\
 				\
     { "R6",	 175250 },	\
@@ -716,21 +718,19 @@ static struct CHANLIST pal_australia[] = {
     { "68",  847250 },	\
     { "69",  855250 }
 
-static struct CHANLIST europe_cable[] = {
+static struct CHANLIST europe_west[] = {
     FREQ_CCIR_I_III,
     FREQ_CCIR_SL_SH,
     FREQ_CCIR_H,
     FREQ_UHF
 };
 
-static struct CHANLIST europe_bcast_west[] = {
-    FREQ_CCIR_I_III,
-    FREQ_UHF
-};
-
-static struct CHANLIST europe_bcast_east[] = {
+static struct CHANLIST europe_east[] = {
     FREQ_OIRT_I_III,
     FREQ_OIRT_SL_SH,
+    FREQ_CCIR_I_III,
+    FREQ_CCIR_SL_SH,
+    FREQ_CCIR_H,
     FREQ_UHF
 };
 
@@ -746,6 +746,7 @@ static struct CHANLIST pal_italy[] = {
     { "10",	210250 },
     { "11",	217250 },
     { "12",	224250 },
+    FREQ_UHF
 };
 
 static struct CHANLIST pal_ireland[] = {
@@ -818,15 +819,117 @@ static struct CHANLIST pal_newzealand[] = {
     { "3",	  62250 },
     { "4",	 175250 },
     { "5",	 182250 },
-    { "5A",	 138250 },
     { "6",	 189250 },
     { "7",	 196250 },
     { "8",	 203250 },
     { "9",	 210250 },
     { "10",	 217250 },
+    { "11",	 224250 },
+    FREQ_UHF,
 };
 
 /* --------------------------------------------------------------------- */
+
+/* China broadcast */
+static struct CHANLIST pal_bcast_cn[] = {
+    { "1",	49750 },
+    { "2",	57750 },
+    { "3",	65750 },
+    { "4",	77250 },
+    { "5",	85250 },
+    { "6",	112250 },
+    { "7",	120250 },
+    { "8",	128250 },
+    { "9",	136250 },
+    { "10",	144250 },
+    { "11",	152250 },
+    { "12",	160250 },
+    { "13",	168250 },
+    { "14",	176250 },
+    { "15",	184250 },
+    { "16",	192250 },
+    { "17",	200250 },
+    { "18",	208250 },
+    { "19",	216250 },
+    { "20",	224250 },
+    { "21",	232250 },
+    { "22",	240250 },
+    { "23",	248250 },
+    { "24",	256250 },
+    { "25",	264250 },
+    { "26",	272250 },
+    { "27",	280250 },
+    { "28",	288250 },
+    { "29",	296250 },
+    { "30",	304250 },
+    { "31",	312250 },
+    { "32",	320250 },
+    { "33",	328250 },
+    { "34",	336250 },
+    { "35",	344250 },
+    { "36",	352250 },
+    { "37",	360250 },
+    { "38",	368250 },
+    { "39",	376250 },
+    { "40",	384250 },
+    { "41",	392250 },
+    { "42",	400250 },
+    { "43",	408250 },
+    { "44",	416250 },
+    { "45",	424250 },
+    { "46",	432250 },
+    { "47",	440250 },
+    { "48",	448250 },
+    { "49",	456250 },
+    { "50",	463250 },
+    { "51",	471250 },
+    { "52",	479250 },
+    { "53",	487250 },
+    { "54",	495250 },
+    { "55",	503250 },
+    { "56",	511250 },
+    { "57",	519250 },
+    { "58",	527250 },
+    { "59",	535250 },
+    { "60",	543250 },
+    { "61",	551250 },
+    { "62",	559250 },
+    { "63",	607250 },
+    { "64",	615250 },
+    { "65",	623250 },
+    { "66",	631250 },
+    { "67",	639250 },
+    { "68",	647250 },
+    { "69",	655250 },
+    { "70",	663250 },
+    { "71",	671250 },
+    { "72",	679250 },
+    { "73",	687250 },
+    { "74",	695250 },
+    { "75",	703250 },
+    { "76",	711250 },
+    { "77",	719250 },
+    { "78",	727250 },
+    { "79",	735250 },
+    { "80",	743250 },
+    { "81",	751250 },
+    { "82",	759250 },
+    { "83",	767250 },
+    { "84",	775250 },
+    { "85",	783250 },
+    { "86",	791250 },
+    { "87",	799250 },
+    { "88",	807250 },
+    { "89",	815250 },
+    { "90",	823250 },
+    { "91",	831250 },
+    { "92",	839250 },
+    { "93",	847250 },
+    { "94",	855250 },
+};
+
+/* --------------------------------------------------------------------- */
+
 
 struct CHANLISTS chanlists[] = {
     { "us-bcast",         ntsc_bcast,        CHAN_COUNT(ntsc_bcast)        },
@@ -834,14 +937,14 @@ struct CHANLISTS chanlists[] = {
     { "us-cable-hrc",     ntsc_hrc,          CHAN_COUNT(ntsc_hrc)          },
     { "japan-bcast",      ntsc_bcast_jp,     CHAN_COUNT(ntsc_bcast_jp)     },
     { "japan-cable",      ntsc_cable_jp,     CHAN_COUNT(ntsc_cable_jp)     },
-    { "europe-bcast-west",europe_bcast_west, CHAN_COUNT(europe_bcast_west) },
-    { "europe-bcast-east",europe_bcast_east, CHAN_COUNT(europe_bcast_east) },
-    { "europe-cable",     europe_cable,      CHAN_COUNT(europe_cable)      },
+    { "europe-west",      europe_west,       CHAN_COUNT(europe_west)       },
+    { "europe-east",      europe_east,       CHAN_COUNT(europe_east)       },
     { "italy",	          pal_italy,         CHAN_COUNT(pal_italy)         },
     { "newzealand",       pal_newzealand,    CHAN_COUNT(pal_newzealand)    },
     { "australia",        pal_australia,     CHAN_COUNT(pal_australia)     },
     { "ireland",          pal_ireland,       CHAN_COUNT(pal_ireland)       },
     { "france",           secam_france,      CHAN_COUNT(secam_france)      },
+    { "china-bcast",      pal_bcast_cn,      CHAN_COUNT(pal_bcast_cn)      },
     { NULL, NULL, 0 } /* EOF */
 };
 
@@ -851,17 +954,17 @@ struct STRTAB chanlist_names[] = {
     {  2, "us-cable-hrc" },
     {  3, "japan-bcast" },
     {  4, "japan-cable" },
-    {  5, "europe-bcast-west" },
-    {  6, "europe-bcast-east" },
-    {  7, "europe-cable" },
-    {  8, "italy" },
-    {  9, "newzealand" },
-    { 10, "australia" },
-    { 11, "ireland" },
-    { 12, "france" },
+    {  5, "europe-west" },
+    {  6, "europe-east" },
+    {  7, "italy" },
+    {  8, "newzealand" },
+    {  9, "australia" },
+    { 10, "ireland" },
+    { 11, "france" },
+    { 12, "china-bcast" },	
     { -1, NULL }
 };
 
-int                chantab   = 7;
-struct CHANLIST   *chanlist  = europe_cable;
-int                chancount = CHAN_COUNT(europe_cable);
+int                chantab   = 5;
+struct CHANLIST   *chanlist  = europe_west;
+int                chancount = CHAN_COUNT(europe_west);

@@ -1,0 +1,2 @@
+?package(xawtv):needs=x11 section=Apps/Viewers \
+	title="xawtv" command="/usr/bin/xawtv"

@@ -2,9 +2,12 @@ srcdir=@srcdir@
 VPATH=$(srcdir)
 
 ROOT=
-prefix=$(ROOT)@prefix@
-bindir=$(prefix)/bin
-mandir=$(prefix)/man
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=$(ROOT)@bindir@
+mandir=$(ROOT)@mandir@
+
+OS:=$(shell uname -s | tr "A-Z" "a-z")
 
 CC=@CC@
 INSTALL=@INSTALL@
@@ -14,14 +17,18 @@ INSTALL_DIR=mkdir -p
 
 CFLAGS=-g -Wall @CFLAGS@ -I$(srcdir)/.. -I..
 
-PROGS=radio
+ifeq ($(OS),linux)
+  PROGS=radio
+else
+  PROGS=
+endif
 
 ##########################################################################
 
-all: $(PROGS)
+all build: $(PROGS)
 
 radio: radio.o
-	$(CC) $(CFLAGS) -o $@ $< -lncurses
+	$(CC) $(CFLAGS) -o $@ $< @LIBCURSES@
 
 install: all
 	$(INSTALL_DIR) $(bindir)
@@ -29,10 +36,10 @@ install: all
 	$(INSTALL_DATA) $(srcdir)/radio.man $(mandir)/man1/radio.1
 
 clean:
-	-rm -f *.o *~ core* *.bak TAGS
+	-rm -f *.o core* TAGS
 
 realclean distclean: clean
-	-rm -f $(PROGS) Makefile
+	-rm -f $(PROGS) Makefile *~ *.bak
 
 dep depend:
 

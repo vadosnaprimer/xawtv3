@@ -1,14 +1,11 @@
 #include "config.h"
 
-#ifdef HAVE_LIBJPEG
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-
-#include "jpeglib.h"
+#include <jpeglib.h>
 
 #include "mjpeg.h"
 #include "colorspace.h"
@@ -167,7 +164,7 @@ mjpg_yuv_init(int width, int height)
 }
 
 static int
-mjpg_yuv_compress()
+mjpg_yuv_compress(void)
 {
     int y;
 
@@ -175,7 +172,9 @@ mjpg_yuv_compress()
     mjpg_run[1] = mjpg_ptrs[1];
     mjpg_run[2] = mjpg_ptrs[2];
     
+//    mjpg_cinfo.write_JFIF_header = FALSE;
     jpeg_start_compress(&mjpg_cinfo, mjpg_tables);
+//    jpeg_write_marker(&mjpg_cinfo, JPEG_APP0, "AVI1\0\0\0\0", 8);
     for (y = 0; y < mjpg_cinfo.image_height; y += 2*DCTSIZE) {
 	jpeg_write_raw_data(&mjpg_cinfo, mjpg_run,2*DCTSIZE);
 	mjpg_run[0] += 2*DCTSIZE;
@@ -241,5 +240,3 @@ mjpg_yuv420_compress(unsigned char *d, unsigned char *s, int p)
 
     return mjpg_yuv_compress();
 }
-
-#endif /* HAVE_LIBJPEG */

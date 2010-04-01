@@ -3,7 +3,7 @@
 # test capture...
 #
 STREAMER=src/streamer
-PLAYBACK="xanim +f +Sr +Ze -Zr"
+PLAYBACK="xanim +f +Sr +Ze -Zr -Av"
 DEST=/media/test
 #DEST=/usr/data/test
 

@@ -1,8 +1,7 @@
-
 /*
  * console TV application.  Uses a framebuffer device.
  *
- *   (c) 1998 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1998-2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
 
@@ -30,6 +29,7 @@
 
 #include "config.h"
 
+#include "grab-ng.h"
 #include "fbtools.h"
 #include "matrox.h"
 #include "writefile.h"
@@ -37,7 +37,6 @@
 #include "channel.h"
 #include "frequencies.h"
 #include "commands.h"
-#include "grab.h"
 #include "lirc.h"
 
 #define MAX(x,y)        ((x)>(y)?(x):(y))
@@ -107,6 +106,9 @@ static struct KEYTAB keytab[] = {
 
     { 'V',       2, { "capture",    "toggle"    }},
     { 'v',       2, { "capture",    "toggle"    }},
+
+    { 'F',       2, { "fullscreen", "toggle"    }},
+    { 'f',       2, { "fullscreen", "toggle"    }},
 
     { '0',       2, { "keypad",     "0"         }},
     { '1',       2, { "keypad",     "1"         }},
@@ -219,7 +221,7 @@ fb_initcolors(int fd, int gray)
 }
 
 void
-tty_init()
+tty_init(void)
 {
     /* we use curses just for kbd input */
     initscr();
@@ -229,7 +231,7 @@ tty_init()
 }
 
 void
-tty_cleanup()
+tty_cleanup(void)
 {
     clear();
     refresh();
@@ -259,8 +261,8 @@ void do_capture(int from, int to)
     /* off */
     switch (from) {
     case CAPTURE_GRABDISPLAY:
-	if (grabber->grab_cleanup)
-	    grabber->grab_cleanup();
+	if (grabber->grab_stop)
+	    grabber->grab_stop();
 	break;
     case CAPTURE_OVERLAY:
 	grabber->grab_overlay(0,0,0,0,0,NULL,0);
@@ -275,7 +277,7 @@ void do_capture(int from, int to)
 	if (ww && hh) {
 	    dw  = ww;
 	    dh  = hh;
-	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0);
+	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0, 1);
 	    dx  = fb_var.xres-dw;
 	    dy  = 0;
 	} else {
@@ -288,10 +290,12 @@ void do_capture(int from, int to)
 	    }
 	    dw  = fb_var.xres-dx;
 	    dh  = fb_var.yres-dy;
-	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0);
+	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0, 1);
 	    dx += (fb_var.xres-24-dw)/2;
 	    dy += (fb_var.yres-16-dh)/2;
 	}
+	if (grabber->grab_start)
+	    grabber->grab_start(-1,2);
 	off = dy * fb_fix.line_length + dx * ((fb_var.bits_per_pixel+7)/8);
 	break;
     case CAPTURE_OVERLAY:
@@ -325,6 +329,8 @@ void do_capture(int from, int to)
 	    height = 240;
 	    starty = fb_var.yres-height;
 #endif
+	    if (width*2 > fb_fix.line_length)
+		width = fb_fix.line_length/2;
 	    pitch = fb_fix.line_length;
 	    grabber->grab_offscreen(starty,width,height,VIDEO_YUV422);
 	    gfx_scaler_on(starty*pitch,pitch,width,height,dx,dx+dw,dy,dy+dh);
@@ -336,7 +342,7 @@ void do_capture(int from, int to)
 }
 
 static void
-do_exit()
+do_exit(void)
 {
     sig = 1;
 }
@@ -354,7 +360,7 @@ new_message(char *txt)
 }
 
 void
-channel_menu()
+channel_menu(void)
 {
     int  i,f;
     char key[32],ctrl[16];
@@ -375,10 +381,19 @@ channel_menu()
     }
 }
 
+static void
+do_fullscreen(void)
+{
+    do_va_cmd(2,"capture","off");
+    quiet = !quiet;
+    fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
+    do_va_cmd(2,"capture","on");
+}
+
 /*--- main ---------------------------------------------------------------*/
 
 static void
-grabber_init()
+grabber_init(void)
 {
     grabber_open(device,
 		 fb_var.xres_virtual,
@@ -389,7 +404,7 @@ grabber_init()
 }
 
 void
-console_switch()
+console_switch(void)
 {
     switch (fb_switch_state) {
     case FB_REL_REQ:
@@ -434,6 +449,7 @@ int
 main(int argc, char *argv[])
 {
     int             key,i,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc;
+    unsigned long   freq;
     struct timeval  tv;
     time_t          t;
     char            text[80];
@@ -526,6 +542,7 @@ main(int argc, char *argv[])
     display_message   = new_message;
     set_capture_hook  = do_capture;
     exit_hook         = do_exit;
+    fullscreen_hook   = do_fullscreen;
 
     tty_init();
     atexit(tty_cleanup);
@@ -534,8 +551,8 @@ main(int argc, char *argv[])
 
     /* init hardware */
     attr_init();
-    audio_init();
     audio_on();
+    audio_init();
     do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
 
     cur_capture = 0;
@@ -543,7 +560,14 @@ main(int argc, char *argv[])
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
     } else {
-	if (!grabber->grab_tuned || !grabber->grab_tuned()) {
+	if (grabber->grab_tune && 0 != (freq = grabber->grab_tune(-1,-1))) {
+	    for (i = 0; i < chancount; i++)
+		if (chanlist[i].freq == freq*1000/16) {
+		    do_va_cmd(2,"setchannel",chanlist[i].name);
+		    break;
+		}
+	}
+	if (-1 == cur_channel) {
 	    if (count > 0)
 		do_va_cmd(2,"setstation","0");
 	    else
@@ -600,7 +624,7 @@ main(int argc, char *argv[])
 	    if (cur_capture == CAPTURE_GRABDISPLAY) {
 		fps++;
 		grabber_capture(fb_mem+fb_mem_offset+off,
-				fb_fix.line_length,0,NULL);
+				fb_fix.line_length,NULL);
 		tv.tv_sec  = 0;
 		tv.tv_usec = 0;
 		rc = select(MAX(0,lirc)+1,&set,NULL,NULL,&tv);
@@ -633,19 +657,11 @@ main(int argc, char *argv[])
 	    case -1:
 		break;
 
-	    case 'f':
-	    case 'F':
-		do_va_cmd(2,"capture","off");
-		quiet = !quiet;
-		fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
-		do_va_cmd(2,"capture","on");
-		break;
-
-#if 0
+#if 1
 	    case 'y':
-		scaler_test(1);
+		/* scaler_test(1); */
 		do_va_cmd(2,"capture","off");
-		do_va_cmd(2,"capture","on");
+		do_va_cmd(2,"capture","grab");
 		break;
 #endif
 

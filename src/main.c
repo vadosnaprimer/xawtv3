@@ -1,7 +1,7 @@
 /*
  * main.c for xawtv -- a TV application
  *
- *   (c) 1997-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1997-2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
 
@@ -11,12 +11,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <getopt.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -68,14 +68,15 @@ Status DPMSDisable(Display*);
 # include <X11/extensions/Xvlib.h>
 #endif
 
+#include "grab-ng.h"
 #include "writefile.h"
 #include "sound.h"
 #include "channel.h"
 #include "commands.h"
 #include "frequencies.h"
-#include "grab.h"
 #include "xv.h"
 #include "capture.h"
+#include "xt.h"
 #include "x11.h"
 #include "toolbox.h"
 #include "complete.h"
@@ -99,53 +100,86 @@ typedef float fp_res;
 
 /*--- public variables ----------------------------------------------------*/
 
-XtAppContext      app_context;
-Widget            app_shell, tv;
 Widget            opt_shell, opt_paned, chan_shell, conf_shell, str_shell;
 Widget            on_shell, on_label;
+Widget            vtx_shell, vtx_label;
 Widget            launch_shell, launch_paned;
 Widget            c_norm,c_input,c_freq,c_audio,c_cap;
 Widget            s_bright,s_color,s_hue,s_contrast,s_volume;
 Widget            chan_viewport, chan_box;
-Display           *dpy;
-XVisualInfo       vinfo;
-Colormap          colormap;
 XtWorkProcId      idle_id;
 Pixmap            tv_pix;
 int               stay_on_top = 0;
 
 int               str_pid = -1;
-Widget            str_fbutton,str_text;
-char              *str_filename;
 
 int               have_config = 0;
-Atom              wm_protocols[2],xawtv_remote,xawtv_station;
 XtIntervalId      title_timer, audio_timer, zap_timer, scan_timer, on_timer;
-int               pointer_on = 1, on_skip = 0;
 int               debug = 0;
 int               fs = 0;
 int               zap_start,zap_fast;
 
 char              modename[64];
 char              *progname;
-int               have_dga = 0;
-int               have_vm = 0;
-int               have_shmem = 0;
-#ifdef HAVE_LIBXXF86VM
-int               vm_count;
-XF86VidModeModeInfo **vm_modelines;
-#endif
 int               lirc;
 
 int               rec_writer;
 int               rec_wsync;
-XtWorkProcId      rec_id;
-int               cur_avi_audio  = 0;
-int               cur_avi_format = VIDEO_RGB15_LE;
-int               cur_avi_fps    = 15;
-Widget            avi_size,avi_status;
+XtWorkProcId      rec_work_id;
+XtInputId         rec_audio_id;
 
-char v4l_conf[128] = "v4l-conf";
+/* movie params / setup */
+Widget            w_movie_status;
+Widget            w_movie_driver;
+
+Widget            w_movie_fvideo;
+Widget            w_movie_video;
+Widget            w_movie_fps;
+Widget            w_movie_size;
+
+Widget            w_movie_flabel;
+Widget            w_movie_faudio;
+Widget            w_movie_audio;
+Widget            w_movie_rate;
+
+struct STRTAB     *m_movie_driver;
+struct STRTAB     *m_movie_audio;
+struct STRTAB     *m_movie_video;
+
+int               movie_driver = 0;
+int               movie_audio  = 0;
+int               movie_video  = 0;
+int               movie_fps    = 12;
+int               movie_rate   = 44100;
+
+static struct STRTAB m_movie_fps[] = {
+    {  5, " 5 fps" },
+    {  8, " 8 fps" },
+    { 10, "10 fps" },
+    { 12, "12 fps" },
+    { 15, "15 fps" },
+    { 18, "18 fps" },
+    { 20, "20 fps" },
+    { 24, "24 fps" },
+    { 25, "25 fps" },
+    { 30, "30 fps" },
+    { -1, NULL },
+};
+static struct STRTAB m_movie_rate[] = {
+    {   8000, " 8000" },
+    {  11025, "11025" },
+    {  22050, "22050" },
+    {  44100, "44100" },
+    {  48000, "48000" },
+    { -1, NULL },
+};
+
+#define MOVIE_DRIVER  "movie driver"
+#define MOVIE_AUDIO   "audio format"
+#define MOVIE_VIDEO   "video format"
+#define MOVIE_FPS     "frames/sec"
+#define MOVIE_RATE    "sample rate"
+#define MOVIE_SIZE    "video size"
 
 /* fwd decl */
 void change_audio(int mode);
@@ -171,175 +205,29 @@ static struct MY_TOPLEVELS {
 struct STRTAB *cmenu = NULL;
 static char default_title[256] = "???";
 
-struct DO_CMD {
-    int  argc;
-    char *argv[8];
-};
-
 struct DO_AC {
     int  argc;
     char *name;
     char *argv[8];
 };
 
-/*--- args ----------------------------------------------------------------*/
-
-static struct ARGS {
-    /* char */
-    char *device;
-    char *basename;
-    /* int */
-    int  debug;
-    int  bpp;
-    int  shift;
-    /* boolean */
-    int  remote;
-    int  readconfig;
-    int  showpointer;
-    int  fullscreen;
-    int  fbdev;
-    int  xv_video;
-    int  xv_scale;
-    int  vidmode;
-    int  dga;
-    int  help;
-} args;
-
-static XtResource args_desc[] = {
-    /* name, class, type, size, offset, default_type, default_addr */
-    {
-	/* Strings */
-	"device",
-	XtCString, XtRString, sizeof(char*),
-	XtOffset(struct ARGS*,device),
-	XtRString, "/dev/video"
-    },{
-	"basename",
-	XtCString, XtRString, sizeof(char*),
-	XtOffset(struct ARGS*,basename),
-	XtRString, "snap"
-    },{
-	/* Integer */
-	"debug",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,debug),
-	XtRString, "0"
-    },{
-	"bpp",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,bpp),
-	XtRString, "0"
-    },{
-	"shift",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,shift),
-	XtRString, "0"
-    },{
-	/* Boolean */
-	"remote",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,remote),
-	XtRString, "0"
-    },{
-	"readconfig",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,readconfig),
-	XtRString, "1"
-    },{
-	"showpointer",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,showpointer),
-	XtRString, "1"
-    },{
-	"fullscreen",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,fullscreen),
-	XtRString, "0"
-    },{
-	"fbdev",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,fbdev),
-	XtRString, "0"
-    },{
-	"xvideo",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,xv_video),
-	XtRString, "1"
-    },{
-	"hwscale",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,xv_scale),
-	XtRString, "1"
-    },{
-	"vidmode",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,vidmode),
-	XtRString, "1"
-    },{
-	"dga",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,dga),
-	XtRString, "1"
-    },{
-	"help",
-	XtCValue, XtRInt, sizeof(int),
-	XtOffset(struct ARGS*,help),
-	XtRString, "0"
-    }
-};
-
-static XrmOptionDescRec opt_desc[] = {
-  { "-c",          "device",      XrmoptionSepArg, NULL },
-  { "-device",     "device",      XrmoptionSepArg, NULL },
-  { "-o",          "basename",    XrmoptionSepArg, NULL },
-  { "-outfile",    "basename",    XrmoptionSepArg, NULL },
-
-  { "-v",          "debug",       XrmoptionSepArg, NULL },
-  { "-debug",      "debug",       XrmoptionSepArg, NULL },
-  { "-b",          "bpp",         XrmoptionSepArg, NULL },
-  { "-bpp",        "bpp",         XrmoptionSepArg, NULL },
-  { "-shift",      "shift",       XrmoptionSepArg, NULL },
-
-  { "-remote",     "remote",      XrmoptionNoArg,  "1" },
-  { "-n",          "readconfig",  XrmoptionNoArg,  "0" },
-  { "-noconf",     "readconfig",  XrmoptionNoArg,  "0" },
-  { "-m",          "showpointer", XrmoptionNoArg,  "0" },
-  { "-nomouse",    "showpointer", XrmoptionNoArg,  "0" },
-  { "-f",          "fullscreen",  XrmoptionNoArg,  "1" },
-  { "-fullscreen", "fullscreen",  XrmoptionNoArg,  "1" },
-
-  { "-fb",         "fbdev",       XrmoptionNoArg,  "1" },
-  { "-noxv",       "xvideo",      XrmoptionNoArg,  "0" },
-  { "-noscale",    "hwscale",     XrmoptionNoArg,  "0" },
-  { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
-  { "-nodga",      "dga",         XrmoptionNoArg,  "0" },
-
-  { "-h",          "help",        XrmoptionNoArg,  "1" },
-  { "-help",       "help",        XrmoptionNoArg,  "1" },
-  { "--help",      "help",        XrmoptionNoArg,  "1" },
-};
-
-#define OPT_COUNT (sizeof(opt_desc)/sizeof(XrmOptionDescRec))
-
 /*--- actions -------------------------------------------------------------*/
 
 /* conf.c */
-extern void create_confwin();
-extern void conf_station_switched();
-extern void conf_list_update();
+extern void create_confwin(void);
+extern void conf_station_switched(void);
+extern void conf_list_update(void);
 
 void CloseMainAction(Widget, XEvent*, String*, Cardinal*);
 void SetBgAction(Widget, XEvent*, String*, Cardinal*);
 void SetShadowAction(Widget, XEvent*, String*, Cardinal*);
 void ScanAction(Widget, XEvent*, String*, Cardinal*);
 void ChannelAction(Widget, XEvent*, String*, Cardinal*);
-void PointerAction(Widget, XEvent*, String*, Cardinal*);
 void RemoteAction(Widget, XEvent*, String*, Cardinal*);
 void ZapAction(Widget, XEvent*, String*, Cardinal*);
 void StayOnTop(Widget, XEvent*, String*, Cardinal*);
 void LaunchAction(Widget, XEvent*, String*, Cardinal*);
 void PopupAction(Widget, XEvent*, String*, Cardinal*);
-void CommandAction(Widget, XEvent*, String*, Cardinal*);
 
 static XtActionsRec actionTable[] = {
     { "CloseMain",   CloseMainAction  },
@@ -347,7 +235,6 @@ static XtActionsRec actionTable[] = {
     { "SetShadow",   SetShadowAction },
     { "Scan",        ScanAction },
     { "Channel",     ChannelAction },
-    { "Pointer",     PointerAction },
     { "Remote",      RemoteAction },
     { "Zap",         ZapAction },
     { "Complete",    CompleteAction },
@@ -364,34 +251,6 @@ static struct STRTAB cap_list[] = {
     {  CAPTURE_OVERLAY,     "overlay"     },
     {  CAPTURE_GRABDISPLAY, "grabdisplay" },
     {  -1, NULL,     },
-};
-
-static struct STRTAB avi_audio[] = {
-    {  0, "no sound" },
-    {  1, "mono"     },
-    {  2, "stereo"   },
-    { -1, NULL },
-};
-
-static struct STRTAB avi_format[] = {
-    {  VIDEO_RGB15_LE, "15 bpp (rgb)" },
-    {  VIDEO_BGR24,    "24 bpp (rgb)" },
-    {  VIDEO_MJPEG,    "mjpeg"        },
-    { -1, NULL },
-};
-
-static struct STRTAB avi_fps[] = {
-    {  5, " 5 fps" },
-    {  8, " 8 fps" },
-    { 10, "10 fps" },
-    { 12, "12 fps" },
-    { 15, "15 fps" },
-    { 18, "18 fps" },
-    { 20, "20 fps" },
-    { 24, "24 fps" },
-    { 25, "25 fps" },
-    { 30, "30 fps" },
-    { -1, NULL },
 };
 
 /*--- exit ----------------------------------------------------------------*/
@@ -423,7 +282,7 @@ ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
 }
 
 static void
-do_exit()
+do_exit(void)
 {
     ExitCB(NULL,NULL,NULL);    
 }
@@ -432,64 +291,14 @@ void
 CloseMainAction(Widget widget, XEvent *event,
 		String *params, Cardinal *num_params)
 {
-#if 0
-    static Dimension x,y,w,h;
-#endif
-    char *argv[32];
-    int   argc = 0;
-
-    if (event->type == ClientMessage) {
-	if (event->xclient.data.l[0] == wm_protocols[1]) {
-	    if (debug)
-		fprintf(stderr,"Main: wm_save_yourself\n");
-
-	    argv[argc++] = progname;
-#if 0
-
-	    /* position */
-	    if (fs) {
-		argv[argc++] = strdup("-f");
-	    } else {
-		XtVaGetValues(app_shell,
-			      XtNx,&x,XtNy,&y,XtNwidth,&w,XtNheight,&h,
-			      NULL);
-		argv[argc++] = strdup("-geometry");
-		sprintf(argv[argc++] = malloc(32),"%dx%d+%d+%d",w,h,x,y);
-	    }
-	    argv[argc++] = strdup("-c");
-	    argv[argc++] = strdup(device);
-
-	    /* grab filename */
-	    if (snapbase) {
-		argv[argc++] = strdup("-o");
-		argv[argc++] = malloc(256);
-		argv[argc-1][0] = '\0';
-		if (snapbase[0] != '/') {
-		    getcwd(argv[argc-1],128);
-		    strcat(argv[argc-1],"/");
-		}
-		strcat(argv[argc-1],snapbase);
-	    }
-	    
-	    /* options */
-	    if (!dga_ext)
-		argv[argc++] = strdup("--nodga");
-	    if (!vm_ext)
-		argv[argc++] = strdup("--novm");
-	    if (!xvideo_ext)
-		argv[argc++] = strdup("--noxv");
-	    if (!pointer_on)
-		argv[argc++] = strdup("-m");
-	    if (bpp) {
-		argv[argc++] = strdup("-b");
-		sprintf(argv[argc++] = malloc(8),"%d",bpp);
-	    }
-
-	    /* channel */
-	    argv[argc++] = channels[cur_sender]->name;
-#endif
-
-	    XSetCommand(XtDisplay(app_shell), XtWindow(app_shell), argv, argc);
+    if (NULL != event && event->type == ClientMessage) {
+	if (debug)
+	    fprintf(stderr,"CloseMainAction: received %s message\n",
+		    XGetAtomName(dpy,event->xclient.data.l[0]));
+	if (event->xclient.data.l[0] == wm_delete_window) {
+	    /* fall throuth -- popdown window */
+	} else {
+	    /* whats this ?? */
 	    return;
 	}
     }
@@ -527,11 +336,7 @@ PopupAction(Widget widget, XEvent *event,
 	    fprintf(stderr,"%s: received %s message\n",
 		    my_toplevels[i].name,
 		    XGetAtomName(dpy,event->xclient.data.l[0]));
-	if (event->xclient.data.l[0] == wm_protocols[1]) {
-	    XSetCommand(XtDisplay(*(my_toplevels[i].shell)),
-			XtWindow(*(my_toplevels[i].shell)), NULL, 0);
-	    return;
-	} else if (event->xclient.data.l[0] == wm_protocols[0]) {
+	if (event->xclient.data.l[0] == wm_delete_window) {
 	    /* fall throuth -- popdown window */
 	} else {
 	    /* whats this ?? */
@@ -550,13 +355,13 @@ PopupAction(Widget widget, XEvent *event,
 	my_toplevels[i].mapped = 0;
     } else {
 	XtPopup(*(my_toplevels[i].shell), XtGrabNone);
-	if (wm_stay_on_top && stay_on_top)
+	if (wm_stay_on_top && stay_on_top > 0)
 	    wm_stay_on_top(dpy,XtWindow(*(my_toplevels[i].shell)),1);
 	my_toplevels[i].mapped = 1;
 	if (!my_toplevels[i].first) {
 	    XSetWMProtocols(XtDisplay(*(my_toplevels[i].shell)),
 			    XtWindow(*(my_toplevels[i].shell)),
-			    wm_protocols, 2);
+			    &wm_delete_window, 1);
 	    mh = h = 0;
 	    XtVaGetValues(*(my_toplevels[i].shell),
 			  XtNmaxHeight,&mh,
@@ -572,19 +377,6 @@ PopupAction(Widget widget, XEvent *event,
     }
 }
 
-void
-CommandAction(Widget widget, XEvent *event,
-	      String *params, Cardinal *num_params)
-{
-    do_command(*num_params,params);
-}
-
-void command_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
-{
-    struct DO_CMD *cmd = clientdata;
-    do_command(cmd->argc,cmd->argv);
-}
-
 void action_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct DO_AC *ca = clientdata;
@@ -593,7 +385,7 @@ void action_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
 /*--- onscreen display (fullscreen) --------------------------------------*/
 
-void create_onscreen()
+void create_onscreen(void)
 {
     on_shell = XtVaCreateWidget("onscreen",transientShellWidgetClass,
 				app_shell,
@@ -601,7 +393,7 @@ void create_onscreen()
 				XtNvisual,vinfo.visual,
 				XtNcolormap,colormap,
 				XtNdepth,vinfo.depth,
-				NULL);    
+				NULL);
     on_label = XtVaCreateManagedWidget("label", labelWidgetClass, on_shell,
 					NULL);
 }
@@ -609,6 +401,8 @@ void create_onscreen()
 void
 popdown_onscreen(XtPointer client_data, XtIntervalId *id)
 {
+    if (debug)
+	fprintf(stderr,"osd: hide\n");
     XtPopdown(on_shell);
     on_timer = 0;
 }
@@ -619,20 +413,18 @@ display_onscreen(char *title)
     static int first = 1;
     Dimension x,y;
 
-    if (on_skip) {
-	on_skip = 0;
-	return;
-    }
     if (!fs)
 	return;
     if (!use_osd)
 	return;
 
+    if (debug)
+	fprintf(stderr,"osd: show (%s)\n",title);
     XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,NULL);
     XtVaSetValues(on_shell,XtNx,x+30,XtNy,y+20,NULL);
     XtVaSetValues(on_label,XtNlabel,title,NULL);
     XtPopup(on_shell, XtGrabNone);
-    if (wm_stay_on_top && stay_on_top)
+    if (wm_stay_on_top && stay_on_top > 0)
 	wm_stay_on_top(dpy,XtWindow(on_shell),1);
     if (on_timer)
 	XtRemoveTimeOut(on_timer);
@@ -646,6 +438,141 @@ display_onscreen(char *title)
     }
 }
 
+/*--- videotext ----------------------------------------------------------*/
+
+struct TEXTELEM {
+    char  *str;
+    int   len;
+    int   nl;
+    int   x,y;
+    Pixel fg,bg;
+};
+
+void create_vtx(void)
+{
+    vtx_shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
+				 app_shell,
+				 XtNoverrideRedirect,True,
+				 XtNvisual,vinfo.visual,
+				 XtNcolormap,colormap,
+				 XtNdepth,vinfo.depth,
+				 NULL);
+    vtx_label = XtVaCreateManagedWidget("label", labelWidgetClass, vtx_shell,
+					NULL);
+}
+
+void
+display_vtx(int lines, char **text)
+{
+    static char *names[8] = { "black", "red", "green", "yellow",
+			      "blue", "magenta", "cyan", "white" };
+    static XColor colors[8], dummy;
+    static XFontStruct *font;
+    static Pixmap pix;
+    static GC gc;
+    static int first = 1;
+    XGCValues  values;
+    Dimension x,y,w,h,sw,sh;
+    int maxwidth,width,height,direction,ascent,descent,i,n,t;
+    struct TEXTELEM tt[32];
+    XCharStruct cs;
+
+    if (0 == lines) {
+	XtPopdown(vtx_shell);
+	return;
+    }
+
+    if (NULL == font) {
+	XtVaGetValues(vtx_label,XtNfont,&font,NULL);
+	for (i = 0; i < 8; i++)
+	    XAllocNamedColor(dpy,colormap,names[i],
+			     &colors[i],&dummy);
+	values.font = font->fid;
+	gc = XCreateGC(dpy, XtWindow(vtx_label), GCFont, &values);
+    }
+
+    /* parse */
+    t = 0;
+    memset(tt,0,sizeof(tt));
+    for (i = 0; i < lines; i++) {
+	tt[t].fg  = colors[7].pixel;
+	tt[t].bg  = colors[0].pixel;
+	tt[t].str = text[i];
+	tt[t].nl  = 1;
+	for (n = 0; text[i][n] != 0;) {
+	    if (text[i][n] == '\033') {
+		if (tt[t].len) {
+		    t++;
+		    if (32 == t)
+			goto calc;
+		}
+		n++;
+		if (text[i][n] >= '0' && text[i][n] < '8') {
+		    tt[t].fg  = colors[text[i][n]-'0'].pixel;
+		    n++;
+		}
+		if (text[i][n] >= '0' && text[i][n] < '8') {
+		    tt[t].bg  = colors[text[i][n]-'0'].pixel;
+		    n++;
+		}
+		tt[t].str = text[i]+n;
+	    } else {
+		tt[t].len++;
+		n++;
+	    }
+	}
+	t++;
+	if (32 == t)
+	    break;
+    }
+
+ calc:
+    /* calc size + positions */
+    width = 0; height = 0; maxwidth = 0;
+    for (i = 0; i < t; i++) {
+	XTextExtents(font,tt[i].str,tt[i].len,
+		     &direction,&ascent,&descent,&cs);
+	if (tt[i].nl) {
+	    if (maxwidth < width)
+		maxwidth = width;
+	    width = 0;
+	    height += ascent+descent;
+	}
+	tt[i].x = width;
+	tt[i].y = height - descent;
+	width += cs.width;
+    }
+    if (maxwidth < width)
+	maxwidth = width;
+
+    /* alloc pixmap + draw text */
+    if (pix)
+	XFreePixmap(dpy,pix);
+    pix = XCreatePixmap(dpy, RootWindowOfScreen(XtScreen(vtx_label)),
+			maxwidth, height,
+			DefaultDepthOfScreen(XtScreen(vtx_label)));
+    for (i = 0; i < t; i++) {
+	values.foreground = tt[i].fg;
+	values.background = tt[i].bg;
+	XChangeGC(dpy, gc, GCForeground | GCBackground, &values);
+	XDrawImageString(dpy,pix,gc,tt[i].x,tt[i].y,tt[i].str,tt[i].len);
+    }
+    XtVaSetValues(vtx_label,XtNbitmap,pix,XtNlabel,NULL,NULL);
+
+    XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,XtNwidth,&w,XtNheight,&h,NULL);
+    XtVaGetValues(vtx_shell,XtNwidth,&sw,XtNheight,&sh,NULL);
+    XtVaSetValues(vtx_shell,XtNx,x+(w-sw)/2,XtNy,y+h-10-sh,NULL);
+    XtPopup(vtx_shell, XtGrabNone);
+    if (wm_stay_on_top && stay_on_top > 0)
+	wm_stay_on_top(dpy,XtWindow(vtx_shell),1);
+
+    if (first) {
+	first = 0;
+	XDefineCursor(dpy, XtWindow(vtx_shell), left_ptr);
+	XDefineCursor(dpy, XtWindow(vtx_label), left_ptr);
+    }
+}
+
 /*--- tv -----------------------------------------------------------------*/
 
 static XImage     *grab_ximage;
@@ -653,6 +580,7 @@ static void       *grab_ximage_shm;
 static GC          grab_gc;
 static int         grab_linelength;
 static int         win_width, win_height;
+static int         grabdisplay_suspended;
 
 #ifdef HAVE_LIBXV
 static XvImage     *xv_image = NULL;
@@ -661,14 +589,14 @@ static int         xv_width = 320, xv_height = 240;
 #endif
 
 void
-freeze_image()
+freeze_image(void)
 {
     if (NULL == grabber->grab_capture)
 	return;
     if (NULL == grab_ximage)
 	return;
     if (cur_capture != CAPTURE_GRABDISPLAY)
-	if (NULL == grabber_capture(grab_ximage->data,0,1,NULL))
+	if (NULL == grabber_capture(grab_ximage->data,0,NULL))
 	    return;
     
     if (!tv_pix) {
@@ -685,7 +613,7 @@ freeze_image()
 static Boolean
 grabdisplay_idle(XtPointer data)
 {
-    static long count,lastsec;
+    static long count,lastsec,errors;
     struct timeval  t;
     struct timezone tz;
 
@@ -696,22 +624,31 @@ grabdisplay_idle(XtPointer data)
     if (have_xv_scale) {
 	if (NULL == xv_image)
 	    goto oops;
-	if (NULL == grabber_capture(xv_image->data,0,0,NULL))
-	    goto oops;
-	XvShmPutImage(dpy, im_port, XtWindow(tv), grab_gc, xv_image,
-		      0, 0,  xv_width, xv_height,
-		      0, 0,  win_width, win_height,
-		      False);
+	if (NULL == grabber_capture(xv_image->data,0,NULL)) {
+	    if (errors++ > 10)
+		goto oops;
+	} else {
+	    errors = 0;
+	    XvShmPutImage(dpy, im_port, XtWindow(tv), grab_gc, xv_image,
+			  0, 0,  xv_width, xv_height,
+			  0, 0,  win_width, win_height,
+			  False);
+	}
 	
     } else {
 #endif
 	if (!grab_ximage)
 	    goto oops;
-	if (NULL == grabber_capture(grab_ximage->data,0,0,NULL))
-	    goto oops;
-	XPUTIMAGE(dpy, XtWindow(tv), grab_gc, grab_ximage, 0,0,
-		  (win_width-grab_width) >> 1, (win_height-grab_height) >> 1,
-		  grab_width, grab_height);
+	if (NULL == grabber_capture(grab_ximage->data,0,NULL)) {
+	    if (errors++ > 10)
+		goto oops;
+	} else {
+	    errors = 0;
+	    XPUTIMAGE(dpy, XtWindow(tv), grab_gc, grab_ximage, 0,0,
+		      (win_width-grab_width) >> 1,
+		      (win_height-grab_height) >> 1,
+		      grab_width, grab_height);
+	}
 #ifdef HAVE_LIBXV
     }
 #endif
@@ -730,20 +667,38 @@ grabdisplay_idle(XtPointer data)
 
  oops:
     idle_id = 0;
+    if (grabber->grab_stop)
+	grabber->grab_stop();
     return TRUE;
 }
 
 static void
-grabdisplay_reconfigure()
+grabdisplay_suspend(void)
+{
+    if (cur_capture != CAPTURE_GRABDISPLAY)
+	return;
+    grabdisplay_suspended= 1;
+    do_va_cmd(2, "capture", "off");
+}
+
+static void
+grabdisplay_restart(void)
 {
 #ifdef HAVE_LIBXV
     if (have_xv_scale)
 	grabber_setparams(VIDEO_YUV422,&xv_width,&xv_height,
-			  &grab_linelength,1);
+			  &grab_linelength,1,0);
     else
 #endif
 	grabber_setparams(x11_pixmap_format,&grab_width,&grab_height,
-			  &grab_linelength,1);
+			  &grab_linelength,1,0);
+
+    if (cur_capture != CAPTURE_OFF)
+	return;
+    if (!grabdisplay_suspended)
+	return;
+    do_va_cmd(2, "capture", "grab");
+    grabdisplay_suspended = 0;
 }
 
 static void
@@ -782,16 +737,21 @@ grabdisplay_setsize(int width, int height)
 	xv_image = NULL;
     }
     if (have_xv_scale) {
+#if 0
 	/* FIXME: no hard coded max size, better ask the X-Server */
 	xv_width  = (width  > 320) ? 320 : width;
 	xv_height = (height > 240) ? 240 : height;
+#else
+	xv_width  = width;
+	xv_height = height;
+#endif
 	grabber_setparams(VIDEO_YUV422,&xv_width,&xv_height,
-			  &grab_linelength,1);
+			  &grab_linelength,1,0);
 	xv_image = xv_create_ximage(dpy, xv_width, xv_height, &xv_shm);
     } else {
 #endif
 	grabber_setparams(x11_pixmap_format,&grab_width,&grab_height,
-			  &grab_linelength,1);
+			  &grab_linelength,1,1);
 	grab_ximage = x11_create_ximage(dpy,&vinfo,grab_width,grab_height,
 					&grab_ximage_shm);
 	if (NULL == grab_ximage) {
@@ -817,32 +777,47 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    height = event->xconfigure.height;
 	    grabdisplay_setsize(width, height);
 	    XClearWindow(XtDisplay(tv),XtWindow(tv));
-	    sprintf(label,"%-" LABEL_WIDTH "s: %dx%d","AVI Size",width,height);
-	    if (avi_size)
-		XtVaSetValues(avi_size,XtNlabel,label,NULL);
+	    sprintf(label,"%-" LABEL_WIDTH "s: %dx%d",MOVIE_SIZE,width,height);
+	    if (w_movie_size)
+		XtVaSetValues(w_movie_size,XtNlabel,label,NULL);
+	}
+	break;
+    }
+}
+
+static void
+tv_expose_event(Widget widget, XtPointer client_data,
+		XEvent *event, Boolean *d)
+{
+    static GC  gc;
+    XColor     color;
+    XGCValues  values;
+
+    switch(event->type) {
+    case Expose:
+	if (debug)
+	    fprintf(stderr,"chromakey expose %d\n",
+		    event->xexpose.count);
+	if (0 == event->xexpose.count && CAPTURE_OVERLAY == cur_capture) {
+	    if (0 == gc) {
+		color.red   = (grabber->colorkey & 0x00ff0000) >> 8;
+		color.green = (grabber->colorkey & 0x0000ff00);
+		color.blue  = (grabber->colorkey & 0x000000ff) << 8;
+		XAllocColor(dpy,colormap,&color);
+		values.foreground = color.pixel;
+		gc = XCreateGC(dpy, XtWindow(widget), GCForeground, &values);
+	    }
+	    /* TODO: draw background for chroma keying */
+	    XFillRectangle(dpy,XtWindow(widget),gc,
+			   (win_width-grab_width) >> 1,
+			   (win_height-grab_height) >> 1,
+			   grab_width, grab_height);
 	}
 	break;
     }
 }
 
 /*------------------------------------------------------------------------*/
-
-void
-set_property(int freq, char *channel, char *name)
-{
-    int  len;
-    char line[80];
-
-    len  = sprintf(line,"%.3f",(float)freq/16)+1;
-    if (NULL != channel)
-	len += sprintf(line+len,"%s",channel)+1;
-    if (NULL != name)
-	len += sprintf(line+len,"%s",name)+1;
-    XChangeProperty(dpy, XtWindow(app_shell),
-                    xawtv_station, XA_STRING,
-                    8, PropModeReplace,
-                    line, len);
-}
 
 /* the RightWay[tm] to set float resources (copyed from Xaw specs) */
 void set_float(Widget widget, char *name, fp_res value)
@@ -858,10 +833,17 @@ void set_float(Widget widget, char *name, fp_res value)
     } else {
         /*
 	 * Convince C not to perform an automatic conversion, which
-	 * would truncate 0.5 to 0. 
+	 * would truncate 0.5 to 0.
+	 *
+	 * switched from pointer tricks to the union to fix alignment
+	 * problems on ia64 (Stephane Eranian <eranian@cello.hpl.hp.com>)
 	 */
-	XtArgVal * l_top = (XtArgVal *) &value;
-	XtSetArg(args[0], name, *l_top);
+	union {
+	    XtArgVal xt;
+	    fp_res   fp;
+	} foo;
+	foo.fp = value;
+	XtSetArg(args[0], name, foo.xt);
     }
     XtSetValues(widget,args,1);
 }
@@ -899,7 +881,7 @@ new_message(char *txt)
 }
 
 static void
-new_norm()
+new_norm(void)
 {
     char label[64];
 
@@ -914,7 +896,7 @@ new_norm()
 }
 
 static void
-new_input()
+new_input(void)
 {
     char label[64];
 
@@ -926,7 +908,7 @@ new_input()
 }
 
 static void
-new_freqtab()
+new_freqtab(void)
 {
     char label[64];
 
@@ -968,7 +950,7 @@ new_attr(int id)
 }
 
 static void
-new_channel()
+new_channel(void)
 {
     set_property(cur_freq,
 		 (cur_channel == -1) ? NULL : chanlist[cur_channel].name,
@@ -987,7 +969,7 @@ new_channel()
 	XtRemoveTimeOut(audio_timer);
 	audio_timer = 0;
     }
-    audio_timer = XtAppAddTimeOut(app_context, 10000, watch_audio, NULL);
+    audio_timer = XtAppAddTimeOut(app_context, 2000, watch_audio, NULL);
 }
 
 /*------------------------------------------------------------------------*/
@@ -1032,14 +1014,13 @@ change_audio(int mode)
 
     sprintf(label,"%s (%s)",default_title,mname);
     XtVaSetValues(app_shell,XtNtitle,label,NULL);
-    /* new_title(label); */
 }
 
 void
 watch_audio(XtPointer data, XtIntervalId *id)
 {
-    on_skip=1;
-    change_audio(-1);
+    if (-1 != cur_sender)
+	change_audio(channels[cur_sender]->audio);
     audio_timer = 0;
 }
 
@@ -1060,8 +1041,8 @@ do_capture(int from, int to)
     case CAPTURE_GRABDISPLAY:
 	if (idle_id) {
 	    XtRemoveWorkProc(idle_id);
-	    if (grabber->grab_cleanup)
-		grabber->grab_cleanup();
+	    if (grabber->grab_stop)
+		grabber->grab_stop();
 	}
 	idle_id = 0;
 	XClearArea(XtDisplay(tv), XtWindow(tv), 0,0,0,0, True);
@@ -1082,6 +1063,8 @@ do_capture(int from, int to)
 	if (!niced)
 	    nice(niced = 10);
 	idle_id = XtAppAddWorkProc(app_context, grabdisplay_idle, NULL);
+	if (grabber->grab_start)
+	    grabber->grab_start(-1,2);
 	break;
     case CAPTURE_OVERLAY:
 	sprintf(label,"%-" LABEL_WIDTH "s: %s","Capture","overlay");
@@ -1094,7 +1077,7 @@ do_capture(int from, int to)
 
 /* gets called before switching away from a channel */
 void
-pixit()
+pixit(void)
 {
     Pixmap pix;
     char *data;
@@ -1118,9 +1101,10 @@ pixit()
     if (!grabber->grab_setparams)
 	return;
 
+    grabdisplay_suspend();
     if (0 == grabber_setparams(x11_pixmap_format,&pix_width,&pix_height,
-			       &linelength,1) &&
-	NULL != (data = grabber_capture(NULL,0,1,NULL)) &&
+			       &linelength,1,0) &&
+	NULL != (data = grabber_capture(NULL,0,NULL)) &&
 	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,data,
 				      pix_width,pix_height,
 				      channels[cur_sender]->name))) {
@@ -1134,9 +1118,7 @@ pixit()
 	    XFreePixmap(dpy,channels[cur_sender]->pixmap);
 	channels[cur_sender]->pixmap = pix;
     }
-
-    /* set parameters to main window size */
-    grabdisplay_reconfigure();
+    grabdisplay_restart();
 }
 
 void
@@ -1202,18 +1184,15 @@ RemoteAction(Widget widget, XEvent * event,
 					  &type, &format, &nitems, &bytesafter,
 					  &args) &&
 	    nitems != 0) {
-	    if (debug)
-		fprintf(stderr, "remote control: ");
-	    for (i = 0, argc = 0; i < nitems; i += strlen(args + i) + 1) {
-		if(debug)
-		    fprintf(stderr, "%s ", args+i);
-		argv[argc++] = args+i;
+	    for (i = 0, argc = 0; i <= nitems; i += strlen(args + i) + 1) {
+		if (i == nitems || args[i] == '\0') {
+		    argv[argc] = NULL;
+		    do_command(argc,argv);
+		    argc = 0;
+	        } else {
+		    argv[argc++] = args+i;
+	        }
 	    }
-	    if (debug)
-		fprintf(stderr, "\n");
-	    argv[argc] = NULL;
-
-	    do_command(argc,argv);
 	    XFree(args);
 	}
     }
@@ -1259,14 +1238,6 @@ ChannelAction(Widget widget, XEvent *event,
 	do_va_cmd(2,"setstation",channels[i]->name);
 }
 
-void
-PointerAction(Widget widget, XEvent *event,
-	      String *params, Cardinal *num_params)
-{
-    pointer_on = !pointer_on;
-    XDefineCursor(dpy, XtWindow(tv), pointer_on ? left_ptr : no_ptr);
-}
-
 Boolean
 MyResize(XtPointer client_data)
 {
@@ -1307,10 +1278,10 @@ set_vidmode(int nr)
 #endif
 
 static void
-do_fullscreen()
+do_fullscreen(void)
 {
     static Dimension x,y,w,h;
-    static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy,mouse;
+    static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy;
 #ifdef HAVE_LIBXXF86VM
     static int vm_switched;
 #endif
@@ -1432,12 +1403,9 @@ do_fullscreen()
 #endif
 
 	XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
-	mouse = pointer_on;
 	fs = 1;
     }
-    if (mouse)
-	XtCallActionProc(tv,"Pointer",NULL,NULL,0);
-    XtAppAddWorkProc (app_context,MyResize, NULL);
+    XtAppAddWorkProc (app_context, MyResize, NULL);
 }
 
 void button_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
@@ -1446,7 +1414,7 @@ void button_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     do_va_cmd(2,"setstation",channel->name);
 }
 
-void create_chanwin()
+void create_chanwin(void)
 {
     chan_shell = XtVaAppCreateShell("Channels", "Xawtv",
 				    topLevelShellWidgetClass,
@@ -1471,7 +1439,7 @@ void create_chanwin()
 }
 
 void
-channel_menu()
+channel_menu(void)
 {
     int  i,max,len;
     char str[100];
@@ -1557,15 +1525,79 @@ StayOnTop(Widget widget, XEvent *event,
     if (!wm_stay_on_top)
 	return;
 
-    stay_on_top = 1-stay_on_top;
-
+    stay_on_top++;
+    if (stay_on_top == 2)
+	stay_on_top = -1;
+    fprintf(stderr,"layer: %d\n",stay_on_top);
+	
     wm_stay_on_top(dpy,XtWindow(app_shell),stay_on_top);
     wm_stay_on_top(dpy,XtWindow(on_shell),stay_on_top);
     for (i = 0; i < TOPLEVELS; i++)
-	wm_stay_on_top(dpy,XtWindow(*(my_toplevels[i].shell)),stay_on_top);
+	wm_stay_on_top(dpy,XtWindow(*(my_toplevels[i].shell)),
+		       (stay_on_top == -1) ? 0 : stay_on_top);
 }
 
 /*--- option window ------------------------------------------------------*/
+
+void
+build_menus(void)
+{
+    Boolean sensitive;
+    int i;
+
+    /* drivers */
+    if (NULL == m_movie_driver) {
+	for (i = 0; NULL != ng_writers[i]; i++)
+	    ;
+	m_movie_driver = malloc(sizeof(struct STRTAB)*(i+1));
+	memset(m_movie_driver,0,sizeof(struct STRTAB)*(i+1));
+	for (i = 0; NULL != ng_writers[i]; i++) {
+	    m_movie_driver[i].nr  = i;
+	    m_movie_driver[i].str = ng_writers[i]->desc;
+	}
+    }
+
+    /* audio formats */
+    for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++)
+	;
+    if (m_movie_audio)
+	free(m_movie_audio);
+    m_movie_audio = malloc(sizeof(struct STRTAB)*(i+2));
+    memset(m_movie_audio,0,sizeof(struct STRTAB)*(i+2));
+    for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++) {
+	m_movie_audio[i].nr  = i;
+	m_movie_audio[i].str = ng_writers[movie_driver]->audio[i].desc ?
+	    ng_writers[movie_driver]->audio[i].desc : 
+	    ng_afmt_to_desc[ng_writers[movie_driver]->audio[i].fmtid];
+    }
+    m_movie_audio[i].nr  = i;
+    m_movie_audio[i].str = "no sound";
+    movie_audio = 0;
+
+    /* video formats */
+    for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++)
+	;
+    if (m_movie_video)
+	free(m_movie_video);
+    m_movie_video = malloc(sizeof(struct STRTAB)*(i+1));
+    memset(m_movie_video,0,sizeof(struct STRTAB)*(i+1));
+    for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++) {
+	m_movie_video[i].nr  = i;
+	m_movie_video[i].str = ng_writers[movie_driver]->video[i].desc ?
+	    ng_writers[movie_driver]->video[i].desc : 
+	    ng_vfmt_to_desc[ng_writers[movie_driver]->video[i].fmtid];
+    }
+    movie_video = 0;
+
+    /* need audio filename? */
+    sensitive = ng_writers[movie_driver]->combined ? False: True;
+    XtVaSetValues(w_movie_flabel,
+		  XtNsensitive,sensitive,
+		  NULL);
+    XtVaSetValues(w_movie_faudio,
+		  XtNsensitive,sensitive,
+		  NULL);
+}
 
 #define PANED_FIX               \
         XtNallowResize, False,  \
@@ -1578,7 +1610,6 @@ struct DO_CMD cmd_cap  = { 2, { "capture", "toggle", NULL }};
 struct DO_CMD cmd_jpeg = { 2, { "snap",    "jpeg",   NULL }};
 struct DO_CMD cmd_ppm  = { 2, { "snap",    "ppm",    NULL }};
 
-struct DO_AC  ac_ptr   = { 0, "Pointer",    { NULL }};
 struct DO_AC  ac_fs    = { 0, "FullScreen", { NULL }};
 struct DO_AC  ac_top   = { 0, "StayOnTop",  { NULL }};
 
@@ -1621,26 +1652,50 @@ void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	if (-1 != (j=popup_menu(widget,"Capture",cap_list)))
 	    do_va_cmd(2,"capture",cap_list[j].str);
 	break;
-	
+
     case 20:
-	if (-1 != (j=popup_menu(widget,"AVI Audio",avi_audio))) {
-	    cur_avi_audio = avi_audio[j].nr;
-	    set_menu_val(widget,"AVI Audio",avi_audio,cur_avi_audio);
+	if (-1 != (j=popup_menu(widget,MOVIE_DRIVER,m_movie_driver)) &&
+	    movie_driver != j) {
+	    movie_driver = m_movie_driver[j].nr;
+	    set_menu_val(w_movie_driver,MOVIE_DRIVER,
+			 m_movie_driver,movie_driver);
+	    build_menus();
+	    movie_audio = 0;
+	    movie_video = 0;
+	    set_menu_val(w_movie_audio,MOVIE_AUDIO,
+			 m_movie_audio,movie_audio);
+	    set_menu_val(w_movie_video,MOVIE_VIDEO,
+			 m_movie_video,movie_video);
 	}
 	break;
     case 21:
-	if (-1 != (j=popup_menu(widget,"AVI Format",avi_format))) {
-	    cur_avi_format = avi_format[j].nr;
-	    set_menu_val(widget,"AVI Format",avi_format,cur_avi_format);
+	if (-1 != (j=popup_menu(widget,MOVIE_AUDIO,m_movie_audio))) {
+	    movie_audio = m_movie_audio[j].nr;
+	    set_menu_val(w_movie_audio,MOVIE_AUDIO,
+			 m_movie_audio,movie_audio);
 	}
 	break;
     case 22:
-	if (-1 != (j=popup_menu(widget,"AVI Framerate",avi_fps))) {
-	    cur_avi_fps = avi_fps[j].nr;
-	    set_menu_val(widget,"AVI Framerate",avi_fps,cur_avi_fps);
+	if (-1 != (j=popup_menu(widget,MOVIE_RATE,m_movie_rate))) {
+	    movie_rate = m_movie_rate[j].nr;
+	    set_menu_val(w_movie_rate,MOVIE_RATE,
+			 m_movie_rate,movie_rate);
 	}
 	break;
-	
+    case 23:
+	if (-1 != (j=popup_menu(widget,MOVIE_VIDEO,m_movie_video))) {
+	    movie_video = m_movie_video[j].nr;
+	    set_menu_val(w_movie_video,MOVIE_VIDEO,
+			 m_movie_video,movie_video);
+	}
+	break;
+    case 24:
+	if (-1 != (j=popup_menu(widget,MOVIE_FPS,m_movie_fps))) {
+	    movie_fps = m_movie_fps[j].nr;
+	    set_menu_val(w_movie_fps,MOVIE_FPS,
+			 m_movie_fps,movie_fps);
+	}
+	break;
     default:
     }
 }
@@ -1683,7 +1738,7 @@ void scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
     jump_scb(widget,clientdata,&top2);
 }
 
-void create_optwin()
+void create_optwin(void)
 {
     Widget c, p,l;
 
@@ -1704,10 +1759,6 @@ void create_optwin()
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_mute);
     
-    c = XtVaCreateManagedWidget("ptr", commandWidgetClass, opt_paned,
-				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_ptr);
-
     c = XtVaCreateManagedWidget("fs", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_fs);
@@ -1715,11 +1766,9 @@ void create_optwin()
     c = XtVaCreateManagedWidget("grabppm", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_ppm);
-#ifdef HAVE_LIBJPEG
     c = XtVaCreateManagedWidget("grabjpeg", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_jpeg);
-#endif
     c = XtVaCreateManagedWidget("recavi", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_avi);
@@ -1846,19 +1895,18 @@ exec_done(int signal)
     if (debug)
 	fprintf(stderr,"got sigchild\n");
     pid = waitpid(-1,&stat,WUNTRACED|WNOHANG);
-    if (-1 == pid) {
-	perror("waitpid");
-    } else if (0 == pid) {
-	fprintf(stderr,"oops: got sigchild and waitpid returns 0 ???\n");
-    } else if (WIFEXITED(stat)){
-	if (debug)
+    if (debug) {
+	if (-1 == pid) {
+	    perror("waitpid");
+	} else if (0 == pid) {
+	    fprintf(stderr,"oops: got sigchild and waitpid returns 0 ???\n");
+	} else if (WIFEXITED(stat)){
 	    fprintf(stderr,"[%d]: normal exit (%d)\n",pid,WEXITSTATUS(stat));
-    } else if (WIFSIGNALED(stat)){
-	if (debug)
+	} else if (WIFSIGNALED(stat)){
 	    fprintf(stderr,"[%d]: %s\n",pid,strsignal(WTERMSIG(stat)));
-    } else if (WIFSTOPPED(stat)){
-	if (debug)
+	} else if (WIFSTOPPED(stat)){
 	    fprintf(stderr,"[%d]: %s\n",pid,strsignal(WSTOPSIG(stat)));
+	}
     }
     if (pid == str_pid && !WIFSTOPPED(stat))
 	str_pid = -1;
@@ -1935,21 +1983,33 @@ exec_x11(char **argv)
     return pid;
 }
 
-Boolean
+static Boolean
 rec_work(XtPointer client_data)
 {
-    grab_putbuffer(0,rec_writer,rec_wsync);
+    grab_put_video();
     return False;
+}
+
+void
+rec_audio_input(XtPointer client_data, int *src, XtInputId *id)
+{
+    struct timeval tv;
+    fd_set set;
+
+    for (;;) {
+	grab_put_audio();
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	FD_ZERO(&set);
+	FD_SET(*src,&set);
+	if (0 == select((*src)+1,&set,NULL,NULL,&tv))
+	    break;
+    }
 }
 
 void
 exec_record(Widget widget, XtPointer client_data, XtPointer calldata)
 {
-    static int pid1,pid2;
-    struct MOVIE_PARAMS params;
-    char *filename, *buffers;
-    int bufsize,rec_width,rec_height,linelength;
-    
     if (!grabber->grab_setparams ||
 	!grabber->grab_capture) {
 	missing_feature(MISSING_CAPTURE);
@@ -1957,79 +2017,139 @@ exec_record(Widget widget, XtPointer client_data, XtPointer calldata)
 	return;
     }
 
-    /* stop of running */
-    if (rec_id) {
-	int foo;
-	XtRemoveWorkProc(rec_id);
-	shutdown(rec_writer,1);
-	close(rec_wsync);
-	waitpid(pid1,&foo,0);
-	waitpid(pid2,&foo,0);
-	close(rec_writer);
-	rec_id = 0;
-	grabdisplay_reconfigure();
-	XtVaSetValues(avi_status,XtNlabel,"",NULL);
+    if (rec_work_id) {
+	do_va_cmd(2,"movie","stop");
 	return;
     }
+    do_va_cmd(2,"movie","start");
+    return;
+}
 
-    /* filename */
-    XtVaGetValues(str_fbutton,XtNstring,&filename,NULL);
-    filename = tilde_expand(filename);
+void
+do_movie_record(int argc, char **argv)
+{
+    char *fvideo,*faudio;
+    struct ng_video_fmt video;
+    struct ng_audio_fmt audio;
+    const struct ng_writer *wr;
+    int sound,i;
 
-    /* image size + buffer init */
-    rec_width  = win_width;
-    rec_height = win_height;
-    linelength = 0;
-    grabber_setparams(cur_avi_format, &rec_width, &rec_height,
-		      &linelength,0);
-    bufsize = rec_width*rec_height*format2depth[cur_avi_format]/8;
-    if (0 == bufsize)
-	bufsize = rec_width*rec_height*3; /* compressed - should be enouth */
-    if(NULL == (buffers = grab_initbuffers(bufsize,6))) {
-	grabdisplay_reconfigure();
+    /* set parameters */
+    if (argc > 1 && 0 == strcasecmp(argv[0],"fvideo")) {
+	XtVaSetValues(w_movie_fvideo,XtNstring,argv[1],NULL);
+	return;
+    }
+    if (argc > 1 && 0 == strcasecmp(argv[0],"faudio")) {
+	XtVaSetValues(w_movie_faudio,XtNstring,argv[1],NULL);
+	return;
+    }
+    if (argc > 1 && 0 == strcasecmp(argv[0],"audio")) {
+	for (i = 0; m_movie_audio[i].str != NULL; i++)
+	    if (0 == strcasecmp(argv[1],m_movie_audio[i].str))
+		movie_audio = m_movie_audio[i].nr;
+	set_menu_val(w_movie_audio,MOVIE_AUDIO,
+		     m_movie_audio,movie_audio);
+	return;
+    }
+    if (argc > 1 && 0 == strcasecmp(argv[0],"rate")) {
+	for (i = 0; m_movie_rate[i].str != NULL; i++)
+	    if (atoi(argv[1]) == m_movie_rate[i].nr)
+		movie_fps = m_movie_rate[i].nr;
+	set_menu_val(w_movie_rate,MOVIE_RATE,
+		     m_movie_rate,movie_rate);
+    }
+    if (argc > 1 && 0 == strcasecmp(argv[0],"video")) {
+	for (i = 0; m_movie_video[i].str != NULL; i++)
+	    if (0 == strcasecmp(argv[1],m_movie_video[i].str))
+		movie_video = m_movie_video[i].nr;
+	set_menu_val(w_movie_video,MOVIE_VIDEO,
+		     m_movie_video,movie_video);
+	return;
+    }
+    if (argc > 1 && 0 == strcasecmp(argv[0],"fps")) {
+	for (i = 0; m_movie_fps[i].str != NULL; i++)
+	    if (atoi(argv[1]) == m_movie_fps[i].nr)
+		movie_rate= m_movie_fps[i].nr;
+	set_menu_val(w_movie_fps,MOVIE_FPS,
+		     m_movie_fps,movie_fps);
+    }
+
+    /* start */
+    if (argc > 0 && 0 == strcasecmp(argv[0],"start")) {
+	if (0 != cur_movie)
+	    return; /* records already */
+	cur_movie = 1;
+	grabdisplay_suspend();
+
+	XtVaGetValues(w_movie_fvideo,XtNstring,&fvideo,NULL);
+	XtVaGetValues(w_movie_faudio,XtNstring,&faudio,NULL);
+	fvideo = tilde_expand(fvideo);
+	faudio = tilde_expand(faudio);
+
+	memset(&video,0,sizeof(video));
+	memset(&audio,0,sizeof(audio));
+
+	wr = ng_writers[movie_driver];
+	video.fmtid  = wr->video[movie_video].fmtid;
+	video.width  = win_width;
+	video.height = win_height;
+	if (NULL != wr->audio[movie_audio].name) {
+	    audio.fmtid  = wr->audio[movie_audio].fmtid;
+	    audio.rate   = movie_rate;
+	} else {
+	    audio.fmtid  = AUDIO_NONE;
+	}
+
+	movie_writer_init(fvideo, faudio, wr,
+			  &video, wr->video[movie_video].priv, movie_fps,
+			  &audio, wr->audio[movie_audio].priv,
+			  16, &sound);
+	movie_writer_start();
+	rec_work_id  = XtAppAddWorkProc(app_context,rec_work,NULL);
+	if (-1 != sound)
+	    rec_audio_id = XtAppAddInput(app_context,sound,
+					 (XtPointer)XtInputReadMask,
+					 rec_audio_input,NULL);
+	XtVaSetValues(w_movie_status,XtNlabel,"recording",NULL);
 	return;
     }
     
-    /* set params */
-    memset(&params,0,sizeof(params));
-    params.video_format = cur_avi_format;
-    params.width        = rec_width;
-    params.height       = rec_height;
-    params.fps          = cur_avi_fps;
+    /* stop */
+    if (argc > 0 && 0 == strcasecmp(argv[0],"stop")) {
+	if (0 == cur_movie)
+	    return; /* nothing to stop here */
 
-    if (cur_avi_audio > 0) {
-	params.bits         = 16;
-	params.channels     = cur_avi_audio;
-	params.rate         = 44100;
+	movie_writer_stop();
+	XtRemoveWorkProc(rec_work_id);
+	rec_work_id = 0;
+	if (rec_audio_id) {
+	    XtRemoveInput(rec_audio_id);
+	    rec_audio_id = 0;
+	}
+	XtVaSetValues(w_movie_status,XtNlabel,"",NULL);
+	grabdisplay_restart();
+	cur_movie = 0;
+	return;
     }
-
-    /* go! */
-    pid1 = grab_writer_avi(filename,&params,
-			   buffers,bufsize,0,&rec_writer);
-    pid2 = grab_syncer(&rec_wsync,0);
-    rec_id = XtAppAddWorkProc(app_context,rec_work,NULL);
-    XtVaSetValues(avi_status,XtNlabel,"recording",NULL);
 }
 
 void
 exec_xanim_cb(Widget widget, XtPointer client_data, XtPointer calldata)
 {
-    char *command[] = {
-	"xanim",
-	"+f",   /* read from file    */
-	"+Sr",  /* allow resize      */
-	"+Ze",  /* exit when done    */
-	"-Zr",  /* no control window */
-	NULL,   /* filename */
-	NULL
-    };
+    static char *command = "xanim +f +Sr +Ze -Zr";
+    char *filename,*cmd;
+    char **argv;
+    int  argc;
     
     /* filename */
-    XtVaGetValues(str_fbutton,XtNstring,command+5,NULL); /* XXX memory ??? */
-    command[5] = tilde_expand(command[5]);
+    XtVaGetValues(w_movie_fvideo,XtNstring,&filename,NULL);
+    filename = tilde_expand(filename);
 
     /* go! */
-    exec_x11(command);
+    cmd = malloc(strlen(command)+strlen(filename)+5);
+    sprintf(cmd,"%s %s",command,filename);
+    argv = split_cmdline(cmd,&argc);
+    exec_x11(argv);
 }
 
 #define FIX_LEFT_TOP        \
@@ -2039,9 +2159,9 @@ exec_xanim_cb(Widget widget, XtPointer client_data, XtPointer calldata)
     XtNbottom,XawChainTop
 
 void
-create_strwin()
+create_strwin(void)
 {
-    Widget form,label,button;
+    Widget form,label,button,text;
 
     str_shell = XtVaAppCreateShell("Streamer", "Xawtv",
 				   topLevelShellWidgetClass,
@@ -2057,48 +2177,73 @@ create_strwin()
     form = XtVaCreateManagedWidget("form", formWidgetClass, str_shell,
                                    NULL);
 
-    label = XtVaCreateManagedWidget("flabel", labelWidgetClass, form,
+    /* movie filename */
+    label = XtVaCreateManagedWidget("vlabel", labelWidgetClass, form,
 				    FIX_LEFT_TOP,
 				    NULL);
-    str_fbutton = XtVaCreateManagedWidget("fname", asciiTextWidgetClass, form,
-					  FIX_LEFT_TOP,
-					  XtNfromVert, label,
-					  XtNstring,"movie.avi",
-					  NULL);
+    text = XtVaCreateManagedWidget("vname", asciiTextWidgetClass, form,
+				   FIX_LEFT_TOP,
+				   XtNfromVert, label,
+				   NULL);
+    w_movie_fvideo = text;
+    
+    /* audio filename */
+    label = XtVaCreateManagedWidget("alabel", labelWidgetClass, form,
+				    FIX_LEFT_TOP,
+				    XtNfromVert, text,
+				    NULL);
+    w_movie_flabel = label;
+    text= XtVaCreateManagedWidget("aname", asciiTextWidgetClass, form,
+				  FIX_LEFT_TOP,
+				  XtNfromVert, label,
+				  NULL);
+    w_movie_faudio = text;
 
-    button = XtVaCreateManagedWidget("audio", commandWidgetClass, form,
+    /* driver */
+    button = XtVaCreateManagedWidget("driver", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
-				     XtNfromVert, str_fbutton,
+				     XtNfromVert, text,
 				     NULL);
-    XtAddCallback(button,XtNcallback,menu_cb,(XtPointer)20);
-    set_menu_val(button,"AVI Audio",avi_audio,cur_avi_audio);
+    w_movie_driver = button;
 
-    button = XtVaCreateManagedWidget("format", commandWidgetClass, form,
+    /* audio format */
+    button = XtVaCreateManagedWidget("audio", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
 				     XtNfromVert, button,
 				     NULL);
-    XtAddCallback(button,XtNcallback,menu_cb,(XtPointer)21);
-    set_menu_val(button,"AVI Format",avi_format,cur_avi_format);
+    w_movie_audio = button;
+    button = XtVaCreateManagedWidget("rate", commandWidgetClass, form,
+				     FIX_LEFT_TOP,
+				     XtNfromVert, button,
+				     NULL);
+    w_movie_rate = button;
 
+    /* video format */
+    button = XtVaCreateManagedWidget("video", commandWidgetClass, form,
+				     FIX_LEFT_TOP,
+				     XtNfromVert, button,
+				     NULL);
+    w_movie_video = button;
     button = XtVaCreateManagedWidget("fps", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
 				     XtNfromVert, button,
 				     NULL);
-    XtAddCallback(button,XtNcallback,menu_cb,(XtPointer)22);
-    set_menu_val(button,"AVI Framerate",avi_fps,cur_avi_fps);
-
+    w_movie_fps = button;
     label = XtVaCreateManagedWidget("size", labelWidgetClass, form,
 				    FIX_LEFT_TOP,
 				    XtNfromVert, button,
 				    NULL);
-    avi_size = label;
+    w_movie_size = label;
+
+    /* status line */
     label = XtVaCreateManagedWidget("status", labelWidgetClass, form,
 				    FIX_LEFT_TOP,
 				    XtNfromVert, label,
 				    XtNlabel,    "",
 				    NULL);
-    avi_status = label;
+    w_movie_status = label;
 
+    /* cmd buttons */
     button = XtVaCreateManagedWidget("streamer", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
 				     XtNfromVert, label,
@@ -2124,12 +2269,26 @@ create_strwin()
 				       XtNfromVert,label,
 				       NULL);
 #endif
+
+    build_menus();
+    XtAddCallback(w_movie_driver,XtNcallback,menu_cb,(XtPointer)20);
+    set_menu_val(w_movie_driver,MOVIE_DRIVER,m_movie_driver,movie_driver);
+
+    XtAddCallback(w_movie_audio,XtNcallback,menu_cb,(XtPointer)21);
+    set_menu_val(w_movie_audio,MOVIE_AUDIO,m_movie_audio,movie_audio);
+    XtAddCallback(w_movie_rate,XtNcallback,menu_cb,(XtPointer)22);
+    set_menu_val(w_movie_rate,MOVIE_RATE,m_movie_rate,movie_rate);
+
+    XtAddCallback(w_movie_video,XtNcallback,menu_cb,(XtPointer)23);
+    set_menu_val(w_movie_video,MOVIE_VIDEO,m_movie_video,movie_video);
+    XtAddCallback(w_movie_fps,XtNcallback,menu_cb,(XtPointer)24);
+    set_menu_val(w_movie_fps,MOVIE_FPS,m_movie_fps,movie_fps);
 }
 
 /*--- launcher window -----------------------------------------------------*/
 
 void
-create_launchwin()
+create_launchwin(void)
 {
     launch_shell = XtVaAppCreateShell("Launcher", "Xawtv",
 				     topLevelShellWidgetClass,
@@ -2199,133 +2358,6 @@ lirc_input(XtPointer data, int *fd, XtInputId *iproc)
 }
 
 static void
-xfree_init()
-{
-    int  flags,foo,bar,i,ma,mi;
-
-    if (!do_overlay)
-	return;
-    
-#ifdef HAVE_LIBXXF86DGA
-    if (args.dga) {
-	if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
-	    XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
-	    if (flags & XF86DGADirectPresent) {
-		XF86DGAQueryVersion(dpy,&ma,&mi);
-		if (debug)
-		    fprintf(stderr,"DGA version %d.%d\n",ma,mi);
-		have_dga = 1;
-	    }
-	}
-    }
-#endif
-#ifdef HAVE_LIBXXF86VM
-    if (args.vidmode) {
-	if (XF86VidModeQueryExtension(dpy,&foo,&bar)) {
-	    XF86VidModeQueryVersion(dpy,&ma,&mi);
-	    if (debug)
-		fprintf(stderr,"VidMode  version %d.%d\n",ma,mi);
-	    have_vm = 1;
-	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
-				       &vm_count,&vm_modelines);
-	    if (debug) {
-		fprintf(stderr,"  available video mode(s):");
-		for (i = 0; i < vm_count; i++) {
-		    fprintf(stderr," %dx%d",
-			    vm_modelines[i]->hdisplay,
-			    vm_modelines[i]->vdisplay);
-		}	    
-		fprintf(stderr,"\n");
-	    }
-	}
-    }
-#endif
-}
-
-static void
-grabber_init()
-{
-    int sw,sh;
-    void *base = NULL;
-    int  width = 0, depth = 0;
-#ifdef HAVE_LIBXXF86DGA
-    int bar,fred;
-
-    if (have_dga) {
-	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
-			  &width,&bar,&fred);
-    }
-#endif
-    if (!do_overlay) {
-	sw = sh = depth = 0;
-	fprintf(stderr,"x11: remote display (overlay disabled)\n");
-    } else {
-	sw = XtScreen(app_shell)->width;
-	sh = XtScreen(app_shell)->height;
-	depth = format2depth[x11_native_format];
-	width *= (depth+7)/8;
-	fprintf(stderr,"x11: %dx%d, %d bit/pixel, %d byte/scanline%s%s\n",
-		sw,sh,depth,width,
-		have_dga ? ", DGA" : "",
-		have_vm ? ", VidMode" : "");
-    }
-    grabber_open(args.device,sw,sh,base,x11_native_format,width);
-}
-
-void
-x11_check_remote(Display *dpy)
-{
-    int fd = ConnectionNumber(dpy);
-    struct sockaddr_in me,peer;
-    int length;
-
-    do_overlay = 1;
-    length = sizeof(me);
-    if (-1 == getsockname(fd,&me,&length)) {
-	perror("getsockname");
-	return;
-    }
-    length = sizeof(peer);
-    if (-1 == getpeername(fd,&peer,&length)) {
-	perror("getpeername");
-	return;
-    }
-    if (me.sin_family == PF_UNIX) {
-	if (debug)
-	    fprintf(stderr,"x11 uses unix sockets\n");
-	return;
-    }
-    if (me.sin_family == PF_INET) {
-	if (debug) {
-	    fprintf(stderr,"x11 uses inet sockets\n");
-	    fprintf(stderr,"\tme  : %s\n",inet_ntoa(me.sin_addr));
-	    fprintf(stderr,"\tpeer: %s\n",inet_ntoa(peer.sin_addr));
-	}
-	if (0 == memcmp(&me.sin_addr,&peer.sin_addr,sizeof(me.sin_addr)))
-	    return;
-	/* ip addr not equal => assume remote display */
-	do_overlay = 0;
-	return;
-    }
-    fprintf(stderr,"x11: Oops: unknown socket family: %d\n",me.sin_family);
-    return;
-}
-
-int
-x11_ctrl_alt_backspace(Display *dpy)
-{
-    audio_off();
-    video_overlay(NULL);
-    video_close();
-    if (have_mixer)
-	mixer_close();
-    if (grabber->grab_close)
-	grabber->grab_close();
-    fprintf(stderr,"xawtv: game over\n");
-    exit(0);
-}
-
-static void
 siginit(void)
 {
     struct sigaction act,old;
@@ -2337,7 +2369,7 @@ siginit(void)
 }
 
 static void
-hello_world()
+hello_world(void)
 {
     struct utsname uts;
 
@@ -2355,14 +2387,14 @@ usage(void)
 	    "\n"
 	    "usage: xawtv [ options ] [ station ]\n"
 	    "options:\n"
-	    "  -v, -debug=n      debug level n, n = [0..2]\n"
+	    "  -v, -debug n      debug level n, n = [0..2]\n"
 	    "      -remote       assume remote display\n"
 	    "  -n  -noconf       don't read the config file\n"
 	    "  -m  -nomouse      startup with mouse pointer disabled\n"
 	    "  -f  -fullscreen   startup in fullscreen mode\n"
-	    "      -nodga        disable DGA extention\n"
-	    "      -novm         disable VidMode extention\n"
-	    "      -noxv         disable Xvideo extention\n"
+	    "      -dga/-nodga   enable/disable DGA extention\n"
+	    "      -vm/-novm     enable/disable VidMode extention\n"
+	    "      -xv/-noxv     enable/disable Xvideo extention\n"
 	    "  -b  -bpp n        color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file filename base for snapshots\n"
 	    "  -c  -device file  use <file> as video4linux device\n"
@@ -2379,10 +2411,9 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
-    Dimension    w;
-    Visual       *visual;
-    XVisualInfo  *vinfo_list;
-    int          n;
+    Dimension      w;
+    int            i;
+    unsigned long  freq;
 
     if (0 == geteuid() && 0 != getuid()) {
 	fprintf(stderr,"xawtv /must not/ be installed suid root\n");
@@ -2395,72 +2426,43 @@ main(int argc, char *argv[])
     /* toplevel */
     app_shell = XtVaAppInitialize(&app_context,
 				  "Xawtv",
-				  opt_desc, OPT_COUNT,
+				  opt_desc, opt_count,
 				  &argc, argv,
 				  NULL /* fallback_res */,
 				  NULL);
     dpy = XtDisplay(app_shell);
+
+    /* command line args */
     XtGetApplicationResources(app_shell,&args,
-			      args_desc,XtNumber(args_desc),
+			      args_desc,args_count,
 			      NULL,0);
     if (args.help) {
 	usage();
 	exit(0);
     }
     debug = args.debug;
-    do_overlay = !args.remote;
     snapbase = args.basename;
     
     /* look for a useful visual */
-    visual = x11_visual(XtDisplay(app_shell));
-    vinfo.visualid = XVisualIDFromVisual(visual);
-    vinfo_list = XGetVisualInfo(dpy, VisualIDMask, &vinfo, &n);
-    vinfo = vinfo_list[0];
-    XFree(vinfo_list);
-    if (visual != DefaultVisualOfScreen(XtScreen(app_shell))) {
-	fprintf(stderr,"switching visual (0x%lx)\n",vinfo.visualid);
-	colormap = XCreateColormap(dpy,RootWindowOfScreen(XtScreen(app_shell)),
-				   vinfo.visual,AllocNone);
-	XtDestroyWidget(app_shell);
-	app_shell = XtVaAppCreateShell("xawtv", "Xawtv",
-				       applicationShellWidgetClass, dpy,
-				       XtNvisual,vinfo.visual,
-				       XtNcolormap,colormap,
-				       XtNdepth, vinfo.depth,
-				       NULL);
-    } else {
-	colormap = DefaultColormapOfScreen(XtScreen(app_shell));
-    }
+    visual_init("xawtv","Xawtv");
 
-    /* build v4l-conf args */
-    if (!args.debug)
-	strcat(v4l_conf," -q");
-    if (args.fbdev)
-	strcat(v4l_conf," -f");
-    if (args.shift)
-	sprintf(v4l_conf+strlen(v4l_conf)," -s %d",args.shift);
-    if (args.bpp)
-	sprintf(v4l_conf+strlen(v4l_conf)," -b %d",args.bpp);
-    if (args.device)
-	sprintf(v4l_conf+strlen(v4l_conf)," -c %s",args.device);
-
+    /* remote display? */
+    do_overlay = !args.remote;
     if (do_overlay)
-	x11_check_remote(XtDisplay(app_shell));
+	x11_check_remote();
+    v4lconf_init();
 
+    /* x11 stuff */
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
-    fcntl(ConnectionNumber(dpy),F_SETFD,FD_CLOEXEC);
-    wm_protocols[0] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-    wm_protocols[1] = XInternAtom(dpy, "WM_SAVE_YOURSELF", False);
-    xawtv_station   = XInternAtom(dpy, "_XAWTV_STATION", False);
-    xawtv_remote    = XInternAtom(dpy, "_XAWTV_REMOTE", False);
-
-    xfree_init();
-    xv_init(args.xv_video,args.xv_scale);
+    x11_misc_init();
+    xfree_dga_init();
+    xv_init(args.xv_video,args.xv_scale,args.xv_port);
 
     /* set hooks (command.c) */
     update_title        = new_title;
     display_message     = new_message;
+    vtx_message         = display_vtx;
     norm_notify         = new_norm;
     input_notify        = new_input;
     attr_notify         = new_attr;
@@ -2469,11 +2471,13 @@ main(int argc, char *argv[])
     setstation_notify   = new_channel;
     set_capture_hook    = do_capture;
     fullscreen_hook     = do_fullscreen;
+    movie_hook          = do_movie_record;
     exit_hook           = do_exit;
-    reconfigure_hook    = grabdisplay_reconfigure;
+    capture_get_hook    = grabdisplay_suspend;
+    capture_rel_hook    = grabdisplay_restart;
     channel_switch_hook = pixit;
     
-    tv = video_init(app_shell,&vinfo);
+    tv = video_init(app_shell,&vinfo,simpleWidgetClass);
     XtAddEventHandler(XtParent(tv),StructureNotifyMask, True,
 		      resize_event, NULL);
     XtVaGetValues(tv,XtNwidth,&w,NULL);
@@ -2511,27 +2515,46 @@ main(int argc, char *argv[])
 
     XSetIOErrorHandler(x11_ctrl_alt_backspace);
     wm_detect(dpy);
+    if (debug)
+	fprintf(stderr,"main: creating windows ...\n");
     create_optwin();
     create_onscreen();
+    create_vtx();
     create_chanwin();
     create_confwin();
     create_strwin();
     create_launchwin();
 
+    /* read config file */
+    if (debug)
+	fprintf(stderr,"main: read config file ...\n");
     if (args.readconfig)
 	read_config();
     channel_menu();
+    if (fs_width && fs_height && !args.vidmode) {
+	if (debug)
+	    fprintf(stderr,"fullscreen mode configured (%dx%d), "
+		    "VidMode extention enabled\n",fs_width,fs_height);
+	args.vidmode = 1;
+    }
+    if (debug)
+	fprintf(stderr,"main: checking for vidmode extention ...\n");
+    xfree_vm_init();
 
     /* lirc support */
+    if (debug)
+	fprintf(stderr,"main: checking for lirc ...\n");
     if (-1 != (lirc = lirc_tv_init()))
 	XtAppAddInput(app_context,lirc,(XtPointer)XtInputReadMask,lirc_input,NULL);
 
+    if (debug)
+	fprintf(stderr,"main: mapping main window ...\n");
     XtRealizeWidget(app_shell);
     create_pointers(app_shell);
     create_bitmaps(app_shell);
     XDefineCursor(dpy, XtWindow(app_shell), left_ptr);
     XSetWMProtocols(XtDisplay(app_shell), XtWindow(app_shell),
-		    wm_protocols, 2);
+		    &wm_delete_window, 1);
 
     XtVaSetValues(app_shell,
 		  XtNwidthInc,  WIDTH_INC,
@@ -2543,10 +2566,16 @@ main(int argc, char *argv[])
 		  XtNwidth,pix_width*pix_cols+30,
 		  NULL);
 
+    /* mouse pointer magic */
+    XtAddEventHandler(tv, PointerMotionMask, True, mouse_event, NULL);
+    mouse_event(tv,NULL,NULL,NULL);
+
     /* init hardware */
+    if (debug)
+	fprintf(stderr,"main: initialize hardware ...\n");
     attr_init();
-    audio_init();
     audio_on();
+    audio_init();
     do_va_cmd(2,"setfreqtab",chanlist_names[chantab].str);
 
     cur_capture = 0;
@@ -2555,24 +2584,41 @@ main(int argc, char *argv[])
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
     } else {
-	if (!grabber->grab_tuned || !grabber->grab_tuned()) {
-	    if (count > 0)
+	if (grabber->grab_tune && 0 != (freq = grabber->grab_tune(-1,-1))) {
+	    for (i = 0; i < chancount; i++)
+		if (chanlist[i].freq == freq*1000/16) {
+		    do_va_cmd(2,"setchannel",chanlist[i].name);
+		    break;
+		}
+	}
+	if (-1 == cur_channel) {
+	    if (count > 0) {
+		if (debug)
+		    fprintf(stderr,"main: tuning first station\n");
 		do_va_cmd(2,"setstation","0");
-	    else
+	    } else {
+		if (debug)
+		    fprintf(stderr,"main: setting defaults\n");
 		set_defaults();
+	    }
+	} else {
+	    if (debug)
+		fprintf(stderr,"main: known station tuned, not changing\n");
 	}
     }
 
-    if (args.fullscreen)
+    if (0 != grabber->colorkey)
+	XtAddEventHandler(tv,ExposureMask, True, tv_expose_event, NULL);
+
+    if (args.fullscreen) {
 	do_fullscreen();
-    else
+    } else {
 	XtAppAddWorkProc(app_context,MyResize,NULL);
-    if (!args.showpointer)
-	PointerAction(NULL,NULL,NULL,NULL);
+    }
 
     sprintf(modename,"%dx%d, ",
 	    XtScreen(app_shell)->width,XtScreen(app_shell)->height);
-    strcat(modename,format_desc[x11_native_format]);
+    strcat(modename,ng_vfmt_to_desc[x11_native_format]);
     new_message(modename);
     if (!have_config)
 	XtCallActionProc(tv,"Help",NULL,NULL,0);

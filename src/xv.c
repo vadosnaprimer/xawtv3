@@ -29,7 +29,7 @@
 /* dummy stubs */
 int have_xv;
 int have_xv_scale;
-void xv_init(int foo,int bar)
+void xv_init(int foo,int bar, int port)
 {
     if (debug)
 	fprintf(stderr,"Xv: compiled without Xvideo extention support\n");
@@ -66,10 +66,11 @@ static Atom xv_contrast   = None;
 static Atom xv_freq       = None;
 static Atom xv_mute       = None;
 static Atom xv_volume     = None;
+static Atom xv_colorkey   = None;
 
 static struct STRTAB *norms;
 static struct STRTAB *inputs;
-static int my_norm=-1, my_input=-1;
+static int my_norm=-1, my_input=-1, my_enc=-1;
 
 static struct ENC_MAP {
     int norm;
@@ -103,7 +104,6 @@ static struct XVATTR {
 #if 0
     { GRAB_ATTR_MODE,      &xv,            0 },
 #endif
-    
     { GRAB_ATTR_COLOR,     &xv_color,      1 },
     { GRAB_ATTR_BRIGHT,    &xv_brightness, 1 },
     { GRAB_ATTR_HUE,       &xv_hue,        1 },
@@ -151,6 +151,8 @@ xv_getattr(int id)
 	    break;
     if (i == NUM_ATTR)
 	return -1;
+    if (debug)
+	fprintf(stderr,"Xv: getattr %d\n",i);
 
     XvGetPortAttribute(dpy,vi_port,*(xvattr[i].attr),&val);
     switch (id) {
@@ -198,6 +200,7 @@ xv_input(int input, int norm)
     for (i = 0; i < encodings; i++) {
 	if (enc_map[i].norm  == my_norm &&
 	    enc_map[i].input == my_input) {
+	    my_enc = i;
 	    XvSetPortAttribute(dpy,vi_port,xv_encoding,enc_map[i].encoding);
 	    return 0;
 	}
@@ -205,9 +208,17 @@ xv_input(int input, int norm)
     return 0;
 }
 
-static int
-xv_tune(unsigned long freq)
+static unsigned long
+xv_tune(unsigned long freq, int sat)
 {
+    int f;
+
+    if (-1 == freq) {
+	if (debug)
+	    fprintf(stderr,"Xv: tune getfreq\n");
+	XvGetPortAttribute(dpy,vi_port,xv_freq,&f);
+	return f;
+    }
     XvSetPortAttribute(dpy,vi_port,xv_freq,freq);
     return 0;
 }
@@ -221,9 +232,14 @@ xv_video(Window win, int width, int height, int on)
 	fprintf(stderr,"Xv: video: win=0x%lx, size=%dx%d, %s\n",
 		win, width, height, on ? "on" : "off");
     if (on) {
+	int w = width, h = height;
+	if (-1 != my_enc) {
+	    w = ei[my_enc].width;
+	    h = ei[my_enc].height;
+	}
 	if (!gc)
 	    gc = XCreateGC(dpy, win, 0, NULL);
-	XvPutVideo(dpy,vi_port,win,gc,0,0,width,height,0,0,width,height);
+	XvPutVideo(dpy,vi_port,win,gc,0,0,w,h,0,0,width,height);
     } else {
 	XvStopVideo(dpy,vi_port,win);
     }
@@ -294,7 +310,7 @@ xv_destroy_ximage(Display *dpy, XvImage * xvimage, void *shm)
 
 /* ********************************************************************* */
 
-void xv_init(int xvideo, int hwscale)
+void xv_init(int xvideo, int hwscale, int port)
 {
     char norm[32],input[32];
     int i;
@@ -325,8 +341,13 @@ void xv_init(int xvideo, int hwscale)
 	if ((ai[i].type & XvInputMask) &&
 	    (ai[i].type & XvVideoMask) &&
 	    (vi_port == -1)) {
-	    vi_port = ai[i].base_id;
-	    vi_adaptor = i;
+	    if (ai[i].base_id == port || 0 == port) {
+		vi_port = ai[i].base_id;
+		vi_adaptor = i;
+	    } else {
+		fprintf(stderr,"Xv: skipping port %ld (configured other: %d)\n",
+			ai[i].base_id, port);
+	    }
 	}
 
 	if ((ai[i].type & XvInputMask) &&
@@ -395,6 +416,8 @@ void xv_init(int xvideo, int hwscale)
 		xv_mute       = XInternAtom(dpy, "XV_MUTE", False);
 	    if (0 == strcmp("XV_VOLUME",at[i].name))
 		xv_volume     = XInternAtom(dpy, "XV_VOLUME", False);
+	    if (0 == strcmp("XV_COLORKEY",at[i].name))
+		xv_colorkey   = XInternAtom(dpy, "XV_COLORKEY", False);
 	}
 	
 	/* set hooks */
@@ -408,6 +431,12 @@ void xv_init(int xvideo, int hwscale)
 	if (xv_freq != None) {
 	    xv.grab_tune = xv_tune;
 	}
+#if 0
+	if (xv_colorkey != None) {
+	    XvGetPortAttribute(dpy,vi_port,xv_colorkey,&xv.colorkey);
+	    fprintf(stderr,"Xv: colorkey: %x\n",xv.colorkey);
+	}
+#endif
     }
 
     /* *** image scaler port *** */
@@ -418,7 +447,6 @@ void xv_init(int xvideo, int hwscale)
 	if (debug)
 	    fprintf(stderr,"Xv: no usable hw scaler port found\n");
     } else {
-
 	fo = XvListImageFormats(dpy, im_port, &formats);
 	printf("  image format list for port %d\n",im_port);
 	for(i = 0; i < formats; i++) {

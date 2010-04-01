@@ -20,6 +20,6 @@ int fb_puts(int x, int y, char *text);
 void fb_memset(void *addr, int c, size_t len);
 
 /* console switching */
-int  fb_switch_init();
-void fb_switch_release();
-void fb_switch_acquire();
+int  fb_switch_init(void);
+void fb_switch_release(void);
+void fb_switch_acquire(void);

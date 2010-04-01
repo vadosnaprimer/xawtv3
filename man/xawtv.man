@@ -11,10 +11,12 @@ Athena widgets.
 supports the bttv driver, v4l (video4linux, included in 2.2.x) and the
 Xvideo extention.
 .P
-.B xawtv
-reads the config file $HOME/.xawtv at startup.  This file holds the
-available TV stations and a few settings like TV norm.  You have to
-create the config file yourself, see below for details.
+.B xawtv 
+reads the config files /usr/X11R6/lib/X11/xawtvrc and $HOME/.xawtv at
+startup.  Settings in the personal config file will overwrite the
+options from the global config file.  These files holds the available
+TV stations and a few settings like TV norm.  You have to create the
+config file yourself, see below for details.
 .SH OPTIONS
 .TP
 \fB-h\fP, \fB-help\fP
@@ -22,9 +24,6 @@ Print a short desctiption of all command line options.
 .TP
 \fB-f\fP, \fB-fullscreen\fP
 startup in fullscreen mode.
-.TP
-\fB-m\fP, \fB-nomouse\fP
-startup with mouse pointer turned off.
 .TP
 \fB-n\fP, \fB-noconf\fP
 don't read the config file ($HOME/.xawtv).
@@ -35,6 +34,9 @@ set basestring for the snapshot output files.  The filename will be
 .TP
 \fB-c\fP, \fB-device\fP device
 set video4linux device (default is /dev/video).
+.TP
+\fB-c\fP, \fB-xvport\fP number
+set Xvideo port (defaults to the first usable).
 .TP
 \fB-v\fP, \fB-debug\fP level
 Be verbose,
@@ -60,17 +62,40 @@ This gets passed throuth to v4l-conf(1) too.
 .TP
 \fB-fb\fP
 Use the framebuffer device to determine the video framebuffer address
-(instead of the DGA extention).  Yet another pass throuthb argument.
+(instead of the DGA extention).  Yet another pass throuth argument.
 .TP
-\fB-noxv\fP
-disable the usage of the Xvideo extention.
+\fB-xv/-noxv \fP
+enable/disable the usage of the Xvideo extention (for overlay),
+default is on.
 .TP
-\fB-novm\fP
-disable the usage of the VidMode extention.  If you have trouble with
-fullscreen mode, try this one.
+\fB-scale/-noscale \fP
+enable/disable the usage of the Xvideo extention (for hardware scaling
+in grabdisplay mode), default is on.
 .TP
-\fB-nodga\fP
-disable the usage of the DGA extention.
+\fB-vm/-novm\fP
+enable/disable the usage of the VidMode extention, default is off.
+If there is a fullscreen video mode configured in the config file,
+the vidmode extention will be enabled automatically.
+.TP
+\fB-dga/-nodga\fP
+enable/disable the usage of the DGA extention, default is on.
+.P
+The usual Toolkit options like \fB-geometry\fP are supported too.
+.SH RESOURCES
+\fBxawtv\fP understands all of the core X Toolkit resource names and
+classes as well as:
+.TP
+\fBdevice\fP
+video4linux device
+.TP
+\fBxvideo\fP (bool)
+enable/disable the usage of the Xvideo extention.
+.TP
+\fBvidmode\fP (bool)
+enable/disable the usage of the VidMode extention.
+.TP
+\fBdga\fP (bool)
+enable/disable the usage of the DGA extention.
 .SH GETTING STARTED
 Just start up xawtv, this will work without a config file too.  Then
 check out the options (right mouse button) and adjust the settings
@@ -92,7 +117,6 @@ functions.
 .nf
 V            \fBV\fPideo (Capture) on/off
 A            \fBA\fPudio on/off
-M            \fBM\fPouse pointer on/off
 F            \fBF\fPullscreen on/off
 G            \fBG\fPrab picture (full size, ppm)
 J            Grab picture (full size, \fBj\fPpeg)
@@ -116,8 +140,8 @@ Ctrl+up      scan for next station
 
 ESC,Q        \fBQ\fPuit
 
-+/-          Volume up/down
-Enter        mute
++/-          Volume up/down (keypad)
+Enter        mute (keypad)
 .fi
 .SS config file
 You can stick the channels into a config file ($HOME/.xawtv). Looks like this:
@@ -150,7 +174,7 @@ capture mode: off, overlay (default, TV card => video, 0% cpu) or
 grabdisplay (TV card => main memory => X-Server => video, frame rate
 depends on load and picture size).
 .TP
-.B source = Television | Composite1 | Composite2 | SVHS
+.B input = Television | Composite1 | Composite2 | SVHS
 input source.  The valid choices depend on the hardware driver, the
 values above are just examples.
 .TP
@@ -161,14 +185,26 @@ values above are just examples.
 .B hue = n
 .TP
 .B contrast = n
-Valid range is 0-65535, default is 32768
+Valid range is 0-65535, default is 32768.  Adding a percent symbol
+changes the range to 0-100, i.e. "50%" has the same effect like
+"32768".
+.TP
+.B audio = mono | stereo | lang1 | lang2
+Set the audio mode for the given channel.
+.TP
+.B freq = n
+Specify the frequency for the given station (kHz, video carrier).  You
+shouldn't need this for normal operation, all your channels should be
+listed in the frequency table for your area.  Maybe unless you live
+near the border and the foreign country uses another channel scheme.
 .P
 A few global settings go to the "[global]" section:
 .TP
 .B fullscreen = width x height
 specify which video mode should be used for full-screen.  Works with
 XFree only, and of cource you need a valid modeline for this mode in
-your XF86Config file.
+your XF86Config file.  You also have to enable the VidMode extention
+(option -vm, see above) to make this work.
 .TP
 .B wm-off-by = [+-]x[+-]y
 Some WM's handle static gravity not correct (I know mwm and
@@ -212,6 +248,9 @@ i.e. 1 is the first station from $HOME/.xawtv, ...
 .B osd = on | off
 Enable/disable the onscreen display in fullscreen mode.  Default is
 on.
+.TP
+.B ratio = x:y
+Set a fixed aspect ratio for the TV image.
 .P
 You can start other programs from within xawtv.  This is configured
 with entries in the "[launch]" section:

@@ -1,18 +1,22 @@
-#if 0
-set -x
-gcc -o record $0 -lncurses
-exit
-#endif
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <ncurses.h>
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>
-#include <linux/soundcard.h>
+#include <sys/types.h>
+#ifdef HAVE_SOUNDCARD_H
+# include <soundcard.h>
+#endif
+#ifdef HAVE_SYS_SOUNDCARD_H
+# include <sys/soundcard.h>
+#endif
 
 /* -------------------------------------------------------------------- */
 
@@ -46,8 +50,8 @@ sound_open()
 {
     int frag,afmt,channels,rate,trigger;
     
-    if (-1 == (sound_fd = open("/dev/dsp", O_RDONLY))) {
-	perror("open /dev/dsp");
+    if (-1 == (sound_fd = open("/dev/audio", O_RDONLY))) {
+	perror("open /dev/audio");
 	exit(1);
     }
 
@@ -394,7 +398,7 @@ usage()
 	    "terminal, don't try this on a 9600 bps vt100...\n"
 	    "\n"
 	    "%s has three options:\n"
-	    "  -h       this text\n"  
+	    "  -h       this text\n"
 	    "  -i dev   mixer device [%s].  This should be the one\n"
 	    "           where you can adjust the record level for\n"
 	    "           your audio source.\n"
@@ -465,7 +469,12 @@ main(int argc, char *argv[])
 	FD_ZERO(&s);
 	FD_SET(0,&s);
 	FD_SET(sound_fd,&s);
-	select(sound_fd+1,&s,NULL,NULL,NULL);
+	if (-1 == select(sound_fd+1,&s,NULL,NULL,NULL)) {
+		if (EINTR == errno)
+			continue;
+		perror("select");
+		break;
+	}
 
 	if (FD_ISSET(sound_fd,&s)) {
 	    /* sound */
@@ -511,8 +520,10 @@ main(int argc, char *argv[])
 		    break;
 		if (!record) {
 		    /* start */
-		    sprintf(outfile,"%s%02d.wav",filename,nr++);
-		    wav = open(outfile,O_WRONLY | O_TRUNC | O_CREAT, 0666);
+		    do {
+			sprintf(outfile,"%s%02d.wav",filename,nr++);
+			wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
+		    } while ((-1 == wav) && (EEXIST == errno));
 		    if (-1 == wav) {
 			perror("open");
 			exit(1);

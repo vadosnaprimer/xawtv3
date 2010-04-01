@@ -1,7 +1,7 @@
 extern int have_xv;
 extern int have_xv_scale;
 extern int im_adaptor,im_port;
-void xv_init(int,int);
+void xv_init(int,int,int port);
 void xv_video(Window win, int width, int height, int on);
 
 #ifdef HAVE_LIBXV

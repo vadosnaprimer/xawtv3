@@ -1,4 +1,34 @@
 
+For some people xawtv failes with
+	Error: Couldn't find per display information
+
+This is probably some library compatibility problem.  I've never seen
+this myself.  According to a report I've received upgrading Xfree86 to
+4.0 fixed this.  Probaby xawtv does'nt work with 3.3.x libraries if it
+was compiled against the 4.0.x versions.
+
+-- 
+
+libXaw3d is buggy.  It bombs when xawtv wants to use a visual with a
+different color depth than the default visual.  Looks like this:
+
+bogomips kraxel ~# xawtv
+This is xawtv-3.08, running on Linux/i686 (2.2.13)
+visual: id=0x22 class=3 (PseudoColor), depth=8
+visual: id=0x23 class=1 (GrayScale), depth=8
+visual: id=0x24 class=4 (TrueColor), depth=24
+switching visual (0x24)
+[ ... more messages ... ]
+X Error of failed request:  BadValue (integer parameter out of range for operation)
+  Major opcode of failed request:  91 (X_QueryColors)
+  Value in failed request:  0xd3d3d3
+  Serial number of failed request:  63
+  Current serial number in output stream:  63
+
+workaround:  ./configure --disable-xaw3d
+
+-- 
+
 Some people report xawtv segfaults with glibc 2.1
 (got success reports too).  I don't know what the
 reason for this problem is.  From the stack traces
@@ -8,5 +38,10 @@ some incompatibility between glibc and the X11 libs.
 I've got one report that upgrading the X11 libs from
 3.3.2 to 3.3.3 fixed the problem.
 
+
+HTH,
+
   Gerd
 
+-- 
+Gerd Knorr <kraxel@goldbach.in-berlin.de>

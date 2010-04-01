@@ -318,6 +318,10 @@ displayinfo_v4l(int fd, struct DISPLAYINFO *d)
     fbuf.bytesperline = d->bpl;
     if (NULL != d->base)
 	fbuf.base     = d->base;
+    if (NULL == fbuf.base)
+	fprintf(stderr,
+		"WARNING: couldn't find framebuffer base address, try manual\n"
+		"         configuration (\"v4l-conf -a <addr>\")\n");
 
     /* XXX bttv confuses color depth and bits/pixel */
     if (d->depth == 15)
@@ -402,7 +406,7 @@ main(int argc, char *argv[])
 		    "    -b <n>    displays color depth is <n> bpp\n"
 		    "    -s <n>    shift display by <n> bytes\n"
 		    "    -f        query frame buffer device for info\n"
-		    "    -a <adr>  set framebuffer address to <adr>\n"
+		    "    -a <addr> set framebuffer address to <addr>\n"
 		    "              (in hex, root only, successful autodetect\n"
 		    "               will overwrite this address)\n",
 		    argv[0],

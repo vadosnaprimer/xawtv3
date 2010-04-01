@@ -1,0 +1,52 @@
+srcdir=@srcdir@
+VPATH=$(srcdir)
+
+ROOT=
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=$(ROOT)@bindir@
+mandir=$(ROOT)@mandir@
+
+CC=@CC@
+DEPEND=@DEPEND@
+INSTALL=@INSTALL@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=mkdir -p
+
+CFLAGS=-Wall -g -O2 -I. -I$(srcdir)/../libvbi -L../libvbi
+LDLIBS=-lvbi
+
+PROG=alevtd
+OBJS=main.o request.o response.o page.o
+HTML=alevt.css.h top.html.h bottom.html.h about.html.h
+
+%.h : %
+	perl -ne 's/\"/\\\"/g; chop; print "\"$$_\\n\"\n"' $< > $@
+
+all build: $(PROG)
+
+$(PROG): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
+
+main.o: httpd.h
+request.o: httpd.h
+response.o: httpd.h
+page.o: httpd.h $(HTML)
+
+install: all
+	$(INSTALL_DIR) $(bindir) $(mandir)/man1
+	$(INSTALL_PROGRAM) -s alevtd $(bindir)
+	install -m 644 $(srcdir)/alevtd.man $(mandir)/man1/alevtd.1
+
+clean:
+	rm -f $(OBJS) $(HTML)
+
+realclean distclean: clean
+	rm -f $(PROG) Makefile *~ *.bak
+
+dep depend:
+	$(DEPEND) -- $(CFLAGS) -- *.c
+
+#-------------------------------------------------------------------------
+# DO NOT DELETE THIS LINE -- make depend depends on it.

@@ -78,10 +78,8 @@ usage
 bttv
 ----
 
-bttv is'nt bundled with xawtv any more.  You can get my current bttv
-code as separate tar file from http://www.in-berlin.de/User/kraxel/v4l/
-Number scheme is Ralph's version it is based on plus a small letter
-(i.e. bttv-0.6.3e for example).
+bttv is'nt bundled with xawtv any more.  You can the latest version
+from http://www.strusel007.de/linux/bttv/
 
 
 v4l-conf
@@ -92,8 +90,8 @@ video mode (size and color depth).  This requires root priviliges,
 becauce it is easy to crash the box by passing bogous values there.
 It requires the X-Server with DGA support up and running or a
 framebuffer device.  It is a temporary hack, this problem will be
-solved in a better way with a X11 extention.  The XFree86 snapshots
-(3.9.x) already have some working code.
+solved in a better way with a X11 extention.  See README.xfree4
+for details.
 
 Try "v4l-conf -h" for a short description.  It is installed suid-root,
 and xawtv runs it at startup.  Should work out-of-the-box without
@@ -195,14 +193,7 @@ webcam
 This is a webcam tool.  Captures a image, annotates with a text +
 current time and uploads it to the webserver using ftp in an endless
 loop.  Needs the ftp utility.  Should survive dropped ftp-connections
-(webserver reboot) without problems.
-
-It is'nt compiled by default, you can compile it with "make webcam".
-All config options are compile time options, check out the #defines in
-webcam.c.  For normal operation, webcam is simply started without
-arguments (and it should work until someone kills it).  If the number
-of arguments is non-zero, webcam prints the complete communication
-with the ftp utility to stderr (for debugging purpurses).
+(webserver reboot) without problems.  It has a man-page...
 
 
 perl
@@ -216,15 +207,14 @@ nifty tool to do a channel scan (decodes the station ID from vbi).
 resources
 =========
 
-http://www.in-berlin.de/User/kraxel/xawtv.html		- xawtv	[me]
+http://www.strusel007.de/linux/xawtv/			- xawtv	[me]
 http://user.exit.de/froese/				- alevt	[Edgar]
-http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv	[Ralph]
-http://www.ee.up.ac.za/~justin/v4l2/			- bttv2 [Justin]
+http://www.metzlerbros.de/bttv.html			- bttv	[Ralph]
+http://bttv-v4l2.sourceforge.net/			- bttv2 [Justin]
 http://roadrunner.swansea.uk.linux.org/v4l.shtml	- v4l	[Alan]
-http://millennium.diads.com/bdirks/v4l2.htm		- v4l2	[Bill]
+http://www.thedirks.org/v4l2/				- v4l2	[Bill]
 http://www.tk.uni-linz.ac.at/~simon/private/i2c/	- i2c	[Simon]
-http://www-nrg.ee.lbl.gov/vic/				- vic
-http://FreeTV.Notrix.de
+http://www-mice.cs.ucl.ac.uk/multimedia/software/vic/	- vic
 
 
 Have fun!
