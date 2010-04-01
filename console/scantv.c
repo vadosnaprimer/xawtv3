@@ -225,7 +225,7 @@ main(int argc, char **argv)
     do_va_cmd(2,"setfreqtab",chanlist_names[j].str);
 
     /* vbi */
-    vbi = vbi_open(ng_dev.vbi,0,0);
+    vbi = vbi_open(ng_dev.vbi,debug,0);
     if (NULL == vbi) {
 	fprintf(stderr,"open %s: %s\n",ng_dev.vbi,strerror(errno));
 	exit(1);

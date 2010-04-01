@@ -1,10 +1,11 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
-#include <X11/Intrinsic.h>
 #include <aalib.h>
 
 #include "grab-ng.h"

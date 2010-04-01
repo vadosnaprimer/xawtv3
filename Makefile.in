@@ -157,38 +157,7 @@ include $(srcdir)/x11/Subdir.mk
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-PRESULT := /work/pbuilder/result
-
-PACKAGE := xawtv
-DEBARCH := $(shell uname -m | sed	\
-		-e 's/i.86/i386/'	\
-		-e 's/ppc/powerpc/')
-DEBVER   = $(shell dpkg-parsechangelog | sed -n 's/^Version: \(.*:\|\)//p')
-DSC     := $(PACKAGE)_$(VERSION).dsc
-CHANGES := $(PACKAGE)_$(VERSION)_$(DEBARCH).changes
-
-
-dsc source ../$(DSC): clean
-	test "$(VERSION)" = "$(DEBVER)"
-	dpkg-buildpackage -S -us -uc -rfakeroot
-
-debs pbuild $(PRESULT)/$(CHANGES): ../$(DSC)
-	sudo /usr/sbin/pbuilder build ../$(DSC)
-	-lintian -i $(PRESULT)/$(CHANGES)
-
-release: $(PRESULT)/$(CHANGES)
-	debsign $(PRESULT)/$(CHANGES)
-
-
 tarball: distclean
-	(cd ..; tar cvzf xawtv_$(VERSION).tar.gz \
+	(cd ..; tar cvzf xawtv-$(VERSION).tar.gz \
 		xawtv-$(VERSION))
-
-rpm: tarball
-	rpm -ta ../xawtv_$(VERSION).tar.gz
-
-snapshot snap: distclean
-	(cd ..; tar cvzf $(HOME)/snapshot/xawtv-`date +%Y%m%d`.tar.gz \
-		xawtv-$(VERSION))
-	$(MAKE) -C $(HOME)/snapshot
 

@@ -173,7 +173,6 @@ vbi_render_head(struct vbi_tty *tty, int pgno, int subno)
 				0,0,
 				pg.columns, 1,
 				0,1);
-	
     } else {
 	len = vbi_export_txt(data,nl_langinfo(CODESET),41*8,
 			     &pg,&head,VBI_ANSICOLOR);

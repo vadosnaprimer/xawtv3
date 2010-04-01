@@ -415,13 +415,13 @@ add_text(char *image, int width, int height)
 {
     time_t      t;
     struct tm  *tm;
-    char        line[MSG_MAXLEN+1],*ptr;
+    unsigned char line[MSG_MAXLEN+1],*ptr;
     int         i,x,y,f,len;
 
     time(&t);
     tm = localtime(&t);
     len = strftime(line,MSG_MAXLEN,get_message(),tm);
-    fprintf(stderr,"%s\n",line);
+    // fprintf(stderr,"%s\n",line);
 
     for (y = 0; y < CHAR_HEIGHT; y++) {
 	ptr = image + 3 * width * (height-CHAR_HEIGHT-2+y) + 12;

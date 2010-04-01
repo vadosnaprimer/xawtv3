@@ -464,7 +464,7 @@ attr_init(void)
     struct ng_attribute *attr;
     int val;
     
-    for (attr = attrs; attr->name != NULL; attr++) {
+    for (attr = attrs; attr != NULL && attr->name != NULL; attr++) {
 	if (attr->id == ATTR_ID_VOLUME ||
 	    attr->id == ATTR_ID_MUTE)
 	    continue;

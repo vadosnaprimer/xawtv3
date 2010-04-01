@@ -222,16 +222,17 @@ else
     echo "*** DV disabled"
 fi
 
+dashlglib=$(glib-config --libs 2>/dev/null)
 if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(quicktime, lqt_query_registry,
 	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME,1,"have libquicktime"),,
-	-ldl -lglib $LIBPTHREAD)
+	-ldl $dashlglib $LIBPTHREAD)
 else
     echo "*** quicktime disabled"
 fi
 QTLIBS=""
 if test "$FOUND_LQT" = "yes"; then
-    QTLIBS="-lquicktime -ldl -lglib -lm" 
+    QTLIBS="-lquicktime -ldl $dashlglib -lm" 
 fi
 AC_SUBST(QTLIBS)
 
