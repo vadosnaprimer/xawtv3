@@ -126,7 +126,6 @@ int               lirc;
 int               rec_writer;
 int               rec_wsync;
 XtWorkProcId      rec_work_id;
-XtInputId         rec_audio_id;
 
 /* movie params / setup */
 Widget            w_movie_status;
@@ -151,6 +150,7 @@ int               movie_audio  = 0;
 int               movie_video  = 0;
 int               movie_fps    = 12;
 int               movie_rate   = 44100;
+void              *movie_state;
 
 static struct STRTAB m_movie_fps[] = {
     {  5, " 5 fps" },
@@ -578,26 +578,30 @@ display_vtx(int lines, char **text)
 static XImage     *grab_ximage;
 static void       *grab_ximage_shm;
 static GC          grab_gc;
-static int         grab_linelength;
 static int         win_width, win_height;
 static int         grabdisplay_suspended;
 
 #ifdef HAVE_LIBXV
 static XvImage     *xv_image = NULL;
 static void        *xv_shm = NULL;
-static int         xv_width = 320, xv_height = 240;
+static struct ng_video_fmt xv_fmt;
 #endif
 
 void
 freeze_image(void)
 {
+    struct ng_video_buf buf;
+    
     if (NULL == grabber->grab_capture)
 	return;
     if (NULL == grab_ximage)
 	return;
-    if (cur_capture != CAPTURE_GRABDISPLAY)
-	if (NULL == grabber_capture(grab_ximage->data,0,NULL))
+    if (cur_capture != CAPTURE_GRABDISPLAY) {
+	buf.fmt  = x11_fmt;
+	buf.data = grab_ximage->data;
+	if (NULL == ng_grabber_capture(&buf))
 	    return;
+    }
     
     if (!tv_pix) {
 	tv_pix = XCreatePixmap(dpy, RootWindowOfScreen(XtScreen(tv)),
@@ -605,8 +609,9 @@ freeze_image(void)
 			       DefaultDepthOfScreen(XtScreen(tv)));
     }
     XPUTIMAGE(dpy, tv_pix, grab_gc, grab_ximage, 0,0,
-	      (win_width-grab_width) >> 1, (win_height-grab_height) >> 1,
-	      grab_width, grab_height);
+	      (win_width  - x11_fmt.width)  >> 1,
+	      (win_height - x11_fmt.height) >> 1,
+	      x11_fmt.width, x11_fmt.height);
     XtVaSetValues(tv,XtNbackgroundPixmap,tv_pix,NULL);
 }
 
@@ -616,7 +621,8 @@ grabdisplay_idle(XtPointer data)
     static long count,lastsec,errors;
     struct timeval  t;
     struct timezone tz;
-
+    struct ng_video_buf buf;
+    
     if (NULL == grabber->grab_capture)
 	goto oops;
 
@@ -624,13 +630,15 @@ grabdisplay_idle(XtPointer data)
     if (have_xv_scale) {
 	if (NULL == xv_image)
 	    goto oops;
-	if (NULL == grabber_capture(xv_image->data,0,NULL)) {
+	buf.fmt  = xv_fmt;
+	buf.data = xv_image->data;
+	if (NULL == ng_grabber_capture(&buf)) {
 	    if (errors++ > 10)
 		goto oops;
 	} else {
 	    errors = 0;
 	    XvShmPutImage(dpy, im_port, XtWindow(tv), grab_gc, xv_image,
-			  0, 0,  xv_width, xv_height,
+			  0, 0,  xv_fmt.width, xv_fmt.height,
 			  0, 0,  win_width, win_height,
 			  False);
 	}
@@ -639,15 +647,17 @@ grabdisplay_idle(XtPointer data)
 #endif
 	if (!grab_ximage)
 	    goto oops;
-	if (NULL == grabber_capture(grab_ximage->data,0,NULL)) {
+	buf.fmt  = x11_fmt;
+	buf.data = grab_ximage->data;
+	if (NULL == ng_grabber_capture(&buf)) {
 	    if (errors++ > 10)
 		goto oops;
 	} else {
 	    errors = 0;
 	    XPUTIMAGE(dpy, XtWindow(tv), grab_gc, grab_ximage, 0,0,
-		      (win_width-grab_width) >> 1,
-		      (win_height-grab_height) >> 1,
-		      grab_width, grab_height);
+		      (win_width  - x11_fmt.width)  >> 1,
+		      (win_height - x11_fmt.height) >> 1,
+		      x11_fmt.width, x11_fmt.height);
 	}
 #ifdef HAVE_LIBXV
     }
@@ -686,13 +696,11 @@ grabdisplay_restart(void)
 {
 #ifdef HAVE_LIBXV
     if (have_xv_scale)
-	grabber_setparams(VIDEO_YUV422,&xv_width,&xv_height,
-			  &grab_linelength,1,0);
+	ng_grabber_setparams(&xv_fmt,0,0);
     else
 #endif
-	grabber_setparams(x11_pixmap_format,&grab_width,&grab_height,
-			  &grab_linelength,1,0);
-
+	ng_grabber_setparams(&x11_fmt,1,0);
+    
     if (cur_capture != CAPTURE_OFF)
 	return;
     if (!grabdisplay_suspended)
@@ -709,9 +717,9 @@ grabdisplay_setsize(int width, int height)
 
     win_width       = width;
     win_height      = height;
-    grab_width      = width & ~3; /* alignment */
-    grab_height     = height;
-    grab_linelength = 0;
+    x11_fmt.width   = width & ~3; /* alignment */
+    x11_fmt.height  = height;
+    x11_fmt.bytesperline = 0;
 
     /* check what the driver can do ... */
     if (!grabber->grab_setparams)
@@ -739,20 +747,21 @@ grabdisplay_setsize(int width, int height)
     if (have_xv_scale) {
 #if 0
 	/* FIXME: no hard coded max size, better ask the X-Server */
-	xv_width  = (width  > 320) ? 320 : width;
-	xv_height = (height > 240) ? 240 : height;
+	xv_fmt.width  = (width  > 320) ? 320 : width;
+	xv_fmt.height = (height > 240) ? 240 : height;
 #else
-	xv_width  = width;
-	xv_height = height;
+	xv_fmt.width  = width;
+	xv_fmt.height = height;
 #endif
-	grabber_setparams(VIDEO_YUV422,&xv_width,&xv_height,
-			  &grab_linelength,1,0);
-	xv_image = xv_create_ximage(dpy, xv_width, xv_height, &xv_shm);
+	xv_fmt.fmtid = VIDEO_YUV422;
+	xv_fmt.bytesperline = 0;
+	ng_grabber_setparams(&xv_fmt,0,0);
+	xv_image = xv_create_ximage(dpy, xv_fmt.width, xv_fmt.height, &xv_shm);
     } else {
 #endif
-	grabber_setparams(x11_pixmap_format,&grab_width,&grab_height,
-			  &grab_linelength,1,1);
-	grab_ximage = x11_create_ximage(dpy,&vinfo,grab_width,grab_height,
+	ng_grabber_setparams(&x11_fmt,1,1);
+	grab_ximage = x11_create_ximage(dpy,&vinfo,
+					x11_fmt.width,x11_fmt.height,
 					&grab_ximage_shm);
 	if (NULL == grab_ximage) {
 	    fprintf(stderr,"oops: out of memory\n");
@@ -809,9 +818,9 @@ tv_expose_event(Widget widget, XtPointer client_data,
 	    }
 	    /* TODO: draw background for chroma keying */
 	    XFillRectangle(dpy,XtWindow(widget),gc,
-			   (win_width-grab_width) >> 1,
-			   (win_height-grab_height) >> 1,
-			   grab_width, grab_height);
+			   (win_width  - x11_fmt.width)  >> 1,
+			   (win_height - x11_fmt.height) >> 1,
+			   x11_fmt.width, x11_fmt.height);
 	}
 	break;
     }
@@ -1080,8 +1089,8 @@ void
 pixit(void)
 {
     Pixmap pix;
-    char *data;
-    int linelength = 0;
+    struct ng_video_fmt fmt;
+    struct ng_video_buf *buf;
 
     if (cur_sender == -1)
 	return;
@@ -1102,11 +1111,13 @@ pixit(void)
 	return;
 
     grabdisplay_suspend();
-    if (0 == grabber_setparams(x11_pixmap_format,&pix_width,&pix_height,
-			       &linelength,1,0) &&
-	NULL != (data = grabber_capture(NULL,0,NULL)) &&
-	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,data,
-				      pix_width,pix_height,
+    fmt = x11_fmt;
+    fmt.width  = pix_width;
+    fmt.height = pix_height;
+    if (0 == ng_grabber_setparams(&fmt,1,0) &&
+	NULL != (buf = ng_grabber_capture(NULL)) &&
+	0 != (pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
+				      fmt.width,fmt.height,
 				      channels[cur_sender]->name))) {
 	XtVaSetValues(channels[cur_sender]->button,
 		      XtNbackgroundPixmap,pix,
@@ -1117,6 +1128,7 @@ pixit(void)
 	if (channels[cur_sender]->pixmap)
 	    XFreePixmap(dpy,channels[cur_sender]->pixmap);
 	channels[cur_sender]->pixmap = pix;
+	ng_release_video_buf(buf);
     }
     grabdisplay_restart();
 }
@@ -1986,25 +1998,8 @@ exec_x11(char **argv)
 static Boolean
 rec_work(XtPointer client_data)
 {
-    grab_put_video();
+    movie_grab_put_video(movie_state);
     return False;
-}
-
-void
-rec_audio_input(XtPointer client_data, int *src, XtInputId *id)
-{
-    struct timeval tv;
-    fd_set set;
-
-    for (;;) {
-	grab_put_audio();
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-	FD_ZERO(&set);
-	FD_SET(*src,&set);
-	if (0 == select((*src)+1,&set,NULL,NULL,&tv))
-	    break;
-    }
 }
 
 void
@@ -2032,7 +2027,7 @@ do_movie_record(int argc, char **argv)
     struct ng_video_fmt video;
     struct ng_audio_fmt audio;
     const struct ng_writer *wr;
-    int sound,i,rc;
+    int i;
 
     /* set parameters */
     if (argc > 1 && 0 == strcasecmp(argv[0],"fvideo")) {
@@ -2100,11 +2095,11 @@ do_movie_record(int argc, char **argv)
 	    audio.fmtid  = AUDIO_NONE;
 	}
 
-	rc = movie_writer_init(fvideo, faudio, wr,
-			       &video, wr->video[movie_video].priv, movie_fps,
-			       &audio, wr->audio[movie_audio].priv,
-			       16, &sound);
-	if (0 != rc) {
+	movie_state = movie_writer_init
+	    (fvideo, faudio, wr,
+	     &video, wr->video[movie_video].priv, movie_fps,
+	     &audio, wr->audio[movie_audio].priv,16);
+	if (NULL == movie_state) {
 	    /* init failed */
 	    grabdisplay_restart();
 	    cur_movie = 0;
@@ -2112,12 +2107,8 @@ do_movie_record(int argc, char **argv)
 	    XtVaSetValues(w_movie_status,XtNlabel,"error",NULL);
 	    return;
 	}
-	movie_writer_start();
+	movie_writer_start(movie_state);
 	rec_work_id  = XtAppAddWorkProc(app_context,rec_work,NULL);
-	if (-1 != sound)
-	    rec_audio_id = XtAppAddInput(app_context,sound,
-					 (XtPointer)XtInputReadMask,
-					 rec_audio_input,NULL);
 	XtVaSetValues(w_movie_status,XtNlabel,"recording",NULL);
 	return;
     }
@@ -2127,13 +2118,9 @@ do_movie_record(int argc, char **argv)
 	if (0 == cur_movie)
 	    return; /* nothing to stop here */
 
-	movie_writer_stop();
+	movie_writer_stop(movie_state);
 	XtRemoveWorkProc(rec_work_id);
 	rec_work_id = 0;
-	if (rec_audio_id) {
-	    XtRemoveInput(rec_audio_id);
-	    rec_audio_id = 0;
-	}
 	XtVaSetValues(w_movie_status,XtNlabel,"",NULL);
 	grabdisplay_restart();
 	cur_movie = 0;
@@ -2185,9 +2172,16 @@ create_strwin(void)
     form = XtVaCreateManagedWidget("form", formWidgetClass, str_shell,
                                    NULL);
 
+    /* driver */
+    button = XtVaCreateManagedWidget("driver", commandWidgetClass, form,
+				     FIX_LEFT_TOP,
+				     NULL);
+    w_movie_driver = button;
+
     /* movie filename */
     label = XtVaCreateManagedWidget("vlabel", labelWidgetClass, form,
 				    FIX_LEFT_TOP,
+				    XtNfromVert, button,
 				    NULL);
     text = XtVaCreateManagedWidget("vname", asciiTextWidgetClass, form,
 				   FIX_LEFT_TOP,
@@ -2207,17 +2201,10 @@ create_strwin(void)
 				  NULL);
     w_movie_faudio = text;
 
-    /* driver */
-    button = XtVaCreateManagedWidget("driver", commandWidgetClass, form,
-				     FIX_LEFT_TOP,
-				     XtNfromVert, text,
-				     NULL);
-    w_movie_driver = button;
-
     /* audio format */
     button = XtVaCreateManagedWidget("audio", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
-				     XtNfromVert, button,
+				     XtNfromVert, text,
 				     NULL);
     w_movie_audio = button;
     button = XtVaCreateManagedWidget("rate", commandWidgetClass, form,
@@ -2354,6 +2341,30 @@ LaunchAction(Widget widget, XEvent *event,
 /*------------------------------------------------------------------------*/
 
 static void
+segfault(int signal)
+{
+    fprintf(stderr,"[pid=%d] segfault catched\n",getpid());
+    exit(1);
+}
+
+
+static void
+siginit(void)
+{
+    struct sigaction act,old;
+
+    memset(&act,0,sizeof(act));
+    sigemptyset(&act.sa_mask);
+    act.sa_handler  = exec_done;
+    sigaction(SIGCHLD,&act,&old);
+    if (debug) {
+	act.sa_handler  = segfault;
+	sigaction(SIGSEGV,&act,&old);
+	fprintf(stderr,"main thread [pid=%d]\n",getpid());
+    }
+}
+
+static void
 lirc_input(XtPointer data, int *fd, XtInputId *iproc)
 {
     if (debug)
@@ -2363,17 +2374,6 @@ lirc_input(XtPointer data, int *fd, XtInputId *iproc)
 	XtRemoveInput(*iproc);
 	close(*fd);
     }
-}
-
-static void
-siginit(void)
-{
-    struct sigaction act,old;
-
-    memset(&act,0,sizeof(act));
-    act.sa_handler  = exec_done;
-    sigemptyset(&act.sa_mask);
-    sigaction(SIGCHLD,&act,&old);
 }
 
 static void
@@ -2432,6 +2432,7 @@ main(int argc, char *argv[])
     progname = strdup(argv[0]);
 
     /* toplevel */
+    XInitThreads();
     app_shell = XtVaAppInitialize(&app_context,
 				  "Xawtv",
 				  opt_desc, opt_count,

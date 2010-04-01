@@ -5,7 +5,8 @@ Audio
 If you don't get sound when recording avi movies, double-check the
 mixer settings first.  The record source defaults to micro on many
 linux sound drivers, you probably have to change this to line-in with
-one of the available mixer tools.
+one of the available mixer tools.  Also keep in mind that ALSA has
+all mixer controls at 0 (i.e. muted) by default.
 
 /me uses kmix (because it is small).  The inputs where the sound cards
 record from have a red background color.  With the right mouse botton
@@ -15,57 +16,78 @@ you'll get a menu where you can change the settings.
 Video
 =====
 
-xawtv/streamer handle video recording with tree processes.  Process #1
-is the main process.  It does the video capture.  It also does color
-space conversion / byteswapping / video compression if needed.  The
-processed video frames are stored in a shared memory area.  The shared
-memory is organizes as ring buffer wiht (by default) 8 buffers.
+xawtv/streamer handle video recording with multiple threads:
 
-Process #2 will simply write out the frames from the shared memory to
-the hard disk.  This way Process #1 can continue to work even if
-writing to the hard disk blocks (at least until the ring buffer is
-full).  Process #2 also handles the sound recording.
+ - one thread records video (and does color space conversion
+   / compression, maybe this should be separated)
+ - one thread records audio (unless you do video only).
+ - one thread writes the movie data to the disk.
+ - one thread calls sync frequently to make the writeouts more
+   smoothly (more smaller chunks instead of few very big ones).
 
-Process #3 calls sync() from time to time.  The default intervall
-linux uses (5 seconds) is to big.  If the kernel tries to flush 5
-seconds uncompressed video to the hard disk, recording will loose some
-frames because the kernel is very busy with this...
+There are buffer fifo's between the recording threads and the disk
+writer to avoid recording overruns due to a temporarely busy hard
+disk.
 
+If you see messages about a full fifo it is very likely that your hard
+disk is too slow, especially it you try to record uncompressed video.
 
-While recording you'll see lines like this one on stderr:
+bttv 0.7.x allows you to use more than just two video buffers, you can
+configure the number at insmod time.  Using more buffers (say 4-8)
+should help to reduce the number of dropped frames.
 
-+--+-+-+-+-+-+-+-+-+-+-+-+s-+-+-+-+-++--+-+-+-+-+-+ 25/25 (-2)
-
- "+"  = Process #1 has written one frame to the shmem ring buffer
- "-"  = Process #2 has written a frame from the ring buffer to disk.
- "o"  = Frame lost: Process #1 couldn't put a frame into the ring
-        buffer because it was full.
- "s"  = Process #3 called sync().
-
-25/25 = # of frames stored in the ring buffer / # of frames captured
-        last second. 
- (-2) = 2 frames lost (in total)
+If you want to record quicktime movies install the quicktime4linux
+libraries (http://heroinewarrior.com/quicktime.html), then (re-)build
+xawtv.  The configure script should find the library automatically.
 
 
-When recording uncompressed video (avi15/avi24), most likely the hard
-disk is the bottleneck.  If you see a few o's from time to time,
-increasing the number of buffers might help.  If you see alot of o's,
-your harddisk is to slow.
+Known problems (and workarounds)
+================================
 
-For compressed video (mjpeg) it is very unlikely that you see any
-"o"'s.  The bottleneck is the CPU which has to handle all the
-compressing.  If the CPU can't keep up, the number of captured
-frames/sec will be lower than the the rate you've asked for.  Again:
-if this only happens from time to time, increasing the number of
-buffers might help.  This time the number of capture buffers of the
-hardware driver (for bttv this requires version 0.7.15 or newer).
+streamer/xawtv can't handle floating point frame rates (like 29.97).
+Bad luck for now [to be fixed].
+
+streamer/xawtv can't deal very good with lost frames, it can't do
+(yet) tricks like stuffing the next frame twice it has lost one.
+That's a problem if you want to record at full framerate.  A
+workaround is to use a slightly lower rate, say 24 instead of 25 fps
+(for PAL).  If you lose a single frame now and then, streamer can deal
+with that much better because there is one "unused" frame per second.
+streamer can use that spare frame make video catch up if it lags
+behind a bit and avoid that audio/video run out of sync in the long
+run.
+
+The timestamping for the video frames isn't very exact as it does
+_not_ come from the v4l(1) driver but is just a gettimeofday() call
+after receiving the video frame.  API design bug, needs fixing.
 
 
-both
-====
+Troubleshooting syncronisation problems
+=======================================
 
-Yes, I know, there are some syncronisation problems.  Unfortunality it
-is'nt trivial to fix them...
+If you are recording a movie with xawtv/stremaer you get a display
+like this on stderr:
+
+real: 3.638s   audio: 3.529s   video: 3.700s
+
+ - "real" is the real time, i.e. simply the number of seconds passed
+   since you've started recording.
+
+ - "audio" says how much audio data was recorded: simply the total
+   number of bytes divided by the data rate (bytes/second).
+
+ - "video" is the same for video: total frames divided by the
+   frames/second.
+
+Obviously these numbers should stay close together.  If audio and
+video run out of sync, you should be able to see whenever audio or
+video is wrong by comparing the two with the real time.
+
+The display says how much media data streamer/xawtv tried to put into
+the fifos.  Any data which get lost due to fifo overruns will *not* be
+taken into accout here, i.e. if you see "fifo full" error messages
+your movie will have bad syncronisation even if the display looks
+fine.  Fix: try recording compressed video or buy a faster hard disk.
 
   Gerd
 

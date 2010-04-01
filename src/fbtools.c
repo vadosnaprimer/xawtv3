@@ -160,7 +160,7 @@ fb_putc(int x, int y, int c)
 }
 
 int
-fb_puts(int x, int y, char *text)
+fb_puts(int x, int y, unsigned char *text)
 {
 	for (;*text;x++)
 		fb_putc(x,y,*(text++));

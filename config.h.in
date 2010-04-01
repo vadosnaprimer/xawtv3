@@ -27,11 +27,17 @@
 /* Define if you have the getnameinfo function.  */
 #undef HAVE_GETNAMEINFO
 
+/* Define if you have the getopt_long function.  */
+#undef HAVE_GETOPT_LONG
+
 /* Define if you have the getpt function.  */
 #undef HAVE_GETPT
 
 /* Define if you have the <endian.h> header file.  */
 #undef HAVE_ENDIAN_H
+
+/* Define if you have the <getopt.h> header file.  */
+#undef HAVE_GETOPT_H
 
 /* Define if you have the <soundcard.h> header file.  */
 #undef HAVE_SOUNDCARD_H
@@ -50,6 +56,3 @@
 
 /* Define if you have the Xxf86vm library (-lXxf86vm).  */
 #undef HAVE_LIBXXF86VM
-
-/* Define if you have the efence library (-lefence).  */
-#undef HAVE_LIBEFENCE

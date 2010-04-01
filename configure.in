@@ -18,8 +18,6 @@ AC_ARG_ENABLE(lirc,
   [  --enable-lirc           lirc support])
 AC_ARG_ENABLE(quicktime,
   [  --enable-quicktime      quicktime support])
-AC_ARG_ENABLE(efence,
-  [  --enable-efence         link against ElectricFence (malloc debug)])
 AC_ARG_ENABLE(motif,
   [  --enable-motif          enable experimental motif support])
 
@@ -40,9 +38,9 @@ dnl Checks for functions
 AC_CHECK_FUNC(open64,
 	AC_DEFINE(HAVE_LFS)
 	CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64")
-AC_CHECK_FUNCS(ftello getpt getnameinfo)
+AC_CHECK_FUNCS(ftello getpt getnameinfo getopt_long)
 AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE))
-AC_CHECK_HEADERS(endian.h soundcard.h sys/soundcard.h)
+AC_CHECK_HEADERS(endian.h soundcard.h sys/soundcard.h getopt.h)
 
 AC_CHECK_LIB(pthread,pthread_create,LIBPTHREAD="-lpthread")
 if test "$LIBPTHREAD" = ""; then
@@ -91,11 +89,6 @@ AC_CHECK_LIB(jpeg, jpeg_start_compress, GFXLIBS="-ljpeg"; JPEG="found",,)
 if test "$JPEG" != "found"; then
     echo "Oops: jpeg library not found.  You need this one, please install."
     exit 1
-fi
-
-if test "$enable_efence" = "yes"; then
-    echo "*** ElectricFence (malloc debugger) enabled"
-    AC_CHECK_LIB(efence, EF_Print)
 fi
 
 AC_SUBST(LIRC)

@@ -44,6 +44,7 @@ Description: ncurses-bases radio application
 Package: v4l-conf
 Architecture: any
 Depends: ${shlibs:Depends}
+Conflicts: suidmanager (<< 0.50)
 Description: tool to configure video4linux drivers
  This is a small tool to configure a video4linux
  device driver.  It is required to make the video

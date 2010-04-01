@@ -1,5 +1,5 @@
 /*
- *   (c) 1997-2000 Gerd Knorr <kraxel@bytesex.org>
+ *   (c) 1997-2001 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 #include "config.h"
@@ -35,7 +35,6 @@
 
 /* ---------------------------------------------------------------------- */
 
-static int       sound = -1;
 static int       bufcount = 16;
 static char*     tvnorm = NULL;
 static char*     input  = NULL;
@@ -56,6 +55,7 @@ static struct ng_video_fmt        video = {
 static struct ng_audio_fmt        audio = {
     rate: 44100,
 };
+static void *movie_state;
 
 static int  absframes = 1;
 static int  fd = -1, quiet = 0, fps = 10;
@@ -109,7 +109,8 @@ usage(FILE *out, char *prog)
 	prog = h+1;
     
     fprintf(out,
-	    "%s grabs image(s) from a video4linux device\n"
+	    "%s grabs image(s) and records movies\n"
+	    "from a video4linux device\n"
 	    "\n"
 	    "usage: %s [ options ]\n"
 	    "\n"
@@ -138,7 +139,7 @@ usage(FILE *out, char *prog)
 	    "  -R rate     sample rate                  [%d]\n"
 	    "\n",
 	    prog, prog,
-
+	    
 	    wait_seconds,
 	    v4l_device, fps, video.width, video.height,
 	    absframes, bufcount, jpeg_quality,
@@ -154,7 +155,7 @@ usage(FILE *out, char *prog)
 	    "QuickTime) the -O option has no effect.\n"
 	    "\n"
 	    "-- \n"
-	    "(c) 1998-2000 Gerd Knorr <kraxel@bytesex.org>\n",
+	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n",
 	    prog);
 }
 
@@ -167,9 +168,11 @@ find_formats(void)
     char *ext = NULL;
     int w,v=-1,a=-1;
 
-    ext = strrchr(moviename,'.');
-    if (ext)
-	ext++;
+    if (moviename) {
+	ext = strrchr(moviename,'.');
+	if (ext)
+	    ext++;
+    }
     for (w = 0; NULL != ng_writers[w]; w++) {
 	wr = ng_writers[w];
 	for (v = 0; NULL != wr->video[v].name; v++) {
@@ -294,11 +297,6 @@ main(int argc, char **argv)
 	    exit(1);
 	}
     }
-
-    if (NULL == moviename) {
-	fprintf(stderr,"no movie filename specified\n");
-	exit(1);
-    }
     find_formats();
 
     /* sanity checks */
@@ -332,11 +330,16 @@ main(int argc, char **argv)
 	do_va_cmd(2,"setnorm",tvnorm);
 
     /* init movie writer */
-    movie_writer_init(moviename, audioname,
-		      writer,
-		      &video, video_priv, fps,
-		      &audio, audio_priv,
-		      bufcount, &sound);
+    movie_state = movie_writer_init
+	(moviename, audioname, writer,
+	 &video, video_priv, fps,
+	 &audio, audio_priv, bufcount);
+    if (NULL == movie_state) {
+	fprintf(stderr,"movie writer initialisation failed\n");
+	audio_off();
+	grabber->grab_close();
+	exit(1);
+    }
 
     /* wait for some cameras to wake up and adjust light and all that */
     sleep(wait_seconds);
@@ -345,28 +348,13 @@ main(int argc, char **argv)
     signal(SIGINT,ctrlc);
 
     /* main loop */
-    movie_writer_start();
+    movie_writer_start(movie_state);
     for (;queued < absframes && !signaled; count++) {
-	/* audio */
-	if (-1 != sound) {
-	    for (;;) {
-		struct timeval tv;
-		fd_set set;
-		
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		FD_ZERO(&set);
-		FD_SET(sound,&set);
-		if (0 == select(sound+1,&set,NULL,NULL,&tv))
-		    break;
-		grab_put_audio();
-	    }
-	}
 	/* video */
-	grab_put_video();
+	movie_grab_put_video(movie_state);
 	queued++;
     }
-    movie_writer_stop();
+    movie_writer_stop(movie_state);
 
     /* done */
     audio_off();

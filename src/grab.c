@@ -89,6 +89,7 @@ grabber_open(char *device, int sw, int sh, void *base, int format, int width)
 /*-------------------------------------------------------------------------*/
 /* parameter negotation for capture                                        */
 
+#if 0
 static int         grabber_width;
 static int         grabber_height;
 static float       grabber_depth;
@@ -97,6 +98,7 @@ static int         grabber_format;
 static int         output_format;
 static color_conv  grabber_conv;
 static void*       grabber_data;
+#endif
 
 struct CONV_LIST {
     int        format;
@@ -239,6 +241,7 @@ static struct CONV_LIST *conv_lists[] = {
     mjpg_list,
 };
 
+#if 0
 int
 grabber_setparams(int format, int *width, int *height,
 		  int *linelength, int lut_valid, int fix_ratio)
@@ -394,6 +397,7 @@ grabber_capture(void *dest, int dest_linelength, int *size)
     if (size) *size = rc;
     return data;
 }
+#endif
 
 int
 grabber_sw_rate(struct timeval *start, int fps, int count)
@@ -413,7 +417,7 @@ grabber_sw_rate(struct timeval *start, int fps, int count)
 		"  count=%d  ret=%d\n",
 		msecs,fps,frames,count,frames-count+1);
     if (frames-count > 3)
-	fprintf(stderr,"rate: video is %d frames behind\n",frames-count);
+	fprintf(stderr,"rate control: video lags %d frames behind\n",frames-count);
     return frames-count+1;
 }
 
@@ -435,3 +439,150 @@ grabber_fix_ratio(int *width, int *height, int *xoff, int *yoff)
 	    *xoff  += (w-*width)/2;
     }
 }
+
+/*-------------------------------------------------------------------------*/
+/* parameter negotation for capture                                        */
+
+static struct ng_video_fmt gfmt;
+static struct ng_video_fmt ofmt;
+static color_conv gconv;
+static int gsize;
+static int osize;
+
+int
+ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid, int fix_ratio)
+{
+    struct CONV_LIST *list;
+    int i;
+    
+    /* no capture support */
+    if (NULL == grabber->grab_setparams ||
+	NULL == grabber->grab_capture) {
+	gfmt.fmtid = -1;
+	return -1;
+    }
+    gconv  = NULL;
+
+    /* try native format first */
+    gfmt = *fmt;
+    if (0 == grabber->grab_setparams
+	(gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+	goto found;
+    }
+
+    /* check all available conversion functions */
+    list = conv_lists[fmt->fmtid];
+    for (i = 0; list && list[i].converter; i++) {
+	if (list[i].lut && !lut_valid)
+	    continue;
+	gfmt = *fmt;
+	gfmt.fmtid = list[i].format;
+	gconv = list[i].converter;
+	if (0 == grabber->grab_setparams
+	    (gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+	    if (list[i].init)
+		list[i].init(gfmt.width,gfmt.height);
+	    goto found;
+	}
+    }
+    fprintf(stderr,"grab: no match for: %dx%d %s\n",
+	    fmt->width,fmt->height,ng_vfmt_to_desc[fmt->fmtid]);
+    gfmt.fmtid = -1;
+    return -1;
+
+ found:
+    if (fix_ratio) {
+	grabber_fix_ratio(&gfmt.width, &gfmt.height, NULL, NULL);
+	gfmt.bytesperline = 0;
+	if (0 != grabber->grab_setparams
+	    (gfmt.fmtid, &gfmt.width, &gfmt.height, &gfmt.bytesperline)) {
+	    fprintf(stderr,"Oops: ratio size renegotiation failed\n");
+	    exit(1);
+	}
+    }
+    fmt->width  = gfmt.width;
+    fmt->height = gfmt.height;
+    if (0 == fmt->bytesperline)
+	fmt->bytesperline = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
+    ofmt = *fmt;
+
+    osize = ofmt.height * ofmt.bytesperline;
+    if (0 == osize)
+	osize = ofmt.width * ofmt.height * 3;
+    gsize = gfmt.height * gfmt.bytesperline;
+    if (0 == gsize)
+	gsize = gfmt.width * gfmt.height * 3;
+
+    if (debug) {
+	fprintf(stderr,"grab: use: %dx%d %s (size=%d)\n",
+		gfmt.width,gfmt.height,ng_vfmt_to_desc[gfmt.fmtid],gsize);
+	fprintf(stderr,"grab: req: %dx%d %s (size=%d)\n",
+		fmt->width,fmt->height,ng_vfmt_to_desc[fmt->fmtid],osize);
+    }
+    return 0;
+}
+
+static void
+ng_grabber_copy(struct ng_video_buf *dest,
+		struct ng_video_fmt *fmt,
+		unsigned char *data)
+{
+    int i,sw,dw;
+    unsigned char *sp,*dp;
+
+    if (gconv && 0 == dest->fmt.bytesperline) {
+	/* compressed output */
+	dest->size = gconv(dest->data, data, fmt->width * fmt->height);
+	return;
+    }
+
+    dw = dest->fmt.width * ng_vfmt_to_depth[dest->fmt.fmtid] / 8;
+    sw = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
+    if (fmt->bytesperline == sw && dest->fmt.bytesperline == dw) {
+	/* can copy in one go */
+	if (gconv == NULL) {
+	    memcpy(dest->data, data, fmt->bytesperline * fmt->height);
+	} else {
+	    gconv(dest->data, data, fmt->width * fmt->height);
+	}
+    } else {
+	/* copy line by line */
+	dp = dest->data;
+	sp = data;
+	for (i = 0; i < fmt->height; i++) {
+	    if (gconv == NULL) {
+		memcpy(dp,sp,dw);
+	    } else {
+		gconv(dp,sp,fmt->width);
+	    }
+	    dp += dest->fmt.bytesperline;
+	    sp += fmt->bytesperline;
+	}
+    }
+}
+
+struct ng_video_buf*
+ng_grabber_capture(struct ng_video_buf *dest)
+{
+    unsigned char *data;
+    
+    if (-1 == gfmt.fmtid)
+	return NULL;
+    if (NULL == (data = grabber->grab_capture()))
+	return NULL;
+
+    if (NULL == dest) {
+	dest = ng_malloc_video_buf(&ofmt,osize);
+    } else {
+	dest->fmt  = ofmt;
+	dest->size = osize;
+    }
+    ng_grabber_copy(dest, &gfmt, data);
+
+    if (NULL != webcam && 0 == webcam_put(webcam,dest)) {
+	free(webcam);
+	webcam = NULL;
+    }
+    return dest;
+}
+

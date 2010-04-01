@@ -31,11 +31,9 @@ fifo_init(struct FIFO *fifo, char *name, int slots)
 }
 
 int
-fifo_put(struct FIFO *fifo, unsigned char *data, int size)
+fifo_put(struct FIFO *fifo, void *data)
 {
     pthread_mutex_lock(&fifo->lock);
-    if (debug > 1)
-	fprintf(stderr,"put %s %p %d\n",fifo->name,data,size);
     if (NULL == data) {
 	fifo->eof = 1;
 	pthread_cond_signal(&fifo->hasdata);
@@ -45,43 +43,43 @@ fifo_put(struct FIFO *fifo, unsigned char *data, int size)
     if ((fifo->write + 1) % fifo->slots == fifo->read) {
 	pthread_mutex_unlock(&fifo->lock);
 	fprintf(stderr,"fifo %s is full\n",fifo->name);
-	return 0;
+	return -1;
     }
+    if (debug > 1)
+	fprintf(stderr,"put %s %d=%p [pid=%d]\n",
+		fifo->name,fifo->write,data,getpid());
     fifo->data[fifo->write] = data;
-    fifo->size[fifo->write] = size;
     fifo->write++;
     if (fifo->write >= fifo->slots)
 	fifo->write = 0;
     pthread_cond_signal(&fifo->hasdata);
     pthread_mutex_unlock(&fifo->lock);
-    return size;
+    return 0;
 }
 
-int
-fifo_get(struct FIFO *fifo, unsigned char **data)
+void*
+fifo_get(struct FIFO *fifo)
 {
-    int size;
+    void *data;
 
     pthread_mutex_lock(&fifo->lock);
-    if (debug > 1)
-	fprintf(stderr,"get %s\n",fifo->name);
     while (fifo->write == fifo->read && 0 == fifo->eof) {
 	pthread_cond_wait(&fifo->hasdata, &fifo->lock);
     }
     if (fifo->write == fifo->read) {
-	*data = NULL;
 	pthread_cond_signal(&fifo->hasdata);
 	pthread_mutex_unlock(&fifo->lock);
-	return 0;
+	return NULL;
     }
-    *data = fifo->data[fifo->read];
-    size = fifo->size[fifo->read];
+    if (debug > 1)
+	fprintf(stderr,"get %s %d=%p [pid=%d]\n",
+		fifo->name,fifo->read,fifo->data[fifo->read],getpid());
+    data = fifo->data[fifo->read];
     fifo->read++;
     if (fifo->read >= fifo->slots)
 	fifo->read = 0;
-    pthread_cond_signal(&fifo->hasdata);
     pthread_mutex_unlock(&fifo->lock);
-    return size;
+    return data;
 }
 
 static void*
@@ -101,50 +99,49 @@ flushit(void *arg)
 /*-------------------------------------------------------------------------*/
 
 struct movie_handle {
+    pthread_mutex_t         lock;
     const struct ng_writer  *writer;
     void                    *handle;
-    pthread_mutex_t         lock;
+    pthread_t               tflush;
+    struct timeval          start;
+    long long               rusec;
+    long long               stopby;
+
     struct ng_video_fmt     vfmt;
-    struct ng_audio_fmt     afmt;
     int                     fps;
+    int                     frames;
+    struct FIFO             vfifo;
+    pthread_t               tvideo;
+    long long               vusec;
 
-    struct FIFO             *vfifo;
-    struct FIFO             *afifo;
+    struct ng_audio_fmt     afmt;
+    unsigned long           bytes_per_sec;
+    unsigned long           bytes;
+    struct FIFO             afifo;
+    pthread_t               taudio;
+    pthread_t               raudio;
+    long long               ausec;
 };
-
-static struct movie_handle movie_state;
-
-static struct FIFO      faudio;
-static struct FIFO      fvideo;
-static pthread_t        taudio;
-static pthread_t        tvideo;
-static pthread_t        tflush;
-static char             *baudio,*bvideo;
-static int              saudio,svideo;
-static int              iaudio,ivideo;
-static int              naudio,nvideo;
-static int              caudio,cvideo;
 
 static void*
 writer_audio_thread(void *arg)
 {
     struct movie_handle *h = arg;
-    struct ng_audio_buf buf;
-    unsigned char *data;
-    int size;
+    struct ng_audio_buf *buf;
 
     if (debug)
-	fprintf(stderr,"writer_audio_thread start\n");
+	fprintf(stderr,"writer_audio_thread start [pid=%d]\n",getpid());
     for (;;) {
-	size = fifo_get(h->afifo,&data);
-	if (NULL == data)
+	buf = fifo_get(&h->afifo);
+	if (NULL == buf)
 	    break;
 	pthread_mutex_lock(&h->lock);
-	buf.fmt  = h->afmt;
-	buf.data = data;
-	buf.size = size;
-	h->writer->wr_audio(h->handle,&buf);
+	h->writer->wr_audio(h->handle,buf);
 	pthread_mutex_unlock(&h->lock);
+#if 0
+	free(buf->data);
+#endif
+	free(buf);
     }
     if (debug)
 	fprintf(stderr,"writer_audio_thread done\n");
@@ -155,80 +152,92 @@ static void *
 writer_video_thread(void *arg)
 {
     struct movie_handle *h = arg;
-    struct ng_video_buf buf;
-    unsigned char *data;
-    int size;
+    struct ng_video_buf *buf;
 
     if (debug)
-	fprintf(stderr,"writer_video_thread start\n");
+	fprintf(stderr,"writer_video_thread start [pid=%d]\n",getpid());
     for (;;) {
-	size = fifo_get(h->vfifo,&data);
-	if (NULL == data)
+        buf = fifo_get(&h->vfifo);
+	if (NULL == buf)
 	    break;
 	pthread_mutex_lock(&h->lock);
-	buf.fmt  = h->vfmt;
-	buf.data = data;
-	if (0 != size) {
-	    buf.size = size;
-	} else {
-	    buf.size = buf.fmt.width * buf.fmt.height *
-		ng_vfmt_to_depth[buf.fmt.fmtid] / 8;
-	}
-	h->writer->wr_video(h->handle,&buf);
+	h->writer->wr_video(h->handle,buf);
 	pthread_mutex_unlock(&h->lock);
+	ng_release_video_buf(buf);
     }
     if (debug)
 	fprintf(stderr,"writer_video_thread done\n");
     return NULL;
 }
 
-int
+static void*
+record_audio_thread(void *arg)
+{
+    struct movie_handle *h = arg;
+    struct ng_audio_buf *buf;
+    int size,left,last;
+
+    if (debug)
+	fprintf(stderr,"record_audio_thread start [pid=%d]\n",getpid());
+    size = sound_bufsize();
+    for (last = 0; !last;) {
+	buf = malloc(sizeof(*buf)+size);
+	buf->fmt = h->afmt;
+	buf->size = size;
+	buf->data = ((char*)buf) + sizeof(*buf);
+	memset(buf->data,0,size);
+	sound_read(buf->data);
+	if (h->stopby) {
+	    left = (h->stopby - h->ausec) * h->bytes_per_sec / 1000000;
+	    if (left <= size) {
+		size = left;
+		last = 1;
+	    }
+	}
+	fifo_put(&h->afifo,buf);
+	h->bytes += size;
+	h->ausec = (long long)h->bytes * 1000000 / h->bytes_per_sec;
+    }
+    fifo_put(&h->afifo,NULL);
+    if (debug)
+	fprintf(stderr,"record_audio_thread done\n");
+    return NULL;
+}
+
+struct movie_handle*
 movie_writer_init(char *moviename, char *audioname,
 		  const struct ng_writer *writer, 
 		  struct ng_video_fmt *video, const void *priv_video, int fps,
 		  struct ng_audio_fmt *audio, const void *priv_audio,
-		  int slots, int *sound)
+		  int slots)
 {
-    struct movie_handle *h = &movie_state;
-    int linelength;
+    struct movie_handle *h;
     void *dummy;
 
     if (debug)
 	fprintf(stderr,"movie_init_writer start\n");
+    h = malloc(sizeof(*h));
+    if (NULL == h)
+	return NULL;
     memset(h,0,sizeof(*h));
     pthread_mutex_init(&h->lock, NULL);
-    h->afifo  = &faudio;
-    h->vfifo  = &fvideo;
     h->writer = writer;
 
     /* audio */
-    *sound = -1;
     if (audio->fmtid != AUDIO_NONE)
-	*sound = sound_open(audio);
+	sound_open(audio);
     if (audio->fmtid != AUDIO_NONE) {
-	fifo_init(&faudio,"audio",slots);
-	pthread_create(&taudio,NULL,writer_audio_thread,h);
-	iaudio = 0;
-	naudio = slots+2;
-	saudio = sound_bufsize();
-	baudio = malloc(saudio*naudio);
-	caudio = 0;
+	fifo_init(&h->afifo,"audio",slots);
+	pthread_create(&h->taudio,NULL,writer_audio_thread,h);
+	h->bytes_per_sec = ng_afmt_to_bits[audio->fmtid] *
+	    ng_afmt_to_channels[audio->fmtid] * audio->rate / 8;
     }
     h->afmt = *audio;
 
     /* video */
-    grabber_setparams(video->fmtid, &video->width, &video->height,
-		      &linelength,0,0);
-    fifo_init(&fvideo,"video",slots);
-    pthread_create(&tvideo,NULL,writer_video_thread,h);
-    ivideo  = 0;
-    nvideo  = slots+2;
-    svideo  = video->width * video->height *
-	ng_vfmt_to_depth[video->fmtid]/8;
-    if (0 == svideo)
-	svideo = video->width * video->height * 3;
-    bvideo  = malloc(svideo*nvideo);
-    cvideo  = 0;
+    ng_grabber_setparams(video,0,0);
+    fifo_init(&h->vfifo,"video",slots);
+    pthread_create(&h->tvideo,NULL,writer_video_thread,h);
     h->vfmt = *video;
     h->fps  = fps;
     
@@ -239,84 +248,69 @@ movie_writer_init(char *moviename, char *audioname,
     if (debug)
 	fprintf(stderr,"movie_init_writer end (h=%p)\n",h->handle);
     if (NULL != h->handle)
-	return 0;
+	return h;
 
     /* Oops -- wr_open() didn't work.  cleanup.  */
     if (h->afmt.fmtid != AUDIO_NONE) {
-	pthread_cancel(taudio);
-	pthread_join(taudio,&dummy);
+	pthread_cancel(h->taudio);
+	pthread_join(h->taudio,&dummy);
 	sound_close();
-	free(baudio);
     }
-    pthread_cancel(tvideo);
-    pthread_join(tvideo,&dummy);
-    free(bvideo);
-    pthread_cancel(tflush);
-    pthread_join(tflush,&dummy);
+    pthread_cancel(h->tvideo);
+    pthread_join(h->tvideo,&dummy);
 
-    return -1;
+    return NULL;
 }
 
 int
-movie_writer_start()
+movie_writer_start(struct movie_handle *h)
 {
-    struct movie_handle *h = &movie_state;
-
     if (debug)
 	fprintf(stderr,"movie_writer_start\n");
+    gettimeofday(&h->start,NULL);
+    if (h->afmt.fmtid != AUDIO_NONE)
+	sound_startrec();
     if (grabber->grab_start)
 	grabber->grab_start(h->fps,0);
     if (h->afmt.fmtid != AUDIO_NONE)
-	sound_startrec();
-    pthread_create(&tflush,NULL,flushit,NULL);
+	pthread_create(&h->raudio,NULL,record_audio_thread,h);
+    pthread_create(&h->tflush,NULL,flushit,NULL);
     return 0;
 }
 
 int
-movie_writer_stop()
+movie_writer_stop(struct movie_handle *h)
 {
-    struct movie_handle *h = &movie_state;
+    long long stopby;
+    int frames;
     void *dummy;
-    long long ausec,vusec;
-    int soundbytes;
 
     if (debug)
 	fprintf(stderr,"movie_writer_stop\n");
 
     if (h->afmt.fmtid != AUDIO_NONE) {
-	vusec = cvideo * 1000 / h->fps;
-	ausec = ((long long)caudio*saudio*8*1000) /
-	    (h->afmt.rate * ng_afmt_to_bits[h->afmt.fmtid] *
-	     ng_afmt_to_channels[h->afmt.fmtid]);
-	while (vusec < ausec) {
-	    grab_put_video();
-	    vusec = cvideo * 1000 / h->fps;
+	for (frames = 0; frames < 16; frames++) {
+	    stopby = (long long)(h->frames + frames) * 1000000 / h->fps;
+	    if (stopby > h->ausec)
+		break;
 	}
-	soundbytes = (int)(vusec-ausec) * h->afmt.rate *
-	    ng_afmt_to_bits[h->afmt.fmtid] *
-	    ng_afmt_to_channels[h->afmt.fmtid]/8/1000;
-	soundbytes = (soundbytes+4) & ~0x03;
-	fprintf(stderr,"vs=%Ld as=%Ld %d/%d\n",vusec,ausec,
-		soundbytes,saudio);
-	while (soundbytes > saudio) {
-	    grab_put_audio();
-	    soundbytes -= saudio;
+	frames++;
+	h->stopby = (long long)(h->frames + frames) * 1000000 / h->fps;
+	while (frames) {
+	    movie_grab_put_video(h);
+	    frames--;
 	}
-	sound_read(baudio + iaudio*saudio);
-	fifo_put(&faudio,baudio + iaudio*saudio,soundbytes);
     }
 
     /* send EOF + join threads */
+    fifo_put(&h->vfifo,NULL);
     if (h->afmt.fmtid != AUDIO_NONE) {
-	fifo_put(&faudio,NULL,0);
-	pthread_join(taudio,&dummy);
-	free(baudio);
+	pthread_join(h->raudio,&dummy);
+	pthread_join(h->taudio,&dummy);
     }
-    fifo_put(&fvideo,NULL,0);
-    pthread_join(tvideo,&dummy);
-    free(bvideo);
-    pthread_cancel(tflush);
-    pthread_join(tflush,&dummy);
+    pthread_join(h->tvideo,&dummy);
+    pthread_cancel(h->tflush);
+    pthread_join(h->tflush,&dummy);
 
     /* close file */
     h->writer->wr_close(h->handle);
@@ -329,32 +323,37 @@ movie_writer_stop()
 
 /*-------------------------------------------------------------------------*/
 
-int
-grab_put_video()
+static void
+movie_check_times(struct movie_handle *h)
 {
-    int size;
+    struct timeval now;
+
+    gettimeofday(&now,NULL);
+    h->rusec  = 1000000 * (now.tv_sec - h->start.tv_sec);
+    h->rusec += (now.tv_usec - h->start.tv_usec);
+
+    fprintf(stderr,"real: %d.%03ds   audio: %d.%03ds   video: %d.%03ds\r",
+	    (int)((h->rusec / 1000000)),
+	    (int)((h->rusec % 1000000) / 1000),
+	    (int)((h->ausec / 1000000)),
+	    (int)((h->ausec % 1000000) / 1000),
+	    (int)((h->vusec / 1000000)),
+	    (int)((h->vusec % 1000000) / 1000));
+}
+
+int
+movie_grab_put_video(struct movie_handle *h)
+{
+    struct ng_video_buf *buf;
 
     if (debug > 1)
 	fprintf(stderr,"grab_put_video\n");
 
     /* get next frame */
-    grabber_capture(bvideo + ivideo*svideo,0,&size);
-
-    fifo_put(&fvideo,bvideo + ivideo*svideo,size);
-    ivideo = (ivideo+1) % nvideo;
-    cvideo++;
-    return 0;
-}
-
-int
-grab_put_audio()
-{
-    if (debug > 1)
-	fprintf(stderr,"grab_put_audio\n");
-
-    sound_read(baudio + iaudio*saudio);
-    fifo_put(&faudio,baudio + iaudio*saudio,saudio);
-    iaudio = (iaudio+1) % naudio;
-    caudio++;
+    buf = ng_grabber_capture(NULL);
+    fifo_put(&h->vfifo,buf);
+    h->frames++;
+    h->vusec = (long long)h->frames * 1000000 / h->fps;
+    movie_check_times(h);
     return 0;
 }

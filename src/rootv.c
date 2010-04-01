@@ -10,7 +10,6 @@ int main(){puts("Compiled without Xvideo extention support, sorry.");exit(0);}
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <signal.h>
 
 #include <X11/Xlib.h>

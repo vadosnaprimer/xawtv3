@@ -1,3 +1,10 @@
+xawtv (3.29) unstable; urgency=low
+
+  * new release (closes: #74458)
+  * updated v4l-conf package for the new dpkg-statoverride
+
+ -- Gerd Knorr <kraxel@debian.org>  Sat, 13 Jan 2001 22:02:05 +0100
+
 xawtv (3.28) unstable; urgency=low
 
   * new release (closes: #80933)

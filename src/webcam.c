@@ -23,9 +23,7 @@ struct WEBCAM {
     pthread_mutex_t lock;
     pthread_cond_t  wait;
     char *filename;
-    int format, size;
-    int width, height;
-    char *data;
+    struct ng_video_buf *buf;
 };
 
 static void*
@@ -34,6 +32,8 @@ webcam_writer(void *arg)
     struct WEBCAM *web = arg;
     int rename,fd,old;
     char tmpfilename[512];
+    struct ng_video_fmt *fmt;
+    char *data;
 
     if (debug)
 	fprintf(stderr,"webcam_writer start\n");
@@ -41,36 +41,40 @@ webcam_writer(void *arg)
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,&old);
     pthread_mutex_lock(&web->lock);
     for (;;) {
-	while (web->data == NULL) {
+	while (web->buf == NULL) {
 	    if (debug)
 		fprintf(stderr,"webcam_writer: waiting for data\n");
 	    pthread_cond_wait(&web->wait, &web->lock);
 	}
+	fmt = &web->buf->fmt;
 	if (debug)
 	    fprintf(stderr,"webcam_writer: %d %dx%d \n",
-		    web->format,web->width,web->height);
+		    fmt->fmtid,fmt->width,fmt->height);
 	rename = 1;
 	sprintf(tmpfilename,"%s.$$$",web->filename);
-	switch (web->format) {
+	switch (fmt->fmtid) {
 	case VIDEO_MJPEG:
 	    if (-1 == (fd = open(tmpfilename,O_CREAT|O_WRONLY,0666))) {
 		fprintf(stderr,"open(%s): %s\n",tmpfilename,
 			strerror(errno));
 		goto done;
 	    }
-	    write(fd,web->data,web->size);
+	    write(fd,web->buf->data,web->buf->size);
 	    close(fd);
 	    break;
 	case VIDEO_BGR24:
-	    swap_rgb24(web->data,web->width*web->height);
-	    /* fall throuth */
+	    data = malloc(web->buf->size);
+	    memcpy(data,web->buf->data,web->buf->size);
+	    swap_rgb24(data,fmt->width*fmt->height);
+	    write_jpeg(tmpfilename,web->buf,jpeg_quality,0);
+	    free(data);
+	    break;
 	case VIDEO_RGB24:
-	    write_jpeg(tmpfilename,web->data,
-		       web->width,web->height,jpeg_quality,0);
+	    write_jpeg(tmpfilename,web->buf,jpeg_quality,0);
 	    break;
 	default:
 	    fprintf(stderr,"webcam_writer: can't deal with format=%d\n",
-		    web->format);
+		    fmt->fmtid);
 	    rename = 0;
 	}
 	if (rename) {
@@ -83,8 +87,8 @@ webcam_writer(void *arg)
 	    unlink(tmpfilename);
 	}
 	free(web->filename);
-	free(web->data);
-	web->data = NULL;
+	ng_release_video_buf(web->buf);
+	web->buf = NULL;
     }
  done:
     pthread_mutex_unlock(&web->lock);
@@ -119,8 +123,7 @@ webcam_exit()
 }
 
 int
-webcam_put(char *filename, int format, int width, int height,
-	   char *data, int size)
+webcam_put(char *filename, struct ng_video_buf *buf)
 {
     int ret = 0;
 
@@ -132,21 +135,16 @@ webcam_put(char *filename, int format, int width, int height,
 	    fprintf(stderr,"webcam_put: locked\n");
 	return -1;
     }
-    if (NULL != web->data) {
+    if (NULL != web->buf) {
 	if (debug)
 	    fprintf(stderr,"webcam_put: still has data\n");
 	ret = -1;
 	goto done;
     }
 
-    /* TODO: avoid this memcpy (needs buffer refcount) */
     web->filename = strdup(filename);
-    web->data = malloc(size);
-    memcpy(web->data,data,size);
-    web->format = format;
-    web->width  = width;
-    web->height = height;
-    web->size   = size;
+    web->buf = buf;
+    buf->refcount++;
     if (debug)
 	fprintf(stderr,"webcam_put: ok\n");
     pthread_cond_signal(&web->wait);
@@ -155,4 +153,3 @@ webcam_put(char *filename, int format, int width, int height,
     pthread_mutex_unlock(&web->lock);
     return ret;
 }
-

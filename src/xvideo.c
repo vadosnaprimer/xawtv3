@@ -11,7 +11,9 @@ int main(){puts("Compiled without Xvideo extention support, sorry.");exit(0);}
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
+#ifdef HAVE_GETOPT_H
+# include <getopt.h>
+#endif
 
 #include <X11/Xlib.h>
 #include <X11/StringDefs.h>
@@ -142,11 +144,13 @@ static char *reasons[] = {
 int
 main(int argc, char *argv[])
 {
+#ifdef HAVE_GETOPT_LONG
     static struct option long_opts[] = {
 	{"port",        1, 0, 'p'},
 	{"help",        0, 0, 'h'},
 	{0,             0, 0, 0}
     };
+#endif
 
     XtAppContext app_context;
     Display *dpy;
@@ -174,8 +178,13 @@ main(int argc, char *argv[])
 
     /* parse options */
     for (;;) {
+#ifdef HAVE_GETOPT_LONG
 	if (-1 == (c = getopt_long(argc, argv, "hp:", long_opts,NULL)))
 	    break;
+#else
+	if (-1 == (c = getopt(argc, argv, "hp:")))
+	    break;
+#endif
 	switch (c) {
 	case 0:
 	    /* long option */

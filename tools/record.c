@@ -44,14 +44,15 @@ static short  *sound_buffer;
 static int     maxl,maxr;
 static int     secl,secr;
 static struct  timeval tl,tr;
+static char    *audio_dev = "/dev/audio";
 
 int
 sound_open()
 {
     int frag,afmt,channels,rate,trigger;
     
-    if (-1 == (sound_fd = open("/dev/audio", O_RDONLY))) {
-	perror("open /dev/audio");
+    if (-1 == (sound_fd = open(audio_dev, O_RDONLY))) {
+	fprintf(stderr,"open %s: %s",audio_dev,strerror(errno));
 	exit(1);
     }
 
@@ -163,6 +164,7 @@ char *config_names[SOUND_MIXER_NRDEVICES][4];
 static int  mix;
 static int  dev = -1;
 static int  volume;
+static char *mixer_dev = "/dev/mixer";
 
 int
 mixer_open(char *filename, char *device)
@@ -170,7 +172,7 @@ mixer_open(char *filename, char *device)
     int i, devmask;
 
     if (-1 == (mix = open(filename,O_RDONLY))) {
-	perror("mixer open");
+	fprintf(stderr,"open %s: %s",filename,strerror(errno));
 	exit(1);
     }
     if (-1 == ioctl(mix,MIXER_READ(SOUND_MIXER_DEVMASK),&devmask)) {
@@ -397,15 +399,18 @@ usage()
 	    "interactive curses application.  You'll need a fast\n"
 	    "terminal, don't try this on a 9600 bps vt100...\n"
 	    "\n"
-	    "%s has three options:\n"
+	    "%s has five options:\n"
 	    "  -h       this text\n"
 	    "  -i dev   mixer device [%s].  This should be the one\n"
 	    "           where you can adjust the record level for\n"
 	    "           your audio source.\n"
 	    "  -o file  output file name [%s], a number and the .wav\n"
 	    "           extention are added by %s.\n"
+	    "  -d dev   set audio device [%s]\n"
+	    "  -m dev   set mixer device [%s]\n"
 	    "\n",
-	    progname,progname,input,filename,progname);
+	    progname,progname,input,filename,progname,
+	    audio_dev,mixer_dev);
 }
 
 int
@@ -421,7 +426,7 @@ main(int argc, char *argv[])
 
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "vhi:o:")))
+	if (-1 == (c = getopt(argc, argv, "vhi:o:d:m:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -433,6 +438,12 @@ main(int argc, char *argv[])
 	case 'o':
 	    filename = optarg;
 	    break;
+	case 'd':
+	    audio_dev = optarg;
+	    break;
+	case 'm':
+	    mixer_dev = optarg;
+	    break;
 	case 'h':
 	default:
 	    usage();
@@ -440,7 +451,7 @@ main(int argc, char *argv[])
 	}
     }
 
-    mixer_open("/dev/mixer",input);
+    mixer_open(mixer_dev,input);
     sound_open();
     delay = 0;
     auto_adjust = 1;

@@ -22,7 +22,7 @@ static struct HTTP_STATUS {
 } http[] = {
     { 200, "200 OK",                       NULL },
     { 400, "400 Bad Request",              "*PLONK*\n" },
-    { 404, "404 Not Found",                "File or directory not found\n" },
+    { 404, "404 Not Found",       "videotext page not found in cache\n" },
     { 408, "408 Request Timeout",          "Request Timeout\n" },
     { 500, "500 Internal Server Error",    "Sorry folks\n" },
     { 501, "501 Not Implemented",          "Sorry folks\n" },

@@ -55,7 +55,7 @@ struct ng_video_fmt {
     int   fmtid;         /* VIDEO_* */
     int   width;
     int   height;
-    int   bytesperline;  /* nonzero if bytesperline != width * depth */
+    int   bytesperline;  /* zero for compressed formats */
 };
 
 struct ng_video_buf {
@@ -69,13 +69,21 @@ struct ng_video_buf {
 
     /* FIXME: time (struct timeval?) */
 
-#if 0
+    /*
+     * the lock is for the reference counter.
+     * if the reference counter goes down to zero release()
+     * should be called.  priv is for the owner of the
+     * buffer (can be used by the release callback)
+     */
+    pthread_mutex_t      lock;
     int                  refcount;
+    void                 (*release)(struct ng_video_buf *buf);
     void                 *priv;
-    /* add (*release)(struct buffer*) ??? */
-#endif
 };
 
+void ng_release_video_buf(struct ng_video_buf *buf);
+struct ng_video_buf* ng_malloc_video_buf(struct ng_video_fmt *fmt,
+					 int size);
 
 /* --------------------------------------------------------------------- */
 /* audio data structures                                                 */
@@ -130,3 +138,11 @@ struct ng_writer {
 /* --------------------------------------------------------------------- */
 
 extern const struct ng_writer *ng_writers[];
+
+
+/* --------------------------------------------------------------------- */
+/* half rewritten -- still in grab.c                                     */
+
+int ng_grabber_setparams(struct ng_video_fmt *fmt, int lut_valid,
+			 int fix_ratio);
+struct ng_video_buf* ng_grabber_capture(struct ng_video_buf *dest);

@@ -14,7 +14,9 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <getopt.h>
+#ifdef HAVE_GETOPT_H
+# include <getopt.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <linux/vt.h>

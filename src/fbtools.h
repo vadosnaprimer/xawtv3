@@ -16,7 +16,7 @@ void fb_cleanup(void);
 void fb_cleanup_fork(void);
 
 /* print text - x,y are in char res */
-int fb_puts(int x, int y, char *text);
+int fb_puts(int x, int y, unsigned char *text);
 void fb_memset(void *addr, int c, size_t len);
 
 /* console switching */

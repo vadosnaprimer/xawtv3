@@ -1,7 +1,7 @@
 /*
  * console TV application.  Uses a framebuffer device.
  *
- *   (c) 1998-2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ *   (c) 1998-2001 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
 
@@ -42,7 +42,6 @@
 #define MAX(x,y)        ((x)>(y)?(x):(y))
 #define MIN(x,y)        ((x)<(y)?(x):(y))
 
-
 /* ---------------------------------------------------------------------- */
 /* framebuffer                                                            */
 
@@ -61,7 +60,8 @@ static int sig,quiet,matrox;
 static int ww,hh;
 static float fbgamma = 1.0;
 
-static int dx,dy,dw,dh,ll,off;
+static struct ng_video_buf buf;
+static int dx,dy;
 
 char v4l_conf[128] = "v4l-conf";
 int have_config;
@@ -272,13 +272,16 @@ void do_capture(int from, int to)
     }
 
     /* on */
+    memset(&buf,0,sizeof(buf));
     switch (to) {
     case CAPTURE_GRABDISPLAY:
 	if (ww && hh) {
-	    dw  = ww;
-	    dh  = hh;
-	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0, 1);
-	    dx  = fb_var.xres-dw;
+	    buf.fmt.fmtid  = x11_native_format;
+	    buf.fmt.width  = ww;
+	    buf.fmt.height = hh;
+	    buf.fmt.bytesperline = fb_fix.line_length;
+	    ng_grabber_setparams(&buf.fmt, 0, 1);
+	    dx  = fb_var.xres-buf.fmt.width;
 	    dy  = 0;
 	} else {
 	    if (quiet) {
@@ -288,30 +291,35 @@ void do_capture(int from, int to)
 		dx  = 24;
 		dy  = 16;
 	    }
-	    dw  = fb_var.xres-dx;
-	    dh  = fb_var.yres-dy;
-	    grabber_setparams(x11_native_format, &dw, &dh, &ll, 0, 1);
-	    dx += (fb_var.xres-24-dw)/2;
-	    dy += (fb_var.yres-16-dh)/2;
+	    buf.fmt.fmtid  = x11_native_format;
+	    buf.fmt.width  = fb_var.xres-dx;
+	    buf.fmt.height = fb_var.yres-dy;
+	    buf.fmt.bytesperline = fb_fix.line_length;
+	    ng_grabber_setparams(&buf.fmt, 0, 1);
+	    dx += (fb_var.xres-24-buf.fmt.width)/2;
+	    dy += (fb_var.yres-16-buf.fmt.height)/2;
 	}
 	if (grabber->grab_start)
 	    grabber->grab_start(-1,2);
-	off = dy * fb_fix.line_length + dx * ((fb_var.bits_per_pixel+7)/8);
+	buf.data = fb_mem +
+	    dy * fb_fix.line_length +
+	    dx * ((fb_var.bits_per_pixel+7)/8);
 	break;
     case CAPTURE_OVERLAY:
+	buf.fmt.fmtid  = x11_native_format;
 	if (ww && hh) {
-	    dw = ww;
-	    dh = hh;
-	    dx = fb_var.xres-dw;
+	    buf.fmt.width  = ww;
+	    buf.fmt.height = hh;
+	    dx = fb_var.xres-buf.fmt.width;
 	    dy = 0;
 	} else if (quiet) {
-	    dw = fb_var.xres;
-	    dh = fb_var.yres;
+	    buf.fmt.width  = fb_var.xres;
+	    buf.fmt.height = fb_var.yres;
 	    dx = 0;
 	    dy = 0;
 	} else {
-	    dw = fb_var.xres-24;
-	    dh = fb_var.yres-16;
+	    buf.fmt.width  = fb_var.xres-24;
+	    buf.fmt.height = fb_var.yres-16;
 	    dx = 24;
 	    dy = 16;
 	}
@@ -333,9 +341,12 @@ void do_capture(int from, int to)
 		width = fb_fix.line_length/2;
 	    pitch = fb_fix.line_length;
 	    grabber->grab_offscreen(starty,width,height,VIDEO_YUV422);
-	    gfx_scaler_on(starty*pitch,pitch,width,height,dx,dx+dw,dy,dy+dh);
+	    gfx_scaler_on(starty*pitch,pitch,width,height,
+			  dx,dx+buf.fmt.width,
+			  dy,dy+buf.fmt.height);
 	} else {
-	    grabber->grab_overlay(dx,dy,dw,dh,x11_native_format,NULL,0);
+	    grabber->grab_overlay(dx, dy, buf.fmt.width, buf.fmt.height,
+				  buf.fmt.fmtid, NULL, 0);
 	}
 	break;
     }
@@ -593,11 +604,6 @@ main(int argc, char *argv[])
 	    case CAPTURE_GRABDISPLAY:
 		sprintf(text+strlen(text), " - grab %d.%d fps",fps/5,(fps*2)%10);
 		break;
-#if 0
-	    case CAPTURE_OVERLAY:
-		strcat(text, " - overlay");
-		break;
-#endif
 	    }
 	    fb_puts(0,0,text);
 
@@ -623,8 +629,7 @@ main(int argc, char *argv[])
 		FD_SET(lirc,&set);
 	    if (cur_capture == CAPTURE_GRABDISPLAY) {
 		fps++;
-		grabber_capture(fb_mem+fb_mem_offset+off,
-				fb_fix.line_length,NULL);
+		ng_grabber_capture(&buf);
 		tv.tv_sec  = 0;
 		tv.tv_usec = 0;
 		rc = select(MAX(0,lirc)+1,&set,NULL,NULL,&tv);

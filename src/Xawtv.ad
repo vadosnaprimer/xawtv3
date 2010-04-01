@@ -235,11 +235,11 @@ Streamer*Text*type:		string
 Streamer*Text*useStringInPlace:	false
 Streamer*status.foreground:	darkred
 
-Streamer*vlabel.vertDistance:	5
+Streamer*driver.vertDistance:	10
+Streamer*vlabel.vertDistance:	15
 Streamer*vname.vertDistance:	0
 Streamer*alabel.vertDistance:	15
 Streamer*aname.vertDistance:	0
-Streamer*driver.vertDistance:	15
 Streamer*audio.vertDistance:	5
 Streamer*rate.vertDistance:	0
 Streamer*video.vertDistance:	5

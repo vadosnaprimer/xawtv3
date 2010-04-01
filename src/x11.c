@@ -164,7 +164,7 @@ x11_init(Display *dpy, XVisualInfo *vinfo)
 		(fmt[i].red   == vinfo->red_mask     || fmt[i].red   == 0)  &&
 		(fmt[i].green == vinfo->green_mask   || fmt[i].green == 0)  &&
 		(fmt[i].blue  == vinfo->blue_mask    || fmt[i].blue  == 0)) {
-		x11_pixmap_format = fmt[i].format;
+		x11_fmt.fmtid = fmt[i].format;
 		break;
 	    }
 	}
@@ -193,7 +193,7 @@ x11_init(Display *dpy, XVisualInfo *vinfo)
     }
     if (vinfo->class == StaticGray && vinfo->depth == 8) {
 	format = VIDEO_GRAY;
-	x11_pixmap_format = VIDEO_GRAY;
+	x11_fmt.fmtid = VIDEO_GRAY;
     }
     if (0 == format) {
 	if (vinfo->class == PseudoColor && vinfo->depth == 8) {

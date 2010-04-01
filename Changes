@@ -1,3 +1,19 @@
+
+3.28 => 3.29
+============
+
+  * next chunk of the capture core rewrite.
+  * moved audio recording to a thread, this hopefully fixes a few
+    problems (should stop audio overruns, doesn't need select
+    support in the driver any more).
+  * Added a fancy status display which hopefully helps to trouble-shoot
+    syncronisation problems.
+  * major update for README.recording
+  * killed the --enable-efence configure option.  Isn't thread safe :-(
+    Anyone knows a free malloc debugger which is?
+  * added autoconf tests for getopt.h / getopt_long
+  * streamer can write raw video data (again).
+
  
 3.27 => 3.28
 ============

@@ -560,7 +560,7 @@ grab_open(char *filename)
 		fprintf(stderr,"  mbuf: size=%d frames=%d\n",
 			gb_buffers.size,gb_buffers.frames);
 	    map = mmap(0,gb_buffers.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-	    if ((char*)-1 != map)
+	    if ((char*)-1 == map)
 		perror("mmap");
 	} else {
 	    map = (char*)-1;

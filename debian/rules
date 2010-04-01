@@ -45,8 +45,6 @@ binary-arch: install
 #	dh_strip
 	dh_compress
 	dh_fixperms	-Xv4l-conf
-	# You may want to make some executables suid here.
-	dh_suidregister
 #	dh_makeshlibs
 	dh_installdeb
 #	dh_perl

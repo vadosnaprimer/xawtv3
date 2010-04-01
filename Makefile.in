@@ -27,9 +27,8 @@ checkit: distclean
 	lintian ../xawtv_*.changes
 
 diff:
-	(cd /tmp; tar xvzf `ls -t $(HOME)/debian/Archive/xawtv_*.tar.gz | head -n 1`)
-	(cd ..; diff -urN /tmp/xawtv-* xawtv-$(VERSION) | gzip > xawtv_$(VERSION).diff.gz)
-	rm -rf /tmp/xawtv-*
+	last=`ls -t $(HOME)/strusel/linux/xawtv/xawtv_*.tar.gz | head -1`;\
+	tardiff $$last . | gzip > ../xawtv_$(VERSION).diff.gz
 
 release: realclean diff
 	make -C font bdf

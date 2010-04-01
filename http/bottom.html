@@ -10,5 +10,13 @@
 <a href="/800/">800</a> &nbsp;
 <a href="/about.html">about</a>
 </div>
+<form name="goto" action="/goto/">
+Jump to page
+<input type="text"  name="p" size="4" maxlength="3">
+<input type="submit" value="ok">
+</form>
+<script language="JavaScript">
+document.forms["goto"].elements["p"].focus();
+</script>
 </body>
 </html>

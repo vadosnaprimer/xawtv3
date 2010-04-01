@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include <sys/time.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -74,6 +75,7 @@ const char* ng_afmt_to_desc[] = {
 /* --------------------------------------------------------------------- */
 
 extern const struct ng_writer files_writer;
+extern const struct ng_writer raw_writer;
 extern const struct ng_writer avi_writer;
 #ifdef HAVE_LIBQUICKTIME
 extern const struct ng_writer qt_writer;
@@ -81,9 +83,54 @@ extern const struct ng_writer qt_writer;
 
 const struct ng_writer *ng_writers[] = {
     &files_writer,
+    &raw_writer,
     &avi_writer,
 #ifdef HAVE_LIBQUICKTIME
     &qt_writer,
 #endif
     NULL
 };
+
+/* --------------------------------------------------------------------- */
+
+void ng_release_video_buf(struct ng_video_buf *buf)
+{
+    int release;
+
+    pthread_mutex_lock(&buf->lock);
+    buf->refcount--;
+    release = (buf->refcount == 0);
+    pthread_mutex_unlock(&buf->lock);
+    if (release && NULL != buf->release)
+	buf->release(buf);
+}
+
+static void ng_free_video_buf(struct ng_video_buf *buf)
+{
+    free(buf->data);
+    free(buf);
+}
+
+struct ng_video_buf*
+ng_malloc_video_buf(struct ng_video_fmt *fmt, int size)
+{
+    struct ng_video_buf *buf;
+
+    buf = malloc(sizeof(*buf));
+    if (NULL == buf)
+	return NULL;
+    memset(buf,0,sizeof(*buf));
+    buf->fmt  = *fmt;
+    buf->size = size;
+    buf->data = malloc(size);
+    if (NULL == buf->data) {
+	free(buf);
+	return NULL;
+    }
+    buf->refcount = 1;
+    buf->release  = ng_free_video_buf;
+    pthread_mutex_init(&buf->lock,NULL);
+    return buf;
+}
+
+/* --------------------------------------------------------------------- */

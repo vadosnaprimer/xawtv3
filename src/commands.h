@@ -26,8 +26,7 @@ extern void (*movie_hook)(int argc, char **argv);
 
 extern int do_overlay;
 extern char *snapbase;
-extern int x11_pixmap_format;
-extern int grab_width, grab_height;
+extern struct ng_video_fmt x11_fmt;
 
 /*------------------------------------------------------------------------*/
 

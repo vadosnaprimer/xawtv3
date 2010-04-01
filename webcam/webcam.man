@@ -81,8 +81,8 @@ They should satisfy 0<=top<bottom<=height and
 0<=left<right<=width.  (0,0 is the top, left corner.)
 If
 .B rotate
-is positive, the output image will be rotated clockwise 90 degrees 
-that number of times (1, 2, or 3).
+is positive, the output image will be rotated counter-clockwise
+90 degrees that number of times (1, 2, or 3).
 .P
 With
 .B trigger

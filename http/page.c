@@ -274,6 +274,13 @@ void buildpage(struct REQUEST *req)
 	return;
     }
 
+    /* goto form */
+    if (1 == sscanf(req->path,"/goto/?p=%d",&pagenr)) {
+	sprintf(req->path,"/%d/",pagenr);
+	mkredirect(req);
+	return;
+    }
+    
     mkerror(req,404,1);
     return;
 }

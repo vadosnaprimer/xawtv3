@@ -81,7 +81,8 @@ snap_filename(char *base, char *channel, char *ext)
 
 /* ---------------------------------------------------------------------- */
 
-int write_jpeg(char *filename, char *data, int width, int height, int quality, int gray)
+int write_jpeg(char *filename, struct ng_video_buf *buf,
+	       int quality, int gray)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -98,16 +99,17 @@ int write_jpeg(char *filename, char *data, int width, int height, int quality, i
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_compress(&cinfo);
     jpeg_stdio_dest(&cinfo, fp);
-    cinfo.image_width = width;
-    cinfo.image_height = height;
+    cinfo.image_width  = buf->fmt.width;
+    cinfo.image_height = buf->fmt.height;
     cinfo.input_components = gray ? 1: 3;
     cinfo.in_color_space = gray ? JCS_GRAYSCALE: JCS_RGB;
     jpeg_set_defaults(&cinfo);
     jpeg_set_quality(&cinfo, quality, TRUE);
     jpeg_start_compress(&cinfo, TRUE);
 
-    line_length = gray ? width: width * 3;
-    for (i = 0, line = data; i < height; i++, line += line_length)
+    line_length = gray ? buf->fmt.width : buf->fmt.width * 3;
+    for (i = 0, line = buf->data; i < buf->fmt.height;
+	 i++, line += line_length)
 	jpeg_write_scanlines(&cinfo, &line, 1);
     
     jpeg_finish_compress(&(cinfo));
@@ -117,7 +119,7 @@ int write_jpeg(char *filename, char *data, int width, int height, int quality, i
     return 0;
 }
 
-int write_ppm(char *filename, char *data, int width, int height)
+int write_ppm(char *filename, struct ng_video_buf *buf)
 {
     FILE *fp;
     
@@ -125,14 +127,15 @@ int write_ppm(char *filename, char *data, int width, int height)
 	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
 	return -1;
     }
-    fprintf(fp,"P6\n%d %d\n255\n",width,height);
-    fwrite(data,height,3*width,fp);
+    fprintf(fp,"P6\n%d %d\n255\n",
+	    buf->fmt.width,buf->fmt.height);
+    fwrite(buf->data, buf->fmt.height, 3*buf->fmt.width,fp);
     fclose(fp);
 
     return 0;
 }
 
-int write_pgm(char *filename, char *data, int width, int height)
+int write_pgm(char *filename, struct ng_video_buf *buf)
 {
     FILE *fp;
     
@@ -140,8 +143,9 @@ int write_pgm(char *filename, char *data, int width, int height)
 	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
 	return -1;
     }
-    fprintf(fp,"P5\n%d %d\n255\n",width,height);
-    fwrite(data,height,width,fp);
+    fprintf(fp,"P5\n%d %d\n255\n",
+	    buf->fmt.width, buf->fmt.height);
+    fwrite(buf->data, buf->fmt.height, buf->fmt.width, fp);
     fclose(fp);
 
     return 0;
@@ -274,6 +278,8 @@ files_open(char *filesname, char *audioname,
 {
     struct files_handle *h;
 
+    if (NULL == filesname)
+	return NULL;
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
 
@@ -285,6 +291,11 @@ files_open(char *filesname, char *audioname,
 
     if (h->audio.fmtid != AUDIO_NONE) {
 	h->wav_fd = open(audioname, O_CREAT | O_RDWR | O_TRUNC, 0666);
+	if (-1 == h->wav_fd) {
+	    fprintf(stderr,"open %s: %s\n",audioname,strerror(errno));
+	    free(h);
+	    return NULL;
+	}
 	wav_start_write(h->wav_fd,&h->wav_header,&h->audio);
     }
 
@@ -305,10 +316,10 @@ files_video(void *handle, struct ng_video_buf *buf)
     
     switch (h->video.fmtid) {
     case VIDEO_RGB24:
-	rc = write_ppm(h->file, buf->data, h->video.width, h->video.height);
+	rc = write_ppm(h->file, buf);
 	break;
     case VIDEO_GRAY:
-	rc = write_pgm(h->file, buf->data, h->video.width, h->video.height);
+	rc = write_pgm(h->file, buf);
 	break;
     case VIDEO_MJPEG:
 	if (NULL == (fp = fopen(h->file,"w"))) {
@@ -348,6 +359,100 @@ files_close(void *handle)
     return 0;
 }
 
+/* ---------------------------------------------------------------------- */
+
+struct raw_handle {
+    /* format */
+    struct ng_video_fmt video;
+    struct ng_audio_fmt audio;
+
+    /* video file*/
+    int      fd;
+
+    /* *.wav file */
+    int      wav_fd;
+    WAVEHDR  wav_header;
+    int      wav_size;
+};
+
+static void*
+raw_open(char *videoname, char *audioname,
+	 struct ng_video_fmt *video, const void *priv_video, int fps,
+	 struct ng_audio_fmt *audio, const void *priv_audio)
+{
+    struct raw_handle *h;
+    
+    if (NULL == (h = malloc(sizeof(*h))))
+	return NULL;
+
+    /* init */
+    memset(h,0,sizeof(*h));
+    h->video         = *video;
+    h->audio         = *audio;
+
+    /* audio */
+    if (h->audio.fmtid != AUDIO_NONE) {
+	h->wav_fd = open(audioname, O_CREAT | O_RDWR | O_TRUNC, 0666);
+	if (-1 == h->wav_fd) {
+	    fprintf(stderr,"open %s: %s\n",audioname,strerror(errno));
+	    free(h);
+	    return NULL;
+	}
+	wav_start_write(h->wav_fd,&h->wav_header,&h->audio);
+    }
+
+    /* video */
+    if (NULL != videoname) {
+	h->fd = open(videoname, O_CREAT | O_RDWR | O_TRUNC, 0666);
+	if (-1 == h->fd) {
+	    fprintf(stderr,"open %s: %s\n",videoname,strerror(errno));
+	    if (h->wav_fd)
+		close(h->wav_fd);
+	    free(h);
+	    return NULL;
+	}
+    } else {
+	h->fd = 1; /* use stdout */
+    }
+
+    return h;
+}
+
+static int
+raw_video(void *handle, struct ng_video_buf *buf)
+{
+    struct raw_handle *h = handle;
+
+    if (buf->size != write(h->fd,buf->data,buf->size))
+	return -1;
+    return 0;
+}
+
+static int
+raw_audio(void *handle, struct ng_audio_buf *buf)
+{
+    struct raw_handle *h = handle;
+    if (buf->size != write(h->wav_fd,buf->data,buf->size))
+	return -1;
+    h->wav_size += buf->size;
+    return 0;
+}
+
+static int
+raw_close(void *handle)
+{
+    struct raw_handle *h = handle;
+
+    if (h->audio.fmtid != AUDIO_NONE) {
+	wav_stop_write(h->wav_fd,&h->wav_header,h->wav_size);
+	close(h->wav_fd);
+    }
+    if (1 != h->fd)
+	close(h->fd);
+    free(h);
+    return 0;
+}
+
 /* ----------------------------------------------------------------------- */
 /* data structures describing our capabilities                             */
 
@@ -364,6 +469,28 @@ static const struct ng_format_list files_vformats[] = {
 	name:  "jpeg",
 	ext:   "jpeg",
 	fmtid: VIDEO_MJPEG,
+    },{
+	/* EOF */
+    }
+};
+
+static const struct ng_format_list raw_vformats[] = {
+    {
+	name:  "rgb",
+	ext:   "raw",
+	fmtid: VIDEO_RGB24,
+    },{
+	name:  "gray",
+	ext:   "raw",
+	fmtid: VIDEO_GRAY,
+    },{
+	name:  "422",
+	ext:   "raw",
+	fmtid: VIDEO_YUV422,
+    },{
+	name:  "422p",
+	ext:   "raw",
+	fmtid: VIDEO_YUV422P,
     },{
 	/* EOF */
     }
@@ -396,4 +523,15 @@ const struct ng_writer files_writer = {
     wr_video:  files_video,
     wr_audio:  files_audio,
     wr_close:  files_close,
+};
+
+const struct ng_writer raw_writer = {
+    name:      "raw",
+    desc:      "single file, raw video data",
+    video:     raw_vformats,
+    audio:     wav_aformats,
+    wr_open:   raw_open,
+    wr_video:  raw_video,
+    wr_audio:  raw_audio,
+    wr_close:  raw_close,
 };

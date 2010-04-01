@@ -368,9 +368,9 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 	    int rr = (ow-1-i)*oh;
 	    int ic = i+left;
 	    for (j = 0; j < oh; j++) {
-		rotimg[3*(rr+(oh-1-j))] = in[3*((j+top)*w+ic)];
-		rotimg[3*(rr+(oh-1-j))+1] = in[3*((j+top)*w+ic)+1];
-		rotimg[3*(rr+(oh-1-j))+2] = in[3*((j+top)*w+ic)+2];
+		rotimg[3*(rr+j)]   = in[3*((j+top)*w+ic)];
+		rotimg[3*(rr+j)+1] = in[3*((j+top)*w+ic)+1];
+		rotimg[3*(rr+j)+2] = in[3*((j+top)*w+ic)+2];
 	    }
 	}
 	*wp = oh;

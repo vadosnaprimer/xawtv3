@@ -312,7 +312,7 @@ xv_destroy_ximage(Display *dpy, XvImage * xvimage, void *shm)
 
 void xv_init(int xvideo, int hwscale, int port)
 {
-    char norm[32],input[32];
+    char *h;
     int i;
     
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
@@ -378,13 +378,20 @@ void xv_init(int xvideo, int hwscale, int port)
 	}
 	enc_map = malloc(sizeof(*enc_map)*encodings);
 	for (i = 0; i < encodings; i++) {
-	    if (2 == sscanf(ei[i].name,"%31[^-]-%31s",norm,input)) {
-		enc_map[i].norm     = xv_strlist_add(&norms,norm);
-		enc_map[i].input    = xv_strlist_add(&inputs,input);
-		enc_map[i].encoding = ei[i].encoding_id;
-	    } else {
-		/* FIXME */
+#if 1
+	    if (NULL != (h = strrchr(ei[i].name,'-'))) {
+		*(h++) = 0;
+		enc_map[i].input = xv_strlist_add(&inputs,h);
 	    }
+	    enc_map[i].norm = xv_strlist_add(&norms,ei[i].name);
+	    enc_map[i].encoding = ei[i].encoding_id;
+#else
+	    if (2 == sscanf(ei[i].name,"%31[^-]-%31s",norm,input)) {
+                enc_map[i].norm     = xv_strlist_add(&norms,norm);
+                enc_map[i].input    = xv_strlist_add(&inputs,input);
+                enc_map[i].encoding = ei[i].encoding_id;
+	    }
+#endif
 	}
 	xv.norms = norms;
 	xv.inputs = inputs;

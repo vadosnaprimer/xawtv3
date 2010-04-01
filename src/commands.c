@@ -12,9 +12,9 @@
 
 #include "config.h"
 
+#include "grab-ng.h"
 #include "commands.h"
 #include "writefile.h"
-#include "grab-ng.h"
 #include "channel.h"
 #include "webcam.h"
 #include "frequencies.h"
@@ -50,8 +50,8 @@ void (*movie_hook)(int argc, char **argv);
 
 int do_overlay;
 char *snapbase = "snap";
-int x11_pixmap_format;
-int grab_width = 1536, grab_height = 1024;
+
+struct ng_video_fmt x11_fmt;
 
 /* ----------------------------------------------------------------------- */
 
@@ -805,14 +805,12 @@ static int dattr_handler(char *name, int argc, char **argv)
 static int snap_handler(char *hname, int argc, char **argv)
 {
     char message[512];
-    void *buffer;
     char *filename = NULL;
     char *name;
     int   jpeg = 0;
     int   ret = 0;
-    int   width;
-    int   height;
-    int   linelength;
+    struct ng_video_fmt fmt;
+    struct ng_video_buf *buf = NULL;
 
     if (!grabber->grab_setparams ||
 	!grabber->grab_capture) {
@@ -839,15 +837,17 @@ static int snap_handler(char *hname, int argc, char **argv)
     }
 
     /* size */
-    width  = 2048;
-    height = 1572;
+    memset(&fmt,0,sizeof(fmt));
+    fmt.fmtid  = VIDEO_RGB24;
+    fmt.width  = 2048;
+    fmt.height = 1572;
     if (argc > 1) {
 	if (0 == strcasecmp(argv[1],"full")) {
 	    /* nothing */
 	} else if (0 == strcasecmp(argv[1],"win")) {
-	    width  = grab_width;
-	    height = grab_height;
-	} else if (2 == sscanf(argv[1],"%dx%d",&width,&height)) {
+	    fmt.width  = x11_fmt.width;
+	    fmt.height = x11_fmt.height;
+	} else if (2 == sscanf(argv[1],"%dx%d",&fmt.width,&fmt.height)) {
 	    /* nothing */
 	} else {
 	    return -1;
@@ -858,9 +858,8 @@ static int snap_handler(char *hname, int argc, char **argv)
     if (argc > 2)
 	filename = argv[2];
     
-    if (0 != grabber_setparams(VIDEO_RGB24,&width,&height,
-			       &linelength,0,1) ||
-	NULL == (buffer = grabber_capture(NULL,0,NULL))) {
+    if (0 != ng_grabber_setparams(&fmt,0,1) ||
+	NULL == (buf = ng_grabber_capture(NULL))) {
 	if (display_message)
 	    display_message("grabbing failed");
 	ret = -1;
@@ -879,13 +878,13 @@ static int snap_handler(char *hname, int argc, char **argv)
     }
 
     if (jpeg) {
-	if (-1 == write_jpeg(filename,buffer,width,height, jpeg_quality, 0)) {
+	if (-1 == write_jpeg(filename, buf, jpeg_quality, 0)) {
 	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
 	} else {
 	    sprintf(message,"saved jpeg: %s",filename);
 	}
     } else {
-	if (-1 == write_ppm(filename,buffer,width,height)) {
+	if (-1 == write_ppm(filename, buf)) {
 	    sprintf(message,"open %s: %s\n",filename,strerror(errno));
 	} else {
 	    sprintf(message,"saved ppm: %s",filename);
@@ -895,6 +894,8 @@ static int snap_handler(char *hname, int argc, char **argv)
 	display_message(message);
 
 done:
+    if (NULL != buf)
+	ng_release_video_buf(buf);
     if (capture_rel_hook)
 	capture_rel_hook();
     return ret;
@@ -902,7 +903,8 @@ done:
 
 static int webcam_handler(char *hname, int argc, char **argv)
 {
-    int width = grab_width, height = grab_height, linelength = 0;
+    struct ng_video_fmt fmt;
+    struct ng_video_buf *buf;
 
     if (webcam)
 	free(webcam);
@@ -921,8 +923,11 @@ static int webcam_handler(char *hname, int argc, char **argv)
        the webcam happy */
     if (capture_get_hook)
 	capture_get_hook();
-    grabber_setparams(VIDEO_RGB24,&width,&height,&linelength,0,0);
-    grabber_capture(NULL,0,NULL);
+    fmt = x11_fmt;
+    fmt.fmtid = VIDEO_RGB24;
+    ng_grabber_setparams(&fmt,0,0);
+    buf = ng_grabber_capture(NULL);
+    ng_release_video_buf(buf);
     if (capture_rel_hook)
 	capture_rel_hook();
     return 0;
