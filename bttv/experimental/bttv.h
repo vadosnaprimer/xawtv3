@@ -27,7 +27,7 @@
 #include <linux/wait.h>
 
 #include "i2c.h"
-#include "msp3400.h"
+/* #include "msp3400.h" */
 #include "bt848.h"
 #include "videodev.h"
 
@@ -73,9 +73,10 @@ struct bttv
 	struct video_picture picture;		/* Current picture params */
 	struct video_audio audio_dev;		/* Current audio params */
 
-	struct i2c_bus i2c;
-	int have_msp3400;
-	int have_tuner;
+	struct bit_adapter i2c;
+	int                i2c_state;
+	struct i2c_client  *msp3400;
+	struct i2c_client  *tuner;
 
 	unsigned int nr;
 	unsigned short id;

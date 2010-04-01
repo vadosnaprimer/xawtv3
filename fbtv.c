@@ -58,6 +58,8 @@ static int    maxx,maxy /* current */;
 
 /*--- drivers -------------------------------------------------------------*/
 
+char  *device  = "/dev/video";
+
 extern struct GRABBER grab_v4l;
 struct GRABBER *grabbers[] = {
     &grab_v4l,
@@ -450,7 +452,7 @@ grabber_init()
     for (grabber = 0; grabber < sizeof(grabbers)/sizeof(struct GRABBERS*);
 	 grabber++) {
 	if (-1 != grabbers[grabber]->grab_open
-	    (NULL,sw,sh,x11_native_format,x11_native_format,base,sw))
+	    (device,sw,sh,x11_native_format,x11_native_format,base,sw))
 	    break;
     }
     if (grabber == sizeof(grabbers)/sizeof(struct GRABBERS*)) {
@@ -463,6 +465,7 @@ int
 main(int argc, char *argv[])
 {
     int             freq=0,key,i,c,gray=0;
+    char            v4l_conf[128] = "v4l-conf -q";
     char            *line;
 
     if (NULL != (line = getenv("FRAMEBUFFER"))) {
@@ -470,7 +473,7 @@ main(int argc, char *argv[])
     }
 
     for (;;) {
-	c = getopt(argc, argv, "gvd:o:j:s:");
+	c = getopt(argc, argv, "gvd:o:j:s:c:");
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -492,6 +495,12 @@ main(int argc, char *argv[])
 	case 's':
 	    sscanf(optarg,"%dx%d",&ww,&hh);
 	    break;
+	case 'c':
+	    device = optarg;
+	    /* v4l-conf needs this too */
+	    strcat(v4l_conf," -c ");
+	    strcat(v4l_conf,device);
+	    break;
 	default:
 	    exit(1);
 	}
@@ -500,7 +509,7 @@ main(int argc, char *argv[])
     if (NULL == fbdev)
 	fbdev = DEFAULT_DEVICE;
 
-    switch (system("v4l-conf -q")) {
+    switch (system(v4l_conf)) {
     case -1: /* can't run */
 	fprintf(stderr,"could'nt start v4l-conf\n");
 	break;
@@ -529,6 +538,7 @@ main(int argc, char *argv[])
 	for (i = 0; i < count; i++)
 	    if (0 == strcasecmp(channels[i]->name,argv[optind]))
 		cur_sender = i;
+
     if (count) {
 	if ((cur_sender < 0) || (cur_sender >= count))
 	    cur_sender = 0;

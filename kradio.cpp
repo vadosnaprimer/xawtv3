@@ -3,6 +3,8 @@
 #include <stdlib.h> 
 #include <unistd.h> 
 #include <fcntl.h>
+#include <errno.h>
+#include <getopt.h>
 #include <sys/ioctl.h>
 
 #include <qkeycode.h>
@@ -24,12 +26,36 @@ KApplication *globalKapp;
 KIconLoader  *globalKIL;
 KLocale      *globalKlocale;
 
+char *device = "/dev/radio";
+
 int main(int argc, char **argv)
 {
     globalKapp     = new KApplication( argc, argv, "kradio");
     globalKIL      = globalKapp->getIconLoader();
     globalKlocale  = globalKapp->getLocale();
     KRadio *kradio;
+    int c;
+
+    /* parse options */
+    for (;;) {
+	if (-1 == (c = getopt(argc, argv, "hc:")))
+	    break;
+	switch (c) {
+	case 'c':
+	    device = optarg;
+	    break;
+	case 'h':
+	default:
+	    fprintf(stderr,
+		    "usage: %s  [ options ] \n"
+		    "\n"
+		    "options:\n"
+		    "    -c <dev>  radio device    [%s]\n",
+		    argv[0],
+		    device);
+	    exit(1);
+	}
+    }
 
     kradio = new KRadio();
     return globalKapp->exec();
@@ -52,8 +78,8 @@ static struct video_audio hw_audio;
 
 static int hw_init()
 {
-    if (-1 == (hw_fd = open("/dev/radio",O_RDONLY))) {
-	perror("open /dev/radio");
+    if (-1 == (hw_fd = open(device,O_RDONLY))) {
+	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	exit(1);
     }
     return hw_fd;

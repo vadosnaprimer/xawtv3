@@ -89,7 +89,7 @@ x11_init(Display *dpy)
 	fprintf(stderr,"x11: display: %d bits, %d bytes - pixmap: %d bytes\n",
 		display_bits,display_bytes,pixmap_bytes);
     if (info->class == TrueColor) {
-	switch (display_bytes) {
+	switch (pixmap_bytes /* display_bytes */) {
 	case 2:
 	    format = (display_bits==15) ? VIDEO_RGB15 : VIDEO_RGB16;
 	    break;

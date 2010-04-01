@@ -10,7 +10,7 @@
  *     chip driver  a driver for a chip connected
  *                  to a i2c bus                    (cdrom/hd driver)
  *
- * a devices will be attached to one bus and one chip driver.  Every chip
+ * A device will be attached to one bus and one chip driver.  Every chip
  * driver gets a unique ID.
  *
  * A chip driver can provide a ioctl-like callback for the
@@ -32,10 +32,9 @@ struct i2c_device;
 
 #define I2C_DRIVERID_MSP3400     1
 #define I2C_DRIVERID_TUNER       2
-#define I2C_DRIVERID_VIDEOTEXT   3
-#define I2C_DRIVERID_CHARDEV     4
+#define I2C_DRIVERID_VIDEOTEXT	 3
 
-#define I2C_BUSID_BT848          1
+#define I2C_BUSID_BT848		1	/* I2C bus on a BT848 */
 
 /*
  * struct for a driver for a i2c chip (tuner, soundprocessor,
@@ -54,15 +53,15 @@ struct i2c_device;
  *
  */
 
-struct i2c_driver {
+struct i2c_driver 
+{
     char           name[32];         /* some useful label         */
     int            id;               /* device type ID            */
     unsigned char  addr_l, addr_h;   /* address range of the chip */
 
     int (*attach)(struct i2c_device *device);
     int (*detach)(struct i2c_device *device);
-    int (*command)(struct i2c_device *device,
-		   unsigned int cmd, void *arg);
+    int (*command)(struct i2c_device *device,unsigned int cmd, void *arg);
 
     /* i2c internal */
     struct i2c_device   *devices[I2C_DEVICE_MAX];
@@ -77,7 +76,7 @@ struct i2c_driver {
  * the i2c module. This struct provides functions to access the i2c bus.
  * 
  * One must hold the spinlock to access the i2c bus (XXX: is the irqsave
- * required? Maybe better use a semaphore?).
+ * required? Maybe better use a semaphore?). 
  * [-AC-] having a spinlock_irqsave is only needed if we have drivers wishing
  *	  to bang their i2c bus from an interrupt.
  * 
@@ -87,6 +86,7 @@ struct i2c_driver {
  */
 
 /* needed: unsigned long flags */
+
 #if LINUX_VERSION_CODE >= 0x020100
 #define LOCK_I2C_BUS(bus)    spin_lock_irqsave(&(bus->bus_lock),flags);
 #define UNLOCK_I2C_BUS(bus)  spin_unlock_irqrestore(&(bus->bus_lock),flags);
@@ -95,47 +95,48 @@ struct i2c_driver {
 #define UNLOCK_I2C_BUS(bus)  { restore_flags(flags);     }
 #endif
 
-struct i2c_bus {
-    char  name[32];         /* some useful label */
-    int   id;
-    void  *data;            /* free for use by the bus driver */
+struct i2c_bus 
+{
+	char  name[32];         /* some useful label */
+	int   id;
+	void  *data;            /* free for use by the bus driver */
 
 #if LINUX_VERSION_CODE >= 0x020100
-    spinlock_t bus_lock;
+        spinlock_t bus_lock;
 #endif
 
-    /* attach/detach inform callbacks */
-    void    (*attach_inform)(struct i2c_bus *bus, int id);
-    void    (*detach_inform)(struct i2c_bus *bus, int id);
+	/* attach/detach inform callbacks */
+	void    (*attach_inform)(struct i2c_bus *bus, int id);
+	void    (*detach_inform)(struct i2c_bus *bus, int id);
 
-    /* Software I2C */
-    void    (*i2c_setlines)(struct i2c_bus *bus, int ctrl, int data);
-    int     (*i2c_getdataline)(struct i2c_bus *bus);
+	/* Software I2C */
+	void    (*i2c_setlines)(struct i2c_bus *bus, int ctrl, int data);
+	int     (*i2c_getdataline)(struct i2c_bus *bus);
 
-    /* Hardware I2C */
-    int     (*i2c_read)(struct i2c_bus *bus, unsigned char addr);
-    int     (*i2c_write)(struct i2c_bus *bus, unsigned char addr,
+	/* Hardware I2C */
+	int     (*i2c_read)(struct i2c_bus *bus, unsigned char addr);
+	int     (*i2c_write)(struct i2c_bus *bus, unsigned char addr,
 			 unsigned char b1, unsigned char b2, int both);
 
-    /* internal data for i2c module */
-    struct i2c_device   *devices[I2C_DEVICE_MAX];
-    int                 devcount;
+	/* internal data for i2c module */
+	struct i2c_device   *devices[I2C_DEVICE_MAX];
+	int                 devcount;
 };
 
 
 /*
- * this holds per-device data for a i2c device
- *
+ *	This holds per-device data for a i2c device
  */
 
-struct i2c_device {
-    char           name[32];         /* some useful label */
-    void           *data;            /* free for use by the chip driver */
-    unsigned char  addr;             /* chip addr */
+struct i2c_device 
+{
+	char           name[32];         /* some useful label */
+	void           *data;            /* free for use by the chip driver */
+	unsigned char  addr;             /* chip addr */
 
-    /* i2c internal */
-    struct i2c_bus     *bus;
-    struct i2c_driver  *driver;
+	/* i2c internal */
+	struct i2c_bus     *bus;
+	struct i2c_driver  *driver;
 };
 
 
@@ -155,7 +156,6 @@ int i2c_control_device(struct i2c_bus *bus, int id,
 		       unsigned int cmd, void *arg);
 
 /* i2c bus access functions */
-void    i2c_reset(struct i2c_bus *bus);
 void    i2c_start(struct i2c_bus *bus);
 void    i2c_stop(struct i2c_bus *bus);
 void    i2c_one(struct i2c_bus *bus);
@@ -169,16 +169,5 @@ unsigned char i2c_readbyte(struct i2c_bus *bus,int last);
 int     i2c_read(struct i2c_bus *bus, unsigned char addr);
 int     i2c_write(struct i2c_bus *bus, unsigned char addr,
 		  unsigned char b1, unsigned char b2, int both);
-
-/* ------------------------------------------------------------------------ */
-/* this allows i2c bus access from userspace                                */
-
-/* ioctls */
-#define I2C_SLAVE       0x0706
-#define I2C_WRITE_SIZE  0x0712
-#define I2C_WRITE_BUF   0x0713
-#define I2C_RESET       0x07fd
-
-#define I2C_BUFFER_SIZE 64       /* buffer size for write b4 read        */
 
 #endif /* I2C_H */

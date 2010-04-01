@@ -1,0 +1,64 @@
+# Makefile for the standalone-distributed kradio version
+# it is a extract from the xawtv package from
+#	http://user.cs.tu-berlin.de/~kraxel/linux/#xawtv
+#
+# seems people do not find kradio if it is'nt on ftp.kde.org :-)
+#
+#
+# /dev/radio == char, major 81, minor 64
+#
+# kradio uses the video4linux radio interface. bttv
+# (either 0.5.x or the version included in 2.1.x)
+# uses this interface, I tested it with a WinTV/radio
+# card.  You have to insmod bttv with "radio=1" as
+# module parameter.
+#
+# Make sure the $KDEDIR and $QTDIR variables are set
+# correctly, the make utility will pick them up from
+# the environment.
+#
+# Other 2.1.x radio drivers should work too.
+#
+##########################################################################
+
+kdebindir=$(KDEDIR)/bin
+kdelnkdir=$(KDEDIR)/share/applnk/Multimedia
+kradiodir=$(KDEDIR)/share/apps/kradio
+
+FONTDIR=/usr/X11R6/lib/X11/fonts/misc
+MOC=$(QTDIR)/bin/moc
+
+# for usage with bttv-0.5.x (instead of 2.1.x) you have to remove the
+# '-DUSE_KERNEL_VIDEODEV' and add '-I/wherever/the/bttv/driver/is'
+# instead.  kradio needs the videodev.h include file.
+
+CXXFLAGS = -I$(QTDIR)/include -I$(KDEDIR)/include \
+	-DUSE_KERNEL_VIDEODEV=1
+
+##########################################################################
+
+.SUFFIXES: .cpp .moc .bdf .pcf
+
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $<
+
+.h.moc:
+	$(MOC) $< -o $@
+
+.bdf.pcf:
+	bdftopcf -o $@ $<
+
+##########################################################################
+
+kradio: kradio.moc kradio.o
+	$(CXX) -o $@ kradio.o -L$(QTDIR)/lib -L$(KDEDIR)/lib \
+		-lkdeui -lkdecore -lqt -lXext -lX11
+
+install: kradio led-fixed.pcf
+	install -s kradio $(kdebindir);
+	install -m 644 kradio.kdelnk $(kdelnkdir);
+	mkdir -p $(kradiodir)/toolbar;
+	install -m 644 *.xpm $(kradiodir)/toolbar;
+	install -m 644 led-fixed.pcf $(FONTDIR)
+	(cd $(FONTDIR); mkfontdir)
+	-xset fp rehash

@@ -24,20 +24,17 @@ function xinsmod () {
 sync; sleep 1; sync
 
 # kill old modules ...
-xrmmod bttv
-xrmmod msp3400
 xrmmod tuner
-xrmmod i2c_chardev
 xrmmod i2c-dev
+xrmmod bttv
 xrmmod algo-bit
 xrmmod i2c
 xrmmod videodev
 
 # ... and load the new ones
 xinsmod videodev
-xinsmod i2c		verbose=1 scan=1 i2c_debug=0
-test -f i2c_chardev.o && xinsmod i2c_chardev
-xinsmod tuner		debug=0 type=5 
-xinsmod msp3400		
+xinsmod i2c.o
+xinsmod algo-bit.o	test=1 scan=0
+xinsmod tuner		debug=1 type=5 
 xinsmod bttv		radio=1 vidmem=0xff0
 

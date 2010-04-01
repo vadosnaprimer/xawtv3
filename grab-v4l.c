@@ -39,6 +39,7 @@ static int   grab_overlay(int x, int y, int width, int height, int format,
 static void* grab_scr(void *dest, int width, int height, int single);
 static void* grab_one(int width, int height);
 static int   grab_tune(unsigned long freq);
+static int   grab_tuned();
 static int   grab_input(int input, int norm);
 static int   grab_picture(int color, int bright, int hue, int contrast);
 static int   grab_audio(int mute, int volume, int *mode);
@@ -103,6 +104,7 @@ struct GRABBER grab_v4l = {
     grab_scr,
     grab_one,
     grab_tune,
+    grab_tuned,
     grab_input,
     grab_picture,
     grab_audio
@@ -120,7 +122,8 @@ grab_open(char *filename, int sw, int sh,
 	goto err;
     
     if (-1 == (fd = open(filename ? filename : "/dev/video",O_RDWR))) {
-	perror("open /dev/video");
+	fprintf(stderr,"open %s: %s\n",
+		filename ? filename : "/dev/video",strerror(errno));
 	goto err;
     }
 
@@ -397,9 +400,9 @@ grab_overlay(int x, int y, int width, int height, int format,
     if (capability.type & VID_TYPE_CHROMAKEY) {
 	ov_win.chromakey  = 0;    /* XXX */
     }
-
     if (-1 == ioctl(fd, VIDIOCSWIN, &ov_win))
 	perror("ioctl VIDIOCSWIN");
+
     if (!overlay) {
 	switch (format) {
 	case VIDEO_GRAY:
@@ -423,7 +426,6 @@ grab_overlay(int x, int y, int width, int height, int format,
 	default:
 	    TRAP("unsupported video format (overlay)");
 	}
-	
 	if (-1 == ioctl(fd,VIDIOCSPICT,&pict))
 	    perror("ioctl VIDIOCSPICT");
 	if (-1 == ioctl(fd, VIDIOCCAPTURE, &one))
@@ -465,6 +467,45 @@ rgb24_to_rgb32(void *d, void *s, int p)
     }
 }
 
+
+static int
+grab_queue(struct video_mmap *gb)
+{
+    if (debug)
+	fprintf(stderr,"g%d",gb->frame);
+    if (-1 == ioctl(fd,VIDIOCMCAPTURE,gb)) {
+	perror("ioctl VIDIOCMCAPTURE");
+	return -1;
+    }
+    if (debug)
+	fprintf(stderr,"* ");
+    gb_grab++;
+    return 0;
+}
+
+static void
+grab_wait(struct video_mmap *gb)
+{
+    static int vidiocsync=VIDIOCSYNC;
+
+    if (debug)
+	fprintf(stderr,"s%d",gb->frame);
+retry:
+    if (-1 == ioctl(fd,vidiocsync,&(gb->frame))) {
+#ifdef VIDIOCSYNC_OLD
+	if (errno == EINVAL && vidiocsync == VIDIOCSYNC) {
+	    vidiocsync=VIDIOCSYNC_OLD;
+	    goto retry;
+	}
+#endif
+	perror("ioctl VIDIOCSYNC");
+    } else
+	gb_sync++;
+    if (debug)
+	fprintf(stderr,"* ");
+}
+
+
 static void*
 grab_scr(void *dest, int width, int height, int single)
 {
@@ -481,41 +522,22 @@ grab_scr(void *dest, int width, int height, int single)
     gb_odd.height = height;
 
     if (single) {
-	if (gb_grab > gb_sync) {
-	    if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
-		perror("ioctl VIDIOCSYNC");
-	    else
-		gb_sync++;
-	}
+	if (gb_grab > gb_sync)
+	    grab_wait(even ? &gb_even : &gb_odd);
     } else {
-	if (gb_grab == gb_sync) {
-	    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_even : &gb_odd)) {
-		perror("ioctl VIDIOCMCAPTURE");
-		if (errno == EAGAIN) /* bttv: no station tuned in */
-		    return NULL;
-	    } else
-		gb_grab++;
-	}
+	if (gb_grab == gb_sync)
+	    if (-1 == grab_queue(even ? &gb_even : &gb_odd))
+		return NULL;
     }
 
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,even ? &gb_odd : &gb_even)) {
-	perror("ioctl VIDIOCMCAPTURE");
-	if (errno == EAGAIN) /* bttv: no station tuned in */
-	    return NULL;
-    } else
-	gb_grab++;
+    if (-1 == grab_queue(even ? &gb_odd : &gb_even))
+	return NULL;
 
     if (gb_grab > gb_sync+1) {
-	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
-	    perror("ioctl VIDIOCSYNC");
-	else
-	    gb_sync++;
+	grab_wait(even ? &gb_even : &gb_odd);
 	buf = even ? map : map + MEM_SIZE;
     } else {
-	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &one : &zero))
-	    perror("ioctl VIDIOCSYNC");
-	else
-	    gb_sync++;
+	grab_wait(even ? &gb_odd : &gb_even);
 	buf = even ? map + MEM_SIZE : map;
     }
     even = !even;
@@ -537,29 +559,18 @@ grab_one(int width, int height)
     if ((char*)-1 == map)
 	return NULL;
     
-    if (gb_grab > gb_sync) {
-	if (-1 == ioctl(fd,VIDIOCSYNC,even ? &zero : &one))
-	    perror("ioctl VIDIOCSYNC");
-	else
-	    gb_sync++;
-    }
-
+    if (gb_grab > gb_sync)
+	grab_wait(even ? &gb_even : &gb_odd);
+    
     gb.format = 0x11; /* FIXME: BT848_COLOR_FMT_RGB24 */
     gb.frame  = 0;
     gb.width  = width;
     gb.height = height;
 
     memset(map,0,width*height*3);
-    if (-1 == ioctl(fd,VIDIOCMCAPTURE,&gb)) {
-	perror("ioctl VIDIOCMCAPTURE");
+    if (-1 == grab_queue(&gb))
 	return NULL;
-    } else
-	gb_grab++;
-    if (-1 == ioctl(fd,VIDIOCSYNC,&zero)) {
-	perror("ioctl VIDIOCSYNC");
-	return NULL;
-    } else
-	gb_sync++;
+    grab_wait(&gb);
 
     rgb_swap(map,width*height);
     return map;
@@ -575,6 +586,13 @@ grab_tune(unsigned long freq)
     if (-1 == ioctl(fd, VIDIOCSFREQ, &freq))
 	perror("ioctl VIDIOCSFREQ");
     return 0;
+}
+
+static int
+grab_tuned()
+{
+    /* (quick & dirty -- grabbing works with hsync only) */
+    return grab_one(64,48) ? 1 : 0;
 }
 
 static int

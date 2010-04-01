@@ -262,7 +262,7 @@ main(int argc, char **argv)
 	perror("ioctl VIDIOCMCAPTURE");
 	exit(1);
     }
-    if (-1 == ioctl(fd,VIDIOCSYNC,0)) {
+    if (-1 == ioctl(fd,VIDIOCSYNC,&gb.frame)) {
 	perror("ioctl VIDIOCSYNC");
 	exit(1);
     }

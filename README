@@ -3,24 +3,17 @@ small is beautiful
 ==================
 
 This is a _simple_ xaw-based TV Program which uses the bttv driver or
-video4linux (included in 2.1.7x).  Copy Policy is GNU GPL.
+video4linux (included in 2.1.x).  Copy Policy is GNU GPL.
 
 
 compile & install
 =================
 
-There is modified bttv-0.5.6 in the bttv subdirectory.  Only the
+There is modified bttv-0.5.8 in the bttv subdirectory.  Only the
 driver itself is included.  If you use the bttv for the first time, I
 recommend to get the whole bttv package from Ralph's page (see below)
 and check out the documentation. Some (very limited) informations can
 be found in the bttv/MODULES file.
-
-I merged the latest video4linux changes from the vger CVS tree to the
-bttv driver.  This xawtv version does _not_ work (read: the included
-binary can't grab and it does'nt compile) with plain bttv-0.5.6, you
-need either the included version or the latest video4linux bits from
-vger's CVS tree.  Check also the Changes file.
-
 
 $ ./configure --with-bttv=/path/to/bttv/driver && make
 
@@ -89,8 +82,8 @@ fbtv
 
 TV program for the linux console.  Runs on top of a graphic framebuffer,
 tested with vesafb (check vger CVS) so far.  Shares config file
-($HOME/.xawtv) and keyboard shortcuts with xawtv.  Read the source code
-for details.
+($HOME/.xawtv) and (most) keyboard shortcuts with xawtv.  Read the source
+code for details.
 
 
 set-tv

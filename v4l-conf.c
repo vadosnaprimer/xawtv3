@@ -39,28 +39,31 @@ main(int argc, char *argv[])
     Screen                  *scr;
     Window                   root;
     XWindowAttributes        wts;
+    XPixmapFormatValues     *pf;
     struct video_capability  capability;
     struct video_buffer      fbuf;
-    int                      fd,c;
+    int                      fd,c,i,n,depth=0;
+    char                     *h;
 #ifdef HAVE_LIBXXF86DGA
     int                      width,bar,foo,flags;
     void                    *base = 0;
 #endif
 
+    if (NULL != (h = getenv("DISPLAY")))
+	display = h;
+    
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hqd:v:b:")))
+	if (-1 == (c = getopt(argc, argv, "hqd:c:b:")))
 	    break;
 	switch (c) {
 	case 'q':
 	    verbose = 0;
 	    break;
-#if 0 /* disabled for security reasons */
 	case 'd':
 	    display = optarg;
 	    break;
-#endif
-	case 'v':
+	case 'c':
 	    device = optarg;
 	    break;
 	case 'b':
@@ -73,20 +76,23 @@ main(int argc, char *argv[])
 		    "\n"
 		    "options:\n"
 		    "    -q        quiet\n"
-#if 0
 		    "    -d <dpy>  X11 Display     [%s]\n"
-#endif
-		    "    -v <dev>  video device    [%s]\n"
+		    "    -c <dev>  video device    [%s]\n"
 		    "    -b <n>    displays color depth is <n> bpp\n"
 		    "              might be required for (and works\n"
 		    "              only with) 24/32 bpp\n",
 		    argv[0],
-#if 0
 		    display,
-#endif
 		    device);
 	    exit(1);
 	}
+    }
+
+    if (display[0] != ':') {
+	fprintf(stderr,
+		"non-local display `%s' not allowed, using `:0.0' instead\n",
+		display);
+	display = ":0.0";
     }
 
     /* get screen params */
@@ -94,10 +100,21 @@ main(int argc, char *argv[])
 	scr  = DefaultScreenOfDisplay(dpy);
 	root = DefaultRootWindow(dpy);
 	XGetWindowAttributes(dpy, root, &wts);
-	if ((bpp == 32 || bpp == 24) && (wts.depth == 32 || wts.depth == 24))
-	    wts.depth = bpp;
+	depth = wts.depth;
+
+	pf = XListPixmapFormats(dpy,&n);
+	for (i = 0; i < n; i++) {
+	    if (pf[i].depth == depth) {
+		depth = pf[i].bits_per_pixel;
+		break;
+	    }
+	}
+
+	if ((bpp == 32 || bpp == 24) && (depth == 32 || depth == 24))
+	    depth = bpp;
 	if (verbose)
-	    fprintf(stderr,"x11: mode=%dx%dx%d\n",wts.width,wts.height,wts.depth);
+	    fprintf(stderr,"x11: mode=%dx%d, %d bit color depth, probably %d bit/pixel\n",
+			   wts.width,wts.height,wts.depth,depth);
 	
 #ifdef HAVE_LIBXXF86DGA
 	if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
@@ -167,7 +184,7 @@ main(int argc, char *argv[])
 #endif
     if (dpy) {
 	/* x11 */
-	fbuf.depth        = (wts.depth+7) & 0xf8;
+	fbuf.depth        = (depth+7) & 0xf8;
 #ifdef HAVE_LIBXXF86DGA
 	fbuf.width        = (flags & XF86DGADirectPresent) ? width : wts.width;
 #else
@@ -191,6 +208,3 @@ main(int argc, char *argv[])
 
     return 0;
 }
-
-
-

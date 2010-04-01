@@ -3,10 +3,10 @@
  *
  * (c) 1997,1998 Gerd Knorr <kraxel@cs.tu-berlin.de>
  *
- * what works and what does'nt:
+ * what works and what doesn't:
  *
  *  AM-Mono
- *      probably does'nt (untested)
+ *      probably doesn't (untested)
  *
  *  FM-Mono
  *      should work. The stereo modes are backward compatible to FM-mono,
@@ -19,7 +19,7 @@
  *      should work, no autodetect (i.e. default is mono, but you can
  *      switch to stereo -- untested)
  *
- *  NICAM (B/G, used in Scandinavia and Spain)
+ *  NICAM (B/G, used in UK, Scandinavia and Spain)
  *      should work, with autodetect. Support for NICAM was added by
  *      Pekka Pietikainen <pp@netppl.fi>
  *
@@ -93,8 +93,8 @@ struct msp3400c {
 /* 2.0.x */
 #define signal_pending(current)  (current->signal & ~current->blocked)
 #define sigfillset(set)
+#define mdelay(x) udelay(1000*x)
 #else
-/* 2.1.x */
 MODULE_PARM(debug,"i");
 #endif
 
@@ -107,29 +107,28 @@ MODULE_PARM(debug,"i");
 /* ----------------------------------------------------------------------- */
 /* functions for talking to the MSP3400C Sound processor                   */
 
-static int
-msp3400c_reset(struct i2c_bus *bus)
+static int msp3400c_reset(struct i2c_bus *bus)
 {
 	int ret = 0;
     
-	udelay(2000);
+	mdelay(2);
 	i2c_start(bus);
 	i2c_sendbyte(bus, I2C_MSP3400C,2000);
 	i2c_sendbyte(bus, 0x00,0);
 	i2c_sendbyte(bus, 0x80,0);
 	i2c_sendbyte(bus, 0x00,0);
 	i2c_stop(bus);
-	udelay(2000);
+	mdelay(2);
 	i2c_start(bus);
 	if (0 != i2c_sendbyte(bus, I2C_MSP3400C,2000) ||
 	    0 != i2c_sendbyte(bus, 0x00,0) ||
 	    0 != i2c_sendbyte(bus, 0x00,0) ||
 	    0 != i2c_sendbyte(bus, 0x00,0)) {
 		ret = -1;
-		printk("msp3400: chip reset failed, penguin on i2c bus?\n");
+		printk(KERN_ERR "msp3400: chip reset failed, penguin on i2c bus?\n");
 	}
 	i2c_stop(bus);
-	udelay(2000);
+	mdelay(2);
 	return ret;
 }
 
@@ -155,7 +154,7 @@ msp3400c_read(struct i2c_bus *bus, int dev, int addr)
 	}
 	i2c_stop(bus);
 	if (-1 == ret) {
-		printk("msp3400: I/O error, trying reset (read %s 0x%x)\n",
+		printk(KERN_WARNING "msp3400: I/O error, trying reset (read %s 0x%x)\n",
 		       (dev == I2C_MSP3400C_DEM) ? "Demod" : "Audio", addr);
 		msp3400c_reset(bus);
 	}
@@ -177,7 +176,7 @@ msp3400c_write(struct i2c_bus *bus, int dev, int addr, int val)
 		ret = -1;
 	i2c_stop(bus);
 	if (-1 == ret) {
-		printk("msp3400: I/O error, trying reset (write %s 0x%x)\n",
+		printk(KERN_WARNING "msp3400: I/O error, trying reset (write %s 0x%x)\n",
 		       (dev == I2C_MSP3400C_DEM) ? "Demod" : "Audio", addr);
 		msp3400c_reset(bus);
 	}
@@ -273,8 +272,7 @@ static struct CARRIER_DETECT carrier_detect_65[] = {
 
 /* ------------------------------------------------------------------------ */
 
-static void
-msp3400c_setcarrier(struct i2c_bus *bus, int cdo1, int cdo2)
+static void msp3400c_setcarrier(struct i2c_bus *bus, int cdo1, int cdo2)
 {
 	msp3400c_write(bus,I2C_MSP3400C_DEM, 0x0093, cdo1 & 0xfff);
 	msp3400c_write(bus,I2C_MSP3400C_DEM, 0x009b, cdo1 >> 12);
@@ -282,8 +280,7 @@ msp3400c_setcarrier(struct i2c_bus *bus, int cdo1, int cdo2)
 	msp3400c_write(bus,I2C_MSP3400C_DEM, 0x00ab, cdo2 >> 12);
 }
 
-static void
-msp3400c_setvolume(struct i2c_bus *bus, int left, int right)
+static void msp3400c_setvolume(struct i2c_bus *bus, int left, int right)
 {
 	int vol,val,balance;
 
@@ -302,8 +299,7 @@ msp3400c_setvolume(struct i2c_bus *bus, int left, int right)
 	msp3400c_write(bus,I2C_MSP3400C_DFP, 0x0001, balance << 8);
 }
 
-static void
-msp3400c_setbass(struct i2c_bus *bus, int bass)
+static void msp3400c_setbass(struct i2c_bus *bus, int bass)
 {
 	int val = ((bass-32768) * 0x60 / 65535) << 8;
 
@@ -311,8 +307,7 @@ msp3400c_setbass(struct i2c_bus *bus, int bass)
 	msp3400c_write(bus,I2C_MSP3400C_DFP, 0x0002, val); /* loudspeaker */
 }
 
-static void
-msp3400c_settreble(struct i2c_bus *bus, int treble)
+static void msp3400c_settreble(struct i2c_bus *bus, int treble)
 {
 	int val = ((treble-32768) * 0x60 / 65535) << 8;
 
@@ -320,8 +315,7 @@ msp3400c_settreble(struct i2c_bus *bus, int treble)
 	msp3400c_write(bus,I2C_MSP3400C_DFP, 0x0003, val); /* loudspeaker */
 }
 
-static void
-msp3400c_setmode(struct msp3400c *msp, int type)
+static void msp3400c_setmode(struct msp3400c *msp, int type)
 {
 	int i;
 	
@@ -364,8 +358,7 @@ msp3400c_setmode(struct msp3400c *msp, int type)
 	}
 }
 
-static void
-msp3400c_setstereo(struct msp3400c *msp, int mode)
+static void msp3400c_setstereo(struct msp3400c *msp, int mode)
 {
 	int nicam=0; /* channel source: FM/AM or nicam */
 
@@ -457,8 +450,7 @@ struct REGISTER_DUMP d1[] = {
  * in the ioctl while doing the sound carrier & stereo detect
  */
 
-void
-msp3400c_stereo_wake(unsigned long data)
+static void msp3400c_stereo_wake(unsigned long data)
 {
 	struct msp3400c *msp = (struct msp3400c*)data;   /* XXX alpha ??? */
 
@@ -466,8 +458,7 @@ msp3400c_stereo_wake(unsigned long data)
 		up(msp->wait);    
 }
 
-int
-msp3400c_thread(void *data)
+static int msp3400c_thread(void *data)
 {
 	unsigned long flags;
 	struct msp3400c *msp = data;
@@ -678,8 +669,7 @@ done:
 
 #if 0 /* not finished yet */
 
-int
-msp3410d_thread(void *data)
+static int msp3410d_thread(void *data)
 {
 	unsigned long flags;
 	struct msp3400c *msp = data;
@@ -776,8 +766,7 @@ done:
 #include <../drivers/sound/sound_config.h>
 #include <../drivers/sound/dev_table.h>
 
-static int
-mix_to_v4l(int i)
+static int mix_to_v4l(int i)
 {
 	int r;
 
@@ -787,8 +776,7 @@ mix_to_v4l(int i)
 	return r;
 }
 
-static int
-v4l_to_mix(int i)
+static int v4l_to_mix(int i)
 {
 	int r;
 
@@ -798,8 +786,7 @@ v4l_to_mix(int i)
 	return r | (r << 8);
 }
 
-static int
-v4l_to_mix2(int l, int r)
+static int v4l_to_mix2(int l, int r)
 {
 	r = (r * 100 + 32768) / 65536;
 	if (r > 100) r = 100;
@@ -810,8 +797,7 @@ v4l_to_mix2(int l, int r)
 	return (r << 8) | l;
 }
 
-static int
-msp3400c_mixer_ioctl(int dev, unsigned int cmd, caddr_t arg)
+static int msp3400c_mixer_ioctl(int dev, unsigned int cmd, caddr_t arg)
 {
 	struct msp3400c *msp = mixer_devs[dev]->devc;
 	unsigned long flags;
@@ -881,8 +867,7 @@ struct mixer_operations msp3400c_mixer = {
 	msp3400c_mixer_ioctl
 };
 
-static int
-msp3400c_mixer_init(struct msp3400c *msp)
+static int msp3400c_mixer_init(struct msp3400c *msp)
 {
 	int m;
     
@@ -902,8 +887,7 @@ msp3400c_mixer_init(struct msp3400c *msp)
 	return 0;
 }
 
-static int
-msp3400c_mixer_close(struct msp3400c *msp)
+static int msp3400c_mixer_close(struct msp3400c *msp)
 {
 	int m = msp->mixer;
 
@@ -918,8 +902,7 @@ msp3400c_mixer_close(struct msp3400c *msp)
 
 /* ----------------------------------------------------------------------- */
 
-static int
-msp3400c_attach(struct i2c_device *device)
+static int msp3400c_attach(struct i2c_device *device)
 {
 	unsigned long flags;
 	struct semaphore sem = MUTEX_LOCKED;
@@ -940,17 +923,24 @@ msp3400c_attach(struct i2c_device *device)
 	if (-1 == msp3400c_reset(msp->bus)) {
 		UNLOCK_I2C_BUS(msp->bus);
 		kfree(msp);
+		dprintk("msp3400: no chip found\n");
 		return -1;
 	}
     
+	rev1 = msp3400c_read(msp->bus, I2C_MSP3400C_DFP, 0x1e);
+	rev2 = msp3400c_read(msp->bus, I2C_MSP3400C_DFP, 0x1f);
+	if (0 == rev1 && 0 == rev2) {
+		UNLOCK_I2C_BUS(msp->bus);
+		kfree(msp);
+		printk("msp3400: error while reading chip version\n");
+		return -1;
+	}
+
 	msp3400c_setmode(msp, MSP_MODE_FM_TERRA);
 	msp3400c_setvolume(msp->bus, msp->left, msp->right);
 	msp3400c_setbass(msp->bus, msp->bass);
 	msp3400c_settreble(msp->bus, msp->treble);
     
-	rev1 = msp3400c_read(msp->bus, I2C_MSP3400C_DFP, 0x1e);
-	rev2 = msp3400c_read(msp->bus, I2C_MSP3400C_DFP, 0x1f);
-
 #if 0
 	/* this will turn on a 1kHz beep - might be useful for debugging... */
 	msp3400c_write(msp->bus,I2C_MSP3400C_DFP, 0x0014, 0x1040);
@@ -985,8 +975,7 @@ msp3400c_attach(struct i2c_device *device)
 	return 0;
 }
 
-static int
-msp3400c_detach(struct i2c_device *device)
+static int msp3400c_detach(struct i2c_device *device)
 {
 	unsigned long flags;
 	struct semaphore sem = MUTEX_LOCKED;
@@ -998,7 +987,8 @@ msp3400c_detach(struct i2c_device *device)
 
 	/* shutdown control thread */
 	del_timer(&msp->wake_stereo);
-	if (msp->thread) {
+	if (msp->thread) 
+	{
 		msp->notify = &sem;
 		msp->rmmod = 1;
 		if (!msp->active)
@@ -1016,8 +1006,7 @@ msp3400c_detach(struct i2c_device *device)
 	return 0;
 }
 
-static int
-msp3400c_command(struct i2c_device *device,
+static int msp3400c_command(struct i2c_device *device,
 		 unsigned int cmd, void *arg)
 {
 	unsigned long flags;

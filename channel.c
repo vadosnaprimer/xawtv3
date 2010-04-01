@@ -133,11 +133,12 @@ read_config()
 	if (line[0] == '\n' || line[0] == '#' || line[0] == '%')
 	    continue;
 	if (1 == sscanf(line,"[%99[^]]]",val)) {
-	    if (0 == (count % 16))
+	    if (0 == (count % 16)) {
 		if (!count)
 		    channels = malloc(sizeof(struct CHANNEL*)*16);
 		else
 		    channels = realloc(channels,sizeof(struct CHANNEL*)*(count+16));
+	    }
 	    current = channels[count] = malloc(sizeof(struct CHANNEL));
 	    count++;
 	    memcpy(current,&defaults,sizeof(struct CHANNEL));

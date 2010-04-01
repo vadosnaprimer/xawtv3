@@ -1,3 +1,0 @@
-ifeq (-Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -pipe -fno-strength-reduce -m486 -malign-loops=2 -malign-jumps=2 -malign-functions=2 -DCPU=686 -DMODULE -DMODVERSIONS -include /usr/src/kernel/2.1.91/include/linux/modversions.h -DEXPORT_SYMTAB -DVTX_DEFAULT_MAJOR=28 -DDEBUG_VTX,$(strip $(CFLAGS) $(EXTRA_CFLAGS) $(CFLAGS_vtx.o)))
-FILES_FLAGS_UP_TO_DATE += vtx.o
-endif

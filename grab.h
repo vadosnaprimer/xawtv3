@@ -41,6 +41,7 @@ struct GRABBER {
     void* (*grab_one)(int width, int height); /* RGB24 snap */
     
     int   (*grab_tune)(unsigned long freq);
+    int   (*grab_tuned)(void);
     int   (*grab_input)(int input, int norm);
     int   (*grab_picture)(int color, int bright, int hue, int contrast);
     int   (*grab_audio)(int mute, int volume, int *mode);

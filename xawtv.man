@@ -2,7 +2,7 @@
 .SH NAME
 xawtv - a X11 program for watching TV
 .SH SYNOPSIS
-.B xawtv [ options ]
+.B xawtv [ options ] [ station name ]
 .SH DESCRIPTION
 .B xawtv
 is a simple program for watching TV with your linux box. It uses the
@@ -20,12 +20,6 @@ create the config file yourself, see below for details.
 force xawtv into
 .B depth
 bits color depth.  Might be needed for 24/32 bits.
-.TP
-.B -c n
-startup with station
-.B n
-tuned in (0 is the first one from $HOME/.xawtv,
-1 the second, ...)
 .TP
 .B -f
 startup in fullscreen mode.
@@ -49,6 +43,9 @@ may be 0 (default), 1 or 2.  It exists just for debugging.
 .TP
 .B -x
 disable the usage of XFree extenions (DGA, VidMode).
+.TP
+.B -g device
+video4linux device (default is /dev/video).
 .SH GETTING STARTED
 Just start up xawtv, this will work without a config file too.  Then
 check out the options (right mouse button) and adjust the settings
@@ -74,10 +71,12 @@ Ctrl+J       Grab picture (window size, jpeg)
 O            Popup Options Window
 C            Popup Channels Window
 Z            Channel Hopping (tune in every station a few seconds)
+Ctrl+Z       Fast Channel Hopping (grab the images for the Channel Window)
 
-up+down      tune up/down one channel
-left+right   fine tuning
+up/down      tune up/down one channel
+left/right   fine tuning
 pgup/pgdown  station up/down
+Ctrl+up      scan for next station
 
 ESC,Q        Exit
 

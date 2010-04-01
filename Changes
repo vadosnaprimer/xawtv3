@@ -1,3 +1,18 @@
+2.13 => 2.14
+============
+
+  * station scan added (Ctrl-Up)
+  * onscreen display in fullscreen mode
+  * misc small enhancements.
+  * The '-c n' switch is gone, you can start xawtv with the station name
+    on the command line instead ("xawtv cnn" for example, like it already
+    works for fbtv and set-tv).
+  * Added a new '-c' switch, this is the video device now.  Added this
+    one for xawtv and fbtv, changed from '-v' to '-c' for v4l-conf.
+  * removed vtx subdirectory.  The driver is now in the 2.1.x tree.  And
+    for 2.0.x it is useless anyway, it does'nt compile...
+
+
 2.12 => 2.13
 ============
 

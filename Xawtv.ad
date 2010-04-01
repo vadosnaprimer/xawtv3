@@ -1,22 +1,16 @@
 ! ----------------------------------------------------------------------------
 ! general settings
 
-Xawtv*beNiceToColormap:			false
-Xawtv*shadowWidth:			1
-Xawtv*highlightThickness:		1
+*beNiceToColormap:			false
+*shadowWidth:				1
+*highlightThickness:			1
 
-Xawtv*foreground:			black
-Xawtv*background:			lightgray
-Xawtv*font:				7x13bold
-Xawtv*justify:				left
+*foreground:				black
+*background:				lightgray
+*font:					7x13bold
+*justify:				left
 
-Xawtv*auto.label:		autodetect
-Xawtv*mono.label:		mono
-Xawtv*stereo.label:		stereo
-Xawtv*lang1.label:		Language 1
-Xawtv*lang2.label:		Language 2
-
-Xawtv*menu.translations:	#override \n\
+*menu.translations:	#override \n\
 	<Motion>:	highlight()
 
 
@@ -64,6 +58,7 @@ xawtv.tv.translations:		#override			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
 	<Key>G:			Snap(ppm,full)			\n\
 	<Key>J:			Snap(jpeg,full)			\n\
+	Ctrl<Key>Up:		Scan()				\n\
 	<Key>Up:		Tune(next)			\n\
 	<Key>Down:		Tune(prev)			\n\
 	<Key>Right:		Tune(fine_up)			\n\
@@ -100,6 +95,12 @@ Options*freq.label:		Frequency table    >
 Options*audio.label:		Audio              >
 Options*quit.label:		Quit                            Q
 
+Options*auto.label:		autodetect
+Options*mono.label:		mono
+Options*stereo.label:		stereo
+Options*lang1.label:		Language 1
+Options*lang2.label:		Language 2
+
 Options*bright.l.label:		Bright
 Options*hue.l.label:		Hue
 Options*contrast.l.label:	Contrast
@@ -122,6 +123,7 @@ Options.paned.translations:	#override\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
 	<Key>G:			Snap(ppm,full)			\n\
 	<Key>J:			Snap(jpeg,full)			\n\
+	Ctrl<Key>Up:		Scan()				\n\
 	<Key>Up:		Tune(next)			\n\
 	<Key>Down:		Tune(prev)			\n\
 	<Key>Right:		Tune(fine_up)			\n\
@@ -158,6 +160,7 @@ Channels.viewport.translations:	#override\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
 	<Key>G:			Snap(ppm,full)			\n\
 	<Key>J:			Snap(jpeg,full)			\n\
+	Ctrl<Key>Up:		Scan()				\n\
 	<Key>Up:		Tune(next)			\n\
 	<Key>Down:		Tune(prev)			\n\
 	<Key>Right:		Tune(fine_up)			\n\
@@ -165,6 +168,19 @@ Channels.viewport.translations:	#override\n\
 	<Key>Page_Up:		SetChannel(next)		\n\
 	<Key>Page_Down:		SetChannel(prev)		\n\
 	<Key>V:			SetRes(capture,toggle)
+
+! ----------------------------------------------------------------------------
+! Onscreen window
+
+xawtv.onscreen.allowShellResize:	true
+xawtv.onscreen.label.resize:		true
+
+xawtv.onscreen*background:		black
+xawtv.onscreen*borderColor:		black
+xawtv.onscreen*foreground:		lightgreen
+xawtv.onscreen*shadowWidth:		0
+xawtv.onscreen.label.justify:		left
+xawtv.onscreen.label.font: -*-ledfixed-medium-r-semicondensed--39-*
 
 ! ----------------------------------------------------------------------------
 

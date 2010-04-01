@@ -83,11 +83,19 @@ copy_from_user(void *to, const void *from, unsigned long n)
 #endif
 
 #include "i2c.h"
+#include "algo-bit.h"
 #include "bttv.h"
 #include "tuner.h"
 
 #define DEBUG(x)		/* Debug driver */	
 #define IDEBUG(x) 		/* Debug interrupt handler */
+
+static unsigned int remap=0;    /* remap Bt848 */
+static unsigned int vidmem=0;   /* manually set video mem address */
+static int triton1=0;
+static int radio=0;
+
+static unsigned int card=CARD_DEFAULT;
 
 #if LINUX_VERSION_CODE >= 0x020117
 MODULE_PARM(remap,"i");
@@ -103,13 +111,6 @@ static void bt848_set_risc_jmps(struct bttv *btv);
 /* Anybody who uses more than four? */
 #define BTTV_MAX 4
 
-static unsigned int vidmem=0;   /* manually set video mem address */
-static int triton1=0;
-
-static unsigned int remap[BTTV_MAX];    /* remap Bt848 */
-static unsigned int radio[BTTV_MAX];
-static unsigned int card[BTTV_MAX] = { CARD_DEFAULT };
-
 static int bttv_num;			/* number of Bt848s in use */
 static struct bttv bttvs[BTTV_MAX];
 
@@ -117,9 +118,6 @@ static struct bttv bttvs[BTTV_MAX];
 #define I2C_COMMAND (I2C_TIMING | BT848_I2C_SCL | BT848_I2C_SDA)
 
 #define I2C_DELAY   10
-#define I2C_SET(CTRL,DATA) \
-    { btwrite((CTRL<<1)|(DATA), BT848_I2C); udelay(I2C_DELAY); }
-#define I2C_GET()   (btread(BT848_I2C)&1)
 
 #define AUDIO_MUTE_DELAY 10000
 #define FREQ_CHANGE_DELAY 20000
@@ -224,8 +222,7 @@ static int fbuffer_alloc(struct bttv *btv)
 	if(!btv->fbuffer)
 		btv->fbuffer=(unsigned char *) rvmalloc(2*BTTV_MAX_FBUF);
 	else
-		printk(KERN_ERR "bttv%d: Double alloc of fbuffer!\n",
-                       btv->nr);
+		printk(KERN_ERR "bttv: Double alloc of fbuffer!\n");
 	if(!btv->fbuffer)
 		return -ENOBUFS;
 	return 0;
@@ -235,29 +232,13 @@ static int fbuffer_alloc(struct bttv *btv)
 /* ----------------------------------------------------------------------- */
 /* I2C functions                                                           */
 
-/* software I2C functions */
-
-static void i2c_setlines(struct i2c_bus *bus,int ctrl,int data)
-{
-        struct bttv *btv = (struct bttv*)bus->data;
-	btwrite((ctrl<<1)|data, BT848_I2C);
-	udelay(I2C_DELAY);
-}
-
-static int i2c_getdataline(struct i2c_bus *bus)
-{
-        struct bttv *btv = (struct bttv*)bus->data;
-	return btread(BT848_I2C)&1;
-}
-
 /* hardware I2C functions */
 
 /* read I2C */
-static int I2CRead(struct i2c_bus *bus, unsigned char addr) 
+static int I2CRead(struct bttv *btv, unsigned char addr) 
 {
 	u32 i;
 	u32 stat;
-	struct bttv *btv = (struct bttv*)bus->data;
   
 	/* clear status bit ; BT848_INT_RACK is ro */
 	btwrite(BT848_INT_I2CDONE, BT848_INT_STAT);
@@ -281,8 +262,7 @@ static int I2CRead(struct i2c_bus *bus, unsigned char addr)
   
 	if (!i) 
 	{
-		printk(KERN_DEBUG "bttv%d: I2CRead timeout\n",
-                       btv->nr);
+		printk(KERN_DEBUG "bttv: I2CRead timeout\n");
 		return -1;
 	}
 	if (!(stat & BT848_INT_RACK))
@@ -294,13 +274,12 @@ static int I2CRead(struct i2c_bus *bus, unsigned char addr)
 
 /* set both to write both bytes, reset it to write only b1 */
 
-static int I2CWrite(struct i2c_bus *bus, unsigned char addr, unsigned char b1,
+static int I2CWrite(struct bttv *btv, unsigned char addr, unsigned char b1,
 		    unsigned char b2, int both)
 {
 	u32 i;
 	u32 data;
 	u32 stat;
-	struct bttv *btv = (struct bttv*)bus->data;
   
 	/* clear status bit; BT848_INT_RACK is ro */
 	btwrite(BT848_INT_I2CDONE, BT848_INT_STAT);
@@ -328,8 +307,7 @@ static int I2CWrite(struct i2c_bus *bus, unsigned char addr, unsigned char b1,
   
 	if (!i) 
 	{
-		printk(KERN_DEBUG "bttv%d: I2CWrite timeout\n",
-                       btv->nr);
+		printk(KERN_DEBUG "bttv: I2CWrite timeout\n");
 		return -1;
 	}
 	if (!(stat & BT848_INT_RACK))
@@ -338,103 +316,115 @@ static int I2CWrite(struct i2c_bus *bus, unsigned char addr, unsigned char b1,
 	return 0;
 }
 
-/* read EEPROM */
-static void readee(struct i2c_bus *bus, unsigned char *eedata)
+#define I2C_VERY_VERBOSE 0
+
+static void bit_bt848_setscl(void *data, int state)
 {
-	int i, k;
-        
-	if (I2CWrite(bus, 0xa0, 0, -1, 0)<0)
-	{
-		printk(KERN_WARNING "bttv: readee error\n");
-		return;
-	}
-        
-	for (i=0; i<256; i++)
-	{
-		k=I2CRead(bus, 0xa1);
-		if (k<0)
-		{
-			printk(KERN_WARNING "bttv: readee error\n");
-			break;
-		}
-		eedata[i]=k;
-	}
-}
+    struct bttv *btv = (struct bttv*)data;
 
-/* write EEPROM */
-static void writeee(struct i2c_bus *bus, unsigned char *eedata)
-{
-	int i;
-  
-	for (i=0; i<256; i++)
-	{
-		if (I2CWrite(bus, 0xa0, i, eedata[i], 1)<0)
-		{
-			printk(KERN_WARNING "bttv: writeee error (%d)\n", i);
-			break;
-		}
-		udelay(EEPROM_WRITE_DELAY);
-	}
-}
-
-void attach_inform(struct i2c_bus *bus, int id)
-{
-        struct bttv *btv = (struct bttv*)bus->data;
-	int tunertype;
-        
-	switch (id) 
-        {
-        	case I2C_DRIVERID_MSP3400:
-                	btv->have_msp3400 = 1;
-			break;
-        	case I2C_DRIVERID_TUNER:
-			btv->have_tuner = 1;
-			if (btv->type == BTTV_MIRO) 
-			{
-				tunertype=((btread(BT848_GPIO_DATA)>>10)-1)&7;
-				i2c_control_device(&(btv->i2c), I2C_DRIVERID_TUNER,
-					TUNER_SET_TYPE,&tunertype);
-			}
-			break;
-	}
-}
-
-void detach_inform(struct i2c_bus *bus, int id)
-{
-        struct bttv *btv = (struct bttv*)bus->data;
-
-	switch (id) 
-	{
-		case I2C_DRIVERID_MSP3400:
-		        btv->have_msp3400 = 0;
-			break;
-		case I2C_DRIVERID_TUNER:
-			btv->have_tuner = 0;
-			break;
-	}
-}
-
-static struct i2c_bus bttv_i2c_bus_template = 
-{
-        "bt848",
-        I2C_BUSID_BT848,
-	NULL,
-
-#if LINUX_VERSION_CODE >= 0x020100
-	SPIN_LOCK_UNLOCKED,
+    if (state)
+	btv->i2c_state |= 0x02;
+    else
+	btv->i2c_state &= ~0x02;
+#if I2C_VERY_VERBOSE
+    printk("bttv i2c: set ctrl %d - c%d d%d\n",
+	   state,
+           btv->i2c_state & 0x02 ? 1 : 0, btv->i2c_state & 0x01 ? 1 : 0);
 #endif
+    btwrite(btv->i2c_state, BT848_I2C);
+}
 
-	attach_inform,
-	detach_inform,
-	
-	i2c_setlines,
-	i2c_getdataline,
-	I2CRead,
-	I2CWrite,
+static void bit_bt848_setsda(void *data, int state)
+{
+    struct bttv *btv = (struct bttv*)data;
+
+    if (state)
+	btv->i2c_state |= 0x01;
+    else
+	btv->i2c_state &= ~0x01;
+#if I2C_VERY_VERBOSE
+    printk("bttv i2c: set data %d - c%d d%d\n",
+	   state,
+           btv->i2c_state & 0x02 ? 1 : 0, btv->i2c_state & 0x01 ? 1 : 0);
+#endif
+    btwrite(btv->i2c_state, BT848_I2C);
+}
+
+static int bit_bt848_getscl(void *data)
+{
+    struct bttv *btv = (struct bttv*)data;
+    int state;
+
+    state = btread(BT848_I2C) & 0x02 ? 1 : 0;
+#if I2C_VERY_VERBOSE
+    printk("bttv i2c: get ctrl %d - c%d d%d\n",
+	   state,
+           btv->i2c_state & 0x02 ? 1 : 0, btv->i2c_state & 0x01 ? 1 : 0);
+#endif
+    return state;
+}
+
+static int bit_bt848_getsda(void *data)
+{
+    struct bttv *btv = (struct bttv*)data;
+    int state;
+    state = btread(BT848_I2C) & 0x01;
+#if I2C_VERY_VERBOSE
+    printk("bttv i2c: get data %d - c%d d%d\n",
+	   state,
+           btv->i2c_state & 0x02 ? 1 : 0, btv->i2c_state & 0x01 ? 1 : 0);
+#endif
+    return state;
+}
+
+static int bit_bt848_reg(struct i2c_client *client)
+{
+    struct bit_adapter *b = (struct bit_adapter*)client->adapter->data;
+    struct bttv *btv      = (struct bttv*)b->data;
+
+    switch(client->id) {
+    case I2C_DRIVERID_TUNER:
+        btv->tuner = client;
+        break;
+    case I2C_DRIVERID_MSP3400:
+        btv->msp3400 = client;
+        break;
+    }
+    printk("bttv%d: i2c reg: %s (id 0x%x)\n",btv->nr,client->name,client->id);
+    return 0;
+}
+
+static int bit_bt848_unreg(struct i2c_client *client)
+{
+    struct bit_adapter *b = (struct bit_adapter*)client->adapter->data;
+    struct bttv *btv      = (struct bttv*)b->data;
+
+    switch(client->id) {
+    case I2C_DRIVERID_TUNER:
+        btv->tuner = NULL;
+        break;
+    case I2C_DRIVERID_MSP3400:
+        btv->msp3400 = NULL;
+        break;
+    }
+    printk("bttv%d: i2c unreg: %s (id 0x%x)\n",btv->nr,client->name,client->id);
+    return 0;
+}
+
+struct bit_adapter bit_bt848_ops_template = {
+    "bt848 i2c adapter",
+    HW_B_BT848,
+    NULL,
+    bit_bt848_setsda,
+    bit_bt848_setscl,
+    bit_bt848_getsda,
+    bit_bt848_getscl,
+    bit_bt848_reg,
+    bit_bt848_unreg,
+    I2C_DELAY, I2C_DELAY, I2C_DELAY*100
 };
- 
-/* ----------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------- */
 
 struct tvcard
 {
@@ -1151,29 +1141,30 @@ static void set_freq(struct bttv *btv, unsigned short freq)
 
 	if (btv->radio) 
 	{
-		if (btv->have_tuner)
-			i2c_control_device(&(btv->i2c), I2C_DRIVERID_TUNER,
-					   TUNER_SET_RADIOFREQ,&fixme);
+		if (btv->tuner)
+			btv->tuner->driver->command(btv->tuner,TUNER_SET_RADIOFREQ,&fixme);
 	
+#if 0
 		if (btv->have_msp3400) {
 			i2c_control_device(&(btv->i2c),I2C_DRIVERID_MSP3400,
 					   MSP_SET_RADIO,0);
 			i2c_control_device(&(btv->i2c),I2C_DRIVERID_MSP3400,
 					   MSP_NEWCHANNEL,0);
 		}
+#endif
 	}
 	else
 	{
-		if (btv->have_tuner)
-			i2c_control_device(&(btv->i2c), I2C_DRIVERID_TUNER,
-					   TUNER_SET_TVFREQ,&fixme);
-
+		if (btv->tuner)
+                        btv->tuner->driver->command(btv->tuner,TUNER_SET_TVFREQ,&fixme);
+#if 0
 		if (btv->have_msp3400) {
 			i2c_control_device(&(btv->i2c),I2C_DRIVERID_MSP3400,
 					   MSP_SET_TVNORM,&(btv->win.norm));
 			i2c_control_device(&(btv->i2c),I2C_DRIVERID_MSP3400,
 					   MSP_NEWCHANNEL,0);
 		}
+#endif
 	}
 
  	if (!(oldAudio & AUDIO_MUTE)) {
@@ -1665,7 +1656,6 @@ static void new_risc_clip(struct video_window *vw, struct video_clip *vcp, int x
 
 static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 {
-	unsigned char eedata[256];
 	struct bttv *btv=(struct bttv *)dev;
   	static int lastchan=0,i;
   	
@@ -1994,6 +1984,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			v.flags&=~(VIDEO_AUDIO_MUTE|VIDEO_AUDIO_MUTABLE);
 			v.flags|=VIDEO_AUDIO_MUTABLE;
 			strcpy(v.name,"TV");
+#if 0
 			if (btv->have_msp3400) 
 			{
                                 v.flags|=VIDEO_AUDIO_VOLUME |
@@ -2012,7 +2003,9 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
                                                    I2C_DRIVERID_MSP3400,
                                                    MSP_GET_STEREO,&(v.mode));
 			}
-			else v.mode = VIDEO_SOUND_MONO;
+			else
+#endif
+                            v.mode = VIDEO_SOUND_MONO;
 			if(copy_to_user(arg,&v,sizeof(v)))
 				return -EFAULT;
 			return 0;
@@ -2030,6 +2023,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 			bt848_muxsel(btv,v.audio);
 			if(!(v.flags&VIDEO_AUDIO_MUTE))
 				audio(btv, AUDIO_UNMUTE);
+#if 0
 			if (btv->have_msp3400) 
 			{
                                 i2c_control_device(&(btv->i2c),
@@ -2045,6 +2039,7 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
                                                    I2C_DRIVERID_MSP3400,
                                                    MSP_SET_STEREO,&(v.mode));
 			}
+#endif
 			btv->audio_dev=v;
 			return 0;
 		}
@@ -2071,30 +2066,6 @@ static int bttv_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
                                 break;
                         }
                         return 0;
-
-		case BTTV_WRITEE:
-#if LINUX_VERSION_CODE >= 0x020100
-			if(!capable(CAP_SYS_ADMIN))
-#else
-			if(!suser())
-#endif
-				return -EPERM;
-			if(copy_from_user((void *) eedata, (void *) arg, 256))
-				return -EFAULT;
-			writeee(&(btv->i2c), eedata);
-			return 0;
-
-		case BTTV_READEE:
-#if LINUX_VERSION_CODE >= 0x020100
-			if(!capable(CAP_SYS_ADMIN))
-#else
-			if(!suser())
-#endif
-				return -EPERM;
-			readee(&(btv->i2c), eedata);
-			if(copy_to_user((void *) arg, (void *) eedata, 256))
-				return -EFAULT;
-			break;
 
 		case BTTV_FIELDNR:
 			if(copy_to_user((void *) arg, (void *) &btv->last_field, 
@@ -2444,8 +2415,6 @@ static int find_vga(void)
 					break;
 				}
 			}
-                        if (NR_CARDS == i)
-                            printk("UNKNOWN.\n");
 			if (!badr) 
 			{
 				printk(KERN_ERR "bttv: Unknown video memory base address.\n");
@@ -2461,7 +2430,7 @@ static int find_vga(void)
 			vidadr &= PCI_BASE_ADDRESS_MEM_MASK;
 			if (!vidadr) 
 			{
-				printk(KERN_ERR "bttv: Memory @ 0, must be something wrong!\n");
+				printk(KERN_ERR "bttv: Memory @ 0, must be something wrong!");
 				continue;
 			}
       
@@ -2485,10 +2454,7 @@ static int find_vga(void)
   
 	if (vidmem)
 	{
-                if (vidmem < 0x1000)
-                        vidadr=vidmem<<20;
-                else
-                        vidadr=vidmem;
+		vidadr=vidmem<<20;
 		printk(KERN_INFO "bttv: Video memory override: 0x%08x\n", vidadr);
 		found=1;
 	}
@@ -2581,43 +2547,36 @@ static void handle_chipset(void)
 	}
 }
 
-
-static void init_tda8425(struct i2c_bus *bus) 
+static void init_tda8425(struct bttv *btv) 
 {
-        I2CWrite(bus, I2C_TDA8425, TDA8425_VL, 0xFC, 1); /* volume left 0dB  */
-        I2CWrite(bus, I2C_TDA8425, TDA8425_VR, 0xFC, 1); /* volume right 0dB */
-        I2CWrite(bus, I2C_TDA8425, TDA8425_BA, 0xF6, 1); /* bass 0dB         */
-        I2CWrite(bus, I2C_TDA8425, TDA8425_TR, 0xF6, 1); /* treble 0dB       */
-        I2CWrite(bus, I2C_TDA8425, TDA8425_S1, 0xCE, 1); /* mute off         */
+        I2CWrite(btv, I2C_TDA8425, TDA8425_VL, 0xFC, 1); /* volume left 0dB  */
+        I2CWrite(btv, I2C_TDA8425, TDA8425_VR, 0xFC, 1); /* volume right 0dB */
+        I2CWrite(btv, I2C_TDA8425, TDA8425_BA, 0xF6, 1); /* bass 0dB         */
+        I2CWrite(btv, I2C_TDA8425, TDA8425_TR, 0xF6, 1); /* treble 0dB       */
+        I2CWrite(btv, I2C_TDA8425, TDA8425_S1, 0xCE, 1); /* mute off         */
 }
 
-
-
-static void init_tda9850(struct i2c_bus *bus)
+static void init_tda9850(struct bttv *btv)
 {
-        I2CWrite(bus, I2C_TDA9850, TDA9850_CON1, 0x08, 1);  /* noise threshold st */
-	I2CWrite(bus, I2C_TDA9850, TDA9850_CON2, 0x08, 1);  /* noise threshold sap */
-	I2CWrite(bus, I2C_TDA9850, TDA9850_CON3, 0x40, 1);  /* stereo mode */
-	I2CWrite(bus, I2C_TDA9850, TDA9850_CON4, 0x07, 1);  /* 0 dB input gain?*/
-	I2CWrite(bus, I2C_TDA9850, TDA9850_ALI1, 0x10, 1);  /* wideband alignment? */
-	I2CWrite(bus, I2C_TDA9850, TDA9850_ALI2, 0x10, 1);  /* spectral alignment? */
-	I2CWrite(bus, I2C_TDA9850, TDA9850_ALI3, 0x03, 1);
+        I2CWrite(btv, I2C_TDA9850, TDA9850_CON1, 0x08, 1);  /* noise threshold st */
+	I2CWrite(btv, I2C_TDA9850, TDA9850_CON2, 0x08, 1);  /* noise threshold sap */
+	I2CWrite(btv, I2C_TDA9850, TDA9850_CON3, 0x40, 1);  /* stereo mode */
+	I2CWrite(btv, I2C_TDA9850, TDA9850_CON4, 0x07, 1);  /* 0 dB input gain?*/
+	I2CWrite(btv, I2C_TDA9850, TDA9850_ALI1, 0x10, 1);  /* wideband alignment? */
+	I2CWrite(btv, I2C_TDA9850, TDA9850_ALI2, 0x10, 1);  /* spectral alignment? */
+	I2CWrite(btv, I2C_TDA9850, TDA9850_ALI3, 0x03, 1);
 }
-
-
 
 /* Figure out card and tuner type */
 
-static void idcard(int i)
+static void idcard(struct bttv *btv)
 {
-        struct bttv *btv = &bttvs[i];
-
 	int tunertype;
 	btwrite(0, BT848_GPIO_OUT_EN);
-	DEBUG(printk(KERN_DEBUG "bttv%d: GPIO: 0x%08x\n", i, btread(BT848_GPIO_DATA)));
+	DEBUG(printk(KERN_DEBUG "bttv: GPIO: 0x%08x\n", btread(BT848_GPIO_DATA)));
 
 	/* Default the card to the user-selected one. */
-	btv->type=card[i];
+	btv->type=card;
  
 	/* If we were asked to auto-detect, then do so! 
 	   Right now this will only recognize Miro, Hauppauge or STB
@@ -2626,20 +2585,20 @@ static void idcard(int i)
 	{
 	        btv->type=BTTV_MIRO;
     
-		if (I2CRead(&(btv->i2c), I2C_HAUPEE)>=0)
-		        btv->type=BTTV_HAUPPAUGE;
+		if (I2CRead(btv, I2C_HAUPEE)>=0)
+                        btv->type=BTTV_HAUPPAUGE;
 		else
-		        if (I2CRead(&(btv->i2c), I2C_STBEE)>=0)
+                        if (I2CRead(btv, I2C_STBEE)>=0)
 			        btv->type=BTTV_STB;
 	}
 
-        if (I2CRead(&(btv->i2c), I2C_TDA9850) >=0)
+        if (I2CRead(btv, I2C_TDA9850) >=0)
         {
                 btv->audio_chip = TDA9850;
                 printk(KERN_INFO "bttv%d: audio chip: TDA9850\n",btv->nr);
         }
 
-        if (I2CRead(&(btv->i2c), I2C_TDA8425) >=0)
+        if (I2CRead(btv, I2C_TDA8425) >=0)
         {
                 btv->audio_chip = TDA8425;
                 printk(KERN_INFO "bttv%d: audio chip: TDA8425\n",btv->nr);
@@ -2648,19 +2607,20 @@ static void idcard(int i)
         switch(btv->audio_chip)
         {
                 case TDA9850:
-                        init_tda9850(&(btv->i2c));
-                        break; 
+                        init_tda9850(btv);
+                        break;
                 case TDA8425:
-                        init_tda8425(&(btv->i2c));
+                        init_tda8425(btv);
                         break;
         }
         
 	/* How do I detect the tuner type for other cards but Miro ??? */
-	printk(KERN_INFO "bttv%d: model: ",btv->nr);
+	printk(KERN_INFO "bttv: model: ");
 	switch (btv->type) 
 	{
                 case BTTV_MIRO:
 			printk("MIRO\n");
+#if 0
 			if (btv->have_tuner) 
 			{
 				tunertype=((btread(BT848_GPIO_DATA)>>10)-1)&7;
@@ -2668,6 +2628,7 @@ static void idcard(int i)
 						   I2C_DRIVERID_TUNER,
 						   TUNER_SET_TYPE,&tunertype);
 			}
+#endif
 			strcpy(btv->video_dev.name,"BT848(Miro)");
 			break;
 		case BTTV_HAUPPAUGE:
@@ -2697,8 +2658,6 @@ static void idcard(int i)
 	}
 	audio(btv, AUDIO_MUTE);
 }
-
-
 
 static void bt848_set_risc_jmps(struct bttv *btv)
 {
@@ -2794,9 +2753,11 @@ static int init_bt848(int i)
         btv->field=btv->last_field=0;
 
 	/* i2c */
-	memcpy(&(btv->i2c),&bttv_i2c_bus_template,sizeof(struct i2c_bus));
-	sprintf(btv->i2c.name,"bt848-%d",i);
+	memcpy(&(btv->i2c),&bit_bt848_ops_template,sizeof(struct bit_adapter));
+	sprintf(btv->i2c.name+strlen(btv->i2c.name)," #%d",i);
 	btv->i2c.data = btv;
+	bit_bt848_setscl(btv, 1);
+	bit_bt848_setsda(btv, 1);
 
 	if (!(btv->risc_odd=(unsigned int *) kmalloc(RISCMEM_LEN/2, GFP_KERNEL)))
 		return -1;
@@ -2880,7 +2841,7 @@ static int init_bt848(int i)
 	memcpy(&btv->video_dev,&bttv_template, sizeof(bttv_template));
 	memcpy(&btv->vbi_dev,&vbi_template, sizeof(vbi_template));
 	memcpy(&btv->radio_dev,&radio_template,sizeof(radio_template));
-	idcard(i);
+	idcard(btv);
 
 	if(video_register_device(&btv->video_dev,VFL_TYPE_GRABBER)<0)
 		return -1;
@@ -2898,7 +2859,7 @@ static int init_bt848(int i)
 			return -1;
 		}
 	}
-	i2c_register_bus(&btv->i2c);
+	i2c_bit_register_bus(&btv->i2c);
 
 	return 0;
 }
@@ -3036,14 +2997,12 @@ static void bttv_irq(int irq, void *dev_id, struct pt_regs * regs)
     
 		count++;
 		if (count > 10)
-			printk (KERN_WARNING "bttv%d: irq loop %d\n",
-                                btv->nr,count);
+			printk (KERN_WARNING "bttv: irq loop %d\n", count);
 		if (count > 20) 
 		{
 			btwrite(0, BT848_INT_MASK);
 			printk(KERN_ERR 
-			       "bttv%d: IRQ lockup, cleared int mask\n",
-                               btv->nr);
+			       "bttv: IRQ lockup, cleared int mask\n");
 		}
 	}
 }
@@ -3066,7 +3025,7 @@ static int find_bt848(void)
 
 	if (!pcibios_present()) 
 	{
-		DEBUG(printk(KERN_DEBUG "bttv%d: PCI-BIOS not present or not accessable!\n",bttv_num));
+		DEBUG(printk(KERN_DEBUG "bttv: PCI-BIOS not present or not accessable!\n"));
 		return 0;
 	}
 
@@ -3104,16 +3063,14 @@ static int find_bt848(void)
 		pcibios_read_config_dword(btv->bus, btv->devfn, PCI_BASE_ADDRESS_0,
 			&btv->bt848_adr);
     
-		if (remap[bttv_num])
-		{
-                        if (remap[bttv_num] < 0x1000)
-                                remap[bttv_num]<<=20;
-			remap[bttv_num]&=PCI_BASE_ADDRESS_MEM_MASK;
-			printk(KERN_INFO "bttv%d: remapping to : 0x%08x.\n",
-                               bttv_num,remap[bttv_num]);
-			remap[bttv_num]|=btv->bt848_adr&(~PCI_BASE_ADDRESS_MEM_MASK);
+		if (remap&&(!bttv_num))
+		{ 
+			remap<<=20;
+			remap&=PCI_BASE_ADDRESS_MEM_MASK;
+			printk(KERN_INFO "Remapping to : 0x%08x.\n", remap);
+			remap|=btv->bt848_adr&(~PCI_BASE_ADDRESS_MEM_MASK);
 			pcibios_write_config_dword(btv->bus, btv->devfn, PCI_BASE_ADDRESS_0,
-				 remap[bttv_num]);
+				 remap);
 			pcibios_read_config_dword(btv->bus, btv->devfn, PCI_BASE_ADDRESS_0,
 				&btv->bt848_adr);
 		}					
@@ -3121,8 +3078,8 @@ static int find_bt848(void)
 		btv->bt848_adr&=PCI_BASE_ADDRESS_MEM_MASK;
 		pcibios_read_config_byte(btv->bus, btv->devfn, PCI_CLASS_REVISION,
 			     &btv->revision);
-		printk(KERN_INFO "bttv%d: Brooktree Bt%d (rev %d) ",
-                       bttv_num,btv->id, btv->revision);
+		printk(KERN_INFO "bttv: Brooktree Bt%d (rev %d) ",
+		        btv->id, btv->revision);
                 printk("bus: %d, devfn: %d, ",
                        btv->bus, btv->devfn);
 		printk("irq: %d, ",btv->irq);
@@ -3132,7 +3089,13 @@ static int find_bt848(void)
 #ifdef USE_PLL
                 if (!(btv->id==848 && btv->revision==0x11))
                 {
+<<<<<<< old/bttv.c
+                        printk("bttv: internal PLL, single crystal operation enabled\n");
+||||||| /home/kraxel/2/src/xawtv-2.14/bttv/old-driver/bttv.c
+                        printk("bttv%d: internal PLL, single crystal operation enabled\n",bttv_num);
+=======
                         printk(KERN_INFO "bttv%d: internal PLL, single crystal operation enabled\n",bttv_num);
+>>>>>>> /home/kraxel/2/src/xawtv-2.14/bttv/driver/bttv.c
                         btv->pll=1;
                 }
 #endif
@@ -3143,13 +3106,12 @@ static int find_bt848(void)
 			SA_SHIRQ | SA_INTERRUPT,"bttv",(void *)btv);
 		if (result==-EINVAL) 
 		{
-			printk(KERN_ERR "bttv%d: Bad irq number or handler\n",
-                               bttv_num);
+			printk(KERN_ERR "bttv: Bad irq number or handler\n");
 			return -EINVAL;
 		}
 		if (result==-EBUSY)
 		{
-			printk(KERN_ERR "bttv%d: IRQ %d busy, change your PnP config in BIOS\n",bttv_num,btv->irq);
+			printk(KERN_ERR "bttv: IRQ %d busy, change your PnP config in BIOS\n",btv->irq);
 			return result;
 		}
 		if (result < 0) 
@@ -3162,7 +3124,7 @@ static int find_bt848(void)
 		pcibios_read_config_byte(btv->bus, btv->devfn, PCI_COMMAND, &command);
 		if (!(command&PCI_COMMAND_MASTER)) 
 		{
-			printk(KERN_ERR "bttv%d: PCI bus-mastering could not be enabled\n",bttv_num);
+			printk(KERN_ERR "bttv: PCI bus-mastering could not be enabled\n");
 			return -1;
 		}
 		pcibios_read_config_byte(btv->bus, btv->devfn, PCI_LATENCY_TIMER,
@@ -3173,8 +3135,7 @@ static int find_bt848(void)
 			pcibios_write_config_byte(btv->bus, btv->devfn,
 						  PCI_LATENCY_TIMER, latency);
 		}
-		DEBUG(printk(KERN_DEBUG "bttv%d: latency: %02x\n",
-                             bttv_num, latency));
+		DEBUG(printk(KERN_DEBUG "bttv: latency: %02x\n", latency));
 		bttv_num++;
 	}
 	if(bttv_num)
@@ -3203,7 +3164,7 @@ static void release_bttv(void)
 		btwrite(0x0, BT848_GPIO_OUT_EN);
 
     		/* unregister i2c_bus */
-		i2c_unregister_bus((&btv->i2c));
+		i2c_bit_unregister_bus((&btv->i2c));
 
 		/* disable PCI bus-mastering */
 		pcibios_read_config_byte(btv->bus, btv->devfn, PCI_COMMAND, &command);

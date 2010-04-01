@@ -22,30 +22,32 @@ MODULE_PARM(debug,"i");
 MODULE_PARM(type,"i");
 #endif
 
-struct tuner {
-    struct i2c_bus   *bus;     /* where is our chip */
-    int               addr;
+struct tuner 
+{
+	struct i2c_bus   *bus;     /* where is our chip */
+	int               addr;
 
-    int type;            /* chip type */
-    int freq;            /* keep track of the current settings */
-    int radio;
+	int type;            /* chip type */
+	int freq;            /* keep track of the current settings */
+	int radio;
 };
 
 /* ---------------------------------------------------------------------- */
 
-struct tunertype {
-  char *name;
-  unchar Vendor;
-  unchar Type;
+struct tunertype 
+{
+	char *name;
+	unsigned char Vendor;
+	unsigned char Type;
   
-  ushort thresh1; /* frequency Range for UHF,VHF-L, VHF_H */   
-  ushort thresh2;  
-  unchar VHF_L;
-  unchar VHF_H;
-  unchar UHF;
-  unchar config; 
-  unchar I2C;
-  ushort IFPCoff;
+	unsigned short thresh1; /* frequency Range for UHF,VHF-L, VHF_H */   
+	unsigned short thresh2;  
+	unsigned char VHF_L;
+	unsigned char VHF_H;
+	unsigned char UHF;
+	unsigned char config; 
+	unsigned char I2C;
+	unsigned short IFPCoff;
 };
 
 /*
@@ -108,7 +110,7 @@ static void set_tv_freq(struct tuner *t, int freq)
 	else
 		config = tun->UHF;
 
-	div=freq + (int)(16*38.9);
+	div=freq + tun->IFPCoff;
   	div&=0x7fff;
 
 	LOCK_I2C_BUS(t->bus);
@@ -158,79 +160,89 @@ static void set_radio_freq(struct tuner *t, int freq)
 
 /* ---------------------------------------------------------------------- */
 
-static int
-tuner_attach(struct i2c_device *device)
+static int tuner_attach(struct i2c_device *device)
 {
-    struct tuner *t;
+	struct tuner *t;
 
-    device->data = t = kmalloc(sizeof(struct tuner),GFP_KERNEL);
-    if (NULL == t)
-	return -ENOMEM;
-    memset(t,0,sizeof(struct tuner));
-    strcpy(device->name,"tuner");
-    t->bus  = device->bus;
-    t->addr = device->addr;
-    t->type = type;
-    dprintk("tuner: type is %d (%s)\n",t->type,tuners[t->type].name);
-    MOD_INC_USE_COUNT;
-    return 0;
+	/*
+	 *	For now we only try and attach these tuners to the BT848
+	 *	bus. This same module will however work different species
+	 *	of card using these chips. Just change the constraints
+	 *	(i2c doesn't have a totally clash free 'address' space)
+	 */
+	 
+	if(device->bus->id!=I2C_BUSID_BT848)
+		return -EINVAL;
+		
+	device->data = t = kmalloc(sizeof(struct tuner),GFP_KERNEL);
+	if (NULL == t)
+		return -ENOMEM;
+	memset(t,0,sizeof(struct tuner));
+	strcpy(device->name,"tuner");
+	t->bus  = device->bus;
+	t->addr = device->addr;
+	t->type = type;
+	dprintk("tuner: type is %d (%s)\n",t->type,tuners[t->type].name);
+	
+	MOD_INC_USE_COUNT;
+	return 0;
 }
 
-static int
-tuner_detach(struct i2c_device *device)
+static int tuner_detach(struct i2c_device *device)
 {
-    struct tuner *t = (struct tuner*)device->data;
-    kfree(t);
-    MOD_DEC_USE_COUNT;
-    return 0;
+	struct tuner *t = (struct tuner*)device->data;
+	kfree(t);
+	MOD_DEC_USE_COUNT;
+	return 0;
 }
 
-static int
-tuner_command(struct i2c_device *device,
+static int tuner_command(struct i2c_device *device,
 	      unsigned int cmd, void *arg)
 {
-    struct tuner *t    = (struct tuner*)device->data;
-    int          *iarg = (int*)arg;
+	struct tuner *t = (struct tuner*)device->data;
+	int *iarg = (int*)arg;
 
-    switch (cmd) {
-    case TUNER_SET_TYPE:
-	    t->type = *iarg;
-	    dprintk("tuner: type set to %d (%s)\n",
-		    t->type,tuners[t->type].name);
-	    break;
+	switch (cmd) 
+	{
+		case TUNER_SET_TYPE:
+			t->type = *iarg;
+			dprintk("tuner: type set to %d (%s)\n",
+			t->type,tuners[t->type].name);
+			break;
 
-    case TUNER_SET_TVFREQ:
-	    dprintk("tuner: tv freq set to %d.%02d\n",
-		    (*iarg)/16,(*iarg)%16*100/16);
-	    set_tv_freq(t,*iarg);
-	    t->radio = 0;
-	    t->freq = *iarg;
-	    break;
+		case TUNER_SET_TVFREQ:
+			dprintk("tuner: tv freq set to %d.%02d\n",
+				(*iarg)/16,(*iarg)%16*100/16);
+			set_tv_freq(t,*iarg);
+			t->radio = 0;
+			t->freq = *iarg;
+			break;
 	    
-    case TUNER_SET_RADIOFREQ:
-	    dprintk("tuner: radio freq set to %d.%02d\n",
-		    (*iarg)/16,(*iarg)%16*100/16);
-	    set_radio_freq(t,*iarg);
-	    t->radio = 1;
-	    t->freq = *iarg;
-	    break;
+		case TUNER_SET_RADIOFREQ:
+			dprintk("tuner: radio freq set to %d.%02d\n",
+				(*iarg)/16,(*iarg)%16*100/16);
+			set_radio_freq(t,*iarg);
+			t->radio = 1;
+			t->freq = *iarg;
+			break;
 	    
-    default:
-	return -EINVAL;
-    }
-    return 0;
+		default:
+			return -EINVAL;
+	}
+	return 0;
 }
 
 /* ----------------------------------------------------------------------- */
 
-struct i2c_driver i2c_driver_tuner = {
-    "tuner",                      /* name       */
-    I2C_DRIVERID_TUNER,           /* ID         */
-    0xc0, 0xce,                   /* addr range */
+struct i2c_driver i2c_driver_tuner = 
+{
+	"tuner",                      /* name       */
+	I2C_DRIVERID_TUNER,           /* ID         */
+	0xc0, 0xce,                   /* addr range */
 
-    tuner_attach,
-    tuner_detach,
-    tuner_command
+	tuner_attach,
+	tuner_detach,
+	tuner_command
 };
 
 #ifdef MODULE
@@ -239,14 +251,14 @@ int init_module(void)
 int msp3400c_init(void)
 #endif
 {
-    i2c_register_driver(&i2c_driver_tuner);
-    return 0;
+	i2c_register_driver(&i2c_driver_tuner);
+	return 0;
 }
 
 #ifdef MODULE
 void cleanup_module(void)
 {
-    i2c_unregister_driver(&i2c_driver_tuner);
+	i2c_unregister_driver(&i2c_driver_tuner);
 }
 #endif
 

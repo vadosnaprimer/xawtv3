@@ -29,7 +29,7 @@ mixer_open(char *filename, char *device)
 	return -1;
     }
     for (i = 0; i < SOUND_MIXER_NRDEVICES; i++) {
-	if ((1<<i) & devmask && strcasecmp(names[i],device) == 0)
+	if ((1<<i) & devmask && strcasecmp(names[i],device) == 0) {
 	    if (-1 == ioctl(mix,MIXER_READ(i),&volume)) {
 		perror("mixer read volume");
 		return -1;
@@ -37,6 +37,7 @@ mixer_open(char *filename, char *device)
 		dev = i;
 		muted = 0;
 	    }
+	}
     }
     if (-1 == dev) {
 	fprintf(stderr,"mixer: hav'nt found device '%s'\nmixer: available: ",device);

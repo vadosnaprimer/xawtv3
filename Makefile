@@ -1,2 +1,2 @@
 default:
-	@echo 'try ./configure && make dep && make'
+	./configure && make dep && make

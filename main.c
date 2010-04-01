@@ -47,9 +47,12 @@
 #include "x11.h"
 #include "toolbox.h"
 
+#define ONSCREEN_TIME       6000
 #define TITLE_TIME          6000
 #define ZAP_TIME            8000
 #define CAP_TIME              20
+#define SCAN_TIME            100
+
 #define WIDTH_INC             64
 #define HEIGHT_INC            48
 #define LABEL_WIDTH         "16"
@@ -60,14 +63,15 @@
 XtAppContext      app_context;
 Widget            app_shell, tv;
 Widget            opt_shell, opt_paned, chan_shell;
+Widget            on_shell, on_label;
 Widget            c_norm,c_input,c_freq,c_audio,c_cap;
 Widget            s_bright,s_color,s_hue,s_contrast,s_volume;
 Display           *dpy;
 XtWorkProcId      idle_id;
 
 Atom              wm_protocols[2];
-XtIntervalId      title_timer, audio_timer, zap_timer;
-int               pointer_on = 1;
+XtIntervalId      title_timer, audio_timer, zap_timer, scan_timer, on_timer;
+int               pointer_on = 1, on_skip = 0;
 int               debug = 0;
 int               fs = 0;
 int               fs_width,fs_height,fs_xoff,fs_yoff;
@@ -93,6 +97,8 @@ static int    maxheight[] = { 576, 480, 576 };
 
 
 /*--- drivers -------------------------------------------------------------*/
+
+char  *device  = "/dev/video";
 
 extern struct GRABBER grab_v4l;
 struct GRABBER *grabbers[] = {
@@ -121,6 +127,7 @@ void CloseMainAction(Widget, XEvent*, String*, Cardinal*);
 void SetResAction(Widget, XEvent*, String*, Cardinal*);
 void SetChannelAction(Widget, XEvent*, String*, Cardinal*);
 void TuneAction(Widget, XEvent*, String*, Cardinal*);
+void ScanAction(Widget, XEvent*, String*, Cardinal*);
 void ChannelAction(Widget, XEvent*, String*, Cardinal*);
 void VolumeAction(Widget, XEvent*, String*, Cardinal*);
 void PointerAction(Widget, XEvent*, String*, Cardinal*);
@@ -135,6 +142,7 @@ static XtActionsRec actionTable[] = {
     { "SetRes",      SetResAction },
     { "SetChannel",  SetChannelAction },
     { "Tune",        TuneAction },
+    { "Scan",        ScanAction },
     { "Channel",     ChannelAction },
     { "Volume",      VolumeAction },
     { "Pointer",     PointerAction },
@@ -211,10 +219,6 @@ CloseMainAction(Widget widget, XEvent *event,
 		sprintf(argv[argc++] = malloc(32),"%dx%d+%d+%d",w,h,x,y);
 	    }
 	    
-	    /* channel */
-	    argv[argc++] = strdup("-c");
-	    sprintf(argv[argc++] = malloc(8),"%d",cur_sender);
-
 	    /* grab filename */
 	    if (ppmfile) {
 		argv[argc++] = strdup("-o");
@@ -247,11 +251,62 @@ CloseMainAction(Widget widget, XEvent *event,
 		sprintf(argv[argc++] = malloc(8),"%d",bpp);
 	    }
 
+	    /* channel */
+	    argv[argc++] = channels[cur_sender]->name;
+
 	    XSetCommand(XtDisplay(app_shell), XtWindow(app_shell), argv, argc);
 	    return;
 	}
     }
     ExitCB(widget,NULL,NULL);
+}
+
+/*--- onscreen display (fullscreen) --------------------------------------*/
+
+void create_onscreen()
+{
+    on_shell = XtVaCreateWidget("onscreen",transientShellWidgetClass,
+				app_shell,
+				XtNoverrideRedirect,True,
+				NULL);    
+    on_label = XtVaCreateManagedWidget("label", labelWidgetClass, on_shell,
+					NULL);
+}
+
+void
+popdown_onscreen(XtPointer client_data, XtIntervalId *id)
+{
+    XtPopdown(on_shell);
+    on_timer = 0;
+}
+
+void
+display_onscreen()
+{
+    static int first = 1;
+    Dimension x,y;
+
+    if (on_skip) {
+	on_skip = 0;
+	return;
+    }
+    if (!fs)
+	return;
+
+    XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,NULL);
+    XtVaSetValues(on_shell,XtNx,x+30,XtNy,y+20,NULL);
+    XtVaSetValues(on_label,XtNlabel,title,NULL);
+    XtPopup(on_shell, XtGrabNone);
+    if (on_timer)
+	XtRemoveTimeOut(on_timer);
+    on_timer = XtAppAddTimeOut
+	(app_context, ONSCREEN_TIME, popdown_onscreen,NULL);
+
+    if (first) {
+	first = 0;
+	XDefineCursor(dpy, XtWindow(on_shell), no_ptr);
+	XDefineCursor(dpy, XtWindow(on_label), no_ptr);
+    }
 }
 
 /*--- tv -----------------------------------------------------------------*/
@@ -267,7 +322,7 @@ idle_grabdisplay(XtPointer data)
 	gettimeofday(&tv,&tz);
 	if (tv.tv_sec != lastsec) {
 	    if (lastsec == tv.tv_sec-1)
-		fprintf(stderr,"%5ld fps \r", count);
+		fprintf(stderr," %ld fps\n", count);
 	    lastsec = tv.tv_sec;
 	    count = 0;
 	}
@@ -295,6 +350,7 @@ set_title()
 		chan_names[chan_tab].str);
     }
     XtVaSetValues(app_shell,XtNtitle,title,NULL);
+    display_onscreen();
 
     if (title_timer) {
 	XtRemoveTimeOut(title_timer);
@@ -305,6 +361,7 @@ set_title()
 void
 set_title_timeout(XtPointer client_data, XtIntervalId *id)
 {
+    on_skip=1;
     set_title();
 }
 
@@ -312,6 +369,7 @@ void
 set_timer_title()
 {
     XtVaSetValues(app_shell,XtNtitle,title,NULL);
+    display_onscreen();
     if (title_timer)
 	XtRemoveTimeOut(title_timer);
     title_timer = XtAppAddTimeOut
@@ -334,6 +392,7 @@ change_audio(int mode)
 void
 watch_audio(XtPointer data, XtIntervalId *id)
 {
+    on_skip=1;
     change_audio(0);
     audio_timer = 0;
 }
@@ -515,6 +574,10 @@ set_channel(struct CHANNEL *channel)
 	XtRemoveTimeOut(zap_timer);
 	zap_timer = 0;
     }
+    if (scan_timer) {
+	XtRemoveTimeOut(scan_timer);
+	scan_timer = 0;
+    }
     if (audio_timer) {
 	XtRemoveTimeOut(audio_timer);
 	audio_timer = 0;
@@ -641,13 +704,44 @@ SetChannelAction(Widget widget, XEvent *event,
 }
 
 void
-TuneAction(Widget widget, XEvent *event,
-		 String *params, Cardinal *num_params)
+scan_timeout(XtPointer client_data, XtIntervalId *id)
 {
-    int freq;
-    if (*num_params != 1)
+    static String argv[] = { "next", NULL };
+
+    scan_timer = 0;
+    
+    /* check */
+    if (!grabbers[grabber]->grab_tuned)
+	return;
+    if (grabbers[grabber]->grab_tuned())
 	return;
 
+    XtCallActionProc(tv,"Tune",NULL,argv,1);
+    scan_timer = XtAppAddTimeOut
+	(app_context, SCAN_TIME, scan_timeout, NULL);
+}
+
+void
+ScanAction(Widget widget, XEvent *event,
+	   String *params, Cardinal *num_params)
+{
+    static String argv[] = { "next", NULL };
+
+    pixit();
+    XtCallActionProc(tv,"Tune",NULL,argv,1);
+    scan_timer = XtAppAddTimeOut
+	(app_context, SCAN_TIME, scan_timeout,NULL);
+}
+
+void
+TuneAction(Widget widget, XEvent *event,
+	   String *params, Cardinal *num_params)
+{
+    int freq;
+
+    if (*num_params < 1)
+	return;
+    
     if (0 == strcasecmp(params[0],"next")) {
 	do {
 	    cur_channel = (cur_channel+1) % CHAN_ENTRIES;
@@ -741,10 +835,12 @@ FullScreenAction(Widget widget, XEvent *event,
 		 String *params, Cardinal *num_params)
 {
     static Dimension x,y,w,h;
-    static int timeout,interval,prefer_blanking,allow_exposures;
+    static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy,mouse;
 #ifdef HAVE_LIBXXF86VM
     static int vm_switched;
 #endif
+    Window root,child;
+    int    wpx,wpy,mask;
 
     if (fs) {
 #ifdef HAVE_LIBXXF86VM
@@ -753,6 +849,12 @@ FullScreenAction(Widget widget, XEvent *event,
 	    vm_switched = 0;
 	}
 #endif
+
+	if (on_timer) {
+	    XtPopdown(on_shell);
+	    XtRemoveTimeOut(on_timer);
+	    on_timer = 0;
+	}
 	    
 	XtVaSetValues(app_shell,
 		      XtNwidthInc, WIDTH_INC,
@@ -764,6 +866,9 @@ FullScreenAction(Widget widget, XEvent *event,
 		      NULL);
 
 	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
+
+	XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
+		     0, 0, 0, 0, rpx, rpy);
 	fs = 0;
     } else {
 	int vp_x, vp_y, vp_width, vp_height;
@@ -791,7 +896,11 @@ FullScreenAction(Widget widget, XEvent *event,
 		vp_width = vm_modelines[0]->hdisplay;
 		vp_height = vm_modelines[0]->vdisplay;
 	    }
+#if 0
 	    XF86VidModeGetViewPort(dpy,XDefaultScreen(dpy),&vp_x,&vp_y);
+#else
+	    XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
+#endif
 	    if (debug)
 		fprintf(stderr,"viewport: %dx%d+%d+%d\n",
 			vp_width,vp_height,vp_x,vp_y);
@@ -818,9 +927,15 @@ FullScreenAction(Widget widget, XEvent *event,
 	XGetScreenSaver(dpy,&timeout,&interval,
 			&prefer_blanking,&allow_exposures);
 	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
+
+	XQueryPointer(dpy, RootWindowOfScreen(XtScreen(tv)),
+		      &root, &child, &rpx, &rpy, &wpx, &wpy, &mask);
 	XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
+	mouse = pointer_on;
 	fs = 1;
     }
+    if (mouse)
+	XtCallActionProc(widget,"Pointer",NULL,NULL,0);
     XtAppAddWorkProc (app_context,MyResize, NULL);
 }
 
@@ -837,7 +952,7 @@ ChannelsAction(Widget widget, XEvent *event,
     if (event && event->type == ClientMessage) {
 	if (event->xclient.data.l[0] == wm_protocols[1]) {
 	    if (debug)
-		fprintf(stderr,"Options: wm_save_yourself\n");
+		fprintf(stderr,"Channels: wm_save_yourself\n");
 	    XSetCommand(XtDisplay(chan_shell), XtWindow(chan_shell), NULL, 0);
 	    return;
 	}
@@ -877,9 +992,9 @@ channel_menu()
     Widget box,viewport;
 
     chan_shell = XtVaAppCreateShell("Channels", "Xawtv",
-				    applicationShellWidgetClass,
+				    topLevelShellWidgetClass,
 				    dpy,
-				    XtNtransientFor,app_shell,
+				    XtNclientLeader,app_shell,
 				    NULL);
     XtOverrideTranslations(chan_shell, XtParseTranslationTable
 			   ("<Message>WM_PROTOCOLS: Channels()"));
@@ -934,6 +1049,7 @@ zap_timeout(XtPointer client_data, XtIntervalId *id)
     if (cur_sender != zap_start) {
 	sprintf(title, "Hop: %s", channels[cur_sender]->name);
 	XtVaSetValues(app_shell,XtNtitle,title,NULL);
+	display_onscreen();
 	zap_timer = XtAppAddTimeOut
 	    (app_context, zap_fast ? CAP_TIME : ZAP_TIME, zap_timeout,NULL);
     }
@@ -1117,9 +1233,9 @@ void create_optwin()
     Widget c, p,l;
 
     opt_shell = XtVaAppCreateShell("Options", "Xawtv",
-				   applicationShellWidgetClass,
+				   topLevelShellWidgetClass,
 				   dpy,
-				   XtNtransientFor,app_shell,
+				   XtNclientLeader,app_shell,
 				   NULL);
     opt_paned = XtVaCreateManagedWidget("paned", panedWidgetClass, opt_shell,
 				    NULL);
@@ -1433,7 +1549,7 @@ grabber_init()
     for (grabber = 0; grabber < sizeof(grabbers)/sizeof(struct GRABBERS*);
 	 grabber++) {
 	if (-1 != grabbers[grabber]->grab_open
-	    (NULL,sw,sh,x11_native_format,x11_pixmap_format,base,
+	    (device,sw,sh,x11_native_format,x11_pixmap_format,base,
 	     width ? width : sw))
 	    break;
     }
@@ -1446,8 +1562,8 @@ grabber_init()
 
 int main(int argc, char *argv[])
 {
-    int  c,noconf,fullscreen,nomouse;
-    char v4l_conf[32] = "v4l-conf -q";
+    int  i,c,noconf,fullscreen,nomouse;
+    char v4l_conf[128] = "v4l-conf -q";
 
     progname = strdup(argv[0]);
     app_shell = XtAppInitialize(&app_context,
@@ -1457,18 +1573,17 @@ int main(int argc, char *argv[])
 				NULL /* fallback_res */,
 				NULL, 0);
 
+    fprintf(stderr,"this is %s\n",VERSION);
+
     /* parse options */
     debug = noconf = fullscreen = nomouse = 0;
     xfree_ext = 1;
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hxnmfv:c:o:j:b:")))
+	if (-1 == (c = getopt(argc, argv, "hxnmfv:o:j:b:c:")))
 	    break;
 	switch (c) {
 	case 'v':
 	    debug = atoi(optarg);
-	    break;
-	case 'c':
-	    cur_sender = atoi(optarg);
 	    break;
 	case 'n':
 	    noconf = 1;
@@ -1494,11 +1609,23 @@ int main(int argc, char *argv[])
 	case 'j':
 	    jpegfile = strdup(optarg);
 	    break;
+	case 'c':
+	    device = optarg;
+	    /* v4l-conf needs this too */
+	    strcat(v4l_conf," -v ");
+	    strcat(v4l_conf,device);
+	    break;
 	case 'h':
 	default:
 	    fprintf(stderr,"usage: %s [ -v debuglevel ]\n",argv[0]);
 	    exit(1);
 	}
+    }
+
+    if (optind+1 == argc) {
+	for (i = 0; i < count; i++)
+	    if (0 == strcasecmp(channels[i]->name,argv[optind]))
+	        cur_sender = i;
     }
 
     switch (system(v4l_conf)) {
@@ -1523,6 +1650,7 @@ int main(int argc, char *argv[])
     if (xfree_ext)
 	xfree_init();
     create_optwin();
+    create_onscreen();
     
     tv = video_init(app_shell);
     switch(bpp) {
@@ -1553,8 +1681,10 @@ int main(int argc, char *argv[])
     case VIDEO_RGB24: strcat(modename," x 24 bit"); break;
     case VIDEO_RGB32: strcat(modename," x 32 bit"); break;
     }
+#if 0
     strcat(modename," - using ");
     strcat(modename,grabbers[grabber]->name);
+#endif
     fprintf(stderr,"x11: %s\n",modename);
 
     XtRealizeWidget(app_shell);
@@ -1586,6 +1716,7 @@ int main(int argc, char *argv[])
     if (nomouse)
 	PointerAction(NULL,NULL,NULL,NULL);
 
+    strcpy(title,modename);
     set_timer_title();
     XtAppMainLoop(app_context);
 
