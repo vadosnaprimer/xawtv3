@@ -108,7 +108,7 @@ select_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
 }
 
 int
-popup_menu(Widget parent,char *title, struct STRTAB *entries)
+popup_menu(Widget parent, const char *title, struct STRTAB *entries)
 {
     Widget        menu,line;
     int           x,y,rx,ry,mask;

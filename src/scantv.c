@@ -53,7 +53,11 @@ char scratch[1024*256];
 static void
 grabber_init(void)
 {
-    ng_grabber_open(device,NULL,0,NULL);
+    drv = ng_grabber_open(device,NULL,0,&h_drv);
+    if (NULL == drv) {
+	fprintf(stderr,"no grabber device available\n");
+	exit(1);
+    }
     f_drv = drv->capabilities(h_drv);
     a_drv = drv->list_attrs(h_drv);
 }

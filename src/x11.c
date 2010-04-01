@@ -612,6 +612,7 @@ video_new_size()
     wy          = y; if (wy > 32768)          wy          -= 65536;
     wfmt.width  = w; if (wfmt.width > 32768)  wfmt.width  -= 65536;
     wfmt.height = h; if (wfmt.height > 32768) wfmt.height -= 65536;
+    wfmt.fmtid  = x11_native_format;
     if (debug > 1)
 	fprintf(stderr,"video: shell: size %dx%d+%d+%d\n",
 		wfmt.width,wfmt.height,wx,wy);
@@ -754,7 +755,6 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class)
     sheight = SCREEN(parent)->height;
 
     x11_native_format = x11_init(XtDisplay(parent),vinfo);
-    wfmt.fmtid = x11_native_format;
     video_parent = parent;
     video = XtVaCreateManagedWidget("tv",class,parent,
 				    NULL);

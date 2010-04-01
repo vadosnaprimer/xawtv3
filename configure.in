@@ -129,6 +129,8 @@ if test "$enable_xfree_ext" != "no"; then
 	AC_CHECK_LIB(Xext, DPMSQueryExtension,AC_DEFINE(HAVE_LIBXDPMS),,
 	    $X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
     fi
+    AC_CHECK_LIB(Xinerama, XineramaQueryExtension,,,
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
 else
     echo "*** XFree extentions disabled"
 fi

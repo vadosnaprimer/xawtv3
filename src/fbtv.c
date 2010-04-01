@@ -626,10 +626,8 @@ main(int argc, char *argv[])
 		fb_puts((fb_var.xres/8)-5,0,text);
 	    }
 	}
-	if (switch_last != fb_switch_state) {
+	if (switch_last != fb_switch_state)
 	    console_switch();
-	    continue;
-	}
 
 	t1 = time(NULL);
 	fps = 0;
@@ -639,7 +637,8 @@ main(int argc, char *argv[])
 	    FD_SET(0,&set);
 	    if (lirc != -1)
 		FD_SET(lirc,&set);
-	    if (cur_capture == CAPTURE_GRABDISPLAY) {
+	    if (cur_capture == CAPTURE_GRABDISPLAY &&
+		(fb_switch_state == FB_ACTIVE || keep_dma_on)) {
 		fps++;
 		ng_grabber_capture(&buf,0);
 		tv.tv_sec  = 0;
@@ -651,10 +650,8 @@ main(int argc, char *argv[])
 		rc = select(MAX(0,lirc)+1,&set,NULL,NULL,&tv);
 	    }
 	    err = errno;
-	    if (switch_last != fb_switch_state) {
+	    if (switch_last != fb_switch_state)
 		console_switch();
-		break;
-	    }
 	    if (-1 == rc  &&  EINTR == err)
 		continue;
 	    if (rc > 0)

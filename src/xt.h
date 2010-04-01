@@ -69,6 +69,7 @@ void set_property(int freq, char *channel, char *name);
 
 void x11_misc_init(void);
 void xfree_dga_init(void);
+void xfree_xinerama_init(void);
 void xfree_vm_init(void);
 void grabber_init(void);
 void x11_check_remote(void);

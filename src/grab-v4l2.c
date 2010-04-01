@@ -175,13 +175,15 @@ static const int io_count = (sizeof(io_names)/sizeof(char*));
 			io_names[cmd & 0xff] : "UNKNOWN")
 
 static int
-xioctl(int fd, int cmd, void *arg)
+xioctl(int fd, int cmd, void *arg, int mayfail)
 {
     int rc;
 
     rc = ioctl(fd,cmd,arg);
     if (0 == rc && debug < 2)
-	return 0;
+	return rc;
+    if (mayfail && errno == mayfail && debug < 2)
+	return rc;
     switch (cmd) {
     case VIDIOC_QUERYCAP:
     {
@@ -465,17 +467,17 @@ get_device_capabilities(struct v4l2_handle *h)
     
     for (h->ninputs = 0; h->ninputs < h->cap.inputs; h->ninputs++) {
 	h->inp[h->ninputs].index = h->ninputs;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs]))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs], 0))
 	    break;
     }
     for (h->nstds = 0; h->nstds < MAX_NORM; h->nstds++) {
 	h->std[h->nstds].index = h->nstds;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUMSTD, &h->std[h->nstds]))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMSTD, &h->std[h->nstds], EINVAL))
 	    break;
     }
     for (h->nfmts = 0; h->nfmts < MAX_FORMAT; h->nfmts++) {
 	h->fmt[h->nfmts].index = h->nfmts;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUM_PIXFMT, &h->fmt[h->nfmts]))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUM_PIXFMT, &h->fmt[h->nfmts], EINVAL))
 	    break;
     }
 
@@ -485,13 +487,13 @@ get_device_capabilities(struct v4l2_handle *h)
     /* controls */
     for (i = 0; i < MAX_CTRL; i++) {
 	h->ctl[i].id = V4L2_CID_BASE+i;
-	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i]) ||
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i], EINVAL) ||
 	    (h->ctl[i].flags & V4L2_CTRL_FLAG_DISABLED))
 	    h->ctl[i].id = -1;
     }
     for (i = 0; i < MAX_CTRL; i++) {
 	h->ctl[i+MAX_CTRL].id = V4L2_CID_PRIVATE_BASE+i;
-	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL]) ||
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL], EINVAL) ||
 	    (h->ctl[i+MAX_CTRL].flags & V4L2_CTRL_FLAG_DISABLED))
 	    h->ctl[i+MAX_CTRL].id = -1;
     }
@@ -589,7 +591,7 @@ v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
     for (i = ctl->minimum; i <= ctl->minimum; i++) {
 	item.id = ctl->id;
 	item.index = i;
-	if (-1 == xioctl(fd,VIDIOC_QUERYMENU,&item)) {
+	if (-1 == xioctl(fd, VIDIOC_QUERYMENU, &item, 0)) {
 	    free(menu);
 	    return NULL;
 	}
@@ -655,7 +657,7 @@ static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
 
     if (NULL != ctl) {
 	c.id = ctl->id;
-	xioctl(h->fd,VIDIOC_S_CTRL,&c);
+	xioctl(h->fd,VIDIOC_S_CTRL,&c,0);
 	if (ctl->type == V4L2_CTRL_TYPE_INTEGER) {
 	    value = v4l2_to_me(ctl,c.value);
 	} else {
@@ -666,7 +668,7 @@ static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
 	/* FIXME */
 	
     } else if (attr->id == ATTR_ID_INPUT) {
-	xioctl(h->fd,VIDIOC_G_INPUT,&value);
+	xioctl(h->fd,VIDIOC_G_INPUT,&value,0);
 
     }
     return value;
@@ -685,13 +687,13 @@ static void v4l2_write_attr(void *handle, struct ng_attribute *attr, int value)
 	} else {
 	    c.value = value;
 	}
-	xioctl(h->fd,VIDIOC_S_CTRL,&c);
+	xioctl(h->fd,VIDIOC_S_CTRL,&c,0);
 	
     } else if (attr->id == ATTR_ID_NORM) {
-	xioctl(h->fd,VIDIOC_S_STD,&h->std[value].std);
+	xioctl(h->fd,VIDIOC_S_STD,&h->std[value].std,0);
 	
     } else if (attr->id == ATTR_ID_INPUT) {
-	xioctl(h->fd,VIDIOC_S_INPUT,&value);
+	xioctl(h->fd,VIDIOC_S_INPUT,&value,0);
 	
     }
 }
@@ -788,7 +790,7 @@ v4l2_getfreq(void *handle)
     struct v4l2_handle *h = handle;
     unsigned long freq;
 
-    xioctl(h->fd, VIDIOC_G_FREQ, &freq);
+    xioctl(h->fd, VIDIOC_G_FREQ, &freq, 0);
     return freq;
 }
 
@@ -799,7 +801,7 @@ v4l2_setfreq(void *handle, unsigned long freq)
 
     if (debug)
 	fprintf(stderr,"v4l2: freq: %.3f\n",(float)freq/16);
-    xioctl(h->fd, VIDIOC_S_FREQ, &freq);
+    xioctl(h->fd, VIDIOC_S_FREQ, &freq, 0);
 }
 
 static int
@@ -809,7 +811,7 @@ v4l2_tuned(void *handle)
     struct v4l2_tuner tuner;
 
     usleep(10000);
-    if (-1 == xioctl(h->fd,VIDIOC_G_TUNER,&tuner))
+    if (-1 == xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0))
 	return 0;
     return tuner.signal ? 1 : 0;
 }
@@ -872,7 +874,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	    fprintf(stderr,"v4l2: overlay off\n");
 	h->ov_enabled = 0;
 	h->ov_on = 0;
-	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
 	return 0;
     }
 
@@ -923,11 +925,11 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->ov_win.chromakey  = 0;    /* FIXME */
     }
 #endif
-    xioctl(h->fd, VIDIOC_S_WIN, &h->ov_win);
+    xioctl(h->fd, VIDIOC_S_WIN, &h->ov_win, 0);
 
     h->ov_enabled = 1;
     h->ov_on = 1;
-    xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+    xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
 
     return 0;
 }
@@ -947,7 +949,7 @@ v4l2_queue_buffer(struct v4l2_handle *h)
 	return -1;
     }
 
-    rc = xioctl(h->fd,VIDIOC_QBUF,&h->buf_v4l2[frame]);
+    rc = xioctl(h->fd,VIDIOC_QBUF,&h->buf_v4l2[frame], 0);
     if (0 == rc)
 	h->queue++;
     return rc;
@@ -988,7 +990,7 @@ v4l2_waiton(struct v4l2_handle *h)
     /* get it */
     memset(&buf,0,sizeof(buf));
     buf.type = V4L2_BUF_TYPE_CAPTURE;
-    if (-1 == xioctl(h->fd,VIDIOC_DQBUF,&buf))
+    if (-1 == xioctl(h->fd,VIDIOC_DQBUF,&buf, 0))
 	return -1;
     h->waiton++;
     h->buf_v4l2[buf.index] = buf;
@@ -1004,7 +1006,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
     /* setup buffers */
     h->reqbufs.count = buffers;
     h->reqbufs.type  = V4L2_BUF_TYPE_CAPTURE;
-    if (-1 == xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs))
+    if (-1 == xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, 0))
 	return -1;
     for (i = 0; i < h->reqbufs.count; i++) {
 	h->buf_v4l2[i].index = i;
@@ -1031,13 +1033,14 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
     /* turn off preview (if needed) */
     if (disable_overlay) {
 	h->ov_on = 0;
-	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
 	if (debug)
 	    fprintf(stderr,"v4l2: overlay off (start_streaming)\n");
     }
 
     /* start capture */
-    if (-1 == xioctl(h->fd,VIDIOC_STREAMON,&h->fmt_v4l2.type)) {
+    if (-1 == xioctl(h->fd,VIDIOC_STREAMON,&h->fmt_v4l2.type,
+		     h->ov_on ? EBUSY : 0)) {
 	if (h->ov_on && errno == EBUSY) {
 	    disable_overlay = 1;
 	    goto try_again;
@@ -1067,7 +1070,7 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     /* turn on preview (if needed) */
     if (h->ov_on != h->ov_enabled) {
 	h->ov_on = h->ov_enabled;
-	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on);
+	xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
 	if (debug)
 	    fprintf(stderr,"v4l2: overlay on (stop_streaming)\n");
     }
@@ -1090,7 +1093,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     h->fmt_v4l2.fmt.pix.height       = fmt->height;
     h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
 
-    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2))
+    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, EINVAL))
 	return -1;
     if (h->fmt_v4l2.fmt.pix.pixelformat != xawtv_pixelformat[fmt->fmtid])
 	return -1;

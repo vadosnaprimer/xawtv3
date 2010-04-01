@@ -67,6 +67,7 @@ Description: Miscellaneous tools distributed with xawtv
   * showriff    - display the structure of RIFF files (avi, wav).
 
 Package: webcam
+Section: net
 Architecture: any
 Depends: ${shlibs:Depends},ftp
 Description: capture and upload images
@@ -75,6 +76,7 @@ Description: capture and upload images
  using ftp in a endless loop.
 
 Package: alevtd
+Section: net
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: http daemon for videotext pages

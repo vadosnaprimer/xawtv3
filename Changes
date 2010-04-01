@@ -1,4 +1,15 @@
 
+3.34 => 3.35
+============
+
+  * fixed segfault in scantv.
+  * don't list "normal" ioctl failures for v4l2 (i.e. the ones which are
+    do *not* indicate some error the user should care about).
+  * rewrote xawtv's attribute handling.
+  * made the -bpp switch work again.
+  * detect xinerama (not used yet).
+
+
 3.33 => 3.34
 ============
 

@@ -45,6 +45,9 @@
 /* Define if you have the Xdpms library (-lXdpms).  */
 #undef HAVE_LIBXDPMS
 
+/* Define if you have the Xinerama library (-lXinerama).  */
+#undef HAVE_LIBXINERAMA
+
 /* Define if you have the Xv library (-lXv).  */
 #undef HAVE_LIBXV
 

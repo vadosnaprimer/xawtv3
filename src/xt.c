@@ -31,6 +31,9 @@
 # include <X11/extensions/xf86vmode.h>
 # include <X11/extensions/xf86vmstr.h>
 #endif
+#ifdef HAVE_LIBXINERAMA
+# include <X11/extensions/Xinerama.h>
+#endif
 
 #include "grab-ng.h"
 #include "commands.h"
@@ -275,6 +278,29 @@ xfree_vm_init()
 		fprintf(stderr,"\n");
 	    }
 	}
+    }
+#endif
+}
+
+void
+xfree_xinerama_init(void)
+{
+#ifdef HAVE_LIBXINERAMA
+    XineramaScreenInfo *xinerama;
+    int nxinerama,foo,bar,i;
+    
+    if (XineramaQueryExtension(dpy,&foo,&bar) &&
+	XineramaIsActive(dpy)) {
+	xinerama = XineramaQueryScreens(dpy,&nxinerama);
+	for (i = 0; i < nxinerama; i++) {
+	    fprintf(stderr,"xinerama %d: %dx%d+%d+%d\n",
+		    xinerama[i].screen_number,
+		    xinerama[i].width,
+		    xinerama[i].height,
+		    xinerama[i].x_org,
+		    xinerama[i].y_org);
+	}
+	XFree(xinerama);
     }
 #endif
 }

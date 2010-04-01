@@ -96,10 +96,12 @@ static struct COMMANDS {
 
     { "setnorm",    1, attr_handler       },
     { "setinput",   1, attr_handler       },
+    { "setattr",    1, attr_handler       },
     { "color",      0, attr_handler       },
     { "hue",        0, attr_handler       },
     { "bright",     0, attr_handler       },
     { "contrast",   0, attr_handler       },
+
     { "mute",       0, volume_handler     },
     { "volume",     0, volume_handler     },
     { "attr",       0, dattr_handler      },
@@ -681,34 +683,42 @@ static int volume_handler(char *name, int argc, char **argv)
 static int attr_handler(char *name, int argc, char **argv)
 {
     struct ng_attribute *attr;
-    int val;
+    int val,arg=0;
 
     if (0 == strcasecmp(name,"setnorm")) {
 	attr = ng_attr_byname(a_drv,"norm");
-	if (argc > 0) {
-	    val = ng_attr_getint(attr, argv[0]);
-	    set_attr(attr,val);
-	}
-	return 0;
-    }
 
-    if (0 == strcasecmp(name,"setinput")) {
+    } else if (0 == strcasecmp(name,"setinput")) {
 	attr = ng_attr_byname(a_drv,"input");
-	if (argc > 0) {
-	    val = ng_attr_getint(attr, argv[0]);
-	    set_attr(attr,val);
-	}
-	return 0;
+
+    } else if (0 == strcasecmp(name,"setattr") &&
+	       argc > 0) {
+	attr = ng_attr_byname(a_drv,argv[arg++]);
+
+    } else {
+	attr = ng_attr_byname(a_drv,name);
     }
 
-    attr = ng_attr_byname(a_drv,name);
-    if (NULL == attr)
+    if (NULL == attr) {
+	/* TODO: print error */
 	return -1;
-    if (argc > 0) {
-	val = update_int(cur_attrs[attr->id],argv[0]);
-	set_attr(attr,val);
     }
-    set_msg_int(name,cur_attrs[attr->id]);
+
+    switch (attr->type) {
+    case ATTR_TYPE_CHOICE:
+	if (argc > arg) {
+	    val = ng_attr_getint(attr, argv[arg]);
+	    set_attr(attr,val);
+	}
+	break;
+    case ATTR_TYPE_INTEGER:
+	if (argc > arg) {
+	    val = update_int(cur_attrs[attr->id],argv[arg]);
+	    set_attr(attr,val);
+	}
+	set_msg_int(attr->name,cur_attrs[attr->id]);
+	break;
+    }
     return 0;
 }
 

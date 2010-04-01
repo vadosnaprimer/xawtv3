@@ -95,9 +95,6 @@ Status DPMSDisable(Display*);
 #define LABEL_WIDTH         "16"
 #define VIDMODE_DELAY        100   /* 0.1 sec */
 
-/* what we are using for floating point X resources */
-typedef float fp_res;
-
 /*--- public variables ----------------------------------------------------*/
 
 Widget            opt_shell, opt_paned, chan_shell, conf_shell, str_shell;
@@ -173,6 +170,13 @@ static struct STRTAB m_movie_rate[] = {
     {  48000, "48000" },
     { -1, NULL },
 };
+
+struct xaw_attribute {
+    struct ng_attribute   *attr;
+    Widget                cmd,scroll;
+    struct xaw_attribute  *next;
+};
+static struct xaw_attribute *xaw_attrs;
 
 #define MOVIE_DRIVER  "movie driver"
 #define MOVIE_AUDIO   "audio format"
@@ -835,11 +839,11 @@ tv_expose_event(Widget widget, XtPointer client_data,
 /*------------------------------------------------------------------------*/
 
 /* the RightWay[tm] to set float resources (copyed from Xaw specs) */
-void set_float(Widget widget, char *name, fp_res value)
+void set_float(Widget widget, char *name, float value)
 {
     Arg   args[1];
 
-    if (sizeof(fp_res) > sizeof(XtArgVal)) {
+    if (sizeof(float) > sizeof(XtArgVal)) {
 	/*
 	 * If a float is larger than an XtArgVal then pass this 
 	 * resource value by reference.
@@ -855,7 +859,7 @@ void set_float(Widget widget, char *name, fp_res value)
 	 */
 	union {
 	    XtArgVal xt;
-	    fp_res   fp;
+	    float   fp;
 	} foo;
 	foo.fp = value;
 	XtSetArg(args[0], name, foo.xt);
@@ -911,14 +915,39 @@ static void
 new_volume(void)
 {
     if (s_volume)
-	set_float(s_volume,XtNtopOfThumb,(fp_res)cur_volume/65536);
+	set_float(s_volume,XtNtopOfThumb,(float)cur_volume/65536);
 }
 
 static void
 new_attr(struct ng_attribute *attr, int val)
 {
-    char label[64];
+    struct xaw_attribute *a;
+    char label[64],*olabel;
+    const char *valstr;
 
+    for (a = xaw_attrs; NULL != a; a = a->next) {
+	if (a->attr->id == attr->id)
+	    break;
+    }
+    if (NULL != a) {
+	switch (attr->type) {
+	case ATTR_TYPE_CHOICE:
+	    XtVaGetValues(a->cmd,XtNlabel,&olabel,NULL);
+	    valstr = ng_attr_getstr(attr,val);
+	    sprintf(label,"%-" LABEL_WIDTH "." LABEL_WIDTH "s: %s",
+		    olabel,valstr ? valstr : "unknown");
+	    XtVaSetValues(a->cmd,XtNlabel,label,NULL);
+	    break;
+	case ATTR_TYPE_INTEGER:
+	    set_float(a->scroll,XtNtopOfThumb,(float)val/65536);
+	    break;
+	}
+	if (ATTR_ID_NORM == attr->id  &&  win_width > 0)
+	    grabdisplay_setsize(win_width,win_height);
+	return;
+    }
+
+#if 0
     switch (attr->id) {
     case ATTR_ID_NORM:
 	if (c_norm) {
@@ -938,24 +967,25 @@ new_attr(struct ng_attribute *attr, int val)
 	break;
     case ATTR_ID_COLOR:
 	if (s_color)
-	    set_float(s_color,XtNtopOfThumb,(fp_res)val/65536);
+	    set_float(s_color,XtNtopOfThumb,(float)val/65536);
 	break;
     case ATTR_ID_BRIGHT:
 	if (s_bright)
-	    set_float(s_bright,XtNtopOfThumb,(fp_res)val/65536);
+	    set_float(s_bright,XtNtopOfThumb,(float)val/65536);
 	break;
     case ATTR_ID_HUE:
 	if (s_hue)
-	    set_float(s_hue,XtNtopOfThumb,(fp_res)val/65536);
+	    set_float(s_hue,XtNtopOfThumb,(float)val/65536);
 	break;
     case ATTR_ID_CONTRAST:
 	if (s_contrast)
-	    set_float(s_contrast,XtNtopOfThumb,(fp_res)val/65536);
+	    set_float(s_contrast,XtNtopOfThumb,(float)val/65536);
 	break;
     default:
 	/* nothing */
 	break;
     }
+#endif
 }
 
 static void
@@ -1638,6 +1668,7 @@ void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     int   j;
 
     switch (cd) {
+#if 0
     case 10:
 	attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
 	if (-1 != (j=popup_menu(widget,"TV Norm",attr->choices)))
@@ -1648,6 +1679,7 @@ void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	if (-1 != (j=popup_menu(widget,"Video Source",attr->choices)))
 	    do_va_cmd(2,"setinput",ng_attr_getstr(attr,j));
 	break;
+#endif
     case 12:
 	if (-1 != (j=popup_menu(widget,"Freq table",chanlist_names)))
 	    do_va_cmd(2,"setfreqtab",chanlist_names[j].str);
@@ -1718,25 +1750,30 @@ void menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
 void jump_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
-    char *name,val[16];
+    struct xaw_attribute *a = clientdata;
+    const char *name;
+    char val[16];
     int  value;
 
-    name  = XtName(XtParent(widget));
-    value = (int)(*(fp_res*)call_data * 65535);
+    value = (int)(*(float*)call_data * 65535);
     if (value > 65535) value = 65535;
     if (value < 0)     value = 0;
-#if 0
-    fprintf(stderr,"jump to %f (%s/%d)\n",*(fp_res*)call_data,name,value);
-#endif
     sprintf(val,"%d",value);
-    do_va_cmd(2,name,val);
+
+    if (a) {
+	name = a->attr->name;
+	do_va_cmd(3,"setattr",name,val);
+    } else {
+	name  = XtName(XtParent(widget));
+	do_va_cmd(2,name,val);
+    }
 }
 
 void scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     long      move = (long)call_data;
     Dimension length;
-    fp_res    shown,top1,top2;
+    float    shown,top1,top2;
 
     XtVaGetValues(widget,
 		  XtNlength,     &length,
@@ -1744,7 +1781,7 @@ void scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
 		  XtNtopOfThumb, &top1,
 		  NULL);
 
-    top2 = top1 + (fp_res)move/length/5;
+    top2 = top1 + (float)move/length/5;
     if (top2 < 0) top2 = 0;
     if (top2 > 1) top2 = 1;
 #if 0
@@ -1754,8 +1791,61 @@ void scroll_scb(Widget widget, XtPointer clientdata, XtPointer call_data)
     jump_scb(widget,clientdata,&top2);
 }
 
+static void
+attr_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    struct xaw_attribute *a = clientdata;
+    int j;
+
+    switch (a->attr->type) {
+    case ATTR_TYPE_CHOICE:
+	j=popup_menu(widget,a->attr->name,a->attr->choices);
+	if (-1 != j)
+	    do_va_cmd(3,"setattr",a->attr->name,ng_attr_getstr(a->attr,j));
+	break;
+    }
+}
+
+static void
+add_attr_option(Widget paned, struct ng_attribute *attr)
+{
+    struct xaw_attribute *a;
+    Widget p,l;
+
+    a = malloc(sizeof(*a));
+    memset(a,0,sizeof(*a));
+    a->attr = attr;
+    
+    switch (attr->type) {
+    case ATTR_TYPE_CHOICE:
+	a->cmd = XtVaCreateManagedWidget(attr->name,
+					 commandWidgetClass, paned,
+					 PANED_FIX,
+					 NULL);
+	XtAddCallback(a->cmd,XtNcallback,attr_cb,a);
+	break;
+    case ATTR_TYPE_INTEGER:
+	p = XtVaCreateManagedWidget(attr->name,
+				    panedWidgetClass, paned,
+				    XtNorientation, XtEvertical,
+				    PANED_FIX,
+				    NULL);
+	l = XtVaCreateManagedWidget("l",labelWidgetClass, p,
+				    XtNshowGrip, False,
+				    NULL);
+	a->scroll = XtVaCreateManagedWidget("s",scrollbarWidgetClass,p,
+					    PANED_FIX,
+					    NULL);
+	XtAddCallback(a->scroll, XtNjumpProc,   jump_scb,   a);
+	XtAddCallback(a->scroll, XtNscrollProc, scroll_scb, a);
+    }
+    a->next = xaw_attrs;
+    xaw_attrs = a;
+}
+
 void create_optwin(void)
 {
+    struct ng_attribute *attr;
     Widget c,p,l;
 
     opt_shell = XtVaAppCreateShell("Options", "Xawtv",
@@ -1806,14 +1896,12 @@ void create_optwin(void)
 	XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_top);
     }
     
-    
-    c_norm = XtVaCreateManagedWidget("norm", commandWidgetClass, opt_paned,
-				     PANED_FIX, NULL);
-    XtAddCallback(c_norm,XtNcallback,menu_cb,(XtPointer)10);
-    
-    c_input = XtVaCreateManagedWidget("input", commandWidgetClass, opt_paned,
-				      PANED_FIX, NULL);
-    XtAddCallback(c_input,XtNcallback,menu_cb,(XtPointer)11);
+    attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
+    attr = ng_attr_byid(a_drv,ATTR_ID_INPUT);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
 
     if (f_drv & CAN_TUNE) {
 	c_freq = XtVaCreateManagedWidget("freq", commandWidgetClass, opt_paned,
@@ -1830,57 +1918,18 @@ void create_optwin(void)
 				    PANED_FIX, NULL);
     XtAddCallback(c_cap,XtNcallback,menu_cb,(XtPointer)14);
     
-    if (NULL != ng_attr_byid(a_drv,ATTR_ID_BRIGHT)) {
-	p = XtVaCreateManagedWidget("bright", panedWidgetClass, opt_paned,
-				    XtNorientation, XtEvertical,
-				    PANED_FIX, NULL);
-	l = XtVaCreateManagedWidget("l", labelWidgetClass, p,
-				    XtNshowGrip, False,
-				    NULL);
-	s_bright = XtVaCreateManagedWidget("s", scrollbarWidgetClass, p,
-					   PANED_FIX, NULL);
-	XtAddCallback(s_bright,XtNjumpProc,  jump_scb,  NULL);
-	XtAddCallback(s_bright,XtNscrollProc,scroll_scb,NULL);
-    }
-    
-    if (NULL != ng_attr_byid(a_drv,ATTR_ID_HUE)) {
-	p = XtVaCreateManagedWidget("hue", panedWidgetClass, opt_paned,
-				    XtNorientation, XtEvertical,
-				    PANED_FIX, NULL);
-	l = XtVaCreateManagedWidget("l", labelWidgetClass, p,
-				    XtNshowGrip, False,
-				    NULL);
-	s_hue = XtVaCreateManagedWidget("s", scrollbarWidgetClass, p,
-					PANED_FIX, NULL);
-	XtAddCallback(s_hue,XtNjumpProc,  jump_scb,  NULL);
-	XtAddCallback(s_hue,XtNscrollProc,scroll_scb,NULL);
-    }
-    
-    if (NULL != ng_attr_byid(a_drv,ATTR_ID_CONTRAST)) {
-	p = XtVaCreateManagedWidget("contrast", panedWidgetClass, opt_paned,
-				    XtNorientation, XtEvertical,
-				    PANED_FIX, NULL);
-	l = XtVaCreateManagedWidget("l", labelWidgetClass, p,
-				    XtNshowGrip, False,
-				    NULL);
-	s_contrast = XtVaCreateManagedWidget("s", scrollbarWidgetClass, p,
-					     PANED_FIX, NULL);
-	XtAddCallback(s_contrast,XtNjumpProc,  jump_scb,  NULL);
-	XtAddCallback(s_contrast,XtNscrollProc,scroll_scb,NULL);
-    }
-    
-    if (NULL != ng_attr_byid(a_drv,ATTR_ID_COLOR)) {
-	p = XtVaCreateManagedWidget("color", panedWidgetClass, opt_paned,
-				    XtNorientation, XtEvertical,
-				    PANED_FIX, NULL);
-	l = XtVaCreateManagedWidget("l", labelWidgetClass, p,
-				    XtNshowGrip, False,
-				    NULL);
-	s_color = XtVaCreateManagedWidget("s", scrollbarWidgetClass, p,
-					  PANED_FIX, NULL);
-	XtAddCallback(s_color,XtNjumpProc,  jump_scb,  NULL);
-	XtAddCallback(s_color,XtNscrollProc,scroll_scb,NULL);
-    }
+    attr = ng_attr_byid(a_drv,ATTR_ID_BRIGHT);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
+    attr = ng_attr_byid(a_drv,ATTR_ID_HUE);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
+    attr = ng_attr_byid(a_drv,ATTR_ID_CONTRAST);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
+    attr = ng_attr_byid(a_drv,ATTR_ID_COLOR);
+    if (NULL != attr)
+	add_attr_option(opt_paned,attr);
     
     if (have_mixer ||
 	NULL != ng_attr_byid(a_drv,ATTR_ID_VOLUME)) {
@@ -2456,6 +2505,9 @@ main(int argc, char *argv[])
     if (debug)
 	fprintf(stderr,"main: dga extention...\n");
     xfree_dga_init();
+    if (debug)
+	fprintf(stderr,"main: xinerama extention...\n");
+    xfree_xinerama_init();
     if (debug)
 	fprintf(stderr,"main: xvideo extention...\n");
     xv_init(args.xv_video,args.xv_scale,args.xv_port);
