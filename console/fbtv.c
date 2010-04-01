@@ -82,80 +82,80 @@ int x11_native_format,have_dga=1,debug;
 
 struct event_entry kbd_events[] = {
     {
-	event:  "kbd-key-+",
-	action: "volume inc",
+	.event  = "kbd-key-+",
+	.action = "volume inc",
     },{
-	event:  "kbd-key--",
-	action: "volume dec",
+	.event  = "kbd-key--",
+	.action = "volume dec",
     },{
-	event:  "kbd-key-enter",
-	action: "volume mute",
+	.event  = "kbd-key-enter",
+	.action = "volume mute",
     },{
-	event:  "kbd-key-space",
-	action: "setstation next",
+	.event  = "kbd-key-space",
+	.action = "setstation next",
     },{
-	event:  "kbd-key-backspace",
-	action: "setstation back",
+	.event  = "kbd-key-backspace",
+	.action = "setstation back",
     },{
-	event:  "kbd-key-pgup",
-	action: "setstation prev",
+	.event  = "kbd-key-pgup",
+	.action = "setstation next",
     },{
-	event:  "kbd-key-pgdown",
-	action: "setstation next",
+	.event  = "kbd-key-pgdown",
+	.action = "setstation prev",
     },{
-	event:  "kbd-key-right",
-	action: "setchannel fine_up",
+	.event  = "kbd-key-right",
+	.action = "setchannel fine_up",
     },{
-	event:  "kbd-key-left",
-	action: "setchannel fine_down",
+	.event  = "kbd-key-left",
+	.action = "setchannel fine_down",
     },{
-	event:  "kbd-key-up",
-	action: "setchannel next",
+	.event  = "kbd-key-up",
+	.action = "setchannel next",
     },{
-	event:  "kbd-key-down",
-	action: "setchannel prev",
+	.event  = "kbd-key-down",
+	.action = "setchannel prev",
     },{
-	event:  "kbd-key-g",
-	action: "snap ppm",
+	.event  = "kbd-key-g",
+	.action = "snap ppm",
     },{
-	event:  "kbd-key-j",
-	action: "snap jpeg",
+	.event  = "kbd-key-j",
+	.action = "snap jpeg",
     },{
-	event:  "kbd-key-v",
-	action: "capture toggle",
+	.event  = "kbd-key-v",
+	.action = "capture toggle",
     },{
-	event:  "kbd-key-f",
-	action: "fullscreen toggle",
+	.event  = "kbd-key-f",
+	.action = "fullscreen toggle",
     },{
-	event:  "kbd-key-0",
-	action: "keypad 0",
+	.event  = "kbd-key-0",
+	.action = "keypad 0",
     },{
-	event:  "kbd-key-1",
-	action: "keypad 1",
+	.event  = "kbd-key-1",
+	.action = "keypad 1",
     },{
-	event:  "kbd-key-2",
-	action: "keypad 2",
+	.event  = "kbd-key-2",
+	.action = "keypad 2",
     },{
-	event:  "kbd-key-3",
-	action: "keypad 3",
+	.event  = "kbd-key-3",
+	.action = "keypad 3",
     },{
-	event:  "kbd-key-4",
-	action: "keypad 4",
+	.event  = "kbd-key-4",
+	.action = "keypad 4",
     },{
-	event:  "kbd-key-5",
-	action: "keypad 5",
+	.event  = "kbd-key-5",
+	.action = "keypad 5",
     },{
-	event:  "kbd-key-6",
-	action: "keypad 6",
+	.event  = "kbd-key-6",
+	.action = "keypad 6",
     },{
-	event:  "kbd-key-7",
-	action: "keypad 7",
+	.event  = "kbd-key-7",
+	.action = "keypad 7",
     },{
-	event:  "kbd-key-8",
-	action: "keypad 8",
+	.event  = "kbd-key-8",
+	.action = "keypad 8",
     },{
-	event:  "kbd-key-9",
-	action: "keypad 9",
+	.event  = "kbd-key-9",
+	.action = "keypad 9",
     },{
 
 	/* end of list */

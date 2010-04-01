@@ -194,7 +194,7 @@ AC_SUBST(LIBZVBI)
 LIBZVBI=""
 if test "$enable_zvbi" != "no"; then
     AC_CHECK_LIB(zvbi, vbi_capture_fd,
-        AC_DEFINE(HAVE_ZVBI,1,"have zvbi") FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread -lm -lpng -lz",,)
+        AC_DEFINE(HAVE_ZVBI,1,"have zvbi") FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread -lm -lpng -lz",,$LIBPTHREAD)
 else
     echo "*** zvbi disabled"
 fi
@@ -217,7 +217,8 @@ AC_SUBST(LIBDV)
 LIBDV=""
 if test "$enable_dv" != "no"; then
     AC_CHECK_LIB(dv, dv_decoder_new,
-        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv -lm",,-lm)
+        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv -lm",,
+		-lm $LIBPTHREAD)
 else
     echo "*** DV disabled"
 fi
@@ -226,13 +227,13 @@ dashlglib=$(glib-config --libs 2>/dev/null)
 if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(quicktime, lqt_query_registry,
 	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME,1,"have libquicktime"),,
-	-ldl $dashlglib $LIBPTHREAD)
+	$DLFLAGS $dashlglib $LIBPTHREAD)
 else
     echo "*** quicktime disabled"
 fi
 QTLIBS=""
 if test "$FOUND_LQT" = "yes"; then
-    QTLIBS="-lquicktime -ldl $dashlglib -lm" 
+    QTLIBS="-lquicktime $DLFLAGS $dashlglib -lm" 
 fi
 AC_SUBST(QTLIBS)
 
