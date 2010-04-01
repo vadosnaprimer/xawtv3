@@ -1,0 +1,123 @@
+#
+#    Translators, if you are not familiar with the PO format, gettext
+#    documentation is worth reading, especially sections dedicated to
+#    this format, e.g. by running:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#
+#    Some information specific to po-debconf are available at
+#            /usr/share/doc/po-debconf/README-trans
+#         or http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+#    Developers do not need to manually edit POT or PO files.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2003-10-07 13:31+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Description
+#: ../xawtv.templates:4
+msgid "Create video4linux (/dev/video*) special files?"
+msgstr "Opret video4linux (/dev/video*) specielle filer?"
+
+#. Description
+#: ../xawtv.templates:9
+msgid "scan for TV stations?"
+msgstr "Skan efter TV stationer?"
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"I can do a scan of all channels and put a list of the TV stations I've found "
+"into the config file."
+msgstr ""
+"Jeg kan lave en skanning efter alle kanaler og putte dem i en liste af de TV "
+"stationer jeg har fundet, ind i en konfigurations fil."
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"This requires a working bttv driver.  If bttv isn't configured correctly I "
+"might not find the TV stations."
+msgstr ""
+"Dette kræver en virkende bttv driver.  Hvis bttv ikke er korrekt "
+"konfigureret, vil du måske ikke finde TV stationerne."
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"I'll try to pick up the channel names from videotext. This will work with "
+"PAL only."
+msgstr ""
+"Jeg vil prøve at finde kanal navne fra videotext. Dette vil kun virke med "
+"PAL."
+
+#. Choices
+#: ../xawtv.templates:21
+msgid "PAL, SECAM, NTSC"
+msgstr "PAL, SECAM, NTSC"
+
+#. Description
+#: ../xawtv.templates:22
+msgid "Which TV norm is used in your country?"
+msgstr "Hvilken TV norm er brugt i dit land?"
+
+#. Description
+#: ../xawtv.templates:27
+msgid "Create a default configuration for xawtv?"
+msgstr "Opret en standard konfigurations fil til xawtv?"
+
+#. Description
+#: ../xawtv.templates:27
+msgid ""
+"You can create a system-wide configuration file for xawtv with reasonable "
+"default values for the country you live in (which TV norm is used for "
+"example)."
+msgstr ""
+"Du kan oprette en system-bred konfigurations fil til xawtv med fornuftige "
+"standard værdier for landet du lever i (f.eks. hvilken TV norm der bliver "
+"brugt i dit land)."
+
+#. Description
+#: ../xawtv.templates:27
+msgid ""
+"It is not required to have a global configuration file, but it will be more "
+"comfortable for your users if they find a working default configuration."
+msgstr ""
+"Det er ikke krævet at have en global konfigurations fil, men det vil gøre "
+"det mere behageligt for dine brugere, hvis de finder en standard virkende "
+"konfiguration."
+
+#. Choices
+#: ../xawtv.templates:38
+msgid ""
+"us-bcast, us-cable, us-cable-hrc, japan-bcast, japan-cable, europe-west, "
+"europe-east, italy, newzealand, australia, ireland, france, china-bcast"
+msgstr ""
+"us-bcast, us-cable, us-cable-hrc, japan-bcast, japan-cable, europe-west, "
+"europe-east, italy, newzealand, australia, ireland, france, china-bcast"
+
+#. Description
+#: ../xawtv.templates:39
+msgid "Which frequency table should be used?"
+msgstr "Hvilken frekvens tabel skal bruges?"
+
+#. Description
+#: ../xawtv.templates:39
+msgid ""
+"A frequency table is just a list of TV channel names/numbers and the "
+"corresponding broadcast frequencies for these channels.  Different regions "
+"use different standards here..."
+msgstr ""
+"En frekvens tabel er bare en liste af kanal navne/tal og de tilsvarende "
+"frekvenser for disse kanaler. Forskellige regioner bruger forskellige "
+"standarder her..."

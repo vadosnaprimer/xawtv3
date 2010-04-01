@@ -943,6 +943,7 @@ void blit_putframe(struct blit_state *st, struct ng_video_buf *buf)
     case STATUS_BROKEN:
 	if (debug > 1)
 	    fprintf(stderr,"blit: putframe: oops: status = %d\n",st->status);
+	ng_release_video_buf(buf);
 	break;
     }
 }

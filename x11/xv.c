@@ -432,10 +432,12 @@ void xv_video_init(unsigned int port, int hwscan)
 	}
 
 	if (handle->xv_encoding != None) {
-	    xv_add_attr(handle, ATTR_ID_NORM, ATTR_TYPE_CHOICE,
-			0, norms, NULL);
-	    xv_add_attr(handle, ATTR_ID_INPUT, ATTR_TYPE_CHOICE,
-			0, inputs, NULL);
+	    if (norms)
+		xv_add_attr(handle, ATTR_ID_NORM, ATTR_TYPE_CHOICE,
+			    0, norms, NULL);
+	    if (inputs)
+		xv_add_attr(handle, ATTR_ID_INPUT, ATTR_TYPE_CHOICE,
+			    0, inputs, NULL);
 	}
 #if 0
 	if (xv_colorkey != None) {

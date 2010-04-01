@@ -1,0 +1,125 @@
+#
+#    Translators, if you are not familiar with the PO format, gettext
+#    documentation is worth reading, especially sections dedicated to
+#    this format, e.g. by running:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#
+#    Some information specific to po-debconf are available at
+#            /usr/share/doc/po-debconf/README-trans
+#         or http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+#    Developers do not need to manually edit POT or PO files.
+#
+# Carlos Valdivia Yagüe <valyag@dat.etsit.upm.es>, 2003
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: xawtv 3.88.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2003-10-07 13:31+0200\n"
+"PO-Revision-Date: 2003-10-12 13:50+0200\n"
+"Last-Translator: Carlos Valdivia Yagüe <valyag@dat.etsit.upm.es>\n"
+"Language-Team: Debian L10n Spanish <debian-l10n-spanish@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-15\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Description
+#: ../xawtv.templates:4
+msgid "Create video4linux (/dev/video*) special files?"
+msgstr "¿Crear los ficheros especiales video4linux (/dev/video*)?"
+
+#. Description
+#: ../xawtv.templates:9
+msgid "scan for TV stations?"
+msgstr "¿Buscar cadenas de televisión?"
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"I can do a scan of all channels and put a list of the TV stations I've found "
+"into the config file."
+msgstr ""
+"Puedo realizar una búsqueda de todos los canales y poner una lista de las "
+"cadenas de televisión encontradas en el fichero de configuración."
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"This requires a working bttv driver.  If bttv isn't configured correctly I "
+"might not find the TV stations."
+msgstr ""
+"Esto requiere un controlador bttv que funcione. Si bttv no se encuentra "
+"configurado correctamente puede que no encuentre las cadenas de televisión."
+
+#. Description
+#: ../xawtv.templates:9
+msgid ""
+"I'll try to pick up the channel names from videotext. This will work with "
+"PAL only."
+msgstr ""
+"Trataré de obtener los nombres de los canales del teletexto. Esto sólo "
+"funcionará con PAL."
+
+#. Choices
+#: ../xawtv.templates:21
+msgid "PAL, SECAM, NTSC"
+msgstr "PAL, SECAM, NTSC"
+
+#. Description
+#: ../xawtv.templates:22
+msgid "Which TV norm is used in your country?"
+msgstr "¿Qué sistema de televisión se usa en su país?"
+
+#. Description
+#: ../xawtv.templates:27
+msgid "Create a default configuration for xawtv?"
+msgstr "¿Crear una configuración predeterminada para xawtv?"
+
+#. Description
+#: ../xawtv.templates:27
+msgid ""
+"You can create a system-wide configuration file for xawtv with reasonable "
+"default values for the country you live in (which TV norm is used for "
+"example)."
+msgstr ""
+"Puede crear un fichero de configuración global de xawtv con valores "
+"razonables para el país en el que vive (como, por ejemplo, el sistema de "
+"televisión que se emplea)."
+
+#. Description
+#: ../xawtv.templates:27
+msgid ""
+"It is not required to have a global configuration file, but it will be more "
+"comfortable for your users if they find a working default configuration."
+msgstr ""
+"No es obligatorio tener un fichero de configuración global, pero será más "
+"cómodo para sus usuarios encontrarse una configuración por defecto que "
+"funciona."
+
+#. Choices
+#: ../xawtv.templates:38
+msgid ""
+"us-bcast, us-cable, us-cable-hrc, japan-bcast, japan-cable, europe-west, "
+"europe-east, italy, newzealand, australia, ireland, france, china-bcast"
+msgstr ""
+"EEUU-bcast, EEUU-cable, EEUU-cable-hrc, Japón-bcast, Japón-cable, Europa "
+"Occidental, Europa Oriental, Italia, Nueva Zelanda, Australia, Irlanda, "
+"Francia, China-bcast"
+
+#. Description
+#: ../xawtv.templates:39
+msgid "Which frequency table should be used?"
+msgstr "¿Qué tabla de frecuencias se debería usar?"
+
+#. Description
+#: ../xawtv.templates:39
+msgid ""
+"A frequency table is just a list of TV channel names/numbers and the "
+"corresponding broadcast frequencies for these channels.  Different regions "
+"use different standards here..."
+msgstr ""
+"Una tabla de frecuencias es sólo una lista de nombres/números de canales de "
+"televisión y sus correspondientes frecuencias de emisión. En diferentes "
+"regiones se utilizan diferentes estándares..."

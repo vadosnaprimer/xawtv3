@@ -1459,7 +1459,7 @@ x11_check_remote()
 	fprintf(stderr,"*");
 
     /* catch unix sockets on FreeBSD */
-    if (0 == length) {
+    if (0 == length || ss.ss_family == AF_UNIX) {
 	if (debug)
 	    fprintf(stderr, " ok (unix socket)\n");
 	return;

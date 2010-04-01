@@ -1,4 +1,11 @@
 
+3.90
+====
+
+ * bugfix release (was intented to be 3.88.2, but a debian NMU f*cked
+   up my version numbering ...).
+
+ 
 3.87 => 3.88
 ============
 

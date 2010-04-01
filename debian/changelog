@@ -1,3 +1,20 @@
+xawtv (3.90) unstable; urgency=low
+
+  * bugfix release (closes: #204990).
+  * added spanish template file (closes: #215652).
+  * fix webcam description (closes: #216061).
+  * fix build dependencies (closes: #216164).
+  * rebuild with new libquicktime likely closes: #193712.
+
+ -- Gerd Knorr <kraxel@debian.org>  Fri, 17 Oct 2003 12:55:22 +0200
+
+xawtv (3.88.1) unstable; urgency=low
+
+  * bugfix release (closes: #214120).
+  * updated debconf (closes: #198780, #199982).
+
+ -- Gerd Knorr <kraxel@debian.org>  Tue,  7 Oct 2003 17:26:57 +0200
+
 xawtv (3.88) unstable; urgency=low
 
   * new release.

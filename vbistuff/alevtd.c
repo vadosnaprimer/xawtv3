@@ -289,6 +289,12 @@ xerror(int loglevel, char *txt, char *peerhost)
     }	
 }
 
+static void
+dummy_handler(vbi_event *ev, void *unused)
+{
+    return;
+}
+
 /* ---------------------------------------------------------------------- */
 /* main loop                                                              */
 
@@ -584,7 +590,7 @@ main(int argc, char *argv[])
             canonicalhost = 1;
             /* fall through */
 	case 'n':
-	    strcpy(server_host,optarg);
+	    strncpy(server_host,optarg,sizeof(server_host)-1);
 	    break;
 	case 'i':
 	    listen_ip = optarg;
@@ -628,6 +634,8 @@ main(int argc, char *argv[])
     }
     if (debug)
 	vbi_event_handler_add(vbi->dec,~0,vbi_dump_event,vbi);
+    else
+	vbi_event_handler_add(vbi->dec,~0,dummy_handler,vbi);
 
     /* bind to socket */
     slisten = -1;
