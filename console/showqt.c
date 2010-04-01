@@ -11,6 +11,11 @@
 #include <inttypes.h>
 #include <time.h>
 
+#ifndef PRId64
+# define PRId64 "lld"
+# define PRIx64 "llx"
+#endif
+
 #if BYTE_ORDER == LITTLE_ENDIAN
 # define SWAP2(x) (((x>>8) & 0x00ff) |\
                    ((x<<8) & 0xff00))
@@ -568,7 +573,7 @@ static int handle_classic_atom(int fh, off_t pos, off_t size, int depth)
 	off   = 8;
     }
     printf("0x%08" PRIx64 " 0x%08" PRIx64 " %*s%s\n",
-	   pos,asize,depth,"",strfcc(a.type));
+	   (int64_t)pos,(int64_t)asize,depth,"",strfcc(a.type));
     switch (a.type) {
     case a_dinf:
     case a_edts:

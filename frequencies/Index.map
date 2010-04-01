@@ -49,3 +49,5 @@ file = ntsc-cable-ca.list
 [australia-optus]
 file = pal-australia-optus.list
 
+[russia]
+file = secam-russia.list

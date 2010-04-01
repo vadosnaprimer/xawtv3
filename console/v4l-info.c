@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <ctype.h>
 
+#include <sys/time.h>
 #include <sys/ioctl.h>
 
 #include "videodev.h"
@@ -35,7 +36,7 @@ static int dump_v4l(int fd, int tab)
 	if (-1 == ioctl(fd,VIDIOCGCAP,&capability))
 		return -1;
 	printf("    VIDIOCGCAP\n");
-	print_struct(stderr,desc_video_capability,&capability,"",tab);
+	print_struct(stdout,desc_video_capability,&capability,"",tab);
 	printf("\n");
 
 	printf("channels\n");
@@ -47,7 +48,7 @@ static int dump_v4l(int fd, int tab)
 			continue;
 		}
 		printf("    VIDIOCGCHAN(%d)\n",i);
-		print_struct(stderr,desc_video_channel,&channel,"",tab);
+		print_struct(stdout,desc_video_channel,&channel,"",tab);
 	}
 	printf("\n");
 
@@ -57,7 +58,7 @@ static int dump_v4l(int fd, int tab)
 		perror("ioctl VIDIOCGTUNER");
 	} else {
 		printf("    VIDIOCGTUNER\n");
-		print_struct(stderr,desc_video_tuner,&tuner,"",tab);
+		print_struct(stdout,desc_video_tuner,&tuner,"",tab);
 	}
 	printf("\n");
 
@@ -67,7 +68,7 @@ static int dump_v4l(int fd, int tab)
 		perror("ioctl VIDIOCGAUDIO");
 	} else {
 		printf("    VIDIOCGAUDIO\n");
-		print_struct(stderr,desc_video_audio,&audio,"",tab);
+		print_struct(stdout,desc_video_audio,&audio,"",tab);
 	}
 	printf("\n");
 
@@ -77,7 +78,7 @@ static int dump_v4l(int fd, int tab)
 		perror("ioctl VIDIOCGPICT");
 	} else {
 		printf("    VIDIOCGPICT\n");
-		print_struct(stderr,desc_video_picture,&picture,"",tab);
+		print_struct(stdout,desc_video_picture,&picture,"",tab);
 	}
 	printf("\n");
 
@@ -87,7 +88,7 @@ static int dump_v4l(int fd, int tab)
 		perror("ioctl VIDIOCGFBUF");
 	} else {
 		printf("    VIDIOCGFBUF\n");
-		print_struct(stderr,desc_video_buffer,&buffer,"",tab);
+		print_struct(stdout,desc_video_buffer,&buffer,"",tab);
 	}
 	printf("\n");
 
@@ -97,7 +98,7 @@ static int dump_v4l(int fd, int tab)
 		perror("ioctl VIDIOCGWIN");
 	} else {
 		printf("    VIDIOCGWIN\n");
-		print_struct(stderr,desc_video_window,&window,"",tab);
+		print_struct(stdout,desc_video_window,&window,"",tab);
 	}
 	printf("\n");
 
@@ -124,7 +125,7 @@ static int dump_v4l2(int fd, int tab)
 	if (-1 == ioctl(fd,VIDIOC_QUERYCAP,&capability))
 		return -1;
 	printf("    VIDIOC_QUERYCAP\n");
-	print_struct(stderr,desc_v4l2_capability,&capability,"",tab);
+	print_struct(stdout,desc_v4l2_capability,&capability,"",tab);
 	printf("\n");
 
 	printf("standards\n");
@@ -134,7 +135,7 @@ static int dump_v4l2(int fd, int tab)
 		if (-1 == ioctl(fd,VIDIOC_ENUMSTD,&standard))
 			break;
 		printf("    VIDIOC_ENUMSTD(%d)\n",i);
-		print_struct(stderr,desc_v4l2_standard,&standard,"",tab);
+		print_struct(stdout,desc_v4l2_standard,&standard,"",tab);
 	}
 	printf("\n");
 
@@ -145,7 +146,7 @@ static int dump_v4l2(int fd, int tab)
 		if (-1 == ioctl(fd,VIDIOC_ENUMINPUT,&input))
 			break;
 		printf("    VIDIOC_ENUMINPUT(%d)\n",i);
-		print_struct(stderr,desc_v4l2_input,&input,"",tab);
+		print_struct(stdout,desc_v4l2_input,&input,"",tab);
 	}
 	printf("\n");
 
@@ -157,7 +158,7 @@ static int dump_v4l2(int fd, int tab)
 			if (-1 == ioctl(fd,VIDIOC_G_TUNER,&tuner))
 				break;
 			printf("    VIDIOC_G_TUNER(%d)\n",i);
-			print_struct(stderr,desc_v4l2_tuner,&tuner,"",tab);
+			print_struct(stdout,desc_v4l2_tuner,&tuner,"",tab);
 		}
 		printf("\n");
 	}
@@ -171,7 +172,7 @@ static int dump_v4l2(int fd, int tab)
 			if (-1 == ioctl(fd,VIDIOC_ENUM_FMT,&fmtdesc))
 				break;
 			printf("    VIDIOC_ENUM_FMT(%d,VIDEO_CAPTURE)\n",i);
-			print_struct(stderr,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
+			print_struct(stdout,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
 		}
 		memset(&format,0,sizeof(format));
 		format.type  = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -179,7 +180,7 @@ static int dump_v4l2(int fd, int tab)
 			perror("VIDIOC_G_FMT(VIDEO_CAPTURE)");
 		} else {
 			printf("    VIDIOC_G_FMT(VIDEO_CAPTURE)\n");
-			print_struct(stderr,desc_v4l2_format,&format,"",tab);
+			print_struct(stdout,desc_v4l2_format,&format,"",tab);
 		}
 		printf("\n");
 	}
@@ -193,7 +194,7 @@ static int dump_v4l2(int fd, int tab)
 			if (-1 == ioctl(fd,VIDIOC_ENUM_FMT,&fmtdesc))
 				break;
 			printf("    VIDIOC_ENUM_FMT(%d,VIDEO_OVERLAY)\n",i);
-			print_struct(stderr,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
+			print_struct(stdout,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
 		}
 		memset(&format,0,sizeof(format));
 		format.type  = V4L2_BUF_TYPE_VIDEO_OVERLAY;
@@ -201,14 +202,14 @@ static int dump_v4l2(int fd, int tab)
 			perror("VIDIOC_G_FMT(VIDEO_OVERLAY)");
 		} else {
 			printf("    VIDIOC_G_FMT(VIDEO_OVERLAY)\n");
-			print_struct(stderr,desc_v4l2_format,&format,"",tab);
+			print_struct(stdout,desc_v4l2_format,&format,"",tab);
 		}
 		memset(&fbuf,0,sizeof(fbuf));
 		if (-1 == ioctl(fd,VIDIOC_G_FBUF,&fbuf)) {
 			perror("VIDIOC_G_FBUF");
 		} else {
 			printf("    VIDIOC_G_FBUF\n");
-			print_struct(stderr,desc_v4l2_framebuffer,&fbuf,"",tab);
+			print_struct(stdout,desc_v4l2_framebuffer,&fbuf,"",tab);
 		}
 		printf("\n");
 	}
@@ -222,7 +223,7 @@ static int dump_v4l2(int fd, int tab)
 			if (-1 == ioctl(fd,VIDIOC_ENUM_FMT,&fmtdesc))
 				break;
 			printf("    VIDIOC_ENUM_FMT(%d,VBI_CAPTURE)\n",i);
-			print_struct(stderr,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
+			print_struct(stdout,desc_v4l2_fmtdesc,&fmtdesc,"",tab);
 		}
 		memset(&format,0,sizeof(format));
 		format.type  = V4L2_BUF_TYPE_VBI_CAPTURE;
@@ -230,7 +231,7 @@ static int dump_v4l2(int fd, int tab)
 			perror("VIDIOC_G_FMT(VBI_CAPTURE)");
 		} else {
 			printf("    VIDIOC_G_FMT(VBI_CAPTURE)\n");
-			print_struct(stderr,desc_v4l2_format,&format,"",tab);
+			print_struct(stdout,desc_v4l2_format,&format,"",tab);
 		}
 		printf("\n");
 	}
@@ -244,7 +245,7 @@ static int dump_v4l2(int fd, int tab)
 		if (qctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 			continue;
 		printf("    VIDIOC_QUERYCTRL(BASE+%d)\n",i);
-		print_struct(stderr,desc_v4l2_queryctrl,&qctrl,"",tab);
+		print_struct(stdout,desc_v4l2_queryctrl,&qctrl,"",tab);
 	}
 	for (i = 0;; i++) {
 		memset(&qctrl,0,sizeof(qctrl));
@@ -254,7 +255,7 @@ static int dump_v4l2(int fd, int tab)
 		if (qctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 			continue;
 		printf("    VIDIOC_QUERYCTRL(PRIVATE_BASE+%d)\n",i);
-		print_struct(stderr,desc_v4l2_queryctrl,&qctrl,"",tab);
+		print_struct(stdout,desc_v4l2_queryctrl,&qctrl,"",tab);
 	}
 	return 0;
 }

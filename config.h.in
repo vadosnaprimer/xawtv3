@@ -69,7 +69,7 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
-/* "have opv6" */
+/* "have ipv6" */
 #undef HAVE_SOCKADDR_STORAGE
 
 /* Define to 1 if you have the <soundcard.h> header file. */

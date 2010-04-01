@@ -1388,6 +1388,7 @@ create_control(void)
     XtVaCreateManagedWidget("launch",xmCascadeButtonWidgetClass,menu,
 			    XmNsubMenuId,launch_menu,NULL);
 
+#ifdef HAVE_ZVBI
     /* menu - tools / subtitles */
     smenu = XmCreatePulldownMenu(menu,"subM",NULL,0);
     XtVaCreateManagedWidget("sub",xmCascadeButtonWidgetClass,menu,
@@ -1402,6 +1403,7 @@ create_control(void)
     XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,777)");
     push = XtVaCreateManagedWidget("s_888",xmPushButtonWidgetClass,smenu,NULL);
     XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,888)");
+#endif
 
     /* menu - internal options */
     opt_menu = menu = XmCreatePulldownMenu(menubar,"optionsM",NULL,0);

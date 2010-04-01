@@ -10,9 +10,9 @@
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
-#include <time.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>

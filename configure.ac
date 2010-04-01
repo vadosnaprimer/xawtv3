@@ -24,8 +24,10 @@ AC_ARG_ENABLE(alsa,
   [  --enable-alsa           enable alsa support])
 AC_ARG_ENABLE(zvbi,
   [  --enable-zvbi           enable vbi support (via libzvbi)])
-AC_ARG_ENABLE(zvbi,
+AC_ARG_ENABLE(gl,
   [  --enable-gl             enable opengl support])
+AC_ARG_ENABLE(dv,
+  [  --enable-dv             enable dvlib support])
 AC_ARG_ENABLE(mmx,
   [  --enable-mmx            enable mmx support])
 
@@ -76,6 +78,7 @@ case "`uname -s`" in
 	*)
 		AC_MSG_CHECKING(if xawtv will build on `uname -s`)
 		AC_MSG_RESULT(maybe)
+		FOUND_OS="unknown"
 		;;
 esac
 
@@ -83,7 +86,7 @@ esac
 dnl ---------------------------------------------------------------------
 dnl Checks for functions
 
-AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE,1,"have opv6"))
+AC_EGREP_HEADER(sockaddr_storage,sys/socket.h,AC_DEFINE(HAVE_SOCKADDR_STORAGE,1,"have ipv6"))
 AC_CHECK_HEADERS(getopt.h soundcard.h unistd.h sys/select.h sys/soundcard.h alsa/asoundlib.h linux/joystick.h dev/ic/bt8xx.h machine/ioctl_bt848.h)
 AC_CHECK_FUNCS(ftello fseeko getpt getnameinfo getopt_long strcasestr dlopen)
 
@@ -302,7 +305,7 @@ dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile xawtv.spec)
 for dir in \
 	common console debug fonts jwz libvbi vbistuff x11 structs \
-	libng libng/plugins libng/contrib-plugins
+	libng libng/plugins libng/contrib-plugins mk
 do
 	test -d $dir && continue
 	mkdir -p $dir

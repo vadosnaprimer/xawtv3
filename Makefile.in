@@ -92,7 +92,7 @@ Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
 	$(srcdir)/configure
 
 $(srcdir)/configure: $(srcdir)/configure.ac
-	(cd $(srcdir); autoconf && autoheader)
+	(cd $(srcdir); autoconf && autoheader && rm -rf autom4te.cache)
 
 install:: all
 	$(INSTALL_DIR) $(bindir)
@@ -102,7 +102,7 @@ clean::
 	find . -name \*.o -print | xargs rm -f
 	find . -name \*.a -print | xargs rm -f
 	find . -name \*.dep -print | xargs rm -f
-	rm -f .deps.*
+	rm -f $(depfiles)
 
 distclean:: clean
 	-rm -f Makefile Make.config
@@ -119,63 +119,13 @@ realclean:: distclean
 #########################################################
 # some rules ...
 
-tmpdep		= $*.dep
-depfile		= .deps.$(subst /,_,$*)
+include $(srcdir)/mk/compile.mk
 
-compile_c	= $(CC) $(CFLAGS) -Wp,-MD,$(tmpdep) -c -o $@ $<
-compile_cc	= $(CXX) $(CXXFLAGS) -Wp,-MD,$(tmpdep) -c -o $@ $<
-fixup_deps	= sed -e "s|.*\.o:|$@::|" < $(tmpdep) > $(depfile) && rm -f $(tmpdep)
-
-link_app	= $(CC) $(LDFLAGS) -o $@  $^ $(LDLIBS)
-link_so		= $(CC) $(LDFLAGS) -shared -Wl,-soname,$(@F) -o $@ $^ $(LDLIBS)
-ar_lib		= rm -f $@ && ar -r $@ $^ && ranlib $@
-
-# non-verbose output
-VERBOSE		= no
-ifeq ($(VERBOSE),yes)
-echo_compile_c	= echo $(compile_c)
-echo_compile_cc	= echo $(compile_cc)
-echo_link_app	= echo $(link_app)
-echo_link_so	= echo $(link_so)
-echo_ar_lib	= echo $(ar_lib)
-else
-echo_compile_c	= echo "compile	" $@
-echo_compile_cc	= echo "compile	" $@
-echo_link_app	= echo "link	" $@
-echo_link_so	= echo "link	" $@
-echo_ar_lib	= echo "archive	" $@
-endif
-
-.SUFFIXES: .c .cc .h .o .so .in .ad
-# .bdf .pcf.gz
-
-.c.o:
-	@$(echo_compile_c)
-	@$(compile_c)
-	@$(fixup_deps)
-
-.cc.o:
-	@$(echo_compile_cc)
-	@$(compile_cc)
-	@$(fixup_deps)
-
-.o.so:
-	@$(echo_link_so)
-	@$(link_so)
-
-%: %.o
-	@$(echo_link_app)
-	@$(link_app)
-
-.in.h:
+%.h: %.in
 	perl $(srcdir)/scripts/html.pl < $< > $@
 
-.ad.h:
+%.h: %.ad
 	perl $(srcdir)/scripts/fallback.pl < $< > $@
-
-#.bdf.pcf.gz:
-#	bdftopcf -o $*.pcf $<
-#	gzip $*.pcf
 
 
 #########################################################
@@ -196,8 +146,8 @@ include $(srcdir)/scripts/Subdir.mk
 include $(srcdir)/vbistuff/Subdir.mk
 include $(srcdir)/x11/Subdir.mk
 
-# dependences
--include .deps.*
+# dependencies
+-include $(depfiles)
 
 
 #########################################################

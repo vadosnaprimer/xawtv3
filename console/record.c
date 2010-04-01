@@ -54,7 +54,7 @@ sound_open(int rate)
     int frag,afmt,channels,trigger,srate;
     
     if (-1 == (sound_fd = open(audio_dev, O_RDONLY))) {
-	fprintf(stderr,"open %s: %s",audio_dev,strerror(errno));
+	fprintf(stderr,"open %s: %s\n",audio_dev,strerror(errno));
 	exit(1);
     }
 
@@ -192,7 +192,7 @@ mixer_open(char *filename, char *device)
     int i, devmask;
 
     if (-1 == (mix = open(filename,O_RDONLY))) {
-	fprintf(stderr,"open %s: %s",filename,strerror(errno));
+	fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
 	exit(1);
     }
     if (-1 == ioctl(mix,MIXER_READ(SOUND_MIXER_DEVMASK),&devmask)) {

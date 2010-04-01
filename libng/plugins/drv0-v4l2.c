@@ -971,6 +971,13 @@ v4l2_getimage(void *handle)
     buf = ng_malloc_video_buf(&h->fmt_me,size);
     if (h->cap.capabilities & V4L2_CAP_READWRITE) {
 	rc = read(h->fd,buf->data,size);
+	if (-1 == rc  &&  EBUSY == errno  &&  h->ov_on) {
+	    h->ov_on = 0;
+	    xioctl(h->fd, VIDIOC_OVERLAY, &h->ov_on, 0);
+	    rc = read(h->fd,buf->data,size);
+	    h->ov_on = 1;
+	    xioctl(h->fd, VIDIOC_OVERLAY, &h->ov_on, 0);
+	}
 	if (rc != size) {
 	    if (-1 == rc) {
 		perror("v4l2: read");

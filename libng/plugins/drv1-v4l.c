@@ -804,7 +804,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     if (aspect)
 	ng_ratio_fixup(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
 
-#if 1
+#if 0
     /* pass aligned values -- the driver does'nt get it right yet */
     h->win.width  &= ~3;
     h->win.height &= ~3;
