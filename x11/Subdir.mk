@@ -120,12 +120,12 @@ MOTV-app  := $(patsubst %,x11/MoTV.%.ad,$(LANGUAGES))
 
 
 # local targets
-x11/complete-xaw.o:: x11/complete.c
+x11/complete-xaw.o: x11/complete.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)
 
-x11/complete-motif.o:: x11/complete.c
+x11/complete-motif.o: x11/complete.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)
@@ -154,9 +154,9 @@ distclean::
 	rm -f $(MOTV-app) x11/MoTV.ad x11/MoTV.h x11/Xawtv.h x11/mtt.h
 
 # special dependences / rules
-x11/xawtv.o:: x11/xawtv.c x11/Xawtv.h
-x11/motv.o:: x11/motv.c x11/MoTV.h
-x11/mtt.o:: x11/mtt.c x11/mtt.h
+x11/xawtv.o: x11/Xawtv.h
+x11/motv.o: x11/MoTV.h
+x11/mtt.o: x11/mtt.h
 
 x11/MoTV.ad: $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed
 	cat $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed > x11/MoTV.ad

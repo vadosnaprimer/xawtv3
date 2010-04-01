@@ -961,6 +961,8 @@ create_filter_prop(void)
     rc1 = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, filter_shell,
 				  NULL);
 
+    if (NULL == ng_filters)
+	return;
     for (i = 0; NULL != ng_filters[i]; i++) {
 	if (NULL == ng_filters[i]->attrs)
 	    continue;

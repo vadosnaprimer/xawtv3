@@ -9,6 +9,7 @@ Package: xawtv
 Section: x11
 Architecture: any
 Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version}), tv-fonts, pia
+Suggests: xawtv-plugin-qt (=${Source-Version}), xawtv-plugin-alsa (=${Source-Version})
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.
@@ -60,7 +61,7 @@ Package: radio
 Section: sound
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: ncurses-bases radio application
+Description: ncurses-based radio application
  This is a ncurses-based radio application.  It
  supports the video4linux API.
 
@@ -88,6 +89,19 @@ Description: Miscellaneous tools distributed with xawtv
                   level meter which might be useful to trouble
                   shoot sound problems.
   * showriff    - display the structure of RIFF files (avi, wav).
+
+Package: xawtv-plugin-qt
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: quicktime plugin for xawtv and motv
+ this plugin is needed to record quicktime movies with
+ xawtv and motv.
+
+Package: xawtv-plugin-alsa
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: alsa plugin for xawtv and motv
+ this plugin adds alsa mixer support to xawtv and motv.
 
 Package: xawtv-plugins
 Architecture: any

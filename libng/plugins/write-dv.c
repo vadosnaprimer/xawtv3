@@ -222,5 +222,5 @@ struct ng_writer dv_writer = {
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_writer_register(NG_PLUGIN_MAGIC,__FILE__,&dv_writer);
+    //ng_writer_register(NG_PLUGIN_MAGIC,__FILE__,&dv_writer);
 }

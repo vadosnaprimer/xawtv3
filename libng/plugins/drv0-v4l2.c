@@ -565,6 +565,7 @@ v4l2_tuned(void *handle)
     struct v4l2_tuner tuner;
 
     usleep(10000);
+    memset(&tuner,0,sizeof(tuner));
     if (-1 == xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0))
 	return 0;
     return tuner.signal ? 1 : 0;
@@ -862,8 +863,11 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     h->fmt_v4l2.fmt.pix.pixelformat  = xawtv_pixelformat[fmt->fmtid];
     h->fmt_v4l2.fmt.pix.width        = fmt->width;
     h->fmt_v4l2.fmt.pix.height       = fmt->height;
-    h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
     h->fmt_v4l2.fmt.pix.field        = V4L2_FIELD_ANY;
+    if (fmt->bytesperline != fmt->width * ng_vfmt_to_depth[fmt->fmtid]/8)
+	h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
+    else
+	h->fmt_v4l2.fmt.pix.bytesperline = 0;
 
     if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, EINVAL))
 	return -1;

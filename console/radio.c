@@ -56,6 +56,17 @@ radio_setfreq(int fd, float freq)
     return ioctl(fd, VIDIOCSFREQ, &ifreq);
 }
 
+static int radio_getfreq(int fd, float *freq)
+{
+    int ioctl_status;
+    int ifreq;
+    ioctl_status = ioctl(fd,VIDIOCGFREQ, &ifreq);
+    if (ioctl_status == -1)
+        return ioctl_status;
+    *freq = (float) ifreq / get_freq_fact(fd);
+    return 0;
+}
+
 static void
 radio_unmute(int fd)
 {
@@ -521,6 +532,12 @@ main(int argc, char *argv[])
     if (!stset)
 	mvwprintw(wstations,1,1,"[none]");
     wrefresh(wstations);
+
+    if (ifreq == 0) {
+	float ffreq;
+	radio_getfreq(fd,&ffreq);
+	ifreq = ffreq * 1000000;
+    }
     
     radio_unmute(fd);
     for (done = 0; done == 0;) {
@@ -569,7 +586,11 @@ main(int argc, char *argv[])
 	    noecho();
 	    curs_set(0);
 	    wrefresh(wcommand);
-	    ifreq = newfreq * 1000000;
+	    if ( (newfreq >= 87.5) && (newfreq <= 108) )
+		ifreq = newfreq * 1000000;
+	    else
+		mvwprintw(wcommand, 1, 2,
+			  "Frequency out of range (87.5-108 MHz)");
 	    break;
 	case KEY_UP:
             ifreq += 50000;

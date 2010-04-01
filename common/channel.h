@@ -45,6 +45,8 @@ extern int jpeg_quality;
 extern int keypad_ntsc;
 extern int keypad_partial;
 extern int use_osd;
+extern int osd_x, osd_y;
+extern int use_wm_fullscreen;
 extern int fs_width,fs_height,fs_xoff,fs_yoff;
 extern int pix_width,pix_height,pix_cols;
 extern int last_sender, cur_sender;

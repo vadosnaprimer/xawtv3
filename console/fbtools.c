@@ -262,7 +262,7 @@ fb_setvt(int vtno)
     vtno &= 0xff;
     sprintf(vtname, devices->ttynr, vtno);
     chown(vtname, getuid(), getgid());
-    if (-1 == access(vtname,R_OK | W_OK)) {
+    if (-1 == access(vtname, R_OK | W_OK)) {
 	fprintf(stderr,"access %s: %s\n",vtname,strerror(errno));
 	exit(1);
     }
@@ -349,12 +349,12 @@ fb_init(char *device, char *mode, int vt)
     struct stat st;
     char   fbdev[16];
 
+    dev_init();
     tty = 0;
     if (vt != 0)
 	fb_setvt(vt);
 
     /* FIXME: where are MAJOR() / MINOR() ??? */
-    dev_init();
     fstat(tty,&st);
     if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR) {
 	/* catch that here, give a more user friendly error message that just

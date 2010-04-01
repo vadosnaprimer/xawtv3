@@ -535,6 +535,8 @@ usage(FILE *fp)
 	    "            until stopped by a signal (^C)\n"
 	    "  -s size   set max file size [%s]. You have to give number\n"
 	    "            and unit without space inbetween, i.e. \"100mb\".\n"
+	    "  -n num    limit amount of files recorded, quits when\n"
+	    "            reached.\n"
 	    "  -l        signal level triggered recording.\n"
 	    "  -L level  same as above + specify trigger level [%d]\n"
 	    "\n",
@@ -552,6 +554,7 @@ main(int argc, char *argv[])
     char            *outfile;
     fd_set          s;
     int             sec,maxhour,maxmin,maxsec;
+    int             maxfiles = 0;
     off_t           maxsize;
 
     /* init some vars */
@@ -565,7 +568,7 @@ main(int argc, char *argv[])
 
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "vhlci:o:d:m:r:t:s:L:p:")))
+	if (-1 == (c = getopt(argc, argv, "vhlci:o:d:m:r:t:s:L:p:n:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -612,6 +615,9 @@ main(int argc, char *argv[])
 	case 's':
 	    str_maxsize = optarg;
 	    break;
+	case 'n':
+	    maxfiles = atoi(optarg);
+	    break;
 	case 'h':
 	    usage(stdout);
 	    exit(0);
@@ -649,7 +655,7 @@ main(int argc, char *argv[])
 	mvprintw(11,0,"'N'         next file (same as space twice, but without break)");
 	mvprintw(12,0,"'Q'         quit");
 	mvprintw(LINES-3,0,"--");
-	mvprintw(LINES-2,0,"(c) 1999-2002 Gerd Knorr <kraxel@bytesex.org>");
+	mvprintw(LINES-2,0,"(c) 1999-2003 Gerd Knorr <kraxel@bytesex.org>");
 	
 	for (;!stop;) {
 	    refresh();
@@ -766,6 +772,8 @@ main(int argc, char *argv[])
 		    secr < level_trigger) {
 		    record_stop(wav);
 		    record=0;
+		    if (maxfiles && nr == maxfiles)
+			break;
 		}
 	    }
 	    if (!record) {

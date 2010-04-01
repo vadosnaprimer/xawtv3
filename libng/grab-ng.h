@@ -22,6 +22,11 @@ extern char ng_v4l_conf[256];
 		message,__FILE__,__LINE__);\
 	exit(1);}
 
+#if __STDC_VERSION__ < 199901
+# define restrict
+#endif
+
+
 /* --------------------------------------------------------------------- */
 /* defines                                                               */
 
@@ -52,7 +57,8 @@ extern char ng_v4l_conf[256];
 #define AUDIO_S16_LE_STEREO  4
 #define AUDIO_S16_BE_MONO    5
 #define AUDIO_S16_BE_STEREO  6
-#define AUDIO_FMT_COUNT      7
+#define AUDIO_MP3            7
+#define AUDIO_FMT_COUNT      8
 
 #if BYTE_ORDER == BIG_ENDIAN
 # define AUDIO_S16_NATIVE_MONO   AUDIO_S16_BE_MONO
@@ -353,6 +359,19 @@ struct ng_video_buf* ng_convert_frame(struct ng_convert_handle *h,
 void ng_convert_fini(struct ng_convert_handle *h);
 struct ng_video_buf* ng_convert_single(struct ng_convert_handle *h,
 				       struct ng_video_buf *in);
+
+/* --------------------------------------------------------------------- */
+/* audio converters                                                      */
+
+struct ng_audio_conv {
+    int                   fmtid_in;
+    int                   fmtid_out;
+    void*                 (*init)(void *priv);
+    struct ng_audio_buf*  (*frame)(void *handle,
+				   struct ng_audio_buf *in);
+    void                  (*fini)(void *handle);
+    void                  *priv;
+};
 
 /* --------------------------------------------------------------------- */
 /* filters                                                               */

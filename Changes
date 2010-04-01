@@ -1,4 +1,22 @@
 
+3.82 => 3.83
+============
+
+ * compile fixes.
+ * propwatch updates.
+ * added config option to disable _NET_WM_STATE_FULLSCREEN support.
+ * added config option to move the OSD (Alex Ibrado <alex@ibrado.com>).
+ * minor radio tweaks (DAVID BALAZIC <david.balazic@uni-mb.si>).
+
+
+3.81 => 3.82
+============
+
+ * compile fixes again ...
+ * v4l-conf fix (Kyosti Malkki <kmalkki@cc.hut.fi>).
+ * wmhook fix (Marcin Krzyzanowski <krzak@hakore.com>).
+
+
 3.81 => 3.82
 ============
 

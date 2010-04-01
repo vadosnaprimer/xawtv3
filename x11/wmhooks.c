@@ -124,7 +124,7 @@ wm_check_capability(Display *dpy, Window root, Atom list, Atom wanted)
     return retval;
 }
 
-int
+void
 wm_detect(Display *dpy)
 {
     Window root = DefaultRootWindow(dpy);
@@ -136,7 +136,6 @@ wm_detect(Display *dpy)
 	if (debug)
 	    fprintf(stderr,"wmhooks: netwm state above\n");
 	wm_stay_on_top = netwm_stay_on_top;
-        return 0;
     } 
     if (NULL == wm_stay_on_top &&
 	0 == wm_check_capability(dpy,root,_NET_SUPPORTED,
@@ -144,7 +143,6 @@ wm_detect(Display *dpy)
 	if (debug)
 	    fprintf(stderr,"wmhooks: netwm state stays_on_top\n");
 	wm_stay_on_top = netwm_old_stay_on_top;
-        return 0;
     }
     if (NULL == wm_fullscreen &&
 	0 == wm_check_capability(dpy,root,_NET_SUPPORTED,
@@ -152,7 +150,6 @@ wm_detect(Display *dpy)
 	if (debug)
 	    fprintf(stderr,"wmhooks: netwm state fullscreen\n");
 	wm_fullscreen = netwm_fullscreen;
-        return 0;
     }
 
     /* gnome checks */
@@ -161,9 +158,5 @@ wm_detect(Display *dpy)
 	if (debug)
 	    fprintf(stderr,"wmhooks: gnome layer\n");
 	wm_stay_on_top = gnome_stay_on_top;
-	return 0;
     }
-
-    /* nothing found... */
-    return -1;
 }

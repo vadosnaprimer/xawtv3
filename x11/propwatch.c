@@ -1,25 +1,11 @@
-#if 0
-set -x
-gcc -o propwatch -I/usr/X11R6/include -L/usr/X11R6/lib \
-	-lXaw3d -lXmu -lSM -lICE -lXext -lXt -lX11 $0
-exit
-#endif
 /*
- * propwatch.c -- (c) 1998,99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ * propwatch.c -- (c) 1997-2003 Gerd Knorr <kraxel@bytesex.org>
  *
  * A tool to monitor window properties of root and application windows.
  * Nice for debugging property-based IPC of X11 programs.
  *
- * usage:
- *    propwatch [ property-list ]
- *
- * environment:
- *    $DISPLAY    - which display propwatch should use for its window.
- *    $PROPWATCH  - which display propwatch should monitor.  $DISPLAY
- *                  will be used if unset.
- *
  * see also:
- *   xprop(1), xhost(1)
+ *   xhost(1), xauth(1), xprop(1), xwd(1)
  *
  */
 
@@ -40,7 +26,6 @@ exit
 #include <X11/Xaw/Label.h>
 #include <X11/Xaw/List.h>
 #include <X11/Xaw/Viewport.h>
-#include <X11/Xmu/WinUtil.h>
 
 #ifndef TRUE
 #define TRUE   1
@@ -53,7 +38,7 @@ struct WATCHLIST {
     Window                 win;
     int                    watch;
     struct WATCHLIST       *next;
-    char                   text[4096];
+    char                   *text;
 };
 
 /* WM */
@@ -69,26 +54,61 @@ static Atom                *watch_atom;
 static int                 watch_count;
 
 static char *watch_default[] = {
-    "CUT_BUFFER0", 
-    "WM_CLASS", "WM_COMMAND",
-    "_MOZILLA_URL", "_XAWTV_STATION" };
+    "WM_COMMAND",
+};
 
 static String   *str_list;
 static int      str_count;
-static int      verbose = 0;
 
-static char *drop[] = {
-    "WM_",
-    "CUT_BUFFER",
-    "KWM_ACTIVE_WINDOW",
-    "KWM_WIN_",
-    NULL
+static void AddWatch(Display *dpy, Window win, int i);
+static void DeleteWatch(Window win);
+static void CheckWindow(Display *dpy, Window win);
+static void Update(Display *dpy, Window win, Atom prop);
+
+/*-------------------------------------------------------------------------*/
+
+struct ARGS {
+    char  *watch;
+    int   verbose;
+    int   proplog;
+    int   kbdlog;
+} args;
+
+XtResource args_desc[] = {
+    /* name, class, type, size, offset, default_type, default_addr */
+    {
+	/* ----- Strings ----- */
+	"watch",
+	XtCString, XtRString, sizeof(char*),
+	XtOffset(struct ARGS*,watch),
+	XtRString, NULL,
+    },{
+	/* ----- Integer ----- */
+	"verbose",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,verbose),
+	XtRString, "0"
+    },{
+	"proplog",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,proplog),
+	XtRString, "0"
+    },{
+	"kbdlog",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,kbdlog),
+	XtRString, "0"
+    }
 };
+const int args_count = XtNumber(args_desc);
 
-void AddWatch(Display *dpy, Window win, int i);
-void DeleteWatch(Window win);
-void CheckWindow(Display *dpy, Window win);
-void Update(Display *dpy, Window win, Atom prop);
+XrmOptionDescRec opt_desc[] = {
+    { "-watch",      "watch",       XrmoptionSepArg, NULL },
+    { "-verbose",    "verbose",     XrmoptionNoArg,  "1" },
+    { "-proplog",    "proplog",     XrmoptionNoArg,  "1" },
+    { "-kbdlog",     "kbdlog",      XrmoptionNoArg,  "1" },
+};
+const int opt_count = (sizeof(opt_desc)/sizeof(XrmOptionDescRec));
 
 /*-------------------------------------------------------------------------*/
 
@@ -97,15 +117,19 @@ Widget            app_shell;
 Cursor            left_ptr;
 Cursor            menu_ptr;
 
-void QuitAction(Widget, XEvent*, String*, Cardinal*);
+static void QuitAction(Widget, XEvent*, String*, Cardinal*);
+static void HookAction(Widget, XEvent*, String*, Cardinal*);
 
-void ProcessPropertyChange(Display*,XEvent*);
-void ProcessKeyPress(Display*,XEvent*);
-void ProcessCreateWindow(Display*,XEvent*);
+static void ProcessPropertyChange(Display*,XEvent*);
+static void ProcessKeyPress(Display*,XEvent*);
+static void ProcessClientMessage(Display*,XEvent*);
+static void ProcessCreateWindow(Display*,XEvent*);
+static void ProcessEvent(Display *dpy, XEvent *event);
 
 /* Actions */
 static XtActionsRec actionTable[] = {
-    { "Quit",          QuitAction }
+    { "Quit", QuitAction },
+    { "Hook", HookAction },
 };
 
 /*-------------------------------------------------------------------------*/
@@ -113,6 +137,8 @@ static XtActionsRec actionTable[] = {
 static int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
+    if (args.verbose)
+	printf("x11 error -- ignored (likely just a race as X11 is async)\n");
     return 0;
 }
 
@@ -120,19 +146,36 @@ static void
 spy_input(XtPointer client_data, int *src, XtInputId *id)
 {
     Display *spy_dpy = client_data;
-    Window   root    = DefaultRootWindow(spy_dpy);
     XEvent   event;
 
-    while (True == XCheckMaskEvent(spy_dpy, 0xffffffff, &event)) {
-	if (event.type == PropertyNotify)
-	    ProcessPropertyChange(spy_dpy,&event);
-	else if (event.type == CreateNotify &&
-		 event.xcreatewindow.parent == root)
-	    ProcessCreateWindow(spy_dpy,&event);
-	else if (event.type == DestroyNotify) {
-	    DeleteWatch(event.xdestroywindow.window);
-	}
+    while (True == XCheckMaskEvent(spy_dpy, 0xffffffff, &event))
+	ProcessEvent(spy_dpy,&event);
+}
+
+static void
+add_window(Display *dpy, Window win)
+{
+    Window rroot,parent,*children = NULL;
+    int i, n;
+
+    if (NULL == args.watch && XtWindow(app_shell) == win)
+	/* don't f*ck up ourself */
+	return;
+
+    XSelectInput(dpy, win,
+		 (args.kbdlog ? KeyPressMask | KeyReleaseMask : 0) |
+		 PropertyChangeMask |
+		 SubstructureNotifyMask);
+
+    if (0 != XQueryTree(dpy, win, &rroot, &parent, &children, &n)) {
+	for (i = 0; i < n; i++)
+	    add_window(dpy,children[i]);
+	if (children)
+	    XFree(children);
     }
+
+    /* look for properties to show */
+    CheckWindow(dpy, win);
 }
 
 int
@@ -140,34 +183,39 @@ main(int argc, char *argv[])
 {
     Screen *scr;
     XColor white,red,dummy;
-    int i,n;
-    Window root,rroot,parent,*children,w;
+    int i;
+    Window root;
     Display *dpy, *spy_dpy;
-    char *spy_name,title[1024];
+    char title[1024];
     XEvent  event;
 
     /* init X11 */
-    app_shell = XtAppInitialize(&app_context,
-                                "Propwatch",
-                                NULL, 0,
+    app_shell = XtAppInitialize(&app_context, "Propwatch",
+				opt_desc, opt_count,
                                 &argc, argv,
                                 NULL,
                                 NULL, 0);
+    XtGetApplicationResources(app_shell,&args,
+			      args_desc,args_count,
+			      NULL,0);
+
     XtAppAddActions(app_context,actionTable,
                     sizeof(actionTable)/sizeof(XtActionsRec));
     XtOverrideTranslations
 	(app_shell,XtParseTranslationTable("<Message>WM_PROTOCOLS: Quit()\n"));
     dpy = XtDisplay(app_shell);
-    if (NULL != (spy_name = getenv("PROPWATCH"))) {
-	if (NULL == (spy_dpy = XOpenDisplay(spy_name)))
+    if (NULL != args.watch) {
+	if (NULL == (spy_dpy = XOpenDisplay(args.watch))) {
+	    fprintf(stderr,"can't open display: %s\n",args.watch);
 	    exit(1);
-	sprintf(title,"watch on %s - ",spy_name);
+	}
+	sprintf(title,"watch on %s - ",args.watch);
     } else {
 	spy_dpy = dpy;
 	sprintf(title,"watch - ");
     }
     root = DefaultRootWindow(spy_dpy);
-
+    
     XSetErrorHandler(x11_error_dev_null);
 
     /* args */
@@ -209,31 +257,23 @@ main(int argc, char *argv[])
     vp = XtVaCreateManagedWidget("vp",viewportWidgetClass,app_shell,
 				 XtNallowHoriz, False,
 				 XtNallowVert,  True,
-				 XtNwidth,      400,
-				 XtNheight,     250,
+				 XtNwidth,      600,
+				 XtNheight,     400,
 				 NULL);
     bl = XtVaCreateManagedWidget("box",listWidgetClass,vp,
 				 XtNdefaultColumns,1,
 				 XtNforceColumns,True,
 				 NULL);
-
-    XSelectInput(spy_dpy,root, /* KeyPressMask | */
-		 SubstructureNotifyMask | PropertyChangeMask);
-    CheckWindow(spy_dpy,root);
-
-    XQueryTree(spy_dpy, root, &rroot, &parent, &children, &n);
-    for (i = 0; i < n; i++) {
-	w = XmuClientWindow(spy_dpy, children[i]);
-	XSelectInput(spy_dpy,w, /* KeyPressMask | */
-		     StructureNotifyMask | PropertyChangeMask);
-	CheckWindow(spy_dpy,w);
-    }
-    XFree((char *) children);
+    XtOverrideTranslations(bl,XtParseTranslationTable
+			   ("<Key>Q: Quit()\n"
+			    "<Key>P: Hook(xprop)\n"));
 
     /* display main window */
     XtRealizeWidget(app_shell);
     XDefineCursor(dpy,XtWindow(app_shell),left_ptr);
     XSetWMProtocols(dpy,XtWindow(app_shell),&wm_del_win,1);
+
+    add_window(spy_dpy,root);
 
     /* enter main loop */
     if (spy_dpy != dpy) {
@@ -245,16 +285,7 @@ main(int argc, char *argv[])
 	XtAppNextEvent(app_context,&event);
 	if (XtDispatchEvent(&event))
 	    continue;
-	if (event.type == PropertyNotify) {
-	    ProcessPropertyChange(spy_dpy,&event);
-	} else if (event.type == CreateNotify &&
-		   event.xcreatewindow.parent == root) {
-	    ProcessCreateWindow(spy_dpy,&event);
-	} else if (event.type == KeyPress) {
-	    ProcessKeyPress(spy_dpy,&event);
-	} else if (event.type == DestroyNotify) {
-	    DeleteWatch(event.xdestroywindow.window);
-	}
+	ProcessEvent(spy_dpy,&event);
     }
     
     /* keep compiler happy */
@@ -350,63 +381,96 @@ CheckWindow(Display *dpy, Window win)
 
 /*-------------------------------------------------------------------------*/
 
-static void
-PropertyToString(Display *dpy, Window win, Atom prop, char *value)
+static char* str_append(char *dest, char *sep, char *quot, char *str)
+{
+    int size, pos;
+
+    pos   = dest ? strlen(dest)   : 0;
+    size  = str  ? strlen(str)    : 0;
+    size += sep  ? strlen(sep)    : 0;
+    size += quot ? strlen(quot)*2 : 0;
+    dest  = realloc(dest,pos+size+1);
+    sprintf(dest+pos,"%s%s%s%s",
+	    sep  ? sep  : "",
+	    quot ? quot : "",
+	    str  ? str  : "",
+	    quot ? quot : "");
+    return dest;
+}
+
+static char*
+PropertyToString(Display *dpy, Window win, Atom prop)
 {
     Atom               type;
-    int                format,i,j;
+    int                format,i;
     unsigned long      nitems,rest;
-    unsigned char      *cdata,*name;
+    unsigned char      *cdata;
     unsigned long      *ldata;
-    char               *typename;
+    char               window[12],*name;
+    char               *buf = NULL;
+    char               *sep = NULL;
 
     if (Success != XGetWindowProperty
 	(dpy,win,prop,0,64,False,AnyPropertyType,
 	 &type,&format,&nitems,&rest,&cdata))
-	return;
+	return NULL;
     ldata = (unsigned long*)cdata;
     switch (type) {
     case XA_STRING:
-	for (i = 0, j = 0; i < nitems; i += strlen(cdata+i)+1)
-	    j += sprintf(value+j,"\"%s\", ",cdata+i);
-	value[j-2]=0;
+	for (i = 0; i < nitems; i += strlen(cdata+i)+1) {
+	    buf = str_append(buf,sep,"\"",cdata+i);
+	    sep = ", ";
+	}
 	break;
     case XA_ATOM:
-	for (i = 0, j = 0; i < nitems; i++) {
+	for (i = 0; i < nitems; i++) {
 	    name = XGetAtomName(dpy,ldata[i]);
-	    j += sprintf(value+j,"%s, ",name);
-	    XFree(name);
+	    buf = str_append(buf,sep,NULL,name);
+	    sep = ", ";
+	    if (name)
+		XFree(name);
 	}
-	value[j-2]=0;
-	break;
-    case XA_WINDOW:
-	for (i = 0, j = 0; i < nitems; i++) {
-	    j += sprintf(value+j,"0x%x, ",(unsigned int)ldata[i]);
-	}
-	value[j-2]=0;
 	break;
     default:
-	typename = XGetAtomName(dpy,type);
-	sprintf(value,"unknown type (%s)",typename);
-	XFree(typename);
+	if (32 == format) {
+	    for (i = 0; i < nitems; i++) {
+		sprintf(window,"0x%x",(unsigned int)ldata[i]);
+		buf = str_append(buf,sep,NULL,window);
+		sep = ", ";
+	    }
+	} else {
+	    name = XGetAtomName(dpy,type);
+	    buf = malloc(40 + (name ? strlen(name) : 4));
+	    sprintf(buf,"can't handle: format=%d type=%s",
+		    format, name ? name : "NULL");
+	    if (name)
+		XFree(name);
+	}
 	break;
     }
-    XFree(cdata);    
+    XFree(cdata);
+    return buf;
 }
 
 void
 Update(Display *dpy, Window win, Atom prop)
 {
-    int                n;
     struct WATCHLIST   *this;
+    char               *str;
 
     for (this = watchlist; this != NULL; this = this->next)
 	if (this->win == win && watch_atom[this->watch] == prop)
 	    break;
     if (this) {
-	n = sprintf(this->text,"%8x: %s: ", (unsigned int)this->win,
-		    watch_name[this->watch]);
-	PropertyToString(dpy,win,prop,this->text+n);
+	if (this->text)
+	    free(this->text);
+	str = PropertyToString(dpy,win,prop);
+	this->text = malloc((str ? strlen(str) : 4) +
+			    strlen(watch_name[this->watch]) + 20);
+	sprintf(this->text,"0x%08lx: %s: %s",
+		this->win, watch_name[this->watch], str ? str : "NULL");
+	if (str)
+	    free(str);
     }
 }
 
@@ -415,8 +479,10 @@ ProcessPropertyChange(Display *dpy, XEvent* event)
 {
     int                i;
     struct WATCHLIST   *this;
-    char               *name;
+    char               *name = NULL;
+    char               *prop = NULL;
 
+    name = XGetAtomName(dpy,event->xproperty.atom);
     for (i = 0; i < watch_count; i++) {
 	if (watch_atom[i] == event->xproperty.atom) {
 	    for (this = watchlist; this != NULL; this = this->next)
@@ -432,62 +498,62 @@ ProcessPropertyChange(Display *dpy, XEvent* event)
 	}
     }
 
-    if (verbose) {
-	/* get it */
-	name = XGetAtomName(dpy,event->xproperty.atom);
-
-	for (i = 0; drop[i] != NULL; i++)
-	    if (0 == strncmp(name,drop[i],strlen(drop[i])))
-		break;
-	if (NULL == drop[i])
-	    printf("%8x: %s\n", (int)event->xproperty.window,name);
-	XFree(name);
+    if (args.proplog) {
+	prop = PropertyToString(dpy, event->xproperty.window,
+				event->xproperty.atom);
+	printf("0x%-8lx: PropertyChange: %s: %s\n",
+	       event->xproperty.window,
+	       name ? name : "NULL",
+	       prop ? prop : "NULL");
+	if (prop)
+	    free(prop);
     }
+    if (name)
+	XFree(name);
+}
+
+void
+ProcessClientMessage(Display *dpy, XEvent* event)
+{
+    fprintf(stderr,"0x%-8lx: ClientMessage\n",
+	    event->xclient.window);
 }
 
 void
 ProcessKeyPress(Display *dpy, XEvent* event)
 {
-    static int last_window;
-
-    if (event->xkey.window != last_window) {
-	last_window = event->xkey.window;
-	fprintf(stderr,"\n%8x: ",last_window);	
-    }
-    fprintf(stderr,"%d ",event->xkey.keycode);
+    fprintf(stderr,"0x%-8lx: %s: code=%d sym=%s\n",
+	    event->xkey.window,
+	    event->type == KeyPress ? "KeyPress" : "KeyRelease",
+	    event->xkey.keycode,
+	    XKeysymToString(XKeycodeToKeysym(dpy,event->xkey.keycode,0)));
 }
-
-/*-------------------------------------------------------------------------*/
 
 void
 ProcessCreateWindow(Display *dpy, XEvent* event)
 {
-    Atom            type;
-    int             format;
-    unsigned long   nitems,rest;
-    unsigned char   *class = NULL, *class2 = NULL;
-    
-    if (Success != XGetWindowProperty
-	(dpy,event->xcreatewindow.window,wm_class,
-	 0,64,False,AnyPropertyType,
-	 &type,&format,&nitems,&rest,&class))
-	return;
-    if (class != NULL && strlen(class)+1 < nitems)
-	class2 = class + strlen(class)+1;
-    
-    if (verbose) {
-	printf("%8x: new: %s %s\n",
-	       (unsigned int)event->xcreatewindow.window,
-	       class?class:(unsigned char*)"-",
-	       class2?class2:(unsigned char*)"-");
+    add_window(dpy,event->xcreatewindow.window);
+}
+
+void
+ProcessEvent(Display *dpy, XEvent *event)
+{
+    if (event->type == PropertyNotify) {
+	ProcessPropertyChange(dpy,event);
+
+    } else if (event->type == CreateNotify) {
+	ProcessCreateWindow(dpy,event);
+
+    } else if (event->type == KeyPress ||
+	       event->type == KeyRelease) {
+	ProcessKeyPress(dpy,event);
+
+    } else if (event->type == ClientMessage) {
+	ProcessClientMessage(dpy,event);
+
+    } else if (event->type == DestroyNotify) {
+	DeleteWatch(event->xdestroywindow.window);
     }
-    
-    XSelectInput(dpy, event->xcreatewindow.window, /* KeyPressMask | */
-		 StructureNotifyMask | PropertyChangeMask);
-    CheckWindow(dpy, event->xcreatewindow.window);
-    
-    if (class != NULL)
-	XFree(class);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -498,3 +564,35 @@ QuitAction(Widget widget, XEvent* event, String* arg, Cardinal* arg_count)
     exit(0);
 }
 
+void
+HookAction(Widget widget, XEvent* event, String* arg, Cardinal* arg_count)
+{
+    XawListReturnStruct *ret;
+    struct WATCHLIST *this;
+    char *dname;
+    char cmd[256];
+    int i;
+
+    /* find window */
+    if (0 != strcmp(XtName(widget),"box"))
+	return;
+    ret = XawListShowCurrent(widget);
+    for (i = 0, this = watchlist; this != NULL; i++, this=this->next)
+	if (0 == strcmp(ret->string,this->text))
+	    break;
+    if (NULL == this)
+	return;
+    if (0 == arg_count)
+	return;
+    dname = DisplayString(XtDisplay(widget));
+
+    if (0 == strcmp(arg[0],"xprop")) {
+	/* dump window properties */
+	sprintf(cmd,"xprop -display %s -id 0x%lx",
+		args.watch ? args.watch : dname,
+		this->win);
+	printf("### %s\n",cmd);
+	system(cmd);
+	printf("### done\n");
+    }
+}

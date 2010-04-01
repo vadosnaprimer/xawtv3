@@ -5,6 +5,7 @@ TARGETS-plugins := \
 	libng/plugins/flt-invert.so \
 	libng/plugins/flt-disor.so \
 	libng/plugins/conv-mjpeg.so \
+	libng/plugins/conv-audio.so \
 	libng/plugins/read-avi.so \
 	libng/plugins/write-avi.so
 ifeq ($(FOUND_LQT),yes)
@@ -77,17 +78,17 @@ libng/plugins/drv1-v4l.so: \
 	libng/plugins/struct-v4l.o \
 	libng/plugins/struct-dump.o
 
-libng/plugins/struct-dump.o:: structs/struct-dump.c
+libng/plugins/struct-dump.o: structs/struct-dump.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)
 
-libng/plugins/struct-v4l.o:: structs/struct-v4l.c
+libng/plugins/struct-v4l.o: structs/struct-v4l.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)
 
-libng/plugins/struct-v4l2.o:: structs/struct-v4l2.c
+libng/plugins/struct-v4l2.o: structs/struct-v4l2.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)

@@ -41,4 +41,4 @@ distclean::
 	rm -f $(TARGETS-vbistuff)
 
 # special dependences
-vbistuff/alevtd.o:: vbistuff/alevtd.c $(HTML-alevtd)
+vbistuff/alevtd.o: $(HTML-alevtd)

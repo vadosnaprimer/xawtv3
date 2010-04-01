@@ -339,7 +339,7 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     /* set values */
     fb.fmt.width  = d->width;
     fb.fmt.height = d->height;
-    switch (d->depth) {
+    switch (d->bpp) {
     case  8: fb.fmt.pixelformat = V4L2_PIX_FMT_HI240;   break;
 #if BYTE_ORDER == BIG_ENDIAN
     case 15: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB555X; break;

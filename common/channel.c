@@ -75,7 +75,10 @@ int cur_capture = CAPTURE_OFF;
 int have_config;
 int keypad_ntsc = 0;
 int keypad_partial = 1;
+int use_wm_fullscreen = 1;
 int use_osd = 1;
+int osd_x = 30;
+int osd_y = 20;
 int fs_width,fs_height,fs_xoff,fs_yoff;
 int pix_width=128, pix_height=96, pix_cols=1;
 
@@ -468,6 +471,12 @@ read_config(char *conffile, int *argc, char **argv)
     if (NULL != (val = cfg_get_str("global","osd")))
 	if (-1 != (i = str_to_int(val,booltab)))
 	    use_osd = i;
+    if (NULL != (val = cfg_get_str("global","osd-position")))
+        if (2 != sscanf(val,"%d , %d",&osd_x,&osd_y))
+	    fprintf(stderr,"invalid values for osd-position: %s\n",val);
+    if (NULL != (val = cfg_get_str("global","use-wm-fullscreen")))
+	if (-1 != (i = str_to_int(val,booltab)))
+	    use_wm_fullscreen = i;
 
     if (NULL != (val = cfg_get_str("global","mov-driver")))
 	mov_driver = val;
@@ -580,6 +589,9 @@ save_config()
     fprintf(fp,"keypad-ntsc = %s\n",int_to_str(keypad_ntsc,booltab));
     fprintf(fp,"keypad-partial = %s\n",int_to_str(keypad_partial,booltab));
     fprintf(fp,"osd = %s\n",int_to_str(use_osd,booltab));
+    fprintf(fp,"osd-position = %d , %d\n",osd_x,osd_y);
+    fprintf(fp,"use-wm-fullscreen = %s\n",
+	    int_to_str(use_wm_fullscreen,booltab));
     if (mixer)
 	fprintf(fp,"mixer = %s\n",mixer);
     if (midi)

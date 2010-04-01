@@ -12,7 +12,9 @@ formats.
 .P
 streamer will use the file extention of the output file name to figure
 which format to use.  You need the -f/-F options only if the extention
-allows more than one format.
+allows more than one format.  If you get the "neither audio nor video
+format specified/found" message and don't know why, you can enable the
+debug output (-d switch) to see what is going on.
 .P
 You can safely stop the recording at any time with Ctrl+C.  streamer
 will catch the signal and stop recording correctly (i.e. write movie
@@ -22,8 +24,8 @@ file headers) before exiting.
 .B streamer -o foobar.jpeg
 write a single jpeg file.
 .TP
-.B streamer -o quicktime.mov -f yuv2 -F stereo -r 12 -t 120
-record a short quicktime movie (120 frames / 12 fps => 10 seconds).
+.B streamer -o quicktime.mov -f yuv2 -F stereo -r 12 -t 0:10
+record a short quicktime movie.
 .SH SEE ALSO
 xawtv(1), v4lctl(1)
 .SH AUTHOR

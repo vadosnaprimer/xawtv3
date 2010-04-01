@@ -46,7 +46,7 @@ OSS_LIBS	:= @LIBOSS@
 ALSA_LIBS	:= @LIBALSA@
 AA_LIBS		:= @AALIBS@
 QT_LIBS		:= @QTLIBS@
-VBI_LIBS	:= @LIBZVBI@ -lm -lpng
+VBI_LIBS	:= @LIBZVBI@
 GL_LIBS		:= @LIBGL@
 DV_LIBS		:= @LIBDV@
 FS_LIBS		:= -L@x_libraries@ @FSLIB@
@@ -65,19 +65,23 @@ FOUND_ZVBI	:= @FOUND_ZVBI@
 USE_MMX		:= @USE_MMX@
 
 # build final cflags
-CFLAGS	:= @CFLAGS@
-CFLAGS	+= $(WARN_FLAGS)
-CFLAGS	+= $(LFS_FLAGS)
-CFLAGS	+= $(X11_FLAGS)
-CFLAGS	+= $(LIB_FLAGS)
-CFLAGS	+= -DCONFIGFILE='"$(config)"'
-CFLAGS	+= -DLIBDIR='"$(libdir)"'
-CFLAGS	+= -DDATADIR='"$(datadir)"'
-CFLAGS	+= -DVERSION='"$(VERSION)"'
-CXXFLAGS = $(CFLAGS)
+CFLAGS   := @CFLAGS@
+CFLAGS   += $(WARN_FLAGS)
+CFLAGS   += $(LFS_FLAGS)
+CFLAGS   += $(X11_FLAGS)
+CFLAGS   += $(LIB_FLAGS)
+CFLAGS   += -DCONFIGFILE='"$(config)"'
+CFLAGS   += -DLIBDIR='"$(libdir)"'
+CFLAGS   += -DDATADIR='"$(datadir)"'
+CFLAGS   += -DVERSION='"$(VERSION)"'
+CXXFLAGS := $(CFLAGS)
+
+# for gcc3
+#CFLAGS   += -std-gnu99
 
 # shared objects need -fPIC
-%.so : CFLAGS += -fPIC
+%.so : CFLAGS   += -fPIC
+%.so : CXXFLAGS += -fPIC
 
 # libraries
 LDLIBS  := @LDLIBS@
@@ -119,7 +123,7 @@ realclean:: distclean
 #########################################################
 # some rules ...
 
-include $(srcdir)/mk/compile.mk
+include $(srcdir)/mk/Compile.mk
 
 %.h: %.in
 	perl $(srcdir)/scripts/html.pl < $< > $@

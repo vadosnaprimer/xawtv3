@@ -83,10 +83,10 @@ const char* ng_vfmt_to_desc[] = {
 /* --------------------------------------------------------------------- */
 
 const unsigned int   ng_afmt_to_channels[] = {
-    0,  1,  2,  1,  2,  1,  2
+    0,  1,  2,  1,  2,  1,  2, 0
 };
 const unsigned int   ng_afmt_to_bits[] = {
-    0,  8,  8, 16, 16, 16, 16
+    0,  8,  8, 16, 16, 16, 16, 0
 };
 const char* ng_afmt_to_desc[] = {
     "none",
@@ -95,7 +95,8 @@ const char* ng_afmt_to_desc[] = {
     "16bit mono (LE)",
     "16bit stereo (LE)",
     "16bit mono (BE)",
-    "16bit stereo (BE)"
+    "16bit stereo (BE)",
+    "mp3 compressed audio",
 };
 
 /* --------------------------------------------------------------------- */

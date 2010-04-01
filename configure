@@ -5001,7 +5001,7 @@ if test $ac_cv_lib_zvbi_vbi_capture_fd = yes; then
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_ZVBI 1
 _ACEOF
- FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread"
+ FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread -lm -lpng -lz"
 fi
 
 else

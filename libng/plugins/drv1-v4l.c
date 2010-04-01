@@ -28,7 +28,7 @@
 #include "struct-dump.h"
 #include "struct-v4l.h"
 
-#define SYNC_TIMEOUT 3
+#define SYNC_TIMEOUT 5
 
 /* ---------------------------------------------------------------------- */
 

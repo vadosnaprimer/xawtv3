@@ -1,8 +1,8 @@
-.TH propwatch 1 "(c) 1998,99 Gerd Knorr"
+.TH propwatch 1 "(c) 1997-2003 Gerd Knorr"
 .SH NAME
 propwatch - a tool to monitor X11 properties
 .SH SYNOPSIS
-.B propwatch [ toolkit-options ] property-name ...
+.B propwatch [ options ] property-name ...
 .SH DESCRIPTION
 .B propwatch
 is a tool to monitor window properties of root and application
@@ -10,24 +10,37 @@ windows.  Nice for debugging property-based IPC of X11 programs.
 .SH OPTIONS
 .B propwatch
 uses the Athena Widgets and accepts the usual toolkit options like
--geometry.
+-display and -geometry.
+.P
+Additional options are:
+.TP
+.B -watch display
+Display to monitor the windows on.  By default the display specified
+in the DISPLAY environment variable or via -display is used, but it is
+possible to watch another display instead.
+.TP
+.B -verbose
+be verbose.
+.TP
+.B -proplog
+Log property changes to stdout.
+.TP
+.B -kbdlog
+Log keystrokes to stdout.
 .P
 All remaining command line arguments are assumed to be property names
 which should be monitored.  If no property names are specified, a
-build in default set will be used.
+build in default (WM_COMMAND) will be used.
 .SH ENVIRONMENT
 .TP
 .B DISPLAY
 specifies the display to use for the propwatch window.
-.TP
-.B PROPWATCH
-specifies the display to monitor.  It unset, DISPLAY will be used.
 .SH SEE ALSO
-xprop(1), xhost(1), xauth(1)
+xprop(1), xhost(1), xauth(1), xwd(1)
 .SH AUTHOR
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
-Copyright (C) 1997-99 Gerd Knorr
+Copyright (C) 1997-2003 Gerd Knorr
 .br
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

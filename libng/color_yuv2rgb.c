@@ -61,9 +61,10 @@ static unsigned int  ng_clip[256 + 2 * CLIP];
 /* packed pixel yuv to gray / rgb                                      */
 
 static void
-yuv422_to_gray(unsigned char *dest, unsigned char *s, int p)
+yuv422_to_gray(unsigned char* restrict dest, unsigned char* restrict s,
+	       int p)
 {
-    unsigned char *d = dest;
+    unsigned char* restrict d = dest;
     
     while (p) {
 	d[0] = GRAY(s[0]);
@@ -74,9 +75,10 @@ yuv422_to_gray(unsigned char *dest, unsigned char *s, int p)
 }
 
 static void
-yuv422_to_rgb24(unsigned char *dest, unsigned char *s, int p)
+yuv422_to_rgb24(unsigned char* restrict dest, unsigned char* restrict s,
+		int p)
 {
-    unsigned char *d = dest;
+    unsigned char* restrict d = dest;
     int gray;
     
     while (p) {
@@ -95,9 +97,10 @@ yuv422_to_rgb24(unsigned char *dest, unsigned char *s, int p)
 }
 
 void
-ng_yuv422_to_lut2(unsigned char *dest, unsigned char *s, int p)
+ng_yuv422_to_lut2(unsigned char* restrict dest, unsigned char* restrict s,
+		  int p)
 {
-    unsigned short *d = (unsigned short*)dest;
+    unsigned short* restrict d = (unsigned short*)dest;
     int gray;
     
     while (p) {
@@ -117,9 +120,10 @@ ng_yuv422_to_lut2(unsigned char *dest, unsigned char *s, int p)
 }
 
 void
-ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p)
+ng_yuv422_to_lut4(unsigned char* restrict dest, unsigned char* restrict s,
+		  int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
     int gray;
     
     while (p) {
@@ -144,8 +148,9 @@ ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p)
 static void
 yuv42xp_to_gray(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y;
-    unsigned char *dp,*d;
+    unsigned char* restrict y;
+    unsigned char* restrict d;
+    unsigned char* dp;
     int i,j;
 
     dp = out->data;
@@ -164,9 +169,9 @@ yuv42xp_to_gray(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 static void
 yuv420p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
+    unsigned char *restrict y, *restrict u, *restrict v, *restrict d;
     unsigned char *us,*vs;
-    unsigned char *dp,*d;
+    unsigned char *dp;
     int i,j,gray;
 
     dp = out->data;
@@ -199,8 +204,8 @@ yuv420p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 static void
 yuv422p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
-    unsigned char *dp,*d;
+    unsigned char *restrict y, *restrict u, *restrict v, *restrict d;
+    unsigned char *dp;
     int i,j,gray;
 
     dp = out->data;
@@ -229,10 +234,10 @@ yuv422p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 void
 ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
+    unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *us,*vs;
     unsigned char *dp;
-    unsigned short *d;
+    unsigned short *restrict d;
     int i,j,gray;
 
     dp = out->data;
@@ -267,9 +272,9 @@ ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 void
 ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
+    unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *dp;
-    unsigned short *d;
+    unsigned short *restrict d;
     int i,j,gray;
 
     dp = out->data;
@@ -300,10 +305,10 @@ ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 void
 ng_yuv420p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
+    unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *us,*vs;
     unsigned char *dp;
-    unsigned int  *d;
+    unsigned int  *restrict d;
     int i,j,gray;
 
     dp = out->data;
@@ -338,9 +343,9 @@ ng_yuv420p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 void
 ng_yuv422p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
-    unsigned char *y,*u,*v;
+    unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *dp;
-    unsigned int  *d;
+    unsigned int  *restrict d;
     int i,j,gray;
 
     dp = out->data;

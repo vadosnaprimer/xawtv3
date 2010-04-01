@@ -530,7 +530,7 @@ display_onscreen(char *title)
     if (debug)
 	fprintf(stderr,"osd: show (%s)\n",title);
     XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,NULL);
-    XtVaSetValues(on_shell,XtNx,x+30,XtNy,y+20,NULL);
+    XtVaSetValues(on_shell,XtNx,x+osd_x,XtNy,y+osd_y,NULL);
     toolkit_set_label(on_label,title);
     XtPopup(on_shell, XtGrabNone);
     if (wm_stay_on_top && stay_on_top > 0)
@@ -815,27 +815,67 @@ set_vidmode(XF86VidModeModeInfo *mode)
 }
 #endif
 
-void
-do_fullscreen(void)
+static void
+do_screensaver(int fs_state)
 {
-    static Dimension x,y,w,h;
-    static int timeout,interval,prefer_blanking,allow_exposures,rpx,rpy;
-    static int warp_pointer;
+    static int timeout,interval,prefer_blanking,allow_exposures;
 #ifdef HAVE_LIBXDPMS
     static BOOL dpms_on;
     CARD16 dpms_state;
     int dpms_dummy;
 #endif
 
+    if (fs_state) {
+	/* fullscreen on -- disable screensaver */
+	XGetScreenSaver(dpy,&timeout,&interval,
+			&prefer_blanking,&allow_exposures);
+	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
+#ifdef HAVE_LIBXDPMS
+	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
+	    (DPMSCapable(dpy))) {
+	    DPMSInfo(dpy, &dpms_state, &dpms_on);
+            DPMSDisable(dpy); 
+	}
+#endif
+	xscreensaver_timer = XtAppAddTimeOut(app_context,60000,
+					     xscreensaver_timefunc,NULL);
+    } else {
+	/* fullscreen off -- enable screensaver */
+	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
+#ifdef HAVE_LIBXDPMS
+	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
+	    (DPMSCapable(dpy)) && (dpms_on)) {
+		DPMSEnable(dpy);
+	}
+#endif
+	if (xscreensaver_timer)
+	    XtRemoveTimeOut(xscreensaver_timer);
+    }
+}
+
+void
+do_fullscreen(void)
+{
+    static Dimension x,y,w,h;
+    static int rpx,rpy;
+    static int warp_pointer;
+
     Window root,child;
     int    wpx,wpy,mask;
 
-    if (wm_fullscreen) {
-	/* full service for us :-) */
+    if (use_wm_fullscreen && wm_fullscreen) {
+	/* full service for us, next to nothing to do */
 	fs = !fs;
 	if (debug)
 	    fprintf(stderr,"fullscreen %s via netwm\n", fs ? "on" : "off");
 	wm_fullscreen(dpy,XtWindow(app_shell),fs);
+
+	if (0 == fs  &&  on_timer) {
+	    XtPopdown(on_shell);
+	    XtRemoveTimeOut(on_timer);
+	    on_timer = 0;
+	}
+	do_screensaver(fs);
 	return;
     }
 
@@ -854,7 +894,7 @@ do_fullscreen(void)
 	    XtRemoveTimeOut(on_timer);
 	    on_timer = 0;
 	}
-	    
+	
 	XtVaSetValues(app_shell,
 		      XtNwidthInc, WIDTH_INC,
 		      XtNheightInc,HEIGHT_INC,
@@ -864,17 +904,8 @@ do_fullscreen(void)
 		      XtNheight,   h,
 		      NULL);
 
-	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
-#ifdef HAVE_LIBXDPMS
-	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
-	    (DPMSCapable(dpy)) && (dpms_on)) {
-		DPMSEnable(dpy);
-	}
-#endif
-	if (xscreensaver_timer)
-	    XtRemoveTimeOut(xscreensaver_timer);
-    
-	if (warp_pointer)
+	do_screensaver(0);
+    	if (warp_pointer)
 	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
 			 0, 0, 0, 0, rpx, rpy);
 	fs = 0;
@@ -975,20 +1006,7 @@ do_fullscreen(void)
 		      NULL);
 
         XRaiseWindow(dpy, XtWindow(app_shell));
-
-	XGetScreenSaver(dpy,&timeout,&interval,
-			&prefer_blanking,&allow_exposures);
-	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
-#ifdef HAVE_LIBXDPMS
-	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
-	    (DPMSCapable(dpy))) {
-	    DPMSInfo(dpy, &dpms_state, &dpms_on);
-            DPMSDisable(dpy); 
-	}
-#endif
-	xscreensaver_timer = XtAppAddTimeOut(app_context,60000,
-					     xscreensaver_timefunc,NULL);
-
+	do_screensaver(1);
 	if (warp_pointer)
 	    XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
 	fs = 1;

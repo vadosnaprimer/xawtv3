@@ -177,6 +177,13 @@ there are two-digit station numbers starting with that digit.
 Enable/disable the onscreen display in fullscreen mode.  Default is
 on.
 .TP
+.B osd-position = x , y
+Position the onscreen display, in pixels.  Default is 30,20.
+.TP
+.B use-wm-fullscreen = on | off
+Enter fullscreen mode by asking the window manager to handle that via
+_NET_WM_STATE_FULLSCREEN (if supported by the wm).  Default is on.
+.TP
 .B ratio = x:y
 Set a fixed aspect ratio for the TV image.  Default is 4:3.  Use 0:0
 if you don't want a fixed aspect ratio.

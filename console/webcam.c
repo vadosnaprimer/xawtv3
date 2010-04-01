@@ -686,7 +686,8 @@ main(int argc, char *argv[])
     if (-1 != (i = cfg_get_int("grab","trigger")))
 	grab_trigger = i;
     if (-1 != (i = cfg_get_int("grab","once")))
-	grab_times = 1;
+	if (i > 0)
+	    grab_times = 1;
     if (-1 != (i = cfg_get_int("grab","times")))
 	grab_times = i;
     if (NULL != (val = cfg_get_str("grab","archive")))

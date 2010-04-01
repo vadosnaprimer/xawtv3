@@ -107,6 +107,7 @@ usage(FILE *out)
 	    "general options:\n"
 	    "  -h          print this help text\n"
 	    "  -q          quiet operation\n"
+	    "  -d          enable debug output\n"
 	    "  -p n        use n compression threads    [%d]\n"
 	    "  -w seconds  wait before grabbing         [%d]\n"
 	    "\n"
@@ -203,71 +204,83 @@ find_formats(void)
     for (w = 0; NULL != ng_writers[w]; w++) {
 	wr = ng_writers[w];
 	if (debug)
-	    fprintf(stderr,"checking writer %s... ",wr->name);
+	    fprintf(stderr,"checking writer %s [%s] ...\n",wr->name,wr->desc);
 	if ((/*!wr->combined && */mext) || NULL != vfmt_name) {
 	    if (NULL == wr->video) {
 		if (debug)
-		    fprintf(stderr,"no video\n");
+		    fprintf(stderr,"  no video, skipping\n");
 		continue;
 	    }
 	    for (v = 0; NULL != wr->video[v].name; v++) {
-		if (mext && 0 != strcasecmp(wr->video[v].ext,mext))
+		if (debug)
+		    fprintf(stderr,"  video name=%s ext=%s: ",
+			    wr->video[v].name,wr->video[v].ext);
+		if (mext && 0 != strcasecmp(wr->video[v].ext,mext)) {
+		    if (debug)
+			fprintf(stderr,"ext mismatch [need %s]\n",mext);
 		    continue;
-		if (vfmt_name && 0 != strcasecmp(wr->video[v].name,vfmt_name))
+		}
+		if (vfmt_name && 0 != strcasecmp(wr->video[v].name,vfmt_name)) {
+		    if (debug)
+			fprintf(stderr,"name mismatch [need %s]\n",vfmt_name);
 		    continue;
+		}
+		if (debug)
+		    fprintf(stderr,"OK\n");
 		break;
 	    }
-	    if (NULL == wr->video[v].name) {
-		if (debug)
-		    fprintf(stderr,"video fmt not found [ext=%s,name=%s]\n",
-			    mext,vfmt_name);
+	    if (NULL == wr->video[v].name)
 		continue;
-	    }
 	}
 	if ((!wr->combined && aext) || NULL != afmt_name) {
 	    if (NULL == wr->audio) {
 		if (debug)
-		    fprintf(stderr,"no audio\n");
+		    fprintf(stderr,"  no audio, skipping\n");
 		continue;
 	    }
 	    for (a = 0; NULL != wr->audio[a].name; a++) {
+		if (debug)
+		    fprintf(stderr,"  audio name=%s ext=%s: ",
+			    wr->audio[a].name,wr->audio[a].ext);
 		if (!wr->combined &&
-		    aext && 0 != strcasecmp(wr->audio[a].ext,aext))
+		    aext && 0 != strcasecmp(wr->audio[a].ext,aext)) {
+		    if (debug)
+			fprintf(stderr,"ext mismatch [need %s]\n",aext);
 		    continue;
+		}
 		if (wr->combined &&
-		    mext && 0 != strcasecmp(wr->audio[a].ext,mext))
+		    mext && 0 != strcasecmp(wr->audio[a].ext,mext)) {
+		    if (debug)
+			fprintf(stderr,"ext mismatch [need %s]\n",mext);
 		    continue;
-		if (afmt_name && 0 != strcasecmp(wr->audio[a].name,afmt_name))
+		}
+		if (afmt_name && 0 != strcasecmp(wr->audio[a].name,afmt_name)) {
+		    if (debug)
+			fprintf(stderr,"name mismatch [need %s]\n",afmt_name);
 		    continue;
+		}
+		if (debug)
+		    fprintf(stderr,"OK\n");
 		break;
 	    }
-	    if (NULL == wr->audio[a].name) {
-		if (debug)
-		    fprintf(stderr,"audio fmt not found [ext=%s,name=%s]\n",
-			    wr->combined ? mext : aext, afmt_name);
+	    if (NULL == wr->audio[a].name)
 		continue;
-	    }
 	}
-	if (debug)
-	    fprintf(stderr,"ok:");
 	break;
     }
     if (NULL != ng_writers[w]) {
 	writer = wr;
 	if (-1 != v) {
-	    if (debug)
-		fprintf(stderr," video=%s",wr->video[v].name);
 	    video.fmtid = wr->video[v].fmtid;
 	    video_priv  = wr->video[v].priv;
 	}
 	if (-1 != a) {
-	    if (debug)
-		fprintf(stderr," audio=%s",wr->audio[a].name);
 	    audio.fmtid = wr->audio[a].fmtid;
 	    audio_priv  = wr->audio[a].priv;
 	}
+    } else {
 	if (debug)
-	    fprintf(stderr,"\n");
+	    fprintf(stderr,"no match found\n");
     }
 }
 

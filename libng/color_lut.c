@@ -27,9 +27,10 @@ unsigned long   ng_lut_blue[256];
 /* ------------------------------------------------------------------- */
 
 void
-ng_rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
+ng_rgb24_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
+		 int p)
 {
-    uint16_t *d = (uint16_t*)dest;
+    uint16_t* restrict d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[0]] | ng_lut_green[src[1]] |
@@ -39,9 +40,10 @@ ng_rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr24_to_lut2(unsigned char *dest, unsigned char *src, int p)
+bgr24_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    uint16_t *d = (uint16_t*)dest;
+    uint16_t* restrict d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -51,9 +53,10 @@ bgr24_to_lut2(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-rgb32_to_lut2(unsigned char *dest, unsigned char *src, int p)
+rgb32_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    uint16_t *d = (uint16_t*)dest;
+    uint16_t* restrict d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[1]] | ng_lut_green[src[2]] |
@@ -63,9 +66,10 @@ rgb32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
+bgr32_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    uint16_t *d = (uint16_t*)dest;
+    uint16_t* restrict d = (uint16_t*)dest;
 
     while (p-- > 0) {
        *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -75,9 +79,10 @@ bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-gray_to_lut2(unsigned char *dest, unsigned char *src, int p)
+gray_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
+	     int p)
 {
-    uint16_t *d = (uint16_t*)dest;
+    uint16_t* restrict d = (uint16_t*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[*src] | ng_lut_green[*src] | ng_lut_blue[*src];
@@ -88,9 +93,10 @@ gray_to_lut2(unsigned char *dest, unsigned char *src, int p)
 /* ------------------------------------------------------------------- */
 
 void
-ng_rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p)
+ng_rgb24_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
+		 int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[0]] | ng_lut_green[src[1]] |
@@ -100,9 +106,10 @@ ng_rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr24_to_lut4(unsigned char *dest, unsigned char *src, int p)
+bgr24_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -112,9 +119,10 @@ bgr24_to_lut4(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-rgb32_to_lut4(unsigned char *dest, unsigned char *src, int p)
+rgb32_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[src[1]] | ng_lut_green[src[2]] |
@@ -124,9 +132,10 @@ rgb32_to_lut4(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr32_to_lut4(unsigned char *dest, unsigned char *src, int p)
+bgr32_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
 
     while (p-- > 0) {
        *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
@@ -136,9 +145,10 @@ bgr32_to_lut4(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-gray_to_lut4(unsigned char *dest, unsigned char *src, int p)
+gray_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
+	     int p)
 {
-    unsigned int *d = (unsigned int*)dest;
+    unsigned int* restrict d = (unsigned int*)dest;
 
     while (p-- > 0) {
 	*(d++) = ng_lut_red[*src] | ng_lut_green[*src] | ng_lut_blue[*src];

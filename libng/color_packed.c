@@ -36,10 +36,11 @@ redblue_swap(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr24_to_bgr32(unsigned char *dest, unsigned char *src, int p)
+bgr24_to_bgr32(unsigned char* restrict dest, unsigned char* restrict src,
+	       int p)
 {
-    register unsigned char *s = src;
-    register unsigned char *d = dest;
+    register unsigned char* restrict s = src;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
         *(d++) = *(s++);
@@ -50,10 +51,11 @@ bgr24_to_bgr32(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-bgr24_to_rgb32(unsigned char *dest, unsigned char *src, int p)
+bgr24_to_rgb32(unsigned char* restrict dest, unsigned char* restrict src,
+	       int p)
 {
-    register unsigned char *s = src;
-    register unsigned char *d = dest;
+    register unsigned char* restrict s = src;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
 	*(d++) = 0;
@@ -65,10 +67,11 @@ bgr24_to_rgb32(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-rgb32_to_rgb24(unsigned char *dest, unsigned char *src, int p)
+rgb32_to_rgb24(unsigned char* restrict dest, unsigned char* restrict src,
+	       int p)
 {
-    register unsigned char *s = src;
-    register unsigned char *d = dest;
+    register unsigned char* restrict s = src;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
 	s++;
@@ -79,10 +82,11 @@ rgb32_to_rgb24(unsigned char *dest, unsigned char *src, int p)
 }
 
 static void
-rgb32_to_bgr24(unsigned char *dest, unsigned char *src, int p)
+rgb32_to_bgr24(unsigned char* restrict dest, unsigned char* restrict src,
+	       int p)
 {
-    register unsigned char *s = src;
-    register unsigned char *d = dest;
+    register unsigned char* restrict s = src;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
 	s++;
@@ -95,10 +99,11 @@ rgb32_to_bgr24(unsigned char *dest, unsigned char *src, int p)
 
 /* 15+16 bpp LE <=> BE */
 static void
-byteswap_short(unsigned char *dest, unsigned char *src, int p)
+byteswap_short(unsigned char* restrict dest, unsigned char* restrict src,
+	       int p)
 {
-    register unsigned char *s = src;
-    register unsigned char *d = dest;
+    register unsigned char* restrict s = src;
+    register unsigned char* restrict d = dest;
 
     while (--p) {
 	*(d++) = s[1];
@@ -111,15 +116,16 @@ byteswap_short(unsigned char *dest, unsigned char *src, int p)
 /* color => grayscale                                                  */
 
 static void
-rgb15_native_gray(unsigned char *dest, unsigned char *s, int p)
+rgb15_native_gray(unsigned char* restrict dest, unsigned char *s,
+		  int p)
 {
-    int              r,g,b;
-    unsigned short  *src = (unsigned short*)s;
+    int r,g,b;
+    unsigned short* restrict src = (unsigned short*)s;
 
     while (p--) {
 	r = (src[0] & 0x7c00) >> 10;
 	g = (src[0] & 0x03e0) >>  5;
-	b =  src[1] & 0x001f;
+	b =  src[0] & 0x001f;
 
 	*(dest++) = ((3*r + 6*g + b)/10) << 3;
 	src++;
@@ -128,14 +134,16 @@ rgb15_native_gray(unsigned char *dest, unsigned char *s, int p)
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 static void
-rgb15_be_gray(unsigned char *dest, unsigned char *src, int p)
+rgb15_be_gray(unsigned char* restrict dest, unsigned char* restrict src,
+	      int p)
 {
-    register unsigned char *d = dest;
+    int r,g,b;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
-	unsigned char r = (src[0] & 0x7c) >> 2;
-	unsigned char g = (src[0] & 0x03) << 3 | (src[1] & 0xe0) >> 5;
-	unsigned char b = src[1] & 0x1f;
+	r = (src[0] & 0x7c) >> 2;
+	g = (src[0] & 0x03) << 3 | (src[1] & 0xe0) >> 5;
+	b =  src[1] & 0x1f;
 
 	*(d++) = ((3*r + 6*g + b)/10) << 3;
 	src += 2;
@@ -145,14 +153,15 @@ rgb15_be_gray(unsigned char *dest, unsigned char *src, int p)
 
 #if BYTE_ORDER == BIG_ENDIAN
 static void
-rgb15_le_gray(unsigned char *dest, unsigned char *src, int p)
+rgb15_le_gray(unsigned char* restrict dest, unsigned char* restrict src, int p)
 {
-    register unsigned char *d = dest;
+    int r,g,b;
+    register unsigned char* restrict d = dest;
 
     while (p--) {
-	unsigned char r = (src[1] & 0x7c) >> 2;
-	unsigned char g = (src[1] & 0x03) << 3 | (src[0] & 0xe0) >> 5;
-	unsigned char b = src[0] & 0x1f;
+	r = (src[1] & 0x7c) >> 2;
+	g = (src[1] & 0x03) << 3 | (src[0] & 0xe0) >> 5;
+	b = src[0] & 0x1f;
 
 	*(d++) = ((3*r + 6*g + b)/10) << 3;
 	src += 2;

@@ -43,6 +43,7 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 	int16_t  s16;
 	uint8_t  u8;
 	int8_t   s8;
+	int al = sizeof(long)-1; /* struct + union alignment */
 	void *p;
 	int i,j,first;
 
@@ -50,6 +51,7 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 		sprintf(name,"%s%s",prefix,desc[i].name);
 		if (STRUCT == desc[i].type) {
 			strcat(name,".");
+			ptr = (void*)(((intptr_t)ptr + al) & ~al);
 			print_struct(fp,desc[i].desc, ptr, name, tab);
 			ptr += desc[i].length;
 			if (!tab && desc[i+1].name != NULL)
@@ -58,6 +60,7 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 		}
 		if (UNION == desc[i].type) {
 			u32 = *((uint32_t*)(ptr-4));
+			ptr = (void*)(((intptr_t)ptr + al) & ~al);
 			for (j = 0; desc[i].u[j].name != NULL; j++)
 				if (desc[i].u[j].value == u32)
 					break;
