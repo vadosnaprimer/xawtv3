@@ -19,7 +19,7 @@ struct dv_frame {
     struct list_head  list;
     int               seq;
     int               video,audio;
-    unsigned char     obuf[];
+    unsigned char     obuf[0];
 };
 
 struct dv_handle {

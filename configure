@@ -5076,7 +5076,7 @@ if test "${ac_cv_lib_dv_dv_decoder_new+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-ldv  $LIBS"
+LIBS="-ldv -lm $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 #include "confdefs.h"
@@ -5130,7 +5130,7 @@ if test $ac_cv_lib_dv_dv_decoder_new = yes; then
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_DV 1
 _ACEOF
- FOUND_DV="yes"; LIBDV="-ldv"
+ FOUND_DV="yes"; LIBDV="-ldv -lm"
 fi
 
 else

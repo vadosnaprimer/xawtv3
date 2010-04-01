@@ -1,3 +1,6 @@
+/* gcc 2.95.x doesn't compile some c99 constructs ... */
+#if __GNUC__ >= 3
+
 #include "config.h"
 
 #include <stdlib.h>
@@ -323,3 +326,5 @@ void ng_plugin_init(void)
 {
     ng_reader_register(NG_PLUGIN_MAGIC,__FILE__,&dv_reader);
 }
+
+#endif /* gcc3 */

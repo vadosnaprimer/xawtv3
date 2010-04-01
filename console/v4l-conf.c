@@ -16,12 +16,12 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <linux/vt.h>
 #include <linux/fb.h>
-#include <linux/videodev.h>
 #ifdef HAVE_GETOPT_H
 # include <getopt.h>
 #endif
@@ -34,10 +34,8 @@
 # endif
 #endif
 
-#ifndef VIDIOC_QUERYCAP
-/* v4l2 not in kernel's videodev.h */
-# include "videodev2.h"
-#endif
+#include "videodev.h"
+#include "videodev2.h"
 
 struct DISPLAYINFO {
     int   width;             /* visible display width  (pixels) */
@@ -340,7 +338,7 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     /* set values */
     fb.fmt.width  = d->width;
     fb.fmt.height = d->height;
-    switch (d->bpp) {
+    switch (d->depth) {
     case  8: fb.fmt.pixelformat = V4L2_PIX_FMT_HI240;   break;
 #if BYTE_ORDER == BIG_ENDIAN
     case 15: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB555X; break;

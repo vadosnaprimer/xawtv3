@@ -195,7 +195,7 @@ AC_SUBST(LIBDV)
 LIBDV=""
 if test "$enable_dv" != "no"; then
     AC_CHECK_LIB(dv, dv_decoder_new,
-        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv",,)
+        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv -lm",,-lm)
 else
     echo "*** DV disabled"
 fi

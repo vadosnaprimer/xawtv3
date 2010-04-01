@@ -103,7 +103,7 @@ struct v4l2_handle {
 /* ---------------------------------------------------------------------- */
 
 struct ng_vid_driver v4l2_driver = {
-    name:          "v4l2-new",
+    name:          "v4l2",
     open:          v4l2_open,
     close:         v4l2_close,
 
@@ -190,7 +190,6 @@ static const char *io_names[] = {
     [VIDIOC_G_OUTPUT & 0xff]    = "G_OUTPUT",
     [VIDIOC_S_OUTPUT & 0xff]    = "S_OUTPUT",
     [VIDIOC_ENUMOUTPUT & 0xff]  = "ENUMOUTPUT",
-    [VIDIOC_ENUMOUTPUT & 0xff]  = "ENUMOUTPUT",
     [VIDIOC_G_AUDOUT & 0xff]    = "G_AUDOUT",
     [VIDIOC_S_AUDOUT & 0xff]    = "S_AUDOUT",
     [VIDIOC_G_MODULATOR & 0xff] = "G_MODULATOR",
@@ -217,12 +216,13 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
     case VIDIOC_QUERYCAP:
     {
 	struct v4l2_capability *a = arg;
-	fprintf(stderr,PREFIX "VIDIOC_QUERYCAP(%s,ver=%d.%d.%d,"
-		"cap=0x%x,flags=0x%x)", a->name,
+	fprintf(stderr,PREFIX "VIDIOC_QUERYCAP(%s,%s,%s,ver=%d.%d.%d,"
+		"cap=0x%x)",
+		a->driver,a->card,a->bus_info,
 		(a->version >> 16) & 0xff,
 		(a->version >>  8) & 0xff,
 		a->version         & 0xff,
-		a->capabilities, a->flags);
+		a->capabilities);
 	break;
     }
     
@@ -722,7 +722,13 @@ v4l2_open(char *device)
 	fprintf(stderr, "v4l2: open\n");
     fcntl(h->fd,F_SETFD,FD_CLOEXEC);
     if (ng_debug)
-	fprintf(stderr,"v4l2: device is %s\n",h->cap.name);
+	fprintf(stderr,"v4l2: device info:\n"
+		"  %s %d.%d.%d / %s @ %s\n",
+		h->cap.driver,
+		(h->cap.version >> 16) & 0xff,
+		(h->cap.version >>  8) & 0xff,
+		h->cap.version         & 0xff,
+		h->cap.card,h->cap.bus_info);
 
     get_device_capabilities(h);
     if (ng_debug)
@@ -772,7 +778,7 @@ static char*
 v4l2_devname(void *handle)
 {
     struct v4l2_handle *h = handle;
-    return h->cap.name;
+    return h->cap.card;
 }
 
 static int v4l2_flags(void *handle)
@@ -916,18 +922,19 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     if (ng_debug)
 	fprintf(stderr,"v4l2: overlay win=%dx%d+%d+%d, %d clips\n",
 		fmt->width,fmt->height,x,y,count);
+    memset(&win,0,sizeof(win));
     win.type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
-    win.fmt.win.w.left   = x;
-    win.fmt.win.w.top    = y;
-    win.fmt.win.w.width  = fmt->width;
-    win.fmt.win.w.height = fmt->height;
+    win.fmt.win.w.left    = x;
+    win.fmt.win.w.top     = y;
+    win.fmt.win.w.width   = fmt->width;
+    win.fmt.win.w.height  = fmt->height;
 
     /* check against max. size */
     xioctl(h->fd,VIDIOC_TRY_FMT,&win,0);
     if (win.fmt.win.w.width != fmt->width)
-	win.fmt.win.w.left = x + (fmt->width - win.fmt.win.w.width);
+	win.fmt.win.w.left = x + (fmt->width - win.fmt.win.w.width)/2;
     if (win.fmt.win.w.height != fmt->height)
-	win.fmt.win.w.top = y + (fmt->height - win.fmt.win.w.height);
+	win.fmt.win.w.top = y + (fmt->height - win.fmt.win.w.height)/2;
     if (aspect)
 	ng_ratio_fixup(&win.fmt.win.w.width,&win.fmt.win.w.height,
 		       &win.fmt.win.w.left,&win.fmt.win.w.top);
@@ -1038,13 +1045,15 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
     int i;
     
     /* setup buffers */
-    h->reqbufs.count = buffers;
-    h->reqbufs.type  = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    h->reqbufs.count  = buffers;
+    h->reqbufs.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    h->reqbufs.memory = V4L2_MEMORY_MMAP;
     if (-1 == xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, 0))
 	return -1;
     for (i = 0; i < h->reqbufs.count; i++) {
-	h->buf_v4l2[i].index = i;
-	h->buf_v4l2[i].type  = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	h->buf_v4l2[i].index  = i;
+	h->buf_v4l2[i].type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	h->buf_v4l2[i].memory = V4L2_MEMORY_MMAP;
 	if (-1 == xioctl(h->fd, VIDIOC_QUERYBUF, &h->buf_v4l2[i], 0))
 	    return -1;
 	h->buf_me[i].fmt  = h->fmt_me;
@@ -1127,6 +1136,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     h->fmt_v4l2.fmt.pix.width        = fmt->width;
     h->fmt_v4l2.fmt.pix.height       = fmt->height;
     h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
+    h->fmt_v4l2.fmt.pix.field        = V4L2_FIELD_ANY;
 
     if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, EINVAL))
 	return -1;

@@ -1,4 +1,11 @@
 
+3.77 => 3.78
+============
+
+ * build fixes.
+ * new v4l2 module fixes.
+
+
 3.76 => 3.77
 ============
 
@@ -15,6 +22,7 @@
    being able to encode dv streams in real time.  Even playback drops
    more than 50% of the frames.
  * added alsa mixer plugin (Malte Starostik <malte.starostik@t-online.de>).
+ * added plugin for new v4l2 api
 
  
 3.75 => 3.76

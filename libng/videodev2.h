@@ -113,8 +113,8 @@ enum v4l2_colorspace {
 struct v4l2_rect {
 	__s32   left;
 	__s32   top;
-	__u32   width;
-	__u32   height;
+	__s32   width;
+	__s32   height;
 };
 
 struct v4l2_fract {
@@ -127,10 +127,11 @@ struct v4l2_fract {
  */
 struct v4l2_capability
 {
-	__u8	name[32];	/* Descriptive, and unique */
-	__u32   version;        /* use KERNEL_VERSION() macro here */
+	__u8	driver[16];	/* i.e. "bttv" */
+	__u8	card[32];	/* i.e. "Hauppauge WinTV" */
+	__u8	bus_info[32];	/* "PCI:" + pci_dev->slot_name */
+	__u32   version;        /* should use KERNEL_VERSION() */
 	__u32	capabilities;	/* Device capabilities */
-	__u32	flags;		/* Feature flags, see below */
 	__u32	reserved[4];
 };
 
@@ -197,7 +198,8 @@ struct v4l2_pix_format
 /* compressed formats */
 #define V4L2_PIX_FMT_MJPEG    v4l2_fourcc('M','J','P','G') /* Motion-JPEG   */
 #define V4L2_PIX_FMT_JPEG     v4l2_fourcc('J','P','E','G') /* JFIF JPEG     */
-#define V4L2_PIX_FMT_DV       v4l2_fourcc('d','v','s','d') /* digital video */
+#define V4L2_PIX_FMT_DV       v4l2_fourcc('d','v','s','d') /* 1394          */
+#define V4L2_PIX_FMT_MPEG     v4l2_fourcc('M','P','E','G') /* MPEG          */
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_WNVA    v4l2_fourcc('W','N','V','A') /* Winnov hw compres */
@@ -320,8 +322,8 @@ struct v4l2_buffer
 	/* memory location */
 	enum v4l2_memory        memory;
 	union {
-		off_t           offset;
-		void*           userptr;
+		__u32           offset;
+		unsigned long   userptr;
 	} m;
 	__u32			length;
 
@@ -633,8 +635,8 @@ struct v4l2_tuner
 	__u32			rangehigh;
 	__u32			rxsubchans;
 	__u32			audmode;
-	__u32			signal;
-	__u32			afc;
+	__s32			signal;
+	__s32			afc;
 	__u32			reserved[4];
 };
 
@@ -691,18 +693,11 @@ struct v4l2_audio
 	__u32	reserved[2];
 };
 /*  Flags for the 'capability' field */
-#define V4L2_AUDCAP_EFFECTS		0x0020
-#define V4L2_AUDCAP_LOUDNESS		0x0040
-#define V4L2_AUDCAP_AVL			0x0080
+#define V4L2_AUDCAP_STEREO		0x00001
+#define V4L2_AUDCAP_AVL			0x00002
 
 /*  Flags for the 'mode' field */
-#define V4L2_AUDMODE_LOUDNESS		0x00002
-#define V4L2_AUDMODE_AVL		0x00004
-#define V4L2_AUDMODE_STEREO_field	0x0FF00
-#define V4L2_AUDMODE_STEREO_LINEAR	0x00100
-#define V4L2_AUDMODE_STEREO_PSEUDO	0x00200
-#define V4L2_AUDMODE_STEREO_SPATIAL30	0x00300
-#define V4L2_AUDMODE_STEREO_SPATIAL50	0x00400
+#define V4L2_AUDMODE_AVL		0x00001
 
 struct v4l2_audioout
 {
@@ -827,31 +822,6 @@ struct v4l2_streamparm
 
 #define BASE_VIDIOC_PRIVATE	192		/* 192-255 are private */
 
-
-#ifdef __KERNEL__
-/*
- *
- *	V 4 L 2   D R I V E R   H E L P E R   A P I
- *
- *	Some commonly needed functions for drivers (v4l2-common.o module)
- */
-#include <linux/fs.h>
-
-/*  Video standard functions  */
-extern unsigned int v4l2_video_std_fps(struct v4l2_standard *vs);
-extern int v4l2_video_std_construct(struct v4l2_standard *vs, int id);
-
-/*  Compatibility layer interface  */
-typedef int (*v4l2_kioctl)(struct inode *inode, struct file *file,
-			   unsigned int cmd, void *arg);
-int v4l_compat_translate_ioctl(struct inode *inode, struct file *file,
-			       int cmd, void *arg, v4l2_kioctl driver_ioctl);
-
-/* names for fancy debug output */
-extern char *v4l2_field_names[];
-extern char *v4l2_type_names[];
-
-#endif /* __KERNEL__ */
 #endif /* __LINUX_VIDEODEV2_H */
 
 /*

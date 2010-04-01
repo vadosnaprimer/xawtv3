@@ -8,13 +8,18 @@ Standards-Version: 3.5.2
 Package: xawtv
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version}), tv-fonts
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv, xawtv-plugins (=${Source-Version}), tv-fonts, pia
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.
- .
- For Xvideo support xawtv must be compiled with
- the XFree86 4.0+ client libraries installed.
+
+Package: pia
+Section: x11
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: movie player
+ This is a simple movie player.  It is used by xawtv and motv to
+ playback movie files which are recorded from TV.
 
 Package: fbtv
 Architecture: any

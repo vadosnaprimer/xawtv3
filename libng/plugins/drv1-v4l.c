@@ -20,7 +20,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <linux/videodev.h>
+
+#include "videodev.h"
 
 #include "grab-ng.h"
 
@@ -409,7 +410,7 @@ v4l_open(char *device)
     memset(inputs,0,sizeof(struct STRTAB)*(h->capability.channels+1));
     for (i = 0; i < h->capability.channels; i++) {
 	h->channels[i].channel = i;
-	xioctl(h->fd,VIDIOCGCHAN,&h->channels[i]);
+	xioctl(h->fd,VIDIOCGCHAN,&(h->channels[i]));
 	inputs[i].nr  = i;
 	inputs[i].str = h->channels[i].name;
 	if (ng_debug)
@@ -469,7 +470,7 @@ v4l_open(char *device)
 	if (ng_debug)
 	    fprintf(stderr,"\n");
     } else {
-	/* no tuner tuner */
+	/* no tuner */
 	struct video_channel vchan;
 	memcpy(&vchan, &h->channels[0], sizeof(struct video_channel));
 	for (i = 0; norms[i].str != NULL; i++) {
@@ -479,6 +480,9 @@ v4l_open(char *device)
 	    else if (ng_debug)
 		fprintf(stderr," %s",norms[i].str);
 	}
+	/* restore settings after probe */
+	memcpy(&vchan, &h->channels[0], sizeof(struct video_channel));
+	xioctl(h->fd,VIDIOCSCHAN,&vchan);
 	if (ng_debug)
 	    fprintf(stderr,"\n");
     }

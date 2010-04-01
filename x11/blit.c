@@ -275,6 +275,7 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
     no_mitshm = 1;
 
  no_mitshm:
+    *shm = NULL;
     if (NULL == (ximage_data = malloc(width * height * pixmap_bytes))) {
 	fprintf(stderr,"out of memory\n");
 	exit(1);
@@ -290,7 +291,7 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
 void
 x11_destroy_ximage(Display *dpy, XImage *ximage, XShmSegmentInfo *shm)
 {
-    if (shm) {
+    if (shm && !no_mitshm) {
 	XShmDetach(dpy, shm);
 	XDestroyImage(ximage);
 	shmdt(shm->shmaddr);
@@ -303,9 +304,9 @@ void x11_blit(Display *dpy, Drawable dr, GC gc, XImage *xi,
 	      int a, int b, int c, int d, int w, int h)
 {
     if (no_mitshm)
-	XShmPutImage(dpy,dr,gc,xi,a,b,c,d,w,h,True);
-    else
 	XPutImage(dpy,dr,gc,xi,a,b,c,d,w,h);
+    else
+	XShmPutImage(dpy,dr,gc,xi,a,b,c,d,w,h,True);
 }
 
 Pixmap
@@ -445,6 +446,7 @@ shm_error:
     no_mitshm = 1;
 
  no_mitshm:
+    *shm = NULL;
     if (NULL == (ximage_data = malloc(width * height * 2))) {
 	fprintf(stderr,"out of memory\n");
 	exit(1);
@@ -457,7 +459,7 @@ shm_error:
 void
 xv_destroy_ximage(Display *dpy, XvImage * xvimage, XShmSegmentInfo *shm)
 {
-    if (shm) {
+    if (shm && !no_mitshm) {
 	XShmDetach(dpy, shm);
 	XFree(xvimage);
 	shmdt(shm->shmaddr);
@@ -470,9 +472,9 @@ void xv_blit(Display *dpy, Drawable dr, GC gc, XvImage *xi,
 	     int a, int b, int c, int d, int x, int y, int w, int h)
 {
     if (no_mitshm)
-	XvShmPutImage(dpy,im_port,dr,gc,xi,a,b,c,d,x,y,w,h,True);
-    else
 	XvPutImage(dpy,im_port,dr,gc,xi,a,b,c,d,x,y,w,h);
+    else
+	XvShmPutImage(dpy,im_port,dr,gc,xi,a,b,c,d,x,y,w,h,True);
 }
 #endif
 

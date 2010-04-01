@@ -103,7 +103,7 @@ struct v4l2_handle {
 /* ---------------------------------------------------------------------- */
 
 struct ng_vid_driver v4l2_driver = {
-    name:          "v4l2",
+    name:          "v4l2-old",
     open:          v4l2_open,
     close:         v4l2_close,
 
