@@ -155,9 +155,11 @@ static Widget audio_menu, audio_option;
 static Widget video_menu, video_option;
 static Widget m_rate,m_fps,m_fvideo,m_status;
 static Widget m_faudio,m_faudioL,m_faudioB;
-static int movie_driver;
-static int movie_audio;
-static int movie_video;
+
+static struct ng_writer *movie_driver;
+static unsigned int i_movie_driver;
+static unsigned int movie_audio;
+static unsigned int movie_video;
 static XtWorkProcId rec_work_id;
 
 static struct MY_TOPLEVELS {
@@ -235,7 +237,7 @@ static void delete_children(Widget widget)
 {
     WidgetList children,list;
     Cardinal nchildren;
-    int i;
+    unsigned int i;
 
     XtVaGetValues(widget,XtNchildren,&children,
 		  XtNnumChildren,&nchildren,NULL);
@@ -293,7 +295,7 @@ new_channel(void)
 static void
 do_ontop(Boolean state)
 {
-    int i;
+    unsigned int i;
 
     if (!wm_stay_on_top)
 	return;
@@ -351,7 +353,7 @@ static void
 PopupAction(Widget widget, XEvent *event,
 	    String *params, Cardinal *num_params)
 {
-    int i;
+    unsigned int i;
 
     /* which window we are talking about ? */
     if (*num_params > 0) {
@@ -590,7 +592,7 @@ new_attr(struct ng_attribute *attr, int val)
     struct motif_attribute *a;
     WidgetList children;
     Cardinal nchildren;
-    int i;
+    unsigned int i;
 
     for (a = motif_attrs; NULL != a; a = a->next) {
 	if (a->attr->id == attr->id)
@@ -943,7 +945,9 @@ create_filter_prop(void)
 {
     Widget rc1,frame,rc2;
     XmString str;
-    int i,j;
+    struct list_head *item;
+    struct ng_filter *filter;
+    int j;
 
     filter_shell = XtVaAppCreateShell("filter","MoTV",
 				      topLevelShellWidgetClass,
@@ -961,12 +965,11 @@ create_filter_prop(void)
     rc1 = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, filter_shell,
 				  NULL);
 
-    if (NULL == ng_filters)
-	return;
-    for (i = 0; NULL != ng_filters[i]; i++) {
-	if (NULL == ng_filters[i]->attrs)
+    list_for_each(item,&ng_filters) {
+	filter = list_entry(item, struct ng_filter, list);
+	if (NULL == filter->attrs)
 	    continue;
-	str = XmStringGenerate(ng_filters[i]->name, NULL,
+	str = XmStringGenerate(filter->name, NULL,
 			       XmMULTIBYTE_TEXT, NULL);
 	frame = XtVaCreateManagedWidget("frame",xmFrameWidgetClass,rc1,NULL);
 	XtVaCreateManagedWidget("label",xmLabelWidgetClass,frame,
@@ -974,8 +977,8 @@ create_filter_prop(void)
 				NULL);
 	rc2 = XtVaCreateManagedWidget("rc",xmRowColumnWidgetClass,frame,NULL);
 	XmStringFree(str);
-	for (j = 0; NULL != ng_filters[i]->attrs[j].name; j++)
-	    filter_add_ctrls(rc2,ng_filters[i],&ng_filters[i]->attrs[j]);
+	for (j = 0; NULL != filter->attrs[j].name; j++)
+	    filter_add_ctrls(rc2,filter,&filter->attrs[j]);
     }
 }
 
@@ -1455,7 +1458,10 @@ create_control(void)
     XtVaCreateManagedWidget("sep",xmSeparatorWidgetClass,menu,NULL);
 
     /* menu - filter */
-    if ((f_drv & CAN_CAPTURE)  &&  (NULL != ng_filters)) {
+    if ((f_drv & CAN_CAPTURE)  &&  !list_empty(&ng_filters))  {
+	struct list_head *item;
+	struct ng_filter *filter;
+	
 	menu = XmCreatePulldownMenu(menubar,"filterM",NULL,0);
 	XtVaCreateManagedWidget("filter",xmCascadeButtonWidgetClass,menubar,
 				XmNsubMenuId,menu,NULL);
@@ -1463,11 +1469,12 @@ create_control(void)
 				       xmPushButtonWidgetClass,menu,
 				       NULL);
 	XtAddCallback(push,XmNactivateCallback,action_cb,"Filter()");
-	for (i = 0; NULL != ng_filters[i]; i++) {
-	    push = XtVaCreateManagedWidget(ng_filters[i]->name,
+	list_for_each(item,&ng_filters) {
+	    filter = list_entry(item, struct ng_filter, list);
+	    push = XtVaCreateManagedWidget(filter->name,
 					   xmPushButtonWidgetClass,menu,
 					   NULL);
-	    sprintf(action,"Filter(%s)",ng_filters[i]->name);
+	    sprintf(action,"Filter(%s)",filter->name);
 	    XtAddCallback(push,XmNactivateCallback,action_cb,strdup(action));
 	}
 	XtVaCreateManagedWidget("sep",xmSeparatorWidgetClass,menu,NULL);
@@ -1929,6 +1936,8 @@ create_strwin(void)
 static void
 update_movie_menus(void)
 {
+    struct list_head *item;
+    struct ng_writer *writer;
     static int first = 1;
     Widget push;
     XmString str;
@@ -1938,41 +1947,47 @@ update_movie_menus(void)
     /* drivers  */
     if (first) {
 	first = 0;
-	for (i = 0; NULL != ng_writers[i]; i++) {
-	    str = XmStringGenerate((char*)ng_writers[i]->desc,
+	i = 0;
+	list_for_each(item,&ng_writers) {
+	    writer = list_entry(item, struct ng_writer, list);
+	    str = XmStringGenerate((char*)writer->desc,
 				   NULL, XmMULTIBYTE_TEXT, NULL);
-	    push = XtVaCreateManagedWidget(ng_writers[i]->name,
+	    push = XtVaCreateManagedWidget(writer->name,
 					   xmPushButtonWidgetClass,driver_menu,
 					   XmNlabelString,str,
 					   NULL);
 	    XmStringFree(str);
 	    add_cmd_callback(push,XmNactivateCallback,
-			     "movie","driver",ng_writers[i]->name);
-	    if (NULL != mov_driver)
-		if (0 == strcasecmp(mov_driver,ng_writers[i]->name)) {
-		    movie_driver = i;
+			     "movie","driver",writer->name);
+	    if (NULL != mov_driver) {
+		if (NULL == movie_driver ||
+		    0 == strcasecmp(mov_driver,writer->name)) {
+		    movie_driver = writer;
+		    i_movie_driver = i;
 		    XtVaSetValues(driver_option,XmNmenuHistory,push,NULL);
 		}
+	    }
+	    i++;
 	}
     }
 
     /* audio formats */
     delete_children(audio_menu);
-    for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++) {
+    for (i = 0; NULL != movie_driver->audio[i].name; i++) {
 	str = XmStringGenerate
-	    ((char*)(ng_writers[movie_driver]->audio[i].desc ?
-		     ng_writers[movie_driver]->audio[i].desc : 
-		     ng_afmt_to_desc[ng_writers[movie_driver]->audio[i].fmtid]),
+	    ((char*)(movie_driver->audio[i].desc ?
+		     movie_driver->audio[i].desc : 
+		     ng_afmt_to_desc[movie_driver->audio[i].fmtid]),
 	     NULL, XmMULTIBYTE_TEXT, NULL);
-	push = XtVaCreateManagedWidget(ng_writers[movie_driver]->audio[i].name,
+	push = XtVaCreateManagedWidget(movie_driver->audio[i].name,
 				       xmPushButtonWidgetClass,audio_menu,
 				       XmNlabelString,str,
 				       NULL);
 	XmStringFree(str);
 	add_cmd_callback(push,XmNactivateCallback,
-			 "movie","audio",ng_writers[movie_driver]->audio[i].name);
+			 "movie","audio",movie_driver->audio[i].name);
 	if (NULL != mov_audio)
-	    if (0 == strcasecmp(mov_audio,ng_writers[movie_driver]->audio[i].name)) {
+	    if (0 == strcasecmp(mov_audio,movie_driver->audio[i].name)) {
 		XtVaSetValues(audio_option,XmNmenuHistory,push,NULL);
 		movie_audio = i;
 	    }
@@ -1985,28 +2000,28 @@ update_movie_menus(void)
 
     /* video formats */
     delete_children(video_menu);
-    for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++) {
+    for (i = 0; NULL != movie_driver->video[i].name; i++) {
 	str = XmStringGenerate
-	    ((char*)(ng_writers[movie_driver]->video[i].desc ?
-		     ng_writers[movie_driver]->video[i].desc : 
-		     ng_vfmt_to_desc[ng_writers[movie_driver]->video[i].fmtid]),
+	    ((char*)(movie_driver->video[i].desc ?
+		     movie_driver->video[i].desc : 
+		     ng_vfmt_to_desc[movie_driver->video[i].fmtid]),
 	     NULL, XmMULTIBYTE_TEXT, NULL);
-	push = XtVaCreateManagedWidget(ng_writers[movie_driver]->video[i].name,
+	push = XtVaCreateManagedWidget(movie_driver->video[i].name,
 				       xmPushButtonWidgetClass,video_menu,
 				       XmNlabelString,str,
 				       NULL);
 	XmStringFree(str);
 	add_cmd_callback(push,XmNactivateCallback,
-			 "movie","video",ng_writers[movie_driver]->video[i].name);
+			 "movie","video",movie_driver->video[i].name);
 	if (NULL != mov_video)
-	    if (0 == strcasecmp(mov_video,ng_writers[movie_driver]->video[i].name)) {
+	    if (0 == strcasecmp(mov_video,movie_driver->video[i].name)) {
 		XtVaSetValues(video_option,XmNmenuHistory,push,NULL);
 		movie_video = i;
 	    }
     }
 
     /* need audio filename? */
-    sensitive = ng_writers[movie_driver]->combined ? False : True;
+    sensitive = movie_driver->combined ? False : True;
     XtVaSetValues(m_faudio, XtNsensitive,sensitive, NULL);
     XtVaSetValues(m_faudioL, XtNsensitive,sensitive, NULL);
     XtVaSetValues(m_faudioB, XtNsensitive,sensitive, NULL);
@@ -2037,15 +2052,21 @@ do_movie_record(int argc, char **argv)
 
     /* set parameters */
     if (argc > 1 && 0 == strcasecmp(argv[0],"driver")) {
+	struct list_head *item;
+	struct ng_writer *writer;
+
 	if (debug)
 	    fprintf(stderr,"set driver: %s\n",argv[1]);
 	XtVaGetValues(driver_menu,XtNchildren,&children,
 		      XtNnumChildren,&nchildren,NULL);
-	for (i = 0; NULL != ng_writers[i]; i++) {
-	    if (0 == strcasecmp(argv[1],ng_writers[i]->name)) {
-		XtVaSetValues(driver_option,XmNmenuHistory,children[i],NULL);
-		movie_driver = i;
+	i = 0;
+	list_for_each(item,&ng_writers) {
+	    writer = list_entry(item, struct ng_writer, list);
+	    if (0 == strcasecmp(argv[1],writer->name)) {
+		movie_driver = writer;
+		i_movie_driver = i;
 	    }
+	    i++;
 	}
 	update_movie_menus();
     }
@@ -2054,8 +2075,8 @@ do_movie_record(int argc, char **argv)
 	    fprintf(stderr,"set audio: %s\n",argv[1]);
 	XtVaGetValues(audio_menu,XtNchildren,&children,
 		      XtNnumChildren,&nchildren,NULL);
-	for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++) {
-	    if (0 == strcasecmp(argv[1],ng_writers[movie_driver]->audio[i].name)) {
+	for (i = 0; NULL != movie_driver->audio[i].name; i++) {
+	    if (0 == strcasecmp(argv[1],movie_driver->audio[i].name)) {
 		XtVaSetValues(audio_option,XmNmenuHistory,children[i],NULL);
 		movie_audio = i;
 	    }
@@ -2070,8 +2091,8 @@ do_movie_record(int argc, char **argv)
 	    fprintf(stderr,"set video: %s\n",argv[1]);
 	XtVaGetValues(video_menu,XtNchildren,&children,
 		      XtNnumChildren,&nchildren,NULL);
-	for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++) {
-	    if (0 == strcasecmp(argv[1],ng_writers[movie_driver]->video[i].name)) {
+	for (i = 0; NULL != movie_driver->video[i].name; i++) {
+	    if (0 == strcasecmp(argv[1],movie_driver->video[i].name)) {
 		XtVaSetValues(video_option,XmNmenuHistory,children[i],NULL);
 		movie_video = i;
 	    }
@@ -2114,7 +2135,7 @@ do_movie_record(int argc, char **argv)
 	memset(&video,0,sizeof(video));
 	memset(&audio,0,sizeof(audio));
 
-	wr = ng_writers[movie_driver];
+	wr = movie_driver;
 	video.fmtid  = wr->video[movie_video].fmtid;
 	video.width  = cur_tv_width;
 	video.height = cur_tv_height;
@@ -2372,6 +2393,7 @@ pref_fst_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void
 pref_mix2(void)
 {
+    struct ng_mix_driver *mix;
     Widget push,w = NULL;
     char *name;
     int i,on;
@@ -2381,8 +2403,10 @@ pref_mix2(void)
     XtVaGetValues(pref_mix1_menu,XmNmenuHistory,&w,NULL);
     if (w) {
 	name = XtName(w);
-	if (ng_mix_drivers && ng_mix_drivers[0] && 0 != strcmp(name,"none"))
-	    info = ng_mix_drivers[0]->channels(name);
+	if (!list_empty(&ng_mix_drivers) && 0 != strcmp(name,"none")) {
+	    mix = list_entry(&ng_mix_drivers.next,struct ng_mix_driver,list);
+	    info = mix->channels(name);
+	}
     }
     
     if (NULL != info && on) {
@@ -2409,13 +2433,16 @@ pref_mix2_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void
 pref_mix1(void)
 {
+    struct ng_mix_driver *mix;
     Widget push;
     int on,i;
     struct ng_devinfo *info = NULL;
 
     on = XmToggleButtonGetState(pref_mix_toggle);
-    if (ng_mix_drivers && ng_mix_drivers[0])
-	info = ng_mix_drivers[0]->probe();
+    if (!list_empty(&ng_mix_drivers)) {
+	mix = list_entry(&ng_mix_drivers.next,struct ng_mix_driver,list);
+	info = mix->probe();
+    }
     if (NULL != info && on) {
 	pref_menu(pref_mix1_option,pref_mix1_menu,1);
 	for (i = 0; 0 != strlen(info[i].name); i++) {
@@ -2620,7 +2647,7 @@ scale_rgb_buffer(struct ng_video_buf *in, int scale)
     struct ng_video_fmt fmt;
     struct ng_video_buf *buf;
     char *src,*dst;
-    int x,y;
+    unsigned int x,y;
     
     fmt = in->fmt;
     fmt.width  = in->fmt.width  / scale;

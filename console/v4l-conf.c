@@ -224,7 +224,7 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 {
 #ifdef HAVE_LIBXXF86DGA
     int                      width,bar,foo,major,minor,flags=0;
-    void                     *base = 0;
+    void                     *base = NULL;
 
     if (!XF86DGAQueryExtension(dpy,&foo,&bar)) {
 	fprintf(stderr,"WARNING: Your X-Server has no DGA support.\n");
@@ -238,7 +238,7 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 	fprintf(stderr,"WARNING: No DGA support available for this display.\n");
 	return;
     }
-    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,&width,&foo,&bar);
+    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,&width,&foo,&bar);
     d->bpl  = width * d->bpp/8;
     d->base = base;
 #else

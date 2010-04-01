@@ -120,10 +120,12 @@ usage(FILE *out, char *prog, char *outfile)
 	    "   -f table     set frequency table.\n"
 	    "   -c device    set video device file.  [%s]\n"
 	    "   -C device    set vbi device file.    [%s]\n"
-	    "   -s           skip channel scan\n",
+	    "   -s           skip channel scan\n"
+	    "   -a           full scan (all frequencies, not just\n"
+	    "                the ones from the frequency table)\n",
 	    prog,
 	    outfile ? outfile : "stdout",
-	    ng_dev.video,ng_dev.vbi);
+	    ng_dev.video, ng_dev.vbi);
 }
 
 int
@@ -131,7 +133,8 @@ main(int argc, char **argv)
 {
     struct vbi_state *vbi;
     struct ng_attribute *attr;
-    int c,f,f1,f2,fc,fi,on,tuned,i,j,scan=1,fullscan=0;
+    int c,fi,on,tuned,i,j,scan=1,fullscan=0;
+    unsigned int f,f1,f2,fc;
     char *name,dummy[32];
     char *tvnorm  = NULL;
     char *freqtab = NULL;

@@ -72,7 +72,7 @@ BadWindow_ehandler (Display *dpy, XErrorEvent *error)
 static Window
 find_screensaver_window (Display *dpy, char **version)
 {
-  int i;
+  unsigned int i;
   Window root = RootWindowOfScreen (DefaultScreenOfDisplay (dpy));
   Window root2, parent, *kids;
   unsigned int nkids;

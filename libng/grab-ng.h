@@ -1,7 +1,7 @@
 /*
  * next generation[tm] xawtv capture interfaces
  *
- * (c) 2001 Gerd Knorr <kraxel@bytesex.org>
+ * (c) 2001-03 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -9,6 +9,7 @@
 #include <sys/types.h>
 
 #include "devices.h"
+#include "list.h"
 
 extern int  ng_debug;
 extern int  ng_chromakey;
@@ -24,7 +25,14 @@ extern char ng_v4l_conf[256];
 
 #if __STDC_VERSION__ < 199901
 # define restrict
+# define bool int
 #endif
+
+#define UNSET          (-1U)
+#define DIMOF(array)   (sizeof(array)/sizeof(array[0]))
+#define SDIMOF(array)  ((signed int)(sizeof(array)/sizeof(array[0])))
+#define GETELEM(array,index,default) \
+	(index < sizeof(array)/sizeof(array[0]) ? array[index] : default)
 
 
 /* --------------------------------------------------------------------- */
@@ -119,15 +127,15 @@ struct OVERLAY_CLIP {
 /* video data structures                                                 */
 
 struct ng_video_fmt {
-    int   fmtid;         /* VIDEO_* */
-    int   width;
-    int   height;
-    int   bytesperline;  /* zero for compressed formats */
+    unsigned int   fmtid;         /* VIDEO_* */
+    unsigned int   width;
+    unsigned int   height;
+    unsigned int   bytesperline;  /* zero for compressed formats */
 };
 
 struct ng_video_buf {
     struct ng_video_fmt  fmt;
-    int                  size;
+    size_t               size;
     unsigned char        *data;
 
     /* meta info for frame */
@@ -162,8 +170,8 @@ void ng_waiton_video_buf(struct ng_video_buf *buf);
 /* audio data structures                                                 */
 
 struct ng_audio_fmt {
-    int   fmtid;         /* AUDIO_* */
-    int   rate;
+    unsigned int   fmtid;         /* AUDIO_* */
+    unsigned int   rate;
 };
 
 struct ng_audio_buf {
@@ -184,12 +192,12 @@ struct ng_audio_buf* ng_malloc_audio_buf(struct ng_audio_fmt *fmt,
 /* someone who receives video and/or audio data (writeavi, ...)          */
 
 struct ng_format_list {
-    char  *name;
-    char  *desc;  /* if standard fmtid description doesn't work
-			   because it's converted somehow */
-    char  *ext;
-    int   fmtid;
-    void  *priv;
+    char           *name;
+    char           *desc;  /* if standard fmtid description doesn't work
+			      because it's converted somehow */
+    char           *ext;
+    unsigned int   fmtid;
+    void           *priv;
 };
 
 struct ng_writer {
@@ -205,6 +213,8 @@ struct ng_writer {
     int (*wr_video)(void *handle, struct ng_video_buf *buf);
     int (*wr_audio)(void *handle, struct ng_audio_buf *buf);
     int (*wr_close)(void *handle);
+
+    struct list_head list;
 };
 
 struct ng_reader {
@@ -218,10 +228,12 @@ struct ng_reader {
     void* (*rd_open)(char *moviename);
     struct ng_video_fmt* (*rd_vfmt)(void *handle, int *vfmt, int vn);
     struct ng_audio_fmt* (*rd_afmt)(void *handle);
-    struct ng_video_buf* (*rd_vdata)(void *handle, int drop);
+    struct ng_video_buf* (*rd_vdata)(void *handle, unsigned int drop);
     struct ng_audio_buf* (*rd_adata)(void *handle);
     int64_t (*frame_time)(void *handle);
     int (*rd_close)(void *handle);
+
+    struct list_head list;
 };
 
 
@@ -288,7 +300,7 @@ struct ng_vid_driver {
     
     /* capture */
     int   (*setformat)(void *handle, struct ng_video_fmt *fmt);
-    int   (*startvideo)(void *handle, int fps, int buffers);
+    int   (*startvideo)(void *handle, int fps, unsigned int buffers);
     void  (*stopvideo)(void *handle);
     struct ng_video_buf* (*nextframe)(void *handle); /* video frame */
     struct ng_video_buf* (*getimage)(void *handle);  /* single image */
@@ -297,6 +309,8 @@ struct ng_vid_driver {
     unsigned long (*getfreq)(void *handle);
     void  (*setfreq)(void *handle, unsigned long freq);
     int   (*is_tuned)(void *handle);
+
+    struct list_head list;
 };
 
 
@@ -313,6 +327,8 @@ struct ng_dsp_driver {
     struct ng_audio_buf*  (*read)(void *handle, int64_t stopby);
     struct ng_audio_buf*  (*write)(void *handle, struct ng_audio_buf *buf);
     int64_t               (*latency)(void *handle);
+
+    struct list_head      list;
 };
 
 struct ng_mix_driver {
@@ -322,6 +338,8 @@ struct ng_mix_driver {
     void*                 (*open)(char *device);
     struct ng_attribute*  (*volctl)(void *handle, char *channel);
     void                  (*close)(void *handle);
+
+    struct list_head      list;
 };
 
 
@@ -329,8 +347,8 @@ struct ng_mix_driver {
 /* color space converters                                                */
 
 struct ng_video_conv {
-    int                   fmtid_in;
-    int                   fmtid_out;
+    unsigned int          fmtid_in;
+    unsigned int          fmtid_out;
     void*                 (*init)(struct ng_video_fmt *out,
 				  void *priv);
     void                  (*frame)(void *handle,
@@ -338,6 +356,8 @@ struct ng_video_conv {
 				   struct ng_video_buf *in);
     void                  (*fini)(void *handle);
     void                  *priv;
+
+    struct list_head      list;
 };
 
 struct ng_convert_handle {
@@ -364,13 +384,15 @@ struct ng_video_buf* ng_convert_single(struct ng_convert_handle *h,
 /* audio converters                                                      */
 
 struct ng_audio_conv {
-    int                   fmtid_in;
-    int                   fmtid_out;
+    unsigned int          fmtid_in;
+    unsigned int          fmtid_out;
     void*                 (*init)(void *priv);
     struct ng_audio_buf*  (*frame)(void *handle,
 				   struct ng_audio_buf *in);
     void                  (*fini)(void *handle);
     void                  *priv;
+
+    struct list_head      list;
 };
 
 /* --------------------------------------------------------------------- */
@@ -384,23 +406,28 @@ struct ng_filter {
     struct ng_video_buf*  (*frame)(void *handle,
 				   struct ng_video_buf *in);
     void                  (*fini)(void *handle);
+
+    struct list_head      list;
 };
 
 /* --------------------------------------------------------------------- */
 
 /* must be changed if we break compatibility */
-#define NG_PLUGIN_MAGIC 0x20021114
+#define NG_PLUGIN_MAGIC 0x20030129
 
-extern struct ng_video_conv  **ng_conv;
-extern struct ng_filter      **ng_filters;
-extern struct ng_writer      **ng_writers;
-extern struct ng_reader      **ng_readers;
-extern struct ng_vid_driver  **ng_vid_drivers;
-extern struct ng_dsp_driver  **ng_dsp_drivers;
-extern struct ng_mix_driver  **ng_mix_drivers;
+extern struct list_head ng_conv;
+extern struct list_head ng_aconv;
+extern struct list_head ng_filters;
+extern struct list_head ng_writers;
+extern struct list_head ng_readers;
+extern struct list_head ng_vid_drivers;
+extern struct list_head ng_dsp_drivers;
+extern struct list_head ng_mix_drivers;
 
 int ng_conv_register(int magic, char *plugname,
 		     struct ng_video_conv *list, int count);
+int ng_aconv_register(int magic, char *plugname,
+		      struct ng_audio_conv *list, int count);
 int ng_filter_register(int magic, char *plugname,
 		       struct ng_filter *filter);
 int ng_writer_register(int magic, char *plugname,
@@ -414,9 +441,9 @@ int ng_dsp_driver_register(int magic, char *plugname,
 int ng_mix_driver_register(int magic, char *plugname,
 			   struct ng_mix_driver *driver);
 
-struct ng_video_conv* ng_conv_find_to(int out, int *i);
-struct ng_video_conv* ng_conv_find_from(int out, int *i);
-struct ng_video_conv* ng_conv_find_match(int in, int out);
+struct ng_video_conv* ng_conv_find_to(unsigned int out, int *i);
+struct ng_video_conv* ng_conv_find_from(unsigned int out, int *i);
+struct ng_video_conv* ng_conv_find_match(unsigned int in, unsigned int out);
 
 const struct ng_vid_driver* ng_vid_open(char *device, char *driver,
 					struct ng_video_fmt *screen,
@@ -437,7 +464,7 @@ struct ng_video_buf* ng_filter_single(struct ng_filter *filter,
 
 void ng_init(void);
 void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
-		 unsigned long blue_mask, int fmtid, int swap);
+		 unsigned long blue_mask, unsigned int fmtid, int swap);
 
 void ng_rgb24_to_lut2(unsigned char *dest, unsigned char *src, int p);
 void ng_rgb24_to_lut4(unsigned char *dest, unsigned char *src, int p);

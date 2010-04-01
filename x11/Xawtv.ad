@@ -161,6 +161,14 @@ xawtv.tv.translations:		#override			\n\
 	<Key>V:			Command(capture,toggle)		\n\
 	<Key>D:			Command(showtime)		\n\
 	\
+	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
+	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
+	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioNext:	Command(setstation,next)	\n\
+	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
+	<Key>XF86AudioPlay:	Command(capture,on)		\n\
+	<Key>XF86AudioStop:	Command(capture,off)		\n\
+	\
 	<Key>F5:		Command(bright,dec)		\n\
 	<Key>F6:		Command(bright,inc)		\n\
 	<Key>F7:		Command(hue,dec)		\n\
@@ -218,7 +226,15 @@ Options.paned.translations:	#override\n\
 	<Key>BackSpace:		Command(setstation,back)	\n\
 	<Btn4Up>:		Command(setstation,next)	\n\
 	<Btn5Up>:		Command(setstation,prev)	\n\
-	<Key>V:			Command(capture,toggle)
+	<Key>V:			Command(capture,toggle)		\n\
+	\
+	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
+	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
+	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioNext:	Command(setstation,next)	\n\
+	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
+	<Key>XF86AudioPlay:	Command(capture,on)		\n\
+	<Key>XF86AudioStop:	Command(capture,off)
 
 Options*Command.testcolor:	red
 Options*Command.translations:	#override			\n\
@@ -332,7 +348,15 @@ Channels.viewport.translations:	#override\n\
 	<Key>BackSpace:		Command(setstation,back)	\n\
 	<Btn4Up>:		Command(setstation,next)	\n\
 	<Btn5Up>:		Command(setstation,prev)	\n\
-	<Key>V:			Command(capture,toggle)
+	<Key>V:			Command(capture,toggle)		\n\
+	\
+	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
+	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
+	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioNext:	Command(setstation,next)	\n\
+	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
+	<Key>XF86AudioPlay:	Command(capture,on)		\n\
+	<Key>XF86AudioStop:	Command(capture,off)
 
 ! ----------------------------------------------------------------------------
 ! onscreen + vtx window

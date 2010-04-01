@@ -39,14 +39,14 @@ tty_restore(void)
 
 /* -------------------------------------------------------------------- */
 
-static int     sound_fd;
-static int     sound_blksize;
-static short  *sound_buffer;
-static int     maxl,maxr;
-static int     secl,secr;
-static int     *histl,*histr,histn,histi;
-static float   peak_seconds = 1.5;
-static char    *audio_dev = "/dev/dsp";
+static int           sound_fd;
+static unsigned int  sound_blksize;
+static short         *sound_buffer;
+static int           maxl,maxr;
+static int           secl,secr;
+static int           *histl,*histr,histn,histi;
+static float         peak_seconds = 1.5;
+static char          *audio_dev = "/dev/dsp";
 
 static int
 sound_open(int rate)
@@ -126,7 +126,8 @@ sound_open(int rate)
 static int
 sound_read(void)
 {
-    int     i,rc,have;
+    unsigned int have;
+    int     i,rc;
     short  *v;
 
     /* read */
@@ -305,8 +306,8 @@ typedef struct WAVEHDR {
 /* -------------------------------------------------------------------- */
 
 static WAVEHDR  fileheader;
-static off_t    wav_size;
-static off_t    done_size;
+static size_t   wav_size;
+static size_t   done_size;
 
 static void
 wav_init_header(int rate)
@@ -457,7 +458,7 @@ record_stop(int fd)
     }
 }
 
-static off_t
+static size_t
 parse_size(const char *arg)
 {
     int value;
@@ -465,7 +466,7 @@ parse_size(const char *arg)
     off_t retval = -1;
 
     if (2 != sscanf(arg,"%d%3s",&value,mul))
-	return -1;
+	return 0;
     if (0 == strcasecmp(mul,"g") ||
 	0 == strcasecmp(mul,"gb"))
 	retval = (off_t)value * 1024 * 1024 * 1024;
@@ -555,7 +556,7 @@ main(int argc, char *argv[])
     fd_set          s;
     int             sec,maxhour,maxmin,maxsec;
     int             maxfiles = 0;
-    off_t           maxsize;
+    size_t          maxsize;
 
     /* init some vars */
     progname = strrchr(argv[0],'/');
@@ -627,7 +628,7 @@ main(int argc, char *argv[])
 	}
     }
     maxsize = parse_size(str_maxsize);
-    if (-1 == maxsize) {
+    if (0 == maxsize) {
 	fprintf(stderr,"maxsize parse error [%s]\n",str_maxsize);
 	exit(1);
     }

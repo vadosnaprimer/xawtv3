@@ -182,7 +182,7 @@ mjpg_rgb_compress(void *handle, struct ng_video_buf *out,
 {
     struct mjpeg_compress *h = handle;
     unsigned char *line;
-    int i;
+    unsigned int i;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_rgb_compress\n");
@@ -250,7 +250,7 @@ static void
 mjpg_420_compress(struct mjpeg_compress *h)
 {
     unsigned char **mjpg_run[3];
-    int y;
+    unsigned int y;
 
     mjpg_run[0] = h->mjpg_ptrs[0];
     mjpg_run[1] = h->mjpg_ptrs[1];
@@ -270,7 +270,7 @@ static void
 mjpg_422_compress(struct mjpeg_compress *h)
 {
     unsigned char **mjpg_run[3];
-    int y;
+    unsigned int y;
 
     mjpg_run[0] = h->mjpg_ptrs[0];
     mjpg_run[1] = h->mjpg_ptrs[1];
@@ -296,7 +296,7 @@ mjpg_422_420_compress(void *handle, struct ng_video_buf *out,
 {
     struct mjpeg_compress *h = handle;
     unsigned char *line;
-    int i;
+    unsigned int i;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_422_420_compress\n");
@@ -326,7 +326,7 @@ mjpg_420_420_compress(void *handle, struct ng_video_buf *out,
 {
     struct mjpeg_compress *h = handle;
     unsigned char *line;
-    int i;
+    unsigned int i;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_420_420_compress\n");
@@ -358,7 +358,7 @@ mjpg_422_422_compress(void *handle, struct ng_video_buf *out,
 {
     struct mjpeg_compress *h = handle;
     unsigned char *line;
-    int i;
+    unsigned int i;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_422_422_compress\n");
@@ -422,7 +422,7 @@ mjpg_rgb_decompress(void *handle, struct ng_video_buf *out,
 {
     struct mjpeg_decompress *h = handle;
     unsigned char *line;
-    int i;
+    unsigned int i;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_rgb_decompress\n");
@@ -445,7 +445,7 @@ mjpg_yuv420_decompress(void *handle, struct ng_video_buf *out,
     struct mjpeg_decompress *h = handle;
     unsigned char **mjpg_run[3];
     unsigned char *line;
-    int i,y;
+    unsigned int i,y;
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_yuv_decompress\n");

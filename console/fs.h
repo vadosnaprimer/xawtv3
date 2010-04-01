@@ -56,7 +56,8 @@ struct fs_font {
 int fs_init_fb(int white8);
 void fs_render_fb(unsigned char *ptr, int pitch,
 		  FSXCharInfo *charInfo, unsigned char *data);
-int fs_puts(struct fs_font *f, int x, int y, unsigned char *str);
+int fs_puts(struct fs_font *f, unsigned int x, unsigned int y,
+	    unsigned char *str);
 int fs_textwidth(struct fs_font *f, unsigned char *str);
 void fs_render_tty(FSXCharInfo *charInfo, unsigned char *data);
 

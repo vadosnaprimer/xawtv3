@@ -49,10 +49,10 @@ struct avi_handle {
 
 /* ----------------------------------------------------------------------- */
 
-#define FCC(a,b,c,d) (((int32_t)a << 24) |\
-		      ((int32_t)b << 16) |\
-		      ((int32_t)c << 8)  |\
-		      (int32_t)d)
+#define FCC(a,b,c,d) (((uint32_t)a << 24) |\
+		      ((uint32_t)b << 16) |\
+		      ((uint32_t)c << 8)  |\
+		      (uint32_t)d)
 #define FCCS(str) FCC(str[0],str[1],str[2],str[3])
 
 static void avi_add_movi(struct avi_handle *h,  int level,
@@ -317,13 +317,13 @@ static struct ng_audio_fmt* avi_afmt(void *handle)
     return AUDIO_NONE != h->afmt.fmtid ? &h->afmt : NULL;
 }
 
-static struct ng_video_buf* avi_vdata(void *handle, int drop)
+static struct ng_video_buf* avi_vdata(void *handle, unsigned int drop)
 {
     struct avi_handle *h = handle;
     struct ng_video_buf *buf;
     struct iovec *line;
     uint32_t size;
-    int i,y;
+    unsigned int i,y;
 
     /* drop frames */
     for (i = 0; i < drop; i++) {

@@ -547,7 +547,7 @@ static int handle_classic_atom(int fh, off_t pos, off_t size, int depth)
 {
     struct classic_atom a;
     uint64_t asize;
-    off_t off;
+    size_t off;
     int i;
 
     if (-1 == lseek(fh,pos,SEEK_SET)) {

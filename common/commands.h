@@ -52,7 +52,7 @@ extern int debug;
 extern int do_overlay;
 extern char *snapbase;
 extern int have_shmem;
-extern int cur_tv_width,cur_tv_height;
+extern unsigned int cur_tv_width,cur_tv_height;
 extern int cur_movie,cur_attrs[256];
 extern struct movie_parm m_parm;
 

@@ -50,7 +50,7 @@ static int   v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 
 /* capture video */
 static int v4l_setformat(void *handle, struct ng_video_fmt *fmt);
-static int v4l_startvideo(void *handle, int fps, int buffers);
+static int v4l_startvideo(void *handle, int fps, unsigned int buffers);
 static void v4l_stopvideo(void *handle);
 static struct ng_video_buf* v4l_nextframe(void *handle);
 static struct ng_video_buf* v4l_getimage(void *handle);
@@ -118,8 +118,6 @@ static unsigned short format2palette[VIDEO_FMT_COUNT] = {
     VIDEO_PALETTE_YUV422P,      /* YUV422P   */
     VIDEO_PALETTE_YUV420P,      /* YUV420P   */
 };
-#define FMT2PAL(fmt) ((fmt < sizeof(format2palette)/sizeof(unsigned short)) ?\
-		      format2palette[fmt] : 0);
 
 /* pass 0/1 by reference */
 static int                      one = 1, zero = 0;
@@ -127,7 +125,7 @@ static int                      one = 1, zero = 0;
 /* ---------------------------------------------------------------------- */
 
 struct v4l_handle {
-    int    fd;
+    int                      fd;
 
     /* general informations */
     struct video_capability  capability;
@@ -146,7 +144,7 @@ struct v4l_handle {
     struct video_buffer      fbuf;
     struct video_window      win;
     int                      ov_error;
-    int                      ov_fmtid;
+    unsigned int             ov_fmtid;
     int                      ov_enabled;
     int                      ov_on;
 
@@ -159,14 +157,14 @@ struct v4l_handle {
     /* capture via read() */
     struct ng_video_fmt      rd_fmt;
     struct video_window      rd_win;
-    int                      rd_fmtid;
+    unsigned int             rd_fmtid;
     
     /* capture to mmap()'ed buffers */
     struct video_mbuf        mbuf;
     unsigned char            *mmap;
-    int                      nbuf;
-    int                      queue;
-    int                      waiton;
+    unsigned int             nbuf;
+    unsigned int             queue;
+    unsigned int             waiton;
     int                      probe[VIDEO_FMT_COUNT];
     struct video_mmap        *buf_v4l;
     struct ng_video_buf      *buf_me;
@@ -265,7 +263,8 @@ v4l_open(char *device)
     struct v4l_handle *h;
     struct STRTAB *inputs;
     struct STRTAB *norms;
-    int i,rc;
+    unsigned int i;
+    int rc;
 
     h = malloc(sizeof(*h));
     if (NULL == h)
@@ -750,7 +749,7 @@ v4l_overlay_set(struct v4l_handle *h, int state)
     } else {
 	/* on */
 	h->pict.depth   = ng_vfmt_to_depth[h->ov_fmtid];
-	h->pict.palette = FMT2PAL(h->ov_fmtid);
+	h->pict.palette = GETELEM(format2palette,h->ov_fmtid,0);
 	xioctl(h->fd, VIDIOCSPICT, &h->pict);
 	rc = xioctl(h->fd, VIDIOCSWIN, &h->win);
 	if (0 == rc) {
@@ -914,7 +913,7 @@ mm_clear(struct v4l_handle *h)
 }
 
 static int
-mm_probe(struct v4l_handle *h, int fmtid)
+mm_probe(struct v4l_handle *h, unsigned int fmtid)
 {
     if (0 != h->probe[fmtid])
 	goto done;
@@ -926,7 +925,7 @@ mm_probe(struct v4l_handle *h, int fmtid)
     h->buf_v4l[0].frame  = 0;
     h->buf_v4l[0].width  = h->capability.minwidth;
     h->buf_v4l[0].height = h->capability.minheight;
-    h->buf_v4l[0].format = FMT2PAL(fmtid);
+    h->buf_v4l[0].format = GETELEM(format2palette,fmtid,0);
 #if 1 /* bug compatibility: bttv up to 0.7.67 reports wrong minwidth */
     if (h->buf_v4l[0].width == 32)
 	h->buf_v4l[0].width = 48;
@@ -957,7 +956,7 @@ mm_probe(struct v4l_handle *h, int fmtid)
 static int
 mm_setparams(struct v4l_handle *h, struct ng_video_fmt *fmt)
 {
-    int i;
+    unsigned int i;
     
     /* verify parameters */
     xioctl(h->fd,VIDIOCGCAP,&h->capability);
@@ -974,7 +973,7 @@ mm_setparams(struct v4l_handle *h, struct ng_video_fmt *fmt)
     /* initialize everything */
     h->nbuf = h->mbuf.frames;
     for (i = 0; i < h->nbuf; i++) {
-	h->buf_v4l[i].format = FMT2PAL(fmt->fmtid);
+	h->buf_v4l[i].format = GETELEM(format2palette,fmt->fmtid,0);
 	h->buf_v4l[i].frame  = i;
 	h->buf_v4l[i].width  = fmt->width;
 	h->buf_v4l[i].height = fmt->height;
@@ -1002,7 +1001,7 @@ read_setformat(struct v4l_handle *h, struct ng_video_fmt *fmt)
     h->rd_fmtid = fmt->fmtid;
 
     h->pict.depth   = ng_vfmt_to_depth[h->rd_fmtid];
-    h->pict.palette = FMT2PAL(h->rd_fmtid);
+    h->pict.palette = GETELEM(format2palette,h->rd_fmtid,0);
     if (-1 == xioctl(h->fd, VIDIOCSPICT, &h->pict))
 	return -1;
     if (-1 == xioctl(h->fd, VIDIOCSWIN,  &h->rd_win))
@@ -1022,7 +1021,7 @@ read_getframe(struct v4l_handle *h)
     int size;
 
     h->pict.depth   = ng_vfmt_to_depth[h->rd_fmtid];
-    h->pict.palette = FMT2PAL(h->rd_fmtid);
+    h->pict.palette = GETELEM(format2palette,h->rd_fmtid,0);
     xioctl(h->fd, VIDIOCSPICT, &h->pict);
     xioctl(h->fd, VIDIOCSWIN,  &h->rd_win);
     size = h->rd_fmt.bytesperline * h->rd_fmt.height;
@@ -1068,7 +1067,7 @@ v4l_setformat(void *handle, struct ng_video_fmt *fmt)
 }
 
 int
-v4l_startvideo(void *handle, int fps, int buffers)
+v4l_startvideo(void *handle, int fps, unsigned int buffers)
 {
     struct v4l_handle *h = handle;
 

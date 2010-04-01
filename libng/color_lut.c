@@ -234,12 +234,12 @@ static struct ng_video_conv lut4_list[] = {
     }
 };
 
-static const int nconv2 = sizeof(lut2_list)/sizeof(struct ng_video_conv);
-static const int nconv4 = sizeof(lut4_list)/sizeof(struct ng_video_conv);
+static const unsigned int nconv2 = sizeof(lut2_list)/sizeof(lut2_list[0]);
+static const unsigned int nconv4 = sizeof(lut4_list)/sizeof(lut4_list[0]);
 
 void
 ng_lut_init(unsigned long red_mask, unsigned long green_mask,
-	    unsigned long blue_mask, int fmtid, int swap)
+	    unsigned long blue_mask, unsigned int fmtid, int swap)
 {
     static int      once=0;
     int             rgb_red_bits = 0;

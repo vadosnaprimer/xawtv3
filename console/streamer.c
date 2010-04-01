@@ -66,12 +66,13 @@ int debug = 0, have_dga = 0;
 static void
 list_formats(FILE *out)
 {
+    struct list_head *item;
     const struct ng_writer *wr;
-    int i,j;
+    int j;
     
     fprintf(out,"\nmovie writers:\n");
-    for (i = 0; NULL != ng_writers[i]; i++) {
-	wr = ng_writers[i];
+    list_for_each(item,&ng_writers) {
+	wr = list_entry(item, struct ng_writer, list);
 	fprintf(out,"  %s - %s\n",wr->name,
 		wr->desc ? wr->desc : "-");
 	if (NULL != wr->video) {
@@ -186,10 +187,11 @@ usage(FILE *out)
 static void
 find_formats(void)
 {
+    struct list_head *item;
     const struct ng_writer *wr = NULL;
     char *mext = NULL;
     char *aext = NULL;
-    int w,v=-1,a=-1;
+    int v=-1,a=-1;
 
     if (moviename) {
 	mext = strrchr(moviename,'.');
@@ -201,8 +203,8 @@ find_formats(void)
 	if (aext)
 	    aext++;
     }
-    for (w = 0; NULL != ng_writers[w]; w++) {
-	wr = ng_writers[w];
+    list_for_each(item,&ng_writers) {
+	wr = list_entry(item, struct ng_writer, list);
 	if (debug)
 	    fprintf(stderr,"checking writer %s [%s] ...\n",wr->name,wr->desc);
 	if ((/*!wr->combined && */mext) || NULL != vfmt_name) {
@@ -268,7 +270,7 @@ find_formats(void)
 	}
 	break;
     }
-    if (NULL != ng_writers[w]) {
+    if (item != &ng_writers) {
 	writer = wr;
 	if (-1 != v) {
 	    video.fmtid = wr->video[v].fmtid;

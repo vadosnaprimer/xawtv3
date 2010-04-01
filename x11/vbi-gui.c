@@ -208,7 +208,7 @@ vbi_subpage_menu(struct vbi_window *vw)
     Widget push;
     vbi_page pg;
     char page[8];
-    int i;
+    unsigned int i;
 
     /* delete children */
     XtVaGetValues(vw->submenu,XtNchildren,&children,

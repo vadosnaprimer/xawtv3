@@ -353,7 +353,7 @@ CloseMainAction(Widget widget, XEvent *event,
 	if (debug)
 	    fprintf(stderr,"CloseMainAction: received %s message\n",
 		    XGetAtomName(dpy,event->xclient.data.l[0]));
-	if (event->xclient.data.l[0] == WM_DELETE_WINDOW) {
+	if ((Atom)event->xclient.data.l[0] == WM_DELETE_WINDOW) {
 	    /* fall throuth -- popdown window */
 	} else {
 	    /* whats this ?? */
@@ -368,7 +368,8 @@ RemoteAction(Widget widget, XEvent * event,
 	     String * params, Cardinal * num_params)
 {
     Atom            type;
-    int             format, argc, i;
+    int             format, argc;
+    unsigned int    i;
     char            *argv[32];
     unsigned long   nitems, bytesafter;
     unsigned char   *args = NULL;
@@ -910,7 +911,8 @@ do_fullscreen(void)
 			 0, 0, 0, 0, rpx, rpy);
 	fs = 0;
     } else {
-	int vp_x, vp_y, vp_width, vp_height;
+	unsigned int vp_width, vp_height;
+	int vp_x, vp_y;
 
 	if (debug)
 	    fprintf(stderr,"turning fs on\n");
@@ -1159,20 +1161,19 @@ void
 FilterAction(Widget widget, XEvent *event,
 	      String *params, Cardinal *num_params)
 {
-    int i;
+    struct list_head *item;
+    struct ng_filter *filter;
 
-    if (NULL == ng_filters)
+    cur_filter = NULL;
+    if (0 == *num_params)
 	return;
-    if (0 == *num_params) {
-	cur_filter = NULL;
-	return;
-    }
-    for (i = 0; NULL != ng_filters[i]; i++)
-	if (0 == strcasecmp(ng_filters[i]->name,params[0]))
+    list_for_each(item,&ng_filters) {
+	filter = list_entry(item, struct ng_filter, list);
+	if (0 == strcasecmp(filter->name,params[0])) {
+	    cur_filter = filter;
 	    break;
-    if (NULL == ng_filters[i])
-	return;
-    cur_filter = ng_filters[i];
+	}
+    }
 }
 
 /*----------------------------------------------------------------------*/
@@ -1262,7 +1263,7 @@ grabber_init()
 #ifdef HAVE_LIBXXF86DGA
     if (have_dga) {
 	int bar,fred;
-    	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(int*)&base,
+    	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,
 			  &screen.bytesperline,&bar,&fred);
     }
 #endif
@@ -1916,14 +1917,14 @@ int xt_joystick_init(void)
 
 void xt_kbd_init(Widget tv)
 {
-    char **list,key[16],str[128];
+    char **list,key[32],str[128];
 
     list = cfg_list_entries("eventmap");
     if (NULL == list)
 	return;
     
     for (; *list != NULL; list++) {
-	if (1 != sscanf(*list,"kbd-key-%15s",key))
+	if (1 != sscanf(*list,"kbd-key-%31s",key))
 	    continue;
 	sprintf(str,"<Key>%s: Event(%s)",key,*list);
 	XtOverrideTranslations(tv,XtParseTranslationTable(str));

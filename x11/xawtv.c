@@ -124,11 +124,12 @@ struct STRTAB     *m_movie_driver;
 struct STRTAB     *m_movie_audio;
 struct STRTAB     *m_movie_video;
 
-int               movie_driver = 0;
-int               movie_audio  = 0;
-int               movie_video  = 0;
-int               movie_fps    = 12000;
-int               movie_rate   = 44100;
+struct ng_writer  *movie_driver  = NULL;
+unsigned int      i_movie_driver = 0;
+unsigned int      movie_audio    = 0;
+unsigned int      movie_video    = 0;
+unsigned int      movie_fps      = 12000;
+unsigned int      movie_rate     = 44100;
 
 static struct STRTAB m_movie_fps[] = {
     {  2000, " 2.0   fps" },
@@ -246,7 +247,8 @@ PopupAction(Widget widget, XEvent *event,
 	    String *params, Cardinal *num_params)
 {
     Dimension h;
-    int i,mh;
+    unsigned int i;
+    int mh;
 
     /* which window we are talking about ? */
     if (*num_params > 0) {
@@ -272,7 +274,7 @@ PopupAction(Widget widget, XEvent *event,
 	    fprintf(stderr,"%s: received %s message\n",
 		    my_toplevels[i].name,
 		    XGetAtomName(dpy,event->xclient.data.l[0]));
-	if (event->xclient.data.l[0] == WM_DELETE_WINDOW) {
+	if ((Atom)event->xclient.data.l[0] == WM_DELETE_WINDOW) {
 	    /* fall throuth -- popdown window */
 	} else {
 	    /* whats this ?? */
@@ -764,6 +766,7 @@ static void create_chanwin(void)
 				    XtNvisual,vinfo.visual,
 				    XtNcolormap,colormap,
 				    XtNdepth,vinfo.depth,
+		      XtNheight,XtScreen(app_shell)->height/2,
 		      XtNmaxHeight,XtScreen(app_shell)->height-50,
 				    NULL);
     XtOverrideTranslations(chan_shell, XtParseTranslationTable
@@ -813,7 +816,7 @@ void
 StayOnTop(Widget widget, XEvent *event,
 	  String *params, Cardinal *num_params)
 {
-    int i;
+    unsigned int i;
 
     if (!wm_stay_on_top)
 	return;
@@ -834,64 +837,75 @@ StayOnTop(Widget widget, XEvent *event,
 static void
 update_movie_menus(void)
 {
+    struct list_head *item;
+    struct ng_writer *writer;
     Boolean sensitive;
-    int i;
+    unsigned int i;
 
     /* drivers  */
     if (NULL == m_movie_driver) {
-	for (i = 0; NULL != ng_writers[i]; i++)
-	    ;
+	i = 0;
+	list_for_each(item,&ng_writers)
+	    i++;
 	m_movie_driver = malloc(sizeof(struct STRTAB)*(i+1));
 	memset(m_movie_driver,0,sizeof(struct STRTAB)*(i+1));
-	for (i = 0; NULL != ng_writers[i]; i++) {
+	i = 0;
+	list_for_each(item,&ng_writers) {
+	    writer = list_entry(item, struct ng_writer, list);
 	    m_movie_driver[i].nr  = i;
-	    m_movie_driver[i].str = ng_writers[i]->desc;
+	    m_movie_driver[i].str = writer->desc;
 	    if (NULL != mov_driver)
-		if (0 == strcasecmp(mov_driver,ng_writers[i]->name))
-		    movie_driver = i;
+		if (NULL == movie_driver ||
+		    0 == strcasecmp(mov_driver,writer->name)) {
+		    movie_driver = writer;
+		    i_movie_driver = i;
+		}
+	    i++;
 	}
+	m_movie_driver[i].nr  = i;
+	m_movie_driver[i].str = NULL;
     }
 
     /* audio formats */
-    for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++)
+    for (i = 0; NULL != movie_driver->audio[i].name; i++)
 	;
     if (m_movie_audio)
 	free(m_movie_audio);
     movie_audio = 0;
     m_movie_audio = malloc(sizeof(struct STRTAB)*(i+2));
     memset(m_movie_audio,0,sizeof(struct STRTAB)*(i+2));
-    for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++) {
+    for (i = 0; NULL != movie_driver->audio[i].name; i++) {
 	m_movie_audio[i].nr  = i;
-	m_movie_audio[i].str = ng_writers[movie_driver]->audio[i].desc ?
-	    ng_writers[movie_driver]->audio[i].desc : 
-	    ng_afmt_to_desc[ng_writers[movie_driver]->audio[i].fmtid];
+	m_movie_audio[i].str = movie_driver->audio[i].desc ?
+	    movie_driver->audio[i].desc : 
+	    ng_afmt_to_desc[movie_driver->audio[i].fmtid];
 	if (NULL != mov_audio)
-	    if (0 == strcasecmp(mov_audio,ng_writers[movie_driver]->audio[i].name))
+	    if (0 == strcasecmp(mov_audio,movie_driver->audio[i].name))
 		movie_audio = i;
     }
     m_movie_audio[i].nr  = i;
     m_movie_audio[i].str = "no sound";
 
     /* video formats */
-    for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++)
+    for (i = 0; NULL != movie_driver->video[i].name; i++)
 	;
     if (m_movie_video)
 	free(m_movie_video);
     movie_video = 0;
     m_movie_video = malloc(sizeof(struct STRTAB)*(i+2));
     memset(m_movie_video,0,sizeof(struct STRTAB)*(i+2));
-    for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++) {
+    for (i = 0; NULL != movie_driver->video[i].name; i++) {
 	m_movie_video[i].nr  = i;
-	m_movie_video[i].str = ng_writers[movie_driver]->video[i].desc ?
-	    ng_writers[movie_driver]->video[i].desc : 
-	    ng_vfmt_to_desc[ng_writers[movie_driver]->video[i].fmtid];
+	m_movie_video[i].str = movie_driver->video[i].desc ?
+	    movie_driver->video[i].desc : 
+	    ng_vfmt_to_desc[movie_driver->video[i].fmtid];
 	if (NULL != mov_video)
-	    if (0 == strcasecmp(mov_video,ng_writers[movie_driver]->video[i].name))
+	    if (0 == strcasecmp(mov_video,movie_driver->video[i].name))
 		movie_video = i;
     }
 
     /* need audio filename? */
-    sensitive = ng_writers[movie_driver]->combined ? False : True;
+    sensitive = movie_driver->combined ? False : True;
     XtVaSetValues(w_movie_flabel,
 		  XtNsensitive,sensitive,
 		  NULL);
@@ -909,7 +923,7 @@ init_movie_menus(void)
 	do_va_cmd(3,"movie","rate",mov_rate);
     if (mov_fps)
 	do_va_cmd(3,"movie","fps",mov_fps);
-    set_menu_val(w_movie_driver,MOVIE_DRIVER,m_movie_driver,movie_driver);
+    set_menu_val(w_movie_driver,MOVIE_DRIVER,m_movie_driver,i_movie_driver);
     set_menu_val(w_movie_audio,MOVIE_AUDIO,m_movie_audio,movie_audio);
     set_menu_val(w_movie_rate,MOVIE_RATE,m_movie_rate,movie_rate);
     set_menu_val(w_movie_video,MOVIE_VIDEO,m_movie_video,movie_video);
@@ -978,14 +992,23 @@ menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	break;
 
     case 20:
-	if (-1 != (j=popup_menu(widget,MOVIE_DRIVER,m_movie_driver)))
-	    do_va_cmd(3,"movie","driver",ng_writers[j]->name);
+	if (-1 != (j=popup_menu(widget,MOVIE_DRIVER,m_movie_driver))) {
+	    int i = 0;
+	    struct list_head *item;
+	    struct ng_writer *writer = NULL;
+	    
+	    list_for_each(item,&ng_writers) {
+		if (i++ == j)
+		    writer = list_entry(item,struct ng_writer, list);
+	    }
+	    do_va_cmd(3,"movie","driver",writer->name);
+	}
 	break;
     case 21:
 	if (-1 != (j=popup_menu(widget,MOVIE_AUDIO,m_movie_audio)))
 	    do_va_cmd(3,"movie","audio",
-		      ng_writers[movie_driver]->audio[j].name ?
-		      ng_writers[movie_driver]->audio[j].name :
+		      movie_driver->audio[j].name ?
+		      movie_driver->audio[j].name :
 		      "none");
 	break;
     case 22:
@@ -994,7 +1017,7 @@ menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	break;
     case 23:
 	if (-1 != (j=popup_menu(widget,MOVIE_VIDEO,m_movie_video)))
-	    do_va_cmd(3,"movie","video",ng_writers[movie_driver]->video[j].name);
+	    do_va_cmd(3,"movie","video",movie_driver->video[j].name);
 	break;
     case 24:
 	if (-1 != (j=popup_menu(widget,MOVIE_FPS,m_movie_fps)))
@@ -1283,11 +1306,20 @@ do_movie_record(int argc, char **argv)
 
     /* set parameters */
     if (argc > 1 && 0 == strcasecmp(argv[0],"driver")) {
-	for (i = 0; m_movie_driver[i].str != NULL; i++)
-	    if (0 == strcasecmp(argv[1],ng_writers[i]->name))
-		movie_driver = m_movie_driver[i].nr;
+	struct list_head *item;
+	struct ng_writer *writer;
+	i = 0;
+	list_for_each(item,&ng_writers) {
+	    writer = list_entry(item, struct ng_writer, list);
+	    if (0 == strcasecmp(argv[1],writer->name)) {
+		movie_driver = writer;
+		i_movie_driver = i;
+	    }
+	    i++;
+	}
+
 	set_menu_val(w_movie_driver,MOVIE_DRIVER,
-		     m_movie_driver,movie_driver);
+		     m_movie_driver,i_movie_driver);
 	update_movie_menus();
 	set_menu_val(w_movie_audio,MOVIE_AUDIO,
 		     m_movie_audio,movie_audio);
@@ -1304,8 +1336,8 @@ do_movie_record(int argc, char **argv)
 	return;
     }
     if (argc > 1 && 0 == strcasecmp(argv[0],"audio")) {
-	for (i = 0; NULL != ng_writers[movie_driver]->audio[i].name; i++) {
-	    if (0 == strcasecmp(argv[1],ng_writers[movie_driver]->audio[i].name))
+	for (i = 0; NULL != movie_driver->audio[i].name; i++) {
+	    if (0 == strcasecmp(argv[1],movie_driver->audio[i].name))
 		movie_audio = m_movie_audio[i].nr;
 	}
 	if (0 == strcmp(argv[1],"none"))
@@ -1322,8 +1354,8 @@ do_movie_record(int argc, char **argv)
 		     m_movie_rate,movie_rate);
     }
     if (argc > 1 && 0 == strcasecmp(argv[0],"video")) {
-	for (i = 0; NULL != ng_writers[movie_driver]->video[i].name; i++)
-	    if (0 == strcasecmp(argv[1],ng_writers[movie_driver]->video[i].name))
+	for (i = 0; NULL != movie_driver->video[i].name; i++)
+	    if (0 == strcasecmp(argv[1],movie_driver->video[i].name))
 		movie_video = m_movie_video[i].nr;
 	set_menu_val(w_movie_video,MOVIE_VIDEO,
 		     m_movie_video,movie_video);
@@ -1355,7 +1387,7 @@ do_movie_record(int argc, char **argv)
 	memset(&video,0,sizeof(video));
 	memset(&audio,0,sizeof(audio));
 
-	wr = ng_writers[movie_driver];
+	wr = movie_driver;
 	video.fmtid  = wr->video[movie_video].fmtid;
 	video.width  = cur_tv_width;
 	video.height = cur_tv_height;

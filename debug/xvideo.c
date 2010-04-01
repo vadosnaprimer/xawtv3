@@ -165,9 +165,9 @@ main(int argc, char *argv[])
     int          found,v;
     char         *class;
 
-    int ver, rel, req, ev, err, val;
-    int adaptors,encodings,attributes,formats;
-    int i,j,p,c;
+    int ver, rel, req, ev, err, val, c;
+    unsigned int adaptors,encodings,attributes,formats;
+    unsigned int i,ui,p;
 
     /* init X11 */
     app_shell = XtAppInitialize(&app_context,
@@ -242,12 +242,12 @@ main(int argc, char *argv[])
 	       ai[i].num_ports,
 	       ai[i].base_id);
 	printf("  format list (n=%ld)\n",ai[i].num_formats);
-	for (j = 0; j < ai[i].num_formats; j++) {
+	for (ui = 0; ui < ai[i].num_formats; ui++) {
 	    printf("    depth=%d, visual: id=0x%lx",
-		   ai[i].formats[j].depth,
-		   ai[i].formats[j].visual_id);
+		   ai[i].formats[ui].depth,
+		   ai[i].formats[ui].visual_id);
 	    for (v = 0; v < found; v++) {
-		if (ai[i].formats[j].visual_id != info[v].visualid)
+		if (ai[i].formats[ui].visual_id != info[v].visualid)
 		    continue;
 		switch (info[v].class) {
 		case StaticGray:   class = "StaticGray";  break;
@@ -268,23 +268,23 @@ main(int argc, char *argv[])
 		continue;
 	    }
 	    printf("  encoding list for port %d (n=%d)\n",p,encodings);
-	    for (j = 0; j < encodings; j++) {
+	    for (ui = 0; ui < encodings; ui++) {
 		printf("    id=%ld, name=%s, size=%ldx%ld\n",
-		       ei[j].encoding_id, ei[j].name,
-		       ei[j].width, ei[j].height);		
+		       ei[ui].encoding_id, ei[ui].name,
+		       ei[ui].width, ei[ui].height);		
 	    }
 	    XvFreeEncodingInfo(ei);
 
 	    at = XvQueryPortAttributes(dpy,p,&attributes);
 	    printf("  attribute list for port %d (n=%d)\n",p,attributes);
-	    for (j = 0; j < attributes; j++) {
+	    for (ui = 0; ui < attributes; ui++) {
 		printf("    %s%s%s, %i -> %i",
-		       at[j].name,
-		       (at[j].flags & XvGettable) ? " get" : "",
-		       (at[j].flags & XvSettable) ? " set" : "",
-		       at[j].min_value,at[j].max_value);
-		attr = XInternAtom(dpy, at[j].name, False);
-		if (at[j].flags & XvGettable) {
+		       at[ui].name,
+		       (at[ui].flags & XvGettable) ? " get" : "",
+		       (at[ui].flags & XvSettable) ? " set" : "",
+		       at[ui].min_value,at[ui].max_value);
+		attr = XInternAtom(dpy, at[ui].name, False);
+		if (at[ui].flags & XvGettable) {
 		    XvGetPortAttribute(dpy, p, attr, &val);
 		    printf(", val=%d",val);
 		}
@@ -295,30 +295,30 @@ main(int argc, char *argv[])
 	    
 	    fo = XvListImageFormats(dpy, p, &formats);
 	    printf("  image format list for port %d (n=%d)\n",p,formats);
-	    for(j = 0; j < formats; j++) {
+	    for(ui = 0; ui < formats; ui++) {
 		fprintf(stderr, "    0x%x (%c%c%c%c) %s",
-			fo[j].id,
-			(fo[j].id)       & 0xff,
-			(fo[j].id >>  8) & 0xff,
-			(fo[j].id >> 16) & 0xff,
-			(fo[j].id >> 24) & 0xff,
-			(fo[j].format == XvPacked) ? "packed" : "planar");
-		if (fo[j].type == XvRGB)
+			fo[ui].id,
+			(fo[ui].id)       & 0xff,
+			(fo[ui].id >>  8) & 0xff,
+			(fo[ui].id >> 16) & 0xff,
+			(fo[ui].id >> 24) & 0xff,
+			(fo[ui].format == XvPacked) ? "packed" : "planar");
+		if (fo[ui].type == XvRGB)
 		    fprintf(stderr," rgb: depth=%d masks=0x%x/0x%x/0x%x",
-			    fo[j].depth,fo[j].red_mask,fo[j].green_mask,
-			    fo[j].blue_mask);
-		if (fo[j].type == XvYUV)
+			    fo[ui].depth,fo[ui].red_mask,fo[ui].green_mask,
+			    fo[ui].blue_mask);
+		if (fo[ui].type == XvYUV)
 		    fprintf(stderr," yuv: bits=%d/%d/%d horiz=%d/%d/%d "
 			    "vert=%d/%d/%d",
-			    fo[j].y_sample_bits,
-			    fo[j].u_sample_bits,
-			    fo[j].v_sample_bits,
-			    fo[j].horz_y_period,
-			    fo[j].horz_u_period,
-			    fo[j].horz_v_period,
-			    fo[j].vert_y_period,
-			    fo[j].vert_u_period,
-			    fo[j].vert_v_period);
+			    fo[ui].y_sample_bits,
+			    fo[ui].u_sample_bits,
+			    fo[ui].v_sample_bits,
+			    fo[ui].horz_y_period,
+			    fo[ui].horz_u_period,
+			    fo[ui].horz_v_period,
+			    fo[ui].vert_y_period,
+			    fo[ui].vert_u_period,
+			    fo[ui].vert_v_period);
 		fprintf(stderr,"\n");
 	    }
 	    if (fo)

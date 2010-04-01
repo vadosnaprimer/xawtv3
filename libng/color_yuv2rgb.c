@@ -151,7 +151,7 @@ yuv42xp_to_gray(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char* restrict y;
     unsigned char* restrict d;
     unsigned char* dp;
-    int i,j;
+    unsigned int i,j;
 
     dp = out->data;
     y  = in->data;
@@ -172,7 +172,8 @@ yuv420p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char *restrict y, *restrict u, *restrict v, *restrict d;
     unsigned char *us,*vs;
     unsigned char *dp;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;
@@ -206,7 +207,8 @@ yuv422p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
     unsigned char *restrict y, *restrict u, *restrict v, *restrict d;
     unsigned char *dp;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;
@@ -238,7 +240,8 @@ ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char *us,*vs;
     unsigned char *dp;
     unsigned short *restrict d;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;
@@ -275,7 +278,8 @@ ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *dp;
     unsigned short *restrict d;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;
@@ -309,7 +313,8 @@ ng_yuv420p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char *us,*vs;
     unsigned char *dp;
     unsigned int  *restrict d;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;
@@ -346,7 +351,8 @@ ng_yuv422p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     unsigned char *restrict y, *restrict u, *restrict v;
     unsigned char *dp;
     unsigned int  *restrict d;
-    int i,j,gray;
+    unsigned int i,j;
+    int gray;
 
     dp = out->data;
     y  = in->data;

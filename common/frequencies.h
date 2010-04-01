@@ -80,8 +80,8 @@
 /* --------------------------------------------------------------------- */
 
 struct CHANLIST {
-    char *name;
-    int   freq;
+    char          *name;
+    unsigned int  freq;
 };
 
 struct CHANLISTS {

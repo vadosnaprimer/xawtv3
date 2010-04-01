@@ -24,7 +24,7 @@ add_pixmap(Display *dpy, unsigned long bg,
 {
     XImage *image,*shape;
     XpmAttributes attr;
-    int x,y;
+    unsigned int x,y;
 
     memset(&attr,0,sizeof(attr));
     XpmCreateImageFromData(dpy,data,&image,&shape,&attr);

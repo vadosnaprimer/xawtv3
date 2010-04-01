@@ -36,8 +36,8 @@ will never ever see an answer for these.
 
 If you have problems after upgrading, please check the ChangeLog for
 hints first.  Looking into the ChangeLog is a good idea in general,
-becauce it is updated for every release, the other files are updated
-less freqently and might be a bit outdated.
+because it is updated for every release, the other files are updated
+less frequently and might be a bit outdated.
 
 For problem/bug reports:
 
@@ -50,7 +50,7 @@ For problem/bug reports:
  - xawtv version
  - kernel version
  - which driver (+ version if you know)
- - which hardware (althrouth I'll probably can help with bttv
+ - which hardware (although I probably can help with bttv
    driver problems only).
  - which TV norms are used in your country.
  - if xawtv prints errors, include these too (cut+paste)
@@ -66,7 +66,7 @@ problem, you can skip it.  But if in doubt, better include it...
 
 For patches/changes:
 
- * Please add a comment on what is changed and and why you changed it.
+ * Please add a comment on what is changed and why you changed it.
  * Please send unified diffs ("diff -u") against the latest version.
  * Please don't reformat my source code.
  * Complete patches have better chances to go in.  Quick+dirty hacks
@@ -107,7 +107,7 @@ usage
 bttv
 ----
 
-bttv is'nt bundled with xawtv any more.  You can the latest version
+bttv isn't bundled with xawtv any more.  You can the latest version
 from http://bytesex.org/bttv/.  If you are using kernel 2.4.x, it is
 very unlikely that you need an update, the bttv driver in 2.4.x is
 updated in regular intervals.
@@ -117,8 +117,8 @@ v4l-conf
 --------
 
 v4l-conf is a small tool which tells video4linux about the current
-video mode (size and color depth).  This requires root priviliges,
-becauce it is easy to crash the box by passing bogus values there.
+video mode (size and color depth).  This requires root privileges,
+because it is easy to crash the box by passing bogus values there.
 It requires the X-Server with DGA support up and running or a
 framebuffer device.  It is a temporary hack, this problem will be
 solved in a better way with a X11 extention.  See README.xfree4

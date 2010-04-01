@@ -67,7 +67,7 @@ int do_overlay;
 char *snapbase = "snap";
 int have_shmem;
 
-int cur_tv_width,cur_tv_height;
+unsigned int cur_tv_width,cur_tv_height;
 int cur_movie,cur_attrs[256];
 
 /* current hardware driver */
@@ -955,7 +955,7 @@ static int list_handler(char *name, int argc, char **argv)
 static int dattr_handler(char *name, int argc, char **argv)
 {
     struct ng_attribute *attr = NULL;
-    int i;
+    unsigned int i;
     
     if (argc > 0 && 0 == strcasecmp(argv[0],"next")) {
 	for (i = 0; i < NUM_DATTR; i++) {
@@ -1269,7 +1269,8 @@ vdr_handler(char *name, int argc, char **argv)
 {
     char line[80];
     struct addrinfo ask;
-    int i,l,len;
+    int i;
+    unsigned int l,len;
 
     if (-1 == vdr_sock) {
 	memset(&ask,0,sizeof(ask));

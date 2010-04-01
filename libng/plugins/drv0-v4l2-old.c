@@ -46,7 +46,7 @@ static int   v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 
 /* capture video */
 static int v4l2_setformat(void *handle, struct ng_video_fmt *fmt);
-static int v4l2_startvideo(void *handle, int fps, int buffers);
+static int v4l2_startvideo(void *handle, int fps, unsigned int buffers);
 static void v4l2_stopvideo(void *handle);
 static struct ng_video_buf* v4l2_nextframe(void *handle);
 static struct ng_video_buf* v4l2_getimage(void *handle);
@@ -69,7 +69,7 @@ struct v4l2_handle {
     int                         fd;
 
     /* device descriptions */
-    int                         ninputs,nstds,nfmts;
+    unsigned int                ninputs,nstds,nfmts;
     struct v4l2_capability	cap;
     struct v4l2_streamparm	streamparm;
     struct v4l2_input		inp[MAX_INPUT];
@@ -340,15 +340,14 @@ print_device_capabilities(struct v4l2_handle *h)
 	"hflip"
     };
 
-    int i;
+    unsigned int i;
 
     fprintf(stderr,"\n*** v4l2: video device capabilities ***\n");
 
     /* capabilities */
-    fprintf(stderr,"type: %s\n",
-	    h->cap.type < sizeof(cap_type)/sizeof(char*) ?
-	    cap_type[h->cap.type] : "unknown");
-    print_bits("flags",cap_flags,sizeof(cap_flags)/sizeof(char*),h->cap.flags);
+    fprintf(stderr, "type: %s\n", h->cap.type < SDIMOF(cap_type)
+	    ? cap_type[h->cap.type] : "unknown");
+    print_bits("flags",cap_flags,DIMOF(cap_flags),h->cap.flags);
     fprintf(stderr,"\n");
     fprintf(stderr,"inputs: %d\naudios: %d\n",h->cap.inputs,h->cap.audios);
     fprintf(stderr,"size: %dx%d => %dx%d\n",
@@ -394,7 +393,7 @@ print_device_capabilities(struct v4l2_handle *h)
     /* controls */
     fprintf(stderr,"supported controls:\n");
     for (i = 0; i < MAX_CTRL*2; i++) {
-	if (h->ctl[i].id == -1)
+	if (h->ctl[i].id == UNSET)
 	    continue;
 	fprintf(stderr,"  %2d: \"%s\", [%d .. %d], step=%d, def=%d, type=%s\n",
 		i, h->ctl[i].name,
@@ -462,7 +461,7 @@ print_fbinfo(struct v4l2_framebuffer *fb)
 static void
 get_device_capabilities(struct v4l2_handle *h)
 {
-    int i;
+    unsigned int i;
     
     for (h->ninputs = 0; h->ninputs < h->cap.inputs; h->ninputs++) {
 	h->inp[h->ninputs].index = h->ninputs;
@@ -502,7 +501,7 @@ static struct STRTAB *
 build_norms(struct v4l2_handle *h)
 {
     struct STRTAB *norms;
-    int i;
+    unsigned int i;
 
     norms = malloc(sizeof(struct STRTAB) * (h->nstds+1));
     for (i = 0; i < h->nstds; i++) {
@@ -518,7 +517,7 @@ static struct STRTAB *
 build_inputs(struct v4l2_handle *h)
 {
     struct STRTAB *inputs;
-    int i;
+    unsigned int i;
 
     inputs = malloc(sizeof(struct STRTAB) * (h->ninputs+1));
     for (i = 0; i < h->ninputs; i++) {
@@ -533,8 +532,8 @@ build_inputs(struct v4l2_handle *h)
 /* ---------------------------------------------------------------------- */
 
 static struct V4L2_ATTR {
-    int id;
-    int v4l2;
+    unsigned int id;
+    unsigned int v4l2;
 } v4l2_attr[] = {
     { ATTR_ID_VOLUME,   V4L2_CID_AUDIO_VOLUME },
     { ATTR_ID_MUTE,     V4L2_CID_AUDIO_MUTE   },
@@ -573,7 +572,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	      int id, struct STRTAB *choices)
 {
     static int private_ids = ATTR_ID_COUNT;
-    int i;
+    unsigned int i;
     
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
     memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
@@ -729,7 +728,7 @@ v4l2_open(char *device)
     if (h->cap.flags & V4L2_FLAG_TUNER)
 	v4l2_add_attr(h, NULL, ATTR_ID_AUDIO_MODE, stereo);
     for (i = 0; i < MAX_CTRL*2; i++) {
-	if (h->ctl[i].id == -1)
+	if (h->ctl[i].id == UNSET)
 	    continue;
 	v4l2_add_attr(h, &h->ctl[i], 0, NULL);
     }
@@ -1146,7 +1145,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
 
 /* start/stop video */
 static int
-v4l2_startvideo(void *handle, int fps, int buffers)
+v4l2_startvideo(void *handle, int fps, unsigned int buffers)
 {
     struct v4l2_handle *h = handle;
 

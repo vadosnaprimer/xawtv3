@@ -24,7 +24,7 @@ ng_packed_frame(void *handle, struct ng_video_buf *out,
 {
     int (*func)(unsigned char *dest, unsigned char *src, int p) = handle;
     unsigned char *sp,*dp;
-    int i,sw,dw;
+    unsigned int i,sw,dw;
 
     dw  = (out->fmt.width * ng_vfmt_to_depth[out->fmt.fmtid]) >> 3;
     sw  = (in->fmt.width  * ng_vfmt_to_depth[in->fmt.fmtid])  >> 3;

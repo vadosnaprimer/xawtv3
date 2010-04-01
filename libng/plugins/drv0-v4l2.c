@@ -49,7 +49,7 @@ static int   v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 
 /* capture video */
 static int v4l2_setformat(void *handle, struct ng_video_fmt *fmt);
-static int v4l2_startvideo(void *handle, int fps, int buffers);
+static int v4l2_startvideo(void *handle, int fps, unsigned int buffers);
 static void v4l2_stopvideo(void *handle);
 static struct ng_video_buf* v4l2_nextframe(void *handle);
 static struct ng_video_buf* v4l2_getimage(void *handle);
@@ -92,7 +92,7 @@ struct v4l2_handle {
     struct v4l2_requestbuffers     reqbufs;
     struct v4l2_buffer             buf_v4l2[WANTED_BUFFERS];
     struct ng_video_buf            buf_me[WANTED_BUFFERS];
-    int                            queue,waiton;
+    unsigned int                   queue,waiton;
 
     /* overlay */
     struct v4l2_framebuffer        ov_fb;
@@ -271,8 +271,8 @@ build_inputs(struct v4l2_handle *h)
 /* ---------------------------------------------------------------------- */
 
 static struct V4L2_ATTR {
-    int id;
-    int v4l2;
+    unsigned int id;
+    unsigned int v4l2;
 } v4l2_attr[] = {
     { ATTR_ID_VOLUME,   V4L2_CID_AUDIO_VOLUME },
     { ATTR_ID_MUTE,     V4L2_CID_AUDIO_MUTE   },
@@ -311,7 +311,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	      int id, struct STRTAB *choices)
 {
     static int private_ids = ATTR_ID_COUNT;
-    int i;
+    unsigned int i;
     
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
     memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
@@ -470,7 +470,7 @@ v4l2_open(char *device)
     if (h->cap.capabilities & V4L2_CAP_TUNER)
 	v4l2_add_attr(h, NULL, ATTR_ID_AUDIO_MODE, stereo);
     for (i = 0; i < MAX_CTRL*2; i++) {
-	if (h->ctl[i].id == -1)
+	if (h->ctl[i].id == UNSET)
 	    continue;
 	v4l2_add_attr(h, &h->ctl[i], 0, NULL);
     }
@@ -659,9 +659,9 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 
     /* check against max. size */
     xioctl(h->fd,VIDIOC_TRY_FMT,&win,0);
-    if (win.fmt.win.w.width != fmt->width)
+    if (win.fmt.win.w.width != (int)fmt->width)
 	win.fmt.win.w.left = x + (fmt->width - win.fmt.win.w.width)/2;
-    if (win.fmt.win.w.height != fmt->height)
+    if (win.fmt.win.w.height != (int)fmt->height)
 	win.fmt.win.w.top = y + (fmt->height - win.fmt.win.w.height)/2;
     if (aspect)
 	ng_ratio_fixup(&win.fmt.win.w.width,&win.fmt.win.w.height,
@@ -770,7 +770,7 @@ static int
 v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 {
     int disable_overlay = 0;
-    int i;
+    unsigned int i;
     
     /* setup buffers */
     h->reqbufs.count  = buffers;
@@ -825,7 +825,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 static void
 v4l2_stop_streaming(struct v4l2_handle *h)
 {
-    int i;
+    unsigned int i;
     
     /* stop capture */
     if (-1 == ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
@@ -892,7 +892,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
 
 /* start/stop video */
 static int
-v4l2_startvideo(void *handle, int fps, int buffers)
+v4l2_startvideo(void *handle, int fps, unsigned int buffers)
 {
     struct v4l2_handle *h = handle;
 

@@ -42,8 +42,8 @@ int   grab_height = 240;
 int   grab_delay  = 3;
 int   grab_wait   = 0;
 int   grab_rotate = 0;
-int   grab_top    = 0;
-int   grab_left   = 0;
+int   grab_top    = -1;
+int   grab_left   = -1;
 int   grab_bottom = -1;
 int   grab_right  = -1;
 int   grab_quality= 75;
@@ -726,15 +726,24 @@ main(int argc, char *argv[])
       grab_dist_sensorw = i;
     if (-1 != (i = cfg_get_int("grab","distor_sensorh")))
       grab_dist_sensorh = i;
-    
-    if ( grab_top < 0 ) grab_top = 0;
-    if ( grab_left < 0 ) grab_left = 0;
-    if ( grab_bottom > grab_height ) grab_bottom = grab_height;
-    if ( grab_right > grab_width ) grab_right = grab_width;
-    if ( grab_bottom < 0 ) grab_bottom = grab_height;
-    if ( grab_right < 0 ) grab_right = grab_width;
-    if ( grab_top >= grab_bottom ) grab_top = 0;
-    if ( grab_left >= grab_right ) grab_left = 0;
+
+    /* defaults */
+    if (grab_top < 0)    grab_top    = 0;
+    if (grab_left < 0)   grab_left   = 0;
+    if (grab_bottom < 0) grab_bottom = grab_height;
+    if (grab_right < 0)  grab_right  = grab_width;
+
+    if (grab_bottom > grab_height) grab_bottom = grab_height;
+    if (grab_right > grab_width)   grab_right  = grab_width;
+
+    if (grab_top >= grab_bottom) {
+	fprintf(stderr, "config error: top must be smaller than bottom\n");
+	exit(1);
+    }
+    if (grab_left >= grab_right) {
+	fprintf(stderr, "config error: left must be smaller than right\n");
+	exit(1);
+    }
 
     if (grab_dist_k < 1 || grab_dist_k > 10000)
 	grab_dist_k = 700;

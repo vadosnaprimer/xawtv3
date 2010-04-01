@@ -28,6 +28,8 @@ int main(void)
 #include "atoms.h"
 #include "parseconfig.h"
 
+#define SDIMOF(array)  ((signed int)(sizeof(array)/sizeof(array[0])))
+
 int     port=-1,bye=0,termsig=0,verbose=0;
 GC      gc;
 
@@ -398,8 +400,8 @@ main(int argc, char *argv[])
 		}
 		break;
 	    case ClientMessage:
-		if (event.xclient.message_type == WM_PROTOCOLS &&
-		    event.xclient.data.l[0]    == WM_DELETE_WINDOW)
+		if (event.xclient.message_type    == WM_PROTOCOLS &&
+		    (Atom)event.xclient.data.l[0] == WM_DELETE_WINDOW)
 		    bye = 1;
 		break;
 	    case Expose:
@@ -411,7 +413,7 @@ main(int argc, char *argv[])
 		break;
 	    default:
 		if (verbose) {
-		    if (event.type < sizeof(events)/sizeof(char*))
+		    if (event.type < SDIMOF(events))
 			fprintf(stderr,"ev: %s\n",events[event.type]);
 		    else
 			fprintf(stderr,"ev: #%d\n",event.type);

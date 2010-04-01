@@ -175,6 +175,6 @@ rpm: tarball
 	rpm -ta ../xawtv_$(VERSION).tar.gz
 
 snapshot: distclean
-	(cd ..; tar cvzf xawtv-snap-`date +%Y-%m-%d`.tar.gz \
+	(cd ..; tar cvzf $(HOME)/snapshot/xawtv-`date +%Y%m%d`.tar.gz \
 		xawtv-$(VERSION))
 

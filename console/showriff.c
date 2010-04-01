@@ -370,7 +370,7 @@ static boolean ReadChunkHead(FILE* f, FOURCC* ID, DWORD* size)
    ProcessChunk prints out information of the chunk to stdout
    and returns FALSE, if an error occured. */
 
-static boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
+static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 			    FOURCC DesiredTag, int RekDepth,
 			    DWORD* chunksize)
 {
@@ -378,7 +378,7 @@ static boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
     int    buflen;
     char   tagstr[5];          /* FOURCC of chunk converted to string */
     FOURCC chunkid;            /* read FOURCC of chunk                */
-    off_t  datapos;            /* position of data in file to process */
+    size_t datapos;            /* position of data in file to process */
     
     if (filepos>filesize-1) {  /* Oops. Must be something wrong!      */
 	printf("  *****  Error: Data would be behind end of file!\n");

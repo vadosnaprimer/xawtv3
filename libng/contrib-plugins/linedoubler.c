@@ -30,7 +30,7 @@
 static void inline
 deinterlace(struct ng_video_buf *frame)
 {
-   int x,y;
+   unsigned int x,y;
    
    for (y = 1; y < frame->fmt.height; y += 2)
 	  for (x = 0; x < frame->fmt.bytesperline + 1; x++)

@@ -462,7 +462,7 @@ frame(void *h, struct ng_video_buf *in)
     unsigned char *dst;
     unsigned char *src;
     unsigned char *last;
-    int y,cnt;
+    unsigned int y,cnt;
 
     out = ng_malloc_video_buf(&in->fmt, in->fmt.height * in->fmt.bytesperline);
     out->info = in->info;

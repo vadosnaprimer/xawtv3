@@ -88,7 +88,7 @@ static int do_write_jpeg(FILE *fp, struct ng_video_buf *buf,
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
-    int i;
+    unsigned int i;
     unsigned char *line;
     int line_length;
 
@@ -410,7 +410,8 @@ raw_open(char *videoname, char *audioname,
 {
     struct raw_handle *h;
     int frame_rate_code = 0;
-    int frame_rate_div = 1000;
+    int frame_rate_mul  = fps;
+    int frame_rate_div  = 1000;
     
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -436,16 +437,22 @@ raw_open(char *videoname, char *audioname,
     if (h->video.fmtid != VIDEO_NONE) {
 	if (h->vpriv && h->vpriv->yuv4mpeg) {
 	    switch (fps) {
-	    case 23976:  frame_rate_code = 1;
-			 frame_rate_div=1001; break;   /* 24000 / 1001 */
+	    case 23976:  frame_rate_code = 1;          /* 24000 / 1001 */
+		         frame_rate_mul  = 24000;
+			 frame_rate_div  = 1001;
+			 break;
+	    case 29970:  frame_rate_code = 4;          /* 30000 / 1001 */
+		         frame_rate_mul  = 30000;
+		         frame_rate_div  = 1001;
+			 break;
+	    case 59940:  frame_rate_code = 7;          /* 60000 / 1001 */
+		         frame_rate_mul  = 60000;
+			 frame_rate_div  = 1001;
+			 break;
 	    case 24000:  frame_rate_code = 2; break;
 	    case 25000:  frame_rate_code = 3; break;
-	    case 29970:  frame_rate_code = 4;
-			 frame_rate_div=1001; break;   /* 30000 / 1001 */
 	    case 30000:  frame_rate_code = 5; break;
 	    case 50000:  frame_rate_code = 6; break;
-	    case 59940:  frame_rate_code = 7;
-			 frame_rate_div=1001; break;   /* 60000 / 1001 */
 	    case 60000:  frame_rate_code = 8; break;
 	    default:
 		fprintf(stderr,"illegal frame rate\n");
@@ -474,7 +481,8 @@ raw_open(char *videoname, char *audioname,
 		break;
 	    case 2:
 	    	sprintf(header, "YUV4MPEG2 W%d H%d F%d:%d\n",
-			h->video.width, h->video.height,fps, frame_rate_div);
+			h->video.width, h->video.height,
+			frame_rate_mul, frame_rate_div);
 		break;
 	    }
 	    write(h->fd, header, strlen(header));

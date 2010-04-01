@@ -45,7 +45,7 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 	int8_t   s8;
 	int al = sizeof(long)-1; /* struct + union alignment */
 	void *p;
-	int i,j,first;
+	unsigned int i,j,first;
 
 	for (i = 0; desc[i].name != NULL; i++) {
 		sprintf(name,"%s%s",prefix,desc[i].name);

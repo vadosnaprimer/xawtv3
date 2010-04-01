@@ -197,7 +197,7 @@ ttx_sim(double t, double F, const uint8_t *text)
 	}
 }
 
-static int caption_i = 0;
+static unsigned int caption_i = 0;
 static const uint8_t caption_text[] = {
 	0x14, 0x25, 0x14, 0x25, 'L', 'I', 'B', 'Z',
 	'V', 'B', 'I', ' ', 'C', 'A', 'P', 'T',

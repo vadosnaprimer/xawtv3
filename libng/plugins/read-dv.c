@@ -45,7 +45,7 @@ struct dv_handle {
 /* ----------------------------------------------------------------------- */
 
 static enum color_space_e fmtid_to_colorspace[VIDEO_FMT_COUNT] = {
-    [ 0 ... VIDEO_FMT_COUNT-1 ] = -1,
+    [ 0 ... VIDEO_FMT_COUNT-1 ] = UNSET,
     [ VIDEO_YUV422 ] = e_dv_color_yuv,
     [ VIDEO_RGB24  ] = e_dv_color_rgb,
     [ VIDEO_BGR32  ] = e_dv_color_bgr0,
@@ -93,7 +93,7 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
 	if (ng_debug)
 	    fprintf(stderr,"dv: trying: %d [%s]\n",
 		    vfmt[i],ng_vfmt_to_desc[vfmt[i]]);
-	if (-1 == fmtid_to_colorspace[vfmt[i]])
+	if (UNSET == fmtid_to_colorspace[vfmt[i]])
 	    continue;
 	h->vfmt.fmtid = vfmt[i];
 	break;
@@ -122,7 +122,7 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
 		len - (off_t)h->frames * h->dec->frame_size);
 	fprintf(stderr,
 		"dv: quality=%d system=%d std=%d sampling=%d num_dif_seqs=%d\n"
-		"dv: height=%d width=%d frame_size=%d\n",
+		"dv: height=%d width=%d frame_size=%ld\n",
 		h->dec->quality, h->dec->system, h->dec->std,
 		h->dec->sampling, h->dec->num_dif_seqs, h->dec->height,
 		h->dec->width, h->dec->frame_size);
@@ -190,7 +190,7 @@ static struct ng_audio_fmt* dv_afmt(void *handle)
     return h->afmt.fmtid ? &h->afmt : NULL;
 }
 
-static struct ng_video_buf* dv_vdata(void *handle, int drop)
+static struct ng_video_buf* dv_vdata(void *handle, unsigned int drop)
 {
     struct dv_handle *h = handle;
     struct ng_video_buf *buf;

@@ -48,7 +48,7 @@ char    server_host[256];
 char    user[17];
 char    group[17];
 char    *logfile       = NULL;
-FILE    *log           = NULL;
+FILE    *logfd         = NULL;
 int     flushlog       = 0;
 int     usesyslog      = 0;
 int     have_tty       = 1;
@@ -197,12 +197,12 @@ access_log(struct REQUEST *req, time_t now)
     if (0 == req->status)
 	req->status = 400; /* bad request */
     if (400 == req->status) {
-	fprintf(log,"%s - - %s \"-\" 400 %d\n",
+	fprintf(logfd,"%s - - %s \"-\" 400 %d\n",
 		req->peerhost,
 		timestamp,
 		req->bc);
     } else {
-	fprintf(log,"%s - - %s \"%s %s HTTP/%d.%d\" %d %d\n",
+	fprintf(logfd,"%s - - %s \"%s %s HTTP/%d.%d\" %d %d\n",
 		req->peerhost,
 		timestamp,
 		req->type,
@@ -213,7 +213,7 @@ access_log(struct REQUEST *req, time_t now)
 		req->bc);
     }
     if (flushlog)
-	fflush(log);
+	fflush(logfd);
 }
 
 /*
@@ -308,8 +308,9 @@ mainloop(void)
 	    if (NULL != logfile && 0 != strcmp(logfile,"-")) {
 		if (debug)
 		    fprintf(stderr,"got SIGHUP, reopen logfile %s\n",logfile);
-		if (log) fclose(log);
-		if (NULL == (log = fopen(logfile,"a")))
+		if (logfd)
+		    fclose(logfd);
+		if (NULL == (logfd = fopen(logfile,"a")))
 		    xperror(LOG_WARNING,"reopen access log",NULL);
 	    }
 	    got_sighup = 0;
@@ -456,7 +457,7 @@ header_parsing:
 	    if (req->state == STATE_FINISHED && !req->keep_alive)
 		req->state = STATE_CLOSE;
 	    if (req->state == STATE_FINISHED) {
-		if (log)
+		if (logfd)
 		    access_log(req,now);
 		/* cleanup */
 		if (req->free_the_mallocs)
@@ -489,7 +490,7 @@ header_parsing:
 
 	    /* connections to close */
 	    if (req->state == STATE_CLOSE) {
-		if (log)
+		if (logfd)
 		    access_log(req,now);
 		/* cleanup */
 		close(req->fd);
@@ -694,9 +695,9 @@ main(int argc, char *argv[])
 
     if (logfile) {
 	if (0 == strcmp(logfile,"-")) {
-	    log = stdout;
+	    logfd = stdout;
 	} else {
-	    if (NULL == (log = fopen(logfile,"a")))
+	    if (NULL == (logfd = fopen(logfile,"a")))
 		xperror(LOG_WARNING,"open access log",NULL);
 	}
     }
@@ -749,8 +750,8 @@ main(int argc, char *argv[])
     start = time(NULL);
     mainloop();
     
-    if (log)
-	fclose(log);
+    if (logfd)
+	fclose(logfd);
     if (debug)
 	fprintf(stderr,"bye...\n");
     exit(0);

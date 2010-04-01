@@ -21,13 +21,13 @@
 struct video_capability
 {
 	char name[32];
-	int type;
-	int channels;	/* Num channels */
-	int audios;	/* Num audio devices */
-	int maxwidth;	/* Supported width */
-	int maxheight;	/* And height */
-	int minwidth;	/* Supported width */
-	int minheight;	/* And height */
+	unsigned int type;
+	unsigned int channels;	/* Num channels */
+	unsigned int audios;	/* Num audio devices */
+	unsigned int maxwidth;	/* Supported width */
+	unsigned int maxheight;	/* And height */
+	unsigned int minwidth;	/* Supported width */
+	unsigned int minheight;	/* And height */
 };
 
 
@@ -152,10 +152,10 @@ struct video_capture
 
 struct video_buffer
 {
-	void	*base;
-	int	height,width;
-	int	depth;
-	int	bytesperline;
+	void	        *base;
+	unsigned int	height,width;
+	unsigned int	depth;
+	unsigned int	bytesperline;
 };
 
 struct video_mmap

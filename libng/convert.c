@@ -69,7 +69,7 @@ static void
 ng_convert_copyframe(struct ng_video_buf *dest,
 		     struct ng_video_buf *src)
 {
-    int i,sw,dw;
+    unsigned int i,sw,dw;
     unsigned char *sp,*dp;
 
     dw = dest->fmt.width * ng_vfmt_to_depth[dest->fmt.fmtid] / 8;

@@ -97,7 +97,8 @@ static int
 wm_check_capability(Display *dpy, Window root, Atom list, Atom wanted)
 {
     Atom            type;
-    int             format,i;
+    int             format;
+    unsigned int    i;
     unsigned long   nitems, bytesafter;
     unsigned char   *args;
     unsigned long   *ldata;

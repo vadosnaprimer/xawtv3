@@ -8,8 +8,8 @@ TARGETS-contrib-plugins := \
 	libng/contrib-plugins/linedoubler.so
 
 ifeq ($(FOUND_ALSA),yes)
-TARGETS-contrib-plugins += \
-	libng/contrib-plugins/snd-alsa.so
+#TARGETS-contrib-plugins += \
+#	libng/contrib-plugins/snd-alsa.so
 endif
 
 # alsa is c++ and thus we should call g++ for linking ...

@@ -1,5 +1,5 @@
 /* plain X11 */
-extern int x11_dpy_fmtid;
+extern unsigned int x11_dpy_fmtid;
 
 Visual* x11_find_visual(Display *dpy);
 void x11_init_visual(Display *dpy, XVisualInfo *vinfo);

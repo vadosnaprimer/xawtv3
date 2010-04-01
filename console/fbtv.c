@@ -575,7 +575,8 @@ scaler_test(int off)
 int
 main(int argc, char *argv[])
 {
-    int             key,i,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax;
+    int             i,key,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax;
+    unsigned int    ui;
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
@@ -801,8 +802,9 @@ main(int argc, char *argv[])
 		dst = fb_mem +
 		    dy * fb_fix.line_length +
 		    dx * ((fb_var.bits_per_pixel+7)/8);
-		for (i = 0; i < buf->fmt.height; i++) {
-		    memcpy(dst,buf->data + i*buf->fmt.bytesperline, buf->fmt.bytesperline);
+		for (ui = 0; ui < buf->fmt.height; ui++) {
+		    memcpy(dst, buf->data + ui*buf->fmt.bytesperline,
+			   buf->fmt.bytesperline);
 		    dst += fb_fix.line_length;
 		}
 		ng_release_video_buf(buf);
@@ -864,12 +866,12 @@ main(int argc, char *argv[])
 		    sprintf(event,"kbd-key-f%d",key - KEY_F(0));
 		} else {
 		    /* other special keys */
-		    for (i = 0; i < NKEYTAB; i++) {
-			if (keytab[i].key == key)
+		    for (ui = 0; ui < NKEYTAB; ui++) {
+			if (keytab[ui].key == key)
 			    break;
 		    }
-		    if (i != NKEYTAB)
-			sprintf(event,"kbd-key-%s",keytab[i].name);
+		    if (ui != NKEYTAB)
+			sprintf(event,"kbd-key-%s",keytab[ui].name);
 		}
 		if (0 != event[0]) {
 		    event_dispatch(event);

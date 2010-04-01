@@ -169,11 +169,11 @@ static struct ng_audio_fmt* qt_afmt(void *handle)
     return h->afmt.fmtid ? &h->afmt : NULL;
 }
 
-static struct ng_video_buf* qt_vdata(void *handle, int drop)
+static struct ng_video_buf* qt_vdata(void *handle, unsigned int drop)
 {
     struct qt_handle *h = handle;
     struct ng_video_buf *buf;
-    int i;
+    unsigned int i;
     
     if (quicktime_video_position(h->qt,0) >= quicktime_video_length(h->qt,0))
 	return NULL;

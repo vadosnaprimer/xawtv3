@@ -79,6 +79,14 @@ MoTV.tv.translations:		#replace			\n\
 	<Key>V:			Command(capture,toggle)		\n\
 	<Key>space:		Command(setstation,next)	\n\
 	\
+	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
+	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
+	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioNext:	Command(setstation,next)	\n\
+	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
+	<Key>XF86AudioPlay:	Command(capture,on)		\n\
+	<Key>XF86AudioStop:	Command(capture,off)		\n\
+	\
 	<Key>KP_0:		Command(keypad,0)		\n\
 	<Key>KP_1:		Command(keypad,1)		\n\
 	<Key>KP_2:		Command(keypad,2)		\n\

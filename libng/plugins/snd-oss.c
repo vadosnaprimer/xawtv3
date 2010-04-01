@@ -241,9 +241,9 @@ struct oss_handle {
     int    fd;
 
     /* oss */
-    struct ng_audio_fmt ifmt;
-    int    afmt,channels,rate;
-    int    blocksize;
+    struct ng_audio_fmt  ifmt;
+    unsigned int         afmt,channels,rate;
+    unsigned int         blocksize;
 
     /* me */
     struct     ng_audio_fmt ofmt;
@@ -252,7 +252,7 @@ struct oss_handle {
     int        bytes_per_sec;
 };
 
-static const int afmt_to_oss[AUDIO_FMT_COUNT] = {
+static const unsigned int afmt_to_oss[AUDIO_FMT_COUNT] = {
     0,
     AFMT_U8,
     AFMT_U8,
@@ -479,7 +479,7 @@ oss_read(void *handle, int64_t stopby)
 	if (bytes <= 0)
 	    return NULL;
 	bytes = (bytes + 3) & ~3;
-	if (bytes > h->blocksize)
+	if (bytes > (int)h->blocksize)
 	    bytes = h->blocksize;
     } else {
 	bytes = h->blocksize;

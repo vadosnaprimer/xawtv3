@@ -122,7 +122,7 @@ qt_video(void *handle, struct ng_video_buf *buf)
     int rc,i,n;
 
     if (h->lib_video) {
-	int row,len;
+	unsigned int row,len;
 	char *line;
 
 	/* QuickTime library expects an array of pointers to image rows (RGB) */
@@ -311,7 +311,7 @@ static void dump_codecs(void)
 #endif
 
 static struct ng_format_list*
-list_add(struct ng_format_list* list,
+qt_list_add(struct ng_format_list* list,
 	 char *name, char *desc, char *ext, int fmtid, void *priv)
 {
     int n;
@@ -333,7 +333,8 @@ static struct ng_format_list* video_list(void)
     static int debug = 0;
     lqt_codec_info_t **info;
     struct ng_format_list *video;
-    int i,j,k,skip,fmtid,cmodel;
+    int i,j,k,skip,fmtid;
+    unsigned int cmodel;
     struct qt_video_priv *vp;
 
     /* handle video encoders */
@@ -401,7 +402,7 @@ static struct ng_format_list* video_list(void)
 	strcpy(vp->fcc,info[i]->fourccs[0]);
 	vp->libencode = 1;
 	vp->cmodel    = cmodel;
-	video = list_add(video,vp->fcc,info[i]->long_name,"mov",fmtid,vp);
+	video = qt_list_add(video,vp->fcc,info[i]->long_name,"mov",fmtid,vp);
     }
     lqt_destroy_codec_info(info);
     return video;
@@ -452,8 +453,8 @@ static struct ng_format_list* audio_list(void)
 	memset(ap,0,sizeof(*ap));
 	strcpy(ap->fcc,info[i]->fourccs[0]);
 	ap->libencode = 1;
-	audio = list_add(audio,ap->fcc,info[i]->long_name,"mov",
-			 AUDIO_S16_NATIVE_MONO,ap);
+	audio = qt_list_add(audio,ap->fcc,info[i]->long_name,"mov",
+			    AUDIO_S16_NATIVE_MONO,ap);
     }
     lqt_destroy_codec_info(info);
     return audio;

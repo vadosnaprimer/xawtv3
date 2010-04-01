@@ -402,7 +402,8 @@ static char*
 PropertyToString(Display *dpy, Window win, Atom prop)
 {
     Atom               type;
-    int                format,i;
+    int                format;
+    unsigned int       i;
     unsigned long      nitems,rest;
     unsigned char      *cdata;
     unsigned long      *ldata;

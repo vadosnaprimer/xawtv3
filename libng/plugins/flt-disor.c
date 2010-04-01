@@ -41,7 +41,7 @@ frame(void *handle, struct ng_video_buf *in)
     uint16_t *dst16;
     uint16_t *src16;
 
-    int i, j, di, dj, cx, cy;
+    int i, j, cx, cy, di, dj;
     float dr, cr,ca, sx, zoom, k;
     
     out = ng_malloc_video_buf(&in->fmt, in->fmt.height * in->fmt.bytesperline);
@@ -71,8 +71,8 @@ frame(void *handle, struct ng_video_buf *in)
     k  = k * 100.0;
 #endif
 
-    for (j = 0; j < in->fmt.height ; j++) {
-	for (i = 0; i < in->fmt.width ; i++) {	
+    for (j = 0; j < (int)in->fmt.height ; j++) {
+	for (i = 0; i < (int)in->fmt.width ; i++) {	
 	    
 	    // compute radial distortion / parameters of center of image 
 	    cr  = sqrt((i-cx)/sx*(i-cx)/sx+(j-cy)*(j-cy));
@@ -87,8 +87,8 @@ frame(void *handle, struct ng_video_buf *in)
 		dj = (j-cy) * dr / cr + cy;
 	    }
 	    
-	    if (dj >= in->fmt.height || dj < 0 ||
-		di >= in->fmt.width  || di < 0)
+	    if (dj >= (int)in->fmt.height || dj < 0 ||
+		di >= (int)in->fmt.width  || di < 0)
 		continue;
 	    
 	    switch (in->fmt.fmtid) {

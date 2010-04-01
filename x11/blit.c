@@ -36,12 +36,12 @@
 extern XtAppContext    app_context;
 extern int             debug;
 
-int                    x11_dpy_fmtid;
+unsigned int           x11_dpy_fmtid;
 
 static int             display_bits = 0;
-static int             display_bytes = 0;
-static int             pixmap_bytes = 0;
-static int             x11_byteswap = 0;
+static unsigned int    display_bytes = 0;
+static unsigned int    pixmap_bytes = 0;
+static bool            x11_byteswap = 0;
 static int             no_mitshm = 0;
 
 #if HAVE_LIBXV
@@ -52,16 +52,16 @@ static XvImageFormatValues  *fo;
 static XvAdaptorInfo        *ai;
 #endif
 
-static int im_adaptor,im_port = -1;
-static unsigned int      im_formats[VIDEO_FMT_COUNT];
+static unsigned int    im_adaptor,im_port = UNSET;
+static unsigned int    im_formats[VIDEO_FMT_COUNT];
 
 static struct SEARCHFORMAT {
-    int           depth;
-    unsigned long order;
-    unsigned long red;
-    unsigned long green;
-    unsigned long blue;
-    int           format;
+    unsigned int   depth;
+    int            order;
+    unsigned long  red;
+    unsigned long  green;
+    unsigned long  blue;
+    unsigned int   format;
 } fmt[] = {
     { 2, MSBFirst, 0x7c00,     0x03e0,     0x001f,     VIDEO_RGB15_BE },
     { 2, MSBFirst, 0xf800,     0x07e0,     0x001f,     VIDEO_RGB16_BE },
@@ -357,12 +357,12 @@ void xv_image_init(Display *dpy)
     for (i = 0; i < adaptors; i++) {
 	if ((ai[i].type & XvInputMask) &&
 	    (ai[i].type & XvImageMask) &&
-	    (im_port == -1)) {
+	    (im_port == UNSET)) {
 	    im_port = ai[i].base_id;
 	    im_adaptor = i;
 	}
     }
-    if (-1 == im_port)
+    if (UNSET == im_port)
 	return;
 
     fo = XvListImageFormats(dpy, im_port, &formats);

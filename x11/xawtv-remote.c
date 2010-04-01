@@ -22,7 +22,8 @@ x11_error_dev_null(Display * dpy, XErrorEvent * event)
 static Window
 find_window(Display * dpy, Atom atom)
 {
-    int             i,n;
+    int             n;
+    unsigned int    i;
     Window          root = RootWindowOfScreen(DefaultScreenOfDisplay(dpy));
     Window          root2, parent, *kids;
     unsigned int    nkids;

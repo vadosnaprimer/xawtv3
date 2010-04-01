@@ -29,7 +29,7 @@ static int dump_v4l(int fd, int tab)
 	struct video_picture     picture;
 	struct video_buffer      buffer;
 	struct video_window      window;
-	int i;
+	unsigned int i;
 
 	printf("general info\n");
 	memset(&capability,0,sizeof(capability));

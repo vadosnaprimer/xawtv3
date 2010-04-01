@@ -308,7 +308,7 @@ static struct ng_attribute* xv_attrs(void *handle)
 
 /* ********************************************************************* */
 
-void xv_video_init(int port, int hwscan)
+void xv_video_init(unsigned int port, int hwscan)
 {
     struct xv_handle *handle;
     struct STRTAB *norms  = NULL;

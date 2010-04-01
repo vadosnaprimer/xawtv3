@@ -41,18 +41,18 @@ typedef __s64 stamp_t;
  */
 struct v4l2_capability
 {
-	char	name[32];	/* Descriptive, and unique */
-	int	type;		/* Device type, see below */
-	int	inputs;		/* Num video inputs */
-	int	outputs;	/* Num video outputs */
-	int	audios;		/* Num audio devices */
-	int	maxwidth;
-	int	maxheight;
-	int	minwidth;
-	int	minheight;
-	int	maxframerate;
-	__u32	flags;		/* Feature flags, see below */
-	__u32	reserved[4];
+	char	        name[32];	/* Descriptive, and unique */
+	unsigned int	type;		/* Device type, see below */
+	unsigned int	inputs;		/* Num video inputs */
+	unsigned int	outputs;	/* Num video outputs */
+	unsigned int	audios;		/* Num audio devices */
+	unsigned int	maxwidth;
+	unsigned int	maxheight;
+	unsigned int	minwidth;
+	unsigned int	minheight;
+	unsigned int	maxframerate;
+	__u32	        flags;		/* Feature flags, see below */
+	__u32	        reserved[4];
 };
 /* Values for 'type' field */
 #define V4L2_TYPE_CAPTURE	0	/* Is a video capture device */
@@ -316,8 +316,8 @@ struct v4l2_window
 {
 	int			x;
 	int			y;
-	int			width;
-	int			height;
+        unsigned int   		width;
+	unsigned int	       	height;
 	__u32			chromakey;
 	struct v4l2_clip	*clips;
 	int			clipcount;

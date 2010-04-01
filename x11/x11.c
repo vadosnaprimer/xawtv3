@@ -48,7 +48,7 @@ extern XVisualInfo     vinfo;
 
 Pixmap
 x11_capture_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
-		   int width, int height)
+		   unsigned int width, unsigned int height)
 {
     struct ng_video_buf *buf;
     struct ng_video_fmt fmt;
@@ -261,7 +261,7 @@ void
 video_gd_configure(int width, int height)
 {
     struct video_handle *h = &vh;
-    int i,fmtids[2*VIDEO_FMT_COUNT];
+    unsigned int i,fmtids[2*VIDEO_FMT_COUNT];
 
     if (!(f_drv & CAN_CAPTURE))
 	return;
@@ -315,7 +315,7 @@ video_gd_configure(int width, int height)
 /* ------------------------------------------------------------------------ */
 /* video overlay stuff                                                      */
 
-int              swidth,sheight;           /* screen  */
+unsigned int     swidth,sheight;           /* screen  */
 static int       x11_overlay_fmtid;
 
 /* window  */

@@ -104,7 +104,7 @@ static inline void linearBlend(unsigned char *src, int stride)
 static void inline
 deinterlace (struct ng_video_buf *frame)
 {
-  int x, y, bytes = frame->fmt.bytesperline;
+  unsigned int x, y, bytes = frame->fmt.bytesperline;
   unsigned char *src;
 
   for (y = 1; y < frame->fmt.height - 8; y+=8)

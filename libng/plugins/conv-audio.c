@@ -28,27 +28,27 @@ static int (*lame_init_params)(lame_global_flags * const );
  * mp3buffer_size_max = 1.25*num_samples + 7200
  */
 static int (*lame_encode_buffer_interleaved)(
-    lame_global_flags*  gfp,           /* global context handlei        */
+    lame_global_flags*  gfp,           /* global context handlei          */
     short int           pcm[],         /* PCM data for left and right
-					  channel, interleaved          */
+					  channel, interleaved            */
     int                 num_samples,   /* number of samples per channel,
 					  _not_ number of samples in
-					  pcm[]                         */
-    unsigned char*      mp3buf,        /* pointer to encoded MP3 stream */
+					  pcm[]                           */
+    unsigned char*      mp3buf,        /* pointer to encoded MP3 stream   */
     int                 mp3buf_size ); /* number of valid octets in this
-					  stream                        */
+					  stream                          */
 static int (*lame_encode_flush)(
     lame_global_flags *  gfp,    /* global context handle                 */
     unsigned char*       mp3buf, /* pointer to encoded MP3 stream         */
     int                  size);  /* number of valid octets in this stream */
 
 /* ---------------------------------------------------------------------- */
-/* do dynamic linking                                                     */
+/* simple, portable dynamic linking (call stuff indirectly using          */
+/* function pointers)                                                     */
 
-typedef void (*dlcall)(void);
-#define SYM(symbol) { .func = (dlcall*)(&symbol), .name = #symbol }
+#define SYM(symbol) { .func = (void*)(&symbol), .name = #symbol }
 static struct {
-    dlcall *func;
+    void   **func;
     char   *name;
 } symtab[] = {
     SYM(lame_init),
@@ -65,7 +65,7 @@ static int link_lame(void)
 {
     void *handle;
     void *symbol;
-    int i;
+    unsigned int i;
 
     handle = dlopen("libmp3lame.so.0",RTLD_NOW);
     if (NULL == handle)
@@ -127,6 +127,7 @@ mp3_enc_data(void *handle, struct ng_audio_buf *in)
 
     out->size = lame_encode_buffer_interleaved
 	(h->gf, (short int*) in->data, samples, out->data, size);
+    free(in);
     return out;
 }
 
@@ -159,5 +160,5 @@ void ng_plugin_init(void)
 {
     if (0 != link_lame())
 	return;
-    // ng_aconv_register(NG_PLUGIN_MAGIC,__FILE__,mp3_list,nconv);
+    ng_aconv_register(NG_PLUGIN_MAGIC,__FILE__,mp3_list,nconv);
 }

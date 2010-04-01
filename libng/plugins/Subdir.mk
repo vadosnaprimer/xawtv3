@@ -5,9 +5,9 @@ TARGETS-plugins := \
 	libng/plugins/flt-invert.so \
 	libng/plugins/flt-disor.so \
 	libng/plugins/conv-mjpeg.so \
-	libng/plugins/conv-audio.so \
 	libng/plugins/read-avi.so \
 	libng/plugins/write-avi.so
+#	libng/plugins/conv-audio.so
 ifeq ($(FOUND_LQT),yes)
 TARGETS-plugins += \
 	libng/plugins/read-qt.so \

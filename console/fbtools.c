@@ -20,7 +20,6 @@
 #include <linux/kd.h>
 #include <linux/vt.h>
 #include <linux/fb.h>
-#include <linux/major.h>
 
 #include <asm/page.h>
 
@@ -307,61 +306,32 @@ static int fb_activate_current(int tty)
     if (-1 == ioctl(tty,VT_GETSTATE, &vts)) {
 	perror("ioctl VT_GETSTATE");
 	return -1;
-    } else {
-	if (-1 == ioctl(tty,VT_ACTIVATE, vts.v_active)) {
-	    perror("ioctl VT_ACTIVATE");
-	    return -1;
-	}
-	if (-1 == ioctl(tty,VT_WAITACTIVE, vts.v_active)) {
-	    perror("ioctl VT_WAITACTIVE");
-	    return -1;
-	}
     }
-    return 0;
-}
-
-int fb_probe(void)
-{
-    struct fb_con2fbmap c2m;
-    struct stat st;
-    int fb;
-
-    dev_init();
-    fstat(0,&st);
-    if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR)
-	/* not a linux console */
+    if (-1 == ioctl(tty,VT_ACTIVATE, vts.v_active)) {
+	perror("ioctl VT_ACTIVATE");
 	return -1;
-    if (-1 == (fb = open(devices->fb0,O_WRONLY,0)))
-	/* can't open /dev/fb0 */
+    }
+    if (-1 == ioctl(tty,VT_WAITACTIVE, vts.v_active)) {
+	perror("ioctl VT_WAITACTIVE");
 	return -1;
-
-    c2m.console = st.st_rdev & 0xff;
-    if (-1 == ioctl(fb, FBIOGET_CON2FBMAP, &c2m))
-	/* ??? */
-	return -1;
-    close(fb);
+    }
     return 0;
 }
 
 int
 fb_init(char *device, char *mode, int vt)
 {
-    struct stat st;
     char   fbdev[16];
+    struct vt_stat vts;
 
     dev_init();
     tty = 0;
     if (vt != 0)
 	fb_setvt(vt);
 
-    /* FIXME: where are MAJOR() / MINOR() ??? */
-    fstat(tty,&st);
-    if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR) {
-	/* catch that here, give a more user friendly error message that just
-	 * throw a error about a failed ioctl later on ... */
-	fprintf(stderr,
-		"ERROR: tty is not a linux console.  You can not start this\n"
-		"       tool from a pseudo tty (xterm/ssh/screen/...).\n");
+    if (-1 == ioctl(tty,VT_GETSTATE, &vts)) {
+	fprintf(stderr,"ioctl VT_GETSTATE: %s (not a linux console?)\n",
+		strerror(errno));
 	exit(1);
     }
     
@@ -373,7 +343,7 @@ fb_init(char *device, char *mode, int vt)
 		fprintf(stderr,"open %s: %s\n",devices->fb0,strerror(errno));
 		exit(1);
 	    }
-	    c2m.console = st.st_rdev & 0xff;
+	    c2m.console = vts.v_active;
 	    if (-1 == ioctl(fb, FBIOGET_CON2FBMAP, &c2m)) {
 		perror("ioctl FBIOGET_CON2FBMAP");
 		exit(1);

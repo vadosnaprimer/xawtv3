@@ -388,6 +388,7 @@ init_channel(char *name, struct CHANNEL *c)
 void
 read_config(char *conffile, int *argc, char **argv)
 {
+    struct list_head *item;
     char filename[100];
     char *val;
     int  i;
@@ -489,10 +490,13 @@ read_config(char *conffile, int *argc, char **argv)
     if (NULL != (val = cfg_get_str("global","mov-rate")))
 	mov_rate = val;
 
-    if (NULL != (val = cfg_get_str("global","filter")))
-	for (i = 0; NULL != ng_filters[i]; i++)
-	    if (0 == strcasecmp(ng_filters[i]->name, val))
-		cur_filter=ng_filters[i];
+    if (NULL != (val = cfg_get_str("global","filter"))) {
+	list_for_each(item,&ng_filters) {
+	    struct ng_filter *f = list_entry(item, struct ng_filter, list);
+	    if (0 == strcasecmp(f->name, val))
+		cur_filter = f;
+	}
+    }
 }
 
 void

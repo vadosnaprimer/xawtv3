@@ -39,7 +39,7 @@
 static void inline
 deinterlace (struct ng_video_buf *frame)
 {
-  int x, y, bytes = frame->fmt.bytesperline;
+  unsigned int x, y, bytes = frame->fmt.bytesperline;
 
   /*
    * if(isOdd){

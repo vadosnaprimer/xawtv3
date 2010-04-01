@@ -244,7 +244,8 @@ int main(int argc, char *argv[])
 {
     long long start, now, delay, latency = 0, drift = 0;
     struct timeval wait;
-    int fmtids[2*VIDEO_FMT_COUNT], i, n, drop, droptotal, framecount, ww, wh;
+    int n, drop, droptotal, framecount, ww, wh;
+    unsigned int fmtids[2*VIDEO_FMT_COUNT], i;
     XEvent event;
     
     app_shell = XtVaAppInitialize(&app_context, "pia",
@@ -268,12 +269,6 @@ int main(int argc, char *argv[])
 	exit(1);
     }
     ng_init();
-    if (ng_readers)
-	reader = ng_readers[0];
-    if (NULL == reader) {
-	fprintf(stderr,"no reader\n");
-	exit(1);
-    }
 
     /* open file */
     reader = ng_find_reader(argv[1]);

@@ -122,7 +122,8 @@ void fs_render_fb(unsigned char *ptr, int pitch,
     }
 }
 
-int fs_puts(struct fs_font *f, int x, int y, unsigned char *str)
+int fs_puts(struct fs_font *f, unsigned int x, unsigned int y,
+	    unsigned char *str)
 {
     unsigned char *pos,*start;
     int i,c,j,w;

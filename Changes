@@ -1,4 +1,13 @@
 
+3.83 => 3.84
+============
+
+ * fixed a number of gcc 3.3 warnings, also did some other cleanups
+   while being at it.
+ * Multimedia keyboard support.
+ * commented alsa-mixer plugin (segfaults for me).
+
+
 3.82 => 3.83
 ============
 
@@ -15,11 +24,6 @@
  * compile fixes again ...
  * v4l-conf fix (Kyosti Malkki <kmalkki@cc.hut.fi>).
  * wmhook fix (Marcin Krzyzanowski <krzak@hakore.com>).
-
-
-3.81 => 3.82
-============
-
  * still a few compile bug left ...
  * s/recode/iconv/.  iconv should (unlike recode) be present on almost
    every system as it comes with glibc ...
