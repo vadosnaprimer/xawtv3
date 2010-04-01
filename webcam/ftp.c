@@ -4,6 +4,8 @@
  *   functions to handle ftp uploads using the ftp utility
  *
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,7 +14,6 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#include "config.h"
 #include "ftp.h"
 
 /* ---------------------------------------------------------------------- */
@@ -24,11 +25,8 @@ int ftp_debug;
 static int ftp_pty, ftp_pid;
 static char tty_name[32];
 
-static void ftp_send(int argc, ...);
-static int  ftp_recv(void);
-
 static
-int open_pty()
+int open_pty(void)
 {
 #ifdef HAVE_GETPT
     int master;
@@ -86,7 +84,12 @@ ftp_init(int autologin, int passive)
         close(0); close(1); close(2);
 	setsid();
         open(tty_name,O_RDWR); dup(0); dup(0);
-	unsetenv("LANG"); /* need english messages from ftp */
+
+	/* need english messages from ftp */
+	unsetenv("LANG");
+	unsetenv("LC_ALL");
+	unsetenv("LC_MESSAGES");
+
 	if (autologin)
 	    execvp(doauto[0],doauto);
 	else

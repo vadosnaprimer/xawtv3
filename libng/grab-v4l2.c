@@ -19,10 +19,10 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
-#include <pthread.h>
 
 #include "grab-ng.h"
 
@@ -40,10 +40,11 @@ static void*   v4l2_open(char *device);
 static int     v4l2_close(void *handle);
 
 /* attributes */
+static char*   v4l2_devname(void *handle);
 static int     v4l2_flags(void *handle);
 static struct ng_attribute* v4l2_attrs(void *handle);
-static int     v4l2_read_attr(void *handle, struct ng_attribute*);
-static void    v4l2_write_attr(void *handle, struct ng_attribute*, int val);
+static int     v4l2_read_attr(struct ng_attribute*);
+static void    v4l2_write_attr(struct ng_attribute*, int val);
 
 /* overlay */
 static int   v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
@@ -113,10 +114,9 @@ const struct ng_driver v4l2_driver = {
     open:          v4l2_open,
     close:         v4l2_close,
 
+    get_devname:   v4l2_devname,
     capabilities:  v4l2_flags,
     list_attrs:    v4l2_attrs,
-    read_attr:     v4l2_read_attr,
-    write_attr:    v4l2_write_attr,
 
     setupfb:       v4l2_setupfb,
     overlay:       v4l2_overlay,
@@ -134,12 +134,12 @@ const struct ng_driver v4l2_driver = {
 
 static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {
     0,                    /* unused   */
-    0,                    /* RGB8     */
+    V4L2_PIX_FMT_HI240,   /* RGB8     */
     V4L2_PIX_FMT_GREY,    /* GRAY8    */
     V4L2_PIX_FMT_RGB555,  /* RGB15_LE */
     V4L2_PIX_FMT_RGB565,  /* RGB16_LE */
-    0,                    /* RGB15_BE */
-    0,                    /* RGB16_BE */
+    V4L2_PIX_FMT_RGB555X, /* RGB15_BE */
+    V4L2_PIX_FMT_RGB565X, /* RGB16_BE */
     V4L2_PIX_FMT_BGR24,   /* BGR24    */
     V4L2_PIX_FMT_BGR32,   /* BGR32    */
     V4L2_PIX_FMT_RGB24,   /* RGB24    */
@@ -147,8 +147,20 @@ static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {
     0,                    /* LUT 2    */
     0,                    /* LUT 4    */
     V4L2_PIX_FMT_YUYV,    /* YUV422   */
-    0,                    /* YUV422P  */
+#if 0
+    V4L2_PIX_FMT_YVU422P, /* YUV422P  */
+#else
+    0,
+#endif
     V4L2_PIX_FMT_YUV420,  /* YUV420P  */
+};
+
+static struct STRTAB stereo[] = {
+    {  V4L2_TUNER_MODE_MONO,   "mono"    },
+    {  V4L2_TUNER_MODE_STEREO, "stereo"  },
+    {  V4L2_TUNER_MODE_LANG1,  "lang1"   },
+    {  V4L2_TUNER_MODE_LANG2,  "lang2"   },
+    { -1, NULL },
 };
 
 /* ---------------------------------------------------------------------- */
@@ -371,14 +383,14 @@ print_device_capabilities(struct v4l2_handle *h)
     /* capture formats */
     fprintf(stderr,"capture formats:\n");
     for (i = 0; i < h->nfmts; i++) {
-	printf("  %d: %c%c%c%c, depth=%d,%s \"%s\"\n", i,
-	       h->fmt[i].pixelformat & 0xff,
-	       (h->fmt[i].pixelformat >>  8) & 0xff,
-	       (h->fmt[i].pixelformat >> 16) & 0xff,
-	       (h->fmt[i].pixelformat >> 24) & 0xff,
-	       h->fmt[i].depth,
-	       (h->fmt[i].flags & V4L2_FMT_FLAG_COMPRESSED) ? " compressed" : "",
-	       h->fmt[i].description);
+	fprintf(stderr,"  %d: %c%c%c%c, depth=%d,%s \"%s\"\n", i,
+		h->fmt[i].pixelformat & 0xff,
+		(h->fmt[i].pixelformat >>  8) & 0xff,
+		(h->fmt[i].pixelformat >> 16) & 0xff,
+		(h->fmt[i].pixelformat >> 24) & 0xff,
+		h->fmt[i].depth,
+		(h->fmt[i].flags & V4L2_FMT_FLAG_COMPRESSED) ? " compressed" : "",
+		h->fmt[i].description);
     }
 
     /* capture parameters */
@@ -391,7 +403,7 @@ print_device_capabilities(struct v4l2_handle *h)
 	    h->streamparm.parm.capture.timeperframe);
 
     /* controls */
-    printf("supported controls:\n");
+    fprintf(stderr,"supported controls:\n");
     for (i = 0; i < MAX_CTRL*2; i++) {
 	if (h->ctl[i].id == -1)
 	    continue;
@@ -555,7 +567,7 @@ v4l2_to_me(const struct v4l2_queryctrl *ctl, int value)
 	v4l2 >>= 2;
 	me   >>= 2;
     }
-    value = (value + ctl->minimum) * me / v4l2;
+    value = (value - ctl->minimum) * me / v4l2;
     if (value < 0)      value = 0;
     if (value > 65535)  value = 65535;
     return value;
@@ -646,14 +658,19 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
     }
     if (h->attr[h->nattr].id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name = ng_attr_to_desc[h->attr[h->nattr].id];
+
+    h->attr[h->nattr].read    = v4l2_read_attr;
+    h->attr[h->nattr].write   = v4l2_write_attr;
+    h->attr[h->nattr].handle  = h;
     h->nattr++;
 }
 
-static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
+static int v4l2_read_attr(struct ng_attribute *attr)
 {
-    struct v4l2_handle *h = handle;
+    struct v4l2_handle *h = attr->handle;
     const struct v4l2_queryctrl *ctl = attr->priv;
     struct v4l2_control c;
+    struct v4l2_tuner tuner;
     int value = 0;
 
     if (NULL != ctl) {
@@ -671,15 +688,21 @@ static int v4l2_read_attr(void *handle, struct ng_attribute *attr)
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_G_INPUT,&value,0);
 
+    } else if (attr->id == ATTR_ID_AUDIO_MODE) {
+	memset(&tuner,0,sizeof(tuner));
+	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
+	value = tuner.audmode;
+
     }
     return value;
 }
 
-static void v4l2_write_attr(void *handle, struct ng_attribute *attr, int value)
+static void v4l2_write_attr(struct ng_attribute *attr, int value)
 {
-    struct v4l2_handle *h   = handle;
+    struct v4l2_handle *h = attr->handle;
     const struct v4l2_queryctrl *ctl = attr->priv;
     struct v4l2_control c;
+    struct v4l2_tuner tuner;
 
     if (NULL != ctl) {
 	c.id = ctl->id;
@@ -695,7 +718,12 @@ static void v4l2_write_attr(void *handle, struct ng_attribute *attr, int value)
 	
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_S_INPUT,&value,0);
-	
+
+    } else if (attr->id == ATTR_ID_AUDIO_MODE) {
+	memset(&tuner,0,sizeof(tuner));
+	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
+	tuner.audmode = value;
+	xioctl(h->fd,VIDIOC_S_TUNER,&tuner,0);
     }
 }
 
@@ -713,7 +741,7 @@ v4l2_open(char *device)
     memset(h,0,sizeof(*h));
     
     if (-1 == (h->fd = open(device,O_RDWR))) {
-	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
+	fprintf(stderr,"v4l2: open %s: %s\n",device,strerror(errno));
 	goto err;
     }
 
@@ -722,7 +750,8 @@ v4l2_open(char *device)
     if (ng_debug)
 	fprintf(stderr, "v4l2: open\n");
     fcntl(h->fd,F_SETFD,FD_CLOEXEC);
-    fprintf(stderr,"v4l2: device is %s\n",h->cap.name);
+    if (ng_debug)
+	fprintf(stderr,"v4l2: device is %s\n",h->cap.name);
 
     get_device_capabilities(h);
     if (ng_debug)
@@ -731,6 +760,8 @@ v4l2_open(char *device)
     /* attributes */
     v4l2_add_attr(h, NULL, ATTR_ID_NORM,  build_norms(h));
     v4l2_add_attr(h, NULL, ATTR_ID_INPUT, build_inputs(h));
+    if (h->cap.flags & V4L2_FLAG_TUNER)
+	v4l2_add_attr(h, NULL, ATTR_ID_AUDIO_MODE, stereo);
     for (i = 0; i < MAX_CTRL*2; i++) {
 	if (h->ctl[i].id == -1)
 	    continue;
@@ -766,16 +797,22 @@ v4l2_close(void *handle)
     return 0;
 }
 
+static char*
+v4l2_devname(void *handle)
+{
+    struct v4l2_handle *h = handle;
+    return h->cap.name;
+}
+
 static int v4l2_flags(void *handle)
 {
     struct v4l2_handle *h = handle;
     int ret = 0;
 
-    if (h->cap.flags & V4L2_FLAG_PREVIEW &&
-	!h->ov_error)
+    if (h->cap.flags & V4L2_FLAG_PREVIEW && !h->ov_error)
 	ret |= CAN_OVERLAY;
-    if (h->cap.flags & V4L2_FLAG_STREAMING ||
-	h->cap.flags & V4L2_FLAG_READ)
+    if ((h->cap.flags & V4L2_FLAG_STREAMING) ||
+	(h->cap.flags & V4L2_FLAG_READ))
 	ret |= CAN_CAPTURE;
     if (h->cap.flags & V4L2_FLAG_TUNER)
 	ret |= CAN_TUNE;
@@ -830,23 +867,24 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 {
     struct v4l2_handle *h = handle;
 
-    if (-1 == ioctl(h->fd, VIDIOC_G_FBUF, &h->ov_fb)) {
-	perror("ioctl VIDIOC_G_FBUF");
+    if (-1 == xioctl(h->fd, VIDIOC_G_FBUF, &h->ov_fb, 0))
 	return -1;
-    }
-    if (1 /* debug */)
+    
+    if (1 /* ng_debug */)
 	print_fbinfo(&h->ov_fb);
 
     /* double-check settings */
     if (NULL != base && h->ov_fb.base[0] != base) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer base address mismatch\n");
-	fprintf(stderr,"v4l2: %p %p\n",base,h->ov_fb.base);
+	fprintf(stderr,"v4l2: me=%p v4l=%p\n",base,h->ov_fb.base);
 	h->ov_error = 1;
 	return -1;
     }
     if (h->ov_fb.fmt.width  != fmt->width ||
 	h->ov_fb.fmt.height != fmt->height) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer size mismatch\n");
+	fprintf(stderr,"v4l2: me=%dx%d v4l=%dx%d\n",
+		fmt->width,fmt->height,h->ov_fb.fmt.width,h->ov_fb.fmt.height);
 	h->ov_error = 1;
 	return -1;
     }
@@ -854,14 +892,28 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 	fmt->bytesperline >  0 &&
 	fmt->bytesperline != h->ov_fb.fmt.bytesperline) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer bpl mismatch\n");
+	fprintf(stderr,"v4l2: me=%d v4l=%d\n",
+		fmt->bytesperline,h->ov_fb.fmt.bytesperline);
 	h->ov_error = 1;
 	return -1;
     }
+#if 0
     if (h->ov_fb.fmt.pixelformat != xawtv_pixelformat[fmt->fmtid]) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer format mismatch\n");
+	fprintf(stderr,"v4l2: me=%c%c%c%c [%s]   v4l=%c%c%c%c\n",
+		xawtv_pixelformat[fmt->fmtid] & 0xff,
+		(xawtv_pixelformat[fmt->fmtid] >>  8) & 0xff,
+		(xawtv_pixelformat[fmt->fmtid] >> 16) & 0xff,
+		(xawtv_pixelformat[fmt->fmtid] >> 24) & 0xff,
+		ng_vfmt_to_desc[fmt->fmtid],
+		h->ov_fb.fmt.pixelformat & 0xff,
+		(h->ov_fb.fmt.pixelformat >>  8) & 0xff,
+		(h->ov_fb.fmt.pixelformat >> 16) & 0xff,
+		(h->ov_fb.fmt.pixelformat >> 24) & 0xff);
 	h->ov_error = 1;
 	return -1;
     }
+#endif
     return 0;
 }
 
@@ -870,7 +922,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	     struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     struct v4l2_handle *h = handle;
-    int i,xadjust=0,yadjust=0;
+    int rc,i;
 
     if (h->ov_error)
 	return -1;
@@ -907,8 +959,9 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 		       &h->ov_win.x,&h->ov_win.y);
 
     /* fixups */
-    xadjust = h->ov_win.x - x;
-    yadjust = h->ov_win.y - y;
+    ng_check_clipping(h->ov_win.width, h->ov_win.height,
+		      x - h->ov_win.x, y - h->ov_win.y,
+		      oc, &count);
 
     if (h->ov_fb.capability & V4L2_FBUF_CAP_CLIPPING) {
 	h->ov_win.clips      = h->ov_clips;
@@ -916,14 +969,10 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	
 	for (i = 0; i < count; i++) {
 	    h->ov_clips[i].next   = (i+1 == count) ? NULL : &h->ov_clips[i+1];
-	    h->ov_clips[i].x      = oc[i].x1 - xadjust;
-	    h->ov_clips[i].y      = oc[i].y1 - yadjust;
+	    h->ov_clips[i].x      = oc[i].x1;
+	    h->ov_clips[i].y      = oc[i].y1;
 	    h->ov_clips[i].width  = oc[i].x2-oc[i].x1;
 	    h->ov_clips[i].height = oc[i].y2-oc[i].y1;
-	    if (ng_debug)
-		fprintf(stderr,"v4l2: clip=%dx%d+%d+%d\n",
-			h->ov_clips[i].width,h->ov_clips[i].height,
-			h->ov_clips[i].x,h->ov_clips[i].y);
 	}
     }
 #if 0
@@ -931,10 +980,10 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->ov_win.chromakey  = 0;    /* FIXME */
     }
 #endif
-    xioctl(h->fd, VIDIOC_S_WIN, &h->ov_win, 0);
+    rc = xioctl(h->fd, VIDIOC_S_WIN, &h->ov_win, 0);
 
-    h->ov_enabled = 1;
-    h->ov_on = 1;
+    h->ov_enabled = (0 == rc) ? 1 : 0;
+    h->ov_on      = (0 == rc) ? 1 : 0;
     xioctl(h->fd, VIDIOC_PREVIEW, &h->ov_on, 0);
 
     return 0;
@@ -981,12 +1030,15 @@ v4l2_waiton(struct v4l2_handle *h)
     fd_set rdset;
     
     /* wait for the next frame */
+ again:
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
     FD_ZERO(&rdset);
     FD_SET(h->fd, &rdset);
     switch (select(h->fd + 1, &rdset, NULL, NULL, &tv)) {
     case -1:
+	if (EINTR == errno)
+	    goto again;
 	perror("v4l2: select");
 	return -1;
     case  0:
@@ -1021,7 +1073,8 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 	if (-1 == ioctl(h->fd, VIDIOC_QUERYBUF, &h->buf_v4l2[i]))
 	    return -1;
 	h->buf_me[i].fmt  = h->fmt_me;
-	h->buf_me[i].size = h->buf_v4l2[i].length;
+	h->buf_me[i].size = h->buf_me[i].fmt.bytesperline *
+	    h->buf_me[i].fmt.height;
 	h->buf_me[i].data = mmap(NULL, h->buf_me[i].size,
 				 PROT_READ | PROT_WRITE, MAP_SHARED,
 				 h->fd, h->buf_v4l2[i].offset);
@@ -1068,6 +1121,8 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     
     /* free buffers */
     for (i = 0; i < h->reqbufs.count; i++) {
+	if (0 != h->buf_me[i].refcount)
+	    ng_waiton_video_buf(&h->buf_me[i]);
 	if (-1 == munmap(h->buf_me[i].data,h->buf_me[i].size))
 	    perror("munmap");
     }
@@ -1134,7 +1189,7 @@ v4l2_startvideo(void *handle, int fps, int buffers)
     h->start = 0;
 
     if (h->cap.flags & V4L2_FLAG_STREAMING)
-	v4l2_start_streaming(h,buffers);
+	return v4l2_start_streaming(h,buffers);
     return 0;
 }
 
@@ -1157,7 +1212,7 @@ v4l2_nextframe(void *handle)
 {
     struct v4l2_handle *h = handle;
     struct ng_video_buf *buf = NULL;
-    int size,frame = 0;
+    int rc,size,frame = 0;
 
     if (h->cap.flags & V4L2_FLAG_STREAMING) {
 	v4l2_queue_all(h);
@@ -1166,24 +1221,32 @@ v4l2_nextframe(void *handle)
 	    return NULL;
 	h->buf_me[frame].refcount++;
 	buf = &h->buf_me[frame];
-	buf->ts = h->buf_v4l2[frame].timestamp;
+	memset(&buf->info,0,sizeof(buf->info));
+	buf->info.ts = h->buf_v4l2[frame].timestamp;
     } else {
 	size = h->fmt_me.bytesperline * h->fmt_me.height;
 	buf = ng_malloc_video_buf(&h->fmt_me,size);
-	if (size != read(h->fd,buf->data,size)) {
+	rc = read(h->fd,buf->data,size);
+	if (rc != size) {
+	    if (-1 == rc) {
+		perror("v4l2: read");
+	    } else {
+		fprintf(stderr, "v4l2: read: rc=%d/size=%d\n",rc,size);
+	    }
 	    ng_release_video_buf(buf);
 	    return NULL;
 	}
-	buf->ts = ng_get_timestamp();
+	memset(&buf->info,0,sizeof(buf->info));
+	buf->info.ts = ng_get_timestamp();
     }
 
     if (h->first) {
 	h->first = 0;
-	h->start = buf->ts;
+	h->start = buf->info.ts;
 	if (ng_debug)
 	    fprintf(stderr,"v4l2: start ts=%lld\n",h->start);
     }
-    buf->ts -= h->start;
+    buf->info.ts -= h->start;
     return buf;
 }
 
@@ -1192,17 +1255,26 @@ v4l2_getimage(void *handle)
 {
     struct v4l2_handle *h = handle;
     struct ng_video_buf *buf; 
-    int size,frame;
+    int size,frame,rc;
 
     size = h->fmt_me.bytesperline * h->fmt_me.height;
     buf = ng_malloc_video_buf(&h->fmt_me,size);
     if (h->cap.flags & V4L2_FLAG_READ) {
-	if (size != read(h->fd,buf->data,size)) {
+	rc = read(h->fd,buf->data,size);
+	if (rc != size) {
+	    if (-1 == rc) {
+		perror("v4l2: read");
+	    } else {
+		fprintf(stderr, "v4l2: read: rc=%d/size=%d\n",rc,size);
+	    }
 	    ng_release_video_buf(buf);
 	    return NULL;
 	}
     } else {
-	v4l2_start_streaming(h,1);
+	if (-1 == v4l2_start_streaming(h,1)) {
+	    v4l2_stop_streaming(h);
+	    return NULL;
+	}
 	frame = v4l2_waiton(h);
 	if (-1 == frame) {
 	    v4l2_stop_streaming(h);
@@ -1215,3 +1287,10 @@ v4l2_getimage(void *handle)
 }
 
 #endif /* __linux__ */
+
+/* --------------------------------------------------------------------- */
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

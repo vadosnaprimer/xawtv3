@@ -7,7 +7,11 @@ export DH_COMPAT=2
 ROOT=$(shell echo `pwd`/debian/tmp)
 
 build:
-	test -f config.h || ./configure --prefix=/usr --mandir=/usr/share/man
+	test -f config.h || ./configure	\
+		--disable-motif		\
+		--prefix=/usr		\
+		--mandir=/usr/share/man
+	make depend
 	$(MAKE) $@
 
 clean::
@@ -15,7 +19,7 @@ clean::
 	dh_clean
 
 install: build
-	$(MAKE) ROOT=$(ROOT) $@
+	$(MAKE) DESTDIR=$(ROOT) $@
 	dh_movefiles
 
 	# fix v4l-conf suid-root lintian warning
@@ -29,8 +33,7 @@ binary-indep: install
 
 binary-arch: install
 	dh_installdocs README* Changes UPDATE_TO_v3.0		\
-		Programming-FAQ Trouble-Shooting Sound-FAQ	\
-		contrib/dot.lircrc contrib/frequencies*
+		Programming-FAQ contrib/dot.lircrc contrib/frequencies*
 	dh_installdocs -p xawtv-tools tools/README
 	dh_installdocs -p webcam webcam/webcam.cgi
 #	dh_installexamples
@@ -42,8 +45,6 @@ binary-arch: install
 #	dh_installmanpages
 #	dh_installinfo
 	dh_installdebconf -p xawtv
-	dh_undocumented -p xawtv-tools	record.1 dump-mixers.1
-	dh_undocumented -p streamer	streamer.1
 	dh_installchangelogs
 #	dh_link
 #	dh_strip

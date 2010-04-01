@@ -1,0 +1,29 @@
+srcdir=@srcdir@
+VPATH=$(srcdir)
+
+include ../../Make.config
+
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I../.. -I..
+PLUGINS=nop.so invert.so
+
+all build: $(PLUGINS)
+
+.SUFFIXES: .so .o
+.o.so:
+	gcc $(CFLAGS) -shared -Wl,-soname,$@ -o $@ $<
+
+clean:
+	rm -f $(PLUGINS) $(OBJS)
+
+distclean realclean: clean
+	rm -f Makefile *~ *.bak
+
+install: all
+	$(INSTALL_DIR) $(libdir)
+	$(INSTALL_PROGRAM) -s $(PLUGINS) $(libdir)
+
+depend dep:
+	$(DEPEND) -- $(CFLAGS) -- *.c
+
+#-------------------------------------------------------------------------
+# DO NOT DELETE THIS LINE -- make depend depends on it.

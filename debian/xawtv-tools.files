@@ -2,5 +2,7 @@ usr/bin/showriff
 usr/bin/propwatch
 usr/bin/dump-mixers
 usr/bin/record
-usr/share/man/man1/propwatch.1
 usr/share/man/man1/showriff.1
+usr/share/man/man1/propwatch.1
+usr/share/man/man1/dump-mixers.1
+usr/share/man/man1/record.1

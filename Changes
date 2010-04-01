@@ -1,4 +1,289 @@
 
+3.65 => 3.66
+============
+
+ * various scantv fixes.
+ * added "show" command for v4lctl, updated man-page.
+ * LFS bug in showriff fixed, now it finally displays large
+   files correctly.
+ * Added experimental image filtering plugin interface, for
+   now only works for the x11 screen in "grabdisplay" mode.
+ * Made it build with both alsa 0.5.x and 0.9.x.
+ * Made it build without X11 installed.
+
+
+3.64 => 3.65
+============
+
+ * fixed FreeBSD build problems.
+ * control *tv via joystick (based on patches from "W. Michael Petullo"
+   <mike@flyn.org>).
+ * fixed fbtv cursor keys to work as documented (and like they work in
+   xawtv).
+ * splitted reading and parsing of the config file to fix some minor
+   initialization order issues.
+ * more alevtd fixes/patches (Alessandro Fausto).
+ * added window clipping fixups (range checks, drop empty clips,
+   try merge clip windows).
+ * removed chromakey color flash on channel switches
+ * added -c option for scantv.
+ * full devfs support for fbtv.
+
+
+3.63 => 3.64
+============
+
+ * fixed build problems without alsa installed.
+ * alevtd: subpage link list tweaks.
+ * alevtd: clear cache on SIGUSR1.
+ * fixed a segfault in fbtv.
+
+
+3.62 => 3.63
+============
+
+ * tried to reduce the channel switch delay a bit.
+ * motv: italian translations (Mij <mij@fastwebnet.it>).
+ * wrote README.translate
+ * wrote some code to control xawtv/motv/fbtv via alsa midi.
+ * moved lirc code to xt.c, added lirc support to motv.
+ * "fbtv -M" + v4l2 fixed.
+ * ttv: ignore aspect ratio.
+ * ttv: segfault-at-exit fixed.
+ * added subpage link list to alevtd pages
+   (Alessandro Fausto <fareale@libero.it>).
+ * updated libvbi to alevt 1.6.0 code.
+
+
+3.61 => 3.62
+============
+
+ * fixed italy frequency table (Gianluca <gialluca@tiscalinet.it>).
+ * oss changes to improve audio/video sync with some sound cards.
+ * Fancy DnD icon for motv.
+ * preferences dialog for motv.
+ * fixed segfault when typing '00' on the keypad.
+ * fixed VIDIOCSWIN error handling.
+ * major changes for the radio app:  Added reasonable command line
+   parsing, can be easily used non-interactively now.  Added station
+   scanner (Gunther Mayer <Gunther.Mayer@t-online.de>).
+ * added frequency table for argentina
+   ("KciNicK M. M." <kcinick@ciudad.com.ar>).
+ * MIT-SHM support is no longer a compile time option.
+ * Fixed MIT-SHM bug in xv.c
+ * v4l2 format assignments fixed (fixes swapped red+blue for yuv)
+
+
+3.60 => 3.61
+============
+
+ * keypad-partial fix.
+ * record utility documentation update.
+ * movie recording: display audio/video times relative to real time.
+ * added some examples to "streamer -h" output.
+ * minor fix for v4lctl.
+ * reactivated "xawtv-remote webcam"
+ * fixed "xawtv-remove movie driver ..." for motv.
+ * Some minor DnD fixes.
+ * audio mode fixes
+ * added keypad support for motv.
+ * temporarely suspend grabdisplay for attribute changes.
+ * mjpeg-quality config option is gone, jpeg-quality is used
+   everythere now.
+
+
+3.59 => 3.60
+============
+
+ * Added proper cleanup code for DnD.  This breaks DnD with KDE apps
+   because they _first_ signal the transfer is finished, _then_ try to
+   read the tmp file which might be already deleted at that point ...
+ * separated primary selection (aka clipboard) and DnD selection data.
+ * fixed segfault with DnD + not capturing devices (i.e. Xvideo).
+
+
+3.58 => 3.59
+============
+
+ * keypad-partial fixes.
+ * added a few more buttons to motv's toolbar.
+ * fixed v4l-conf compile problem with v4l2-patched kernels.
+ * added console mode for record (Gergely Tamas <dice@mfa.kfki.hu>),
+   also added a switch to set the sample rate and fixed some minor
+   problems.
+ * Added support for selections (clipboard & dnd) to motv.
+ * Fixed missing "setinput next"
+
+
+3.57 => 3.58
+============
+
+ * Makefile / build process updates.  make depend is done automagically
+   now if needed.  Parallel builds (make -j) work better.  Enabled a few
+   more warnings.
+ * new keypad-partial config option (Pawel Sakowski <pawel@sakowski.eu.org>).
+ * made oss mixer work again for fbtv.
+ * merged some stuff from Kawamata/Hitoshi <kwmt@din.or.jp>'s patches.
+ * finally multithreaded compression for those of you with SMP boxen.
+ * text/plain support for alevtd (Adam Sampson <azz@gnu.org>).
+ * Documentation updates.
+
+
+3.56 => 3.57
+============
+
+ * changed oss mixer control internals
+ * made 4:3 aspect ratio the default.
+ * more Motif GUI fixes.
+
+
+3.55 => 3.56
+============
+
+ * chromakey tyops fixed.
+ * updated / reorganized the manual pages.
+ * wrote a manual page for motv.
+ * lots of motv improvements.
+ * streamer also accepts hh:mm:ss for -t now (W. Michael Petullo).
+ * added color space conversion functions for yuv 420 planar
+   (Sunjin Yang <lethean@realtime.ssu.ac.kr>).
+
+
+3.54 => 3.55
+============
+
+ * some fbtv fixes.
+
+ 
+3.53 => 3.54
+============
+
+ * NOTE: starting with 3.53 "make depend" is REQUIRED to build
+   xawtv.
+ * more motif code / fixes.
+ * moved devices.c to libng, added init function for switching to
+   devfs namespace.
+ * made xawtv/motv more quiet by default, prefixed some messages
+   with "if (debug)".
+ * copyed new fb font rendering from fbi for fbtv.
+ * Made grabdisplay in fbtv work again.
+ * Added german application defaults for motv.
+ * fixed default dsp device.
+ * added v4l2 support to v4l-conf.
+
+
+3.52 => 3.53
+============
+
+ * various build fixes (aa.c / build without Xvideo / FreeBSD).
+ * s|/dev/video|/dev/video0|, also moved stuff to a single file.
+ * ttv fixes, made ttv use the conversion functions.
+
+
+3.51 => 3.52
+============
+
+ * Added ttv -- a aalib based tv viewer.
+ * wrote some docs for libng.
+ * optimized the tracking code for the window clipping.
+ * more motif code / fixes.
+ * added support for planar yuv (grabdisplay via Xvideo).
+ * bytesex fixes for showriff.
+
+
+3.50 => 3.51
+============
+
+ * Major documentation update
+ * Some more motif tweaks.  Build it with --enable-motif if you have
+   openmotif installed and want to have a look, comments about the
+   new GUI are welcome.  motv is the exectutable (anyone has a idea for
+   a better name ?).
+ * disabled packed pixel yuv for FreeBSD (broken).
+ * added -hwscan option.
+
+
+3.49 => 3.50
+============
+
+ * lot of new motif stuff
+ * added a workaround for a bttv bug.
+ * minor fix in subtitles script.
+
+
+3.48 => 3.49
+============
+
+ * added archive function to the webcam utility.
+ * config file tags are case insensitive now.
+ * changed webcam to use libng conversions (i.e. it can deal
+   with yuv-only devices now).
+ * raw yuv data support for quicktime (with help from 
+   W. Michael Petullo <mike@flyn.org>)
+ * more new motif stuff.
+
+
+3.47 => 3.48
+============
+
+ * added config file entries for record settings.
+ * fixed some minor FreeBSD build problems on.
+ * Managed it to get the locate stuff right for the motif
+   version.
+ * fixed a rate control bug.
+ * fixed a bug in vtx display code.
+ * frequency table for south africa (Hendrik Visage <hvisage@envisage.co.za>)
+
+
+3.46 => 3.47
+============
+
+ * fixed more makefile flaws (which broke rpm -ta).
+ * fixed a bug in color space conversion
+   (FUKUCHI Kentarou <fukuchi@is.titech.ac.jp>)
+ * reactivated chromakeying code.  Untested.
+ * Bumped the timeout for VIDIOCSYNC from one to three
+   seconds.  Seems some USB-Devices need more time
+   for the first frame.
+ * dropped Xaw3d support altogether.
+ * added back in some 3D effects using the new features of the
+   XFree86 4 Athena widgets.
+
+
+3.45 => 3.46
+============
+
+ * fixed Makefile bug (which caused fonts not being included in the
+   tarball).
+
+
+3.44 => 3.45
+============
+
+ * Xaw3d disabled by default -- it crashes xawtv with i18n turned on.
+
+
+3.43 => 3.44
+============
+
+ * fixed minor bug in grab-v4l.c
+ * rewrote much of the conversion/compression code, made it reentrant.
+ * moved the conversion/compression code to a thread.
+ * rewrote the grabdisplay code.
+ * The -xvideo and -device switches implicitly turn on/off the Xvideo
+   extention.
+ * The vtx command (see xawtv-remote man-page) can parse ANSI color
+   sequences too.
+ * new shell script to display subtitles.
+ * update for cc (Adam <adam@cfar.umd.edu>).  Moved the utility
+   out of the contrib, renamed it to ntsc-cc (to avoid name clashes
+   with the C compiler) and included it into the Makefile tree, so
+   it gets compiled and installed by default.  Wrote a short man
+   page for it.
+ * some progress on the motif version.
+ * fixed a bug in webcam (Kelsey Hudson <khudson@rohan.sdsu.edu>).
+
+
 3.42 => 3.43
 ============
 

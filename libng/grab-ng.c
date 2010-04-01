@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <dirent.h>
+#include <fnmatch.h>
+#include <dlfcn.h>
+#include <errno.h>
 #include <ctype.h>
 #include <sys/time.h>
 #ifdef HAVE_ENDIAN_H
@@ -19,7 +23,11 @@
 #include "grab-ng.h"
 
 int  ng_debug          = 0;
-int  ng_mjpeg_quality  = 50;
+int  ng_chromakey      = 0x00ff00ff;
+int  ng_jpeg_quality   = 75;
+int  ng_ratio_x        = 4;
+int  ng_ratio_y        = 3;
+
 char ng_v4l_conf[256]  = "v4l-conf";
 
 /* --------------------------------------------------------------------- */
@@ -243,28 +251,41 @@ ng_attr_listchoices(struct ng_attribute *attr)
 
 /* --------------------------------------------------------------------- */
 
-static int ratio_x,ratio_y;
-
-void
-ng_ratio_configure(int x, int y)
-{
-    ratio_x = x;
-    ratio_y = y;
-}
-
 void
 ng_ratio_fixup(int *width, int *height, int *xoff, int *yoff)
 {
     int h = *height;
     int w = *width;
 
+    if (0 == ng_ratio_x || 0 == ng_ratio_y)
+	return;
+    if (w * ng_ratio_y < h * ng_ratio_x) {
+	*height = *width * ng_ratio_y / ng_ratio_x;
+	if (yoff)
+	    *yoff  += (h-*height)/2;
+    } else if (w * ng_ratio_y > h * ng_ratio_x) {
+	*width  = *height * ng_ratio_x / ng_ratio_y;
+	if (yoff)
+	    *xoff  += (w-*width)/2;
+    }
+}
+
+void
+ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
+		int ratio_x, int ratio_y, int up)
+{
+    int h = *height;
+    int w = *width;
+
     if (0 == ratio_x || 0 == ratio_y)
 	return;
-    if (w * ratio_y < h * ratio_x) {
+    if ((!up  &&  w * ratio_y < h * ratio_x) ||
+	(up   &&  w * ratio_y > h * ratio_x)) {
 	*height = *width * ratio_y / ratio_x;
 	if (yoff)
 	    *yoff  += (h-*height)/2;
-    } else if (w * ratio_y > h * ratio_x) {
+    } else if ((!up  &&  w * ratio_y > h * ratio_x) ||
+	       (up   &&  w * ratio_y < h * ratio_x)) {
 	*width  = *height * ratio_x / ratio_y;
 	if (yoff)
 	    *xoff  += (w-*width)/2;
@@ -382,21 +403,73 @@ ng_conv_register(struct ng_video_conv *list, int count)
 struct ng_video_conv*
 ng_conv_find(int out, int *i)
 {
-    if (*i)
-	(*i)++;
+    struct ng_video_conv *ret = NULL;
+    
     for (; *i < ng_nconv; (*i)++) {
 #if 0
 	fprintf(stderr,"\tconv:  %-28s =>  %s\n",
 		ng_vfmt_to_desc[ng_conv[*i].fmtid_in],
 		ng_vfmt_to_desc[ng_conv[*i].fmtid_out]);
 #endif
-	if (ng_conv[*i].fmtid_out == out)
-	    return &ng_conv[*i];
+	if (ng_conv[*i].fmtid_out == out) {
+	    ret = &ng_conv[*i];
+	    (*i)++;
+	    break;
+	}
     }
-    return NULL;
+    return ret;
+}
+
+struct ng_filter **ng_filters;
+
+void
+ng_filter_register(struct ng_filter *list, int count)
+{
+    int n = 0;
+
+    if (ng_filters)
+	for (n = 0; NULL != ng_filters[n]; n++)
+	    /* nothing */;
+    ng_filters = realloc(ng_filters,sizeof(struct ng_filter*)*(n+count+1));
+    memcpy(ng_filters+n,&list,sizeof(struct ng_filter*)*count);
+    memset(ng_filters+n+count,0,sizeof(struct ng_filter*));
+
+#if 0 /* DEBUG */
+    for (n = 0; NULL != ng_filters[n]; n++)
+	fprintf(stderr,"%s\n",ng_filters[n]->name);
+    fprintf(stderr,"-- \n");
+#endif
 }
 
 /* --------------------------------------------------------------------- */
+
+static void ng_plugins(char *dirname)
+{
+    struct dirent *ent;
+    char filename[1024];
+    void *plugin;
+    void (*initcall)(void);
+    DIR *dir;
+
+    dir = opendir(dirname);
+    if (NULL == dir)
+	return;
+    while (NULL != (ent = readdir(dir))) {
+	if (0 != fnmatch("*.so",ent->d_name,0))
+	    continue;
+	sprintf(filename,"%s/%s",dirname,ent->d_name);
+	if (NULL == (plugin = dlopen(filename,RTLD_NOW))) {
+	    fprintf(stderr,"dlopen: %s\n",dlerror());
+	    continue;
+	}
+	if (NULL == (initcall = dlsym(plugin,"ng_plugin_init"))) {
+	    fprintf(stderr,"dlsym: %s\n",dlerror());
+	    continue;
+	}
+	initcall();
+    }
+    closedir(dir);
+}
 
 void
 ng_init(void)
@@ -407,7 +480,16 @@ ng_init(void)
 	fprintf(stderr,"panic: ng_init called twice\n");
 	exit(1);
     }
+    ng_device_init();
     ng_color_packed_init();
     ng_color_yuv2rgb_init();
     ng_mjpg_init();
+
+    ng_plugins(LIBDIR);
 }
+
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

@@ -12,7 +12,7 @@
 
 unsigned int debug=0;
 
-int
+static int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
     fprintf(stderr,"x11-error\n");
@@ -71,7 +71,7 @@ find_window(Display * dpy, Atom atom)
     return result;
 }
 
-void
+static void
 pass_cmd(Display *dpy, Atom atom, Window win, int argc, char **argv)
 {
     int             i, len;
@@ -98,7 +98,7 @@ pass_cmd(Display *dpy, Atom atom, Window win, int argc, char **argv)
     free(pass);
 }
 
-void
+static void
 usage(char *argv0)
 {
     char *prog;

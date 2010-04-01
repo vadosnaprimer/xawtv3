@@ -1,118 +1,174 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=$(ROOT)@bindir@
-mandir=$(ROOT)@mandir@
-resdir=$(ROOT)@resdir@
-config=@x11conf@/xawtvrc
+include ../Make.config
 
-OS:=$(shell uname -s | tr "A-Z" "a-z")
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) $(X11_FLAGS) $(LIB_FLAGS)	\
+	-DVERSION='"$(VERSION)"' -DCONFIGFILE='"$(config)"'		\
+	-I$(srcdir)/.. -I.. -I. -D_REENTRANT
 
-CC=@CC@
-DEPEND=@DEPEND@
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
-SUID_ROOT=-m4755 -o root
+# object files /libraries
+COMMON_OBJS	= sound.o webcam.o frequencies.o commands.o parseconfig.o \
+		  capture.o ../libng/libng.a
 
-VERSION=xawtv-@XAWTV_VERSION@
+XAWTV_OBJS	= main.o xt.o toolbox.o conf.o x11.o xv.o complete-xaw.o \
+		  wmhooks.o channel.o lirc.o midictrl.o joystick.o \
+		  $(COMMON_OBJS)
+XAWTV_LIBS	= $(GFX_LIBS) $(LIRC_LIBS) $(ATHENA_LIBS) $(OSS_LIBS) \
+		  $(ALSA_LIBS) -lvbi
 
-WARN=-Wall -Wstrict-prototypes
-CFLAGS=-g $(WARN) @CFLAGS@ -D_FILE_OFFSET_BITS=64 \
-	-I$(srcdir)/.. -I.. @X_CFLAGS@ -D_REENTRANT \
-	-DVERSION='"$(VERSION)"' -DCONFIGFILE='"$(config)"' \
-	-I$(srcdir)/../libng -L../libng \
-	-I$(srcdir)/../libvbi -L../libvbi
+MOTV_OBJS	= motif.o man.o xt.o x11.o xv.o channel-no-x11.o wmhooks.o \
+		  RegEdit.o icons.o complete-motif.o lirc.o midictrl.o \
+		  joystick.o $(COMMON_OBJS)
+MOTV_LIBS	= $(GFX_LIBS) $(LIRC_LIBS)  $(MOTIF_LIBS) $(OSS_LIBS) \
+		  $(ALSA_LIBS) -lvbi
 
-GFXLIBS=@GFXLIBS@
-X11LIBS=@X_LIBS@ @LIBS@ -l@XAWLIB@ -lXmu -lXt @X_PRE_LIBS@ -lXext \
-	-lX11 @X_EXTRA_LIBS@
-MOLIBS=@X_LIBS@ @LIBS@ -lXm -lXmu -lXt @X_PRE_LIBS@ -lXext \
-	-lX11 @X_EXTRA_LIBS@
-SCRLIBS=@LIBCURSES@
-IRLIBS=@LIRC@
-LDLIBS=@LIBPTHREAD@ @LIBSOUND@
+FBTV_OBJS	= fbtv.o fbtools.o fs.o channel-no-x11.o matrox.o lirc.o \
+		  midictrl.o joystick.o $(COMMON_OBJS)
+FBTV_LIBS	= $(GFX_LIBS) $(LIRC_LIBS) $(CURSES_LIBS) $(ALSA_LIBS) \
+		  -L@x_libraries@ @FSLIB@ -lm
 
-PROGS=xawtv xawtv-remote v4lctl streamer xvideo rootv scantv @PROGS@ @MOTIF@
+TTV_OBJS	= aa.o channel-no-x11.o $(COMMON_OBJS)
+TTV_LIBS	= $(GFX_LIBS) $(AA_LIBS)
 
-COMMON_OBJS=sound.o grab.o webcam.o frequencies.o commands.o parseconfig.o capture.o ../libng/libng.a
-LIRC_OBJS=lirc.o
+V4LCTL_OBJS	= v4lctl.o channel-no-x11.o xv.o $(COMMON_OBJS)
+V4LCTL_LIBS	= $(GFX_LIBS) $(ATHENA_LIBS)
 
-XAWTV_OBJS=  main.o xt.o toolbox.o conf.o x11.o xv.o complete.o wmhooks.o \
-	channel.o $(COMMON_OBJS) $(LIRC_OBJS)
-MOTV_OBJS=   motif.o xt.o x11.o xv.o channel-no-x11.o $(COMMON_OBJS)
-FBTV_OBJS=   fbtv.o fbtools.o channel-no-x11.o matrox.o \
-	$(COMMON_OBJS) $(LIRC_OBJS)
-V4LCTL_OBJS= v4lctl.o channel-no-x11.o xv.o $(COMMON_OBJS)
-STREAMER_OBJS= streamer.o channel-no-x11.o $(COMMON_OBJS)
-SCANTV_OBJS= scantv.o channel-no-x11.o xv.o $(COMMON_OBJS)
+STREAMER_OBJS	= streamer.o channel-no-x11.o $(COMMON_OBJS)
+STREAMER_LIBS	= $(GFX_LIBS) $(OSS_LIBS)
+
+SCANTV_OBJS	= scantv.o channel-no-x11.o $(COMMON_OBJS)
+SCANTV_LIBS	= $(GFX_LIBS) -lvbi
+
+# what to build / install
+PROGS=v4lctl streamer scantv vbi-debug @PROGS@
+INST=install-dirs install-common @INST@
+LANG=de it
+
+all build: $(PROGS) i18n
 
 
 ##########################################################################
+# app-defaults
 
-all build: $(PROGS)
+.SUFFIXES: .ad .h
+.ad.h:
+	perl $(srcdir)/fallback.pl < $< > $@
+
+MoTV.ad: $(srcdir)/MoTV-default $(srcdir)/MoTV-fixed
+	cat $(srcdir)/MoTV-default $(srcdir)/MoTV-fixed > MoTV.ad
+
+i18n:
+	for lang in $(LANG); do	\
+	  cat $(srcdir)/MoTV-$$lang $(srcdir)/MoTV-fixed > MoTV.$$lang.ad; \
+	done
+
+
+##########################################################################
+# build rules
 
 xawtv: $(XAWTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(XAWTV_OBJS) $(GFXLIBS) $(IRLIBS) $(X11LIBS) $(LDLIBS)
-	-test -f Xawtv.ad || cp -v $(srcdir)/Xawtv.ad .
+	$(CC) $(CFLAGS) -o $@ $(XAWTV_OBJS) $(XAWTV_LIBS) -ldl -Wl,-E
 
 motv: $(MOTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(MOTV_OBJS) $(GFXLIBS) $(IRLIBS) $(MOLIBS) $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(MOTV_OBJS) $(MOTV_LIBS) -ldl -Wl,-E
 
 fbtv: $(FBTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(FBTV_OBJS) $(GFXLIBS) $(IRLIBS) $(SCRLIBS) $(LDLIBS) -lm
+	$(CC) $(CFLAGS) -o $@ $(FBTV_OBJS) $(FBTV_LIBS) -ldl -Wl,-E
+
+ttv: $(TTV_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(TTV_OBJS) $(TTV_LIBS) -ldl -Wl,-E
 
 v4lctl: $(V4LCTL_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(V4LCTL_OBJS) $(GFXLIBS) $(X11LIBS) $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(V4LCTL_OBJS) $(V4LCTL_LIBS) -ldl -Wl,-E
 
 streamer: $(STREAMER_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(STREAMER_OBJS) $(GFXLIBS) $(IRLIBS) $(LDLIBS)
-
-xvideo: xvideo.o
-	$(CC) $(CFLAGS) -o $@ xvideo.o $(X11LIBS) #$(LDLIBS)
-
-rootv: rootv.o parseconfig.o
-	$(CC) $(CFLAGS) -o $@ rootv.o parseconfig.o $(X11LIBS)
-
-v4l-conf: v4l-conf.o
-	$(CC) $(CFLAGS) -o $@ v4l-conf.o $(X11LIBS)
+	$(CC) $(CFLAGS) -o $@ $(STREAMER_OBJS) $(STREAMER_LIBS) -ldl -Wl,-E
 
 scantv: $(SCANTV_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(SCANTV_OBJS) -lvbi $(GFXLIBS) $(X11LIBS) $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(SCANTV_OBJS) $(SCANTV_LIBS) -ldl -Wl,-E
+
+xvideo: xvideo.o
+	$(CC) $(CFLAGS) -o $@ xvideo.o $(ATHENA_LIBS)
+
+vbi-debug: vbi-debug.o
+	$(CC) $(CFLAGS) -o $@ vbi-debug.o -lvbi
+
+rootv: rootv.o parseconfig.o
+	$(CC) $(CFLAGS) -o $@ rootv.o parseconfig.o $(ATHENA_LIBS)
+
+v4l-conf: v4l-conf.o
+	$(CC) $(CFLAGS) -o $@ v4l-conf.o $(ATHENA_LIBS)
 
 xawtv-remote: xawtv-remote.o
-	$(CC) $(CFLAGS) -o $@ xawtv-remote.o $(X11LIBS)
+	$(CC) $(CFLAGS) -o $@ xawtv-remote.o $(ATHENA_LIBS)
+
+mididump: midictrl.c
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $(srcdir)/midictrl.c $(ALSA_LIBS)
 
 channel-no-x11.o: $(srcdir)/channel.c
 	$(CC) $(CFLAGS) -DNO_X11=1 -c -o $@ $(srcdir)/channel.c
 
-install: all
+complete-xaw.o: $(srcdir)/complete.c
+	$(CC) $(CFLAGS) -DATHENA=1 -c -o $@ $(srcdir)/complete.c
+
+complete-motif.o: $(srcdir)/complete.c
+	$(CC) $(CFLAGS) -DMOTIF=1 -c -o $@ $(srcdir)/complete.c
+
+
+##########################################################################
+# install rules
+
+install: all $(INST)
+
+install-dirs:
 	$(INSTALL_DIR) $(bindir)
-	$(INSTALL_DIR) $(resdir)
-	$(INSTALL_PROGRAM) -s xawtv $(bindir)
+	$(INSTALL_DIR) $(resdir)/app-defaults
+	$(INSTALL_DIR) $(resdir)/de/app-defaults
+
+install-common:
+	$(INSTALL_DIR) $(bindir)
+	$(INSTALL_DIR) $(resdir)/app-defaults
+	$(INSTALL_PROGRAM) $(srcdir)/subtitles $(bindir)
 	$(INSTALL_PROGRAM) -s xawtv-remote $(bindir)
 	$(INSTALL_PROGRAM) -s streamer $(bindir)
 	$(INSTALL_PROGRAM) -s v4lctl $(bindir)
 	$(INSTALL_PROGRAM) -s rootv $(bindir)
 	$(INSTALL_PROGRAM) -s scantv $(bindir)
-	test -f fbtv &&\
-		$(INSTALL_PROGRAM) -s fbtv $(bindir) || true
-	test -f v4l-conf &&\
-		$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir) || true
-	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(resdir)/Xawtv
+	$(INSTALL_PROGRAM) -s xawtv $(bindir)
+	$(INSTALL_DATA) $(srcdir)/Xawtv.ad $(resdir)/app-defaults/Xawtv
+
+install-motv:
+	$(INSTALL_PROGRAM) -s motv $(bindir)
+	$(INSTALL_DIR) $(resdir)/app-defaults
+	$(INSTALL_DATA) MoTV.ad $(resdir)/app-defaults/MoTV
+	for lang in $(LANG); do \
+	  $(INSTALL_DIR) $(resdir)/$$lang/app-defaults; \
+	  $(INSTALL_DATA) MoTV.$$lang.ad $(resdir)/$$lang/app-defaults/MoTV; \
+	done
+
+install-ttv:
+	$(INSTALL_PROGRAM) -s ttv $(bindir)
+
+install-fbtv:
+	$(INSTALL_PROGRAM) -s fbtv $(bindir)
+
+install-v4l-conf:
+	$(INSTALL_PROGRAM) -s $(SUID_ROOT) v4l-conf $(bindir)
+
+
+##########################################################################
+# misc
 
 clean:
-	-rm -f *.o *.moc *core TAGS
+	-rm -f *.o *.moc *core TAGS Xawtv.h MoTV.h MoTV.ad $(I18N)
 
 realclean distclean: clean
 	-rm -f $(PROGS) Makefile *~ *.bak
 
-depend dep:
+depend dep: Xawtv.h MoTV.h
 	$(DEPEND) -- $(CFLAGS) -- *.c
 
-#-------------------------------------------------------------------------
+
+##########################################################################
 # DO NOT DELETE THIS LINE -- make depend depends on it.

@@ -68,8 +68,8 @@ bgr32_to_lut2(unsigned char *dest, unsigned char *src, int p)
     unsigned short *d = (unsigned short*)dest;
 
     while (p-- > 0) {
-	*(d++) = ng_lut_red[src[3]] | ng_lut_green[src[2]] |
-	    ng_lut_blue[src[1]];
+       *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
+           ng_lut_blue[src[0]];
 	src += 4;
     }
 }
@@ -129,8 +129,8 @@ bgr32_to_lut4(unsigned char *dest, unsigned char *src, int p)
     unsigned int *d = (unsigned int*)dest;
 
     while (p-- > 0) {
-	*(d++) = ng_lut_red[src[3]] | ng_lut_green[src[2]] |
-	    ng_lut_blue[src[1]];
+       *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
+           ng_lut_blue[src[0]];
 	src += 4;
     }
 }
@@ -178,6 +178,11 @@ static struct ng_video_conv lut2_list[] = {
 	fini:           ng_conv_nop_fini,
 	frame:          ng_yuv422p_to_lut2,
 	fmtid_in:	VIDEO_YUV422P,
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          ng_yuv420p_to_lut2,
+	fmtid_in:	VIDEO_YUV420P,
     }
 };
 
@@ -206,13 +211,16 @@ static struct ng_video_conv lut4_list[] = {
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_YUV422,
 	priv:		ng_yuv422_to_lut4,
-#if 0
     },{
 	init:           ng_conv_nop_init,
 	fini:           ng_conv_nop_fini,
-	frame:          yuv422p_to_lut4,
+	frame:          ng_yuv422p_to_lut4,
 	fmtid_in:	VIDEO_YUV422P,
-#endif
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          ng_yuv420p_to_lut4,
+	fmtid_in:	VIDEO_YUV420P,
     }
 };
 

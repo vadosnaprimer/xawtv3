@@ -1,9 +1,3 @@
-default:
-	./configure && $(MAKE) dep && $(MAKE)
-
-
-#########################################################
-# just for me, some maintaining jobs.  Don't use them
-
-checkit diff release port tarball:
-	./configure && $(MAKE) $@
+all checkit diff release port tarball snapshot auto:
+	./configure
+	$(MAKE) $@

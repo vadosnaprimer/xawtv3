@@ -20,113 +20,146 @@
 
 /* -------------------------------------------------------------------- */
 
-static char *names[] = SOUND_DEVICE_NAMES;
-
-static int  mix;
-static int  dev = -1;
-static int  volume;
-static int  muted;
 extern int  debug;
+static const char *names[] = SOUND_DEVICE_NAMES;
+
+static int mixer_read_attr(struct ng_attribute *attr);
+static void mixer_write_attr(struct ng_attribute *attr, int val);
+
+struct mixer_handle {
+    int  mix;
+    int  dev;
+    int  volume;
+    int  muted;
+};
+
+static struct ng_attribute mixer_attrs[] = {
+    {
+	id:       ATTR_ID_MUTE,
+	name:     "mute",
+	type:     ATTR_TYPE_BOOL,
+	read:     mixer_read_attr,
+	write:    mixer_write_attr,
+    },{
+	id:       ATTR_ID_VOLUME,
+	name:     "volume",
+	type:     ATTR_TYPE_INTEGER,
+	read:     mixer_read_attr,
+	write:    mixer_write_attr,
+    },{
+	/* end of list */
+    }
+};
 
 /* -------------------------------------------------------------------- */
 
-int
+struct ng_attribute*
 mixer_open(char *filename, char *device)
 {
+    struct mixer_handle *h;
+    struct ng_attribute *attrs;
     int i, devmask;
 
-    if (-1 == (mix = open(filename,O_RDONLY))) {
-	perror("mixer open");
-	return -1;
-    }
-    fcntl(mix,F_SETFD,FD_CLOEXEC);
+    h = malloc(sizeof(*h));
+    memset(h,0,sizeof(*h));
+    h->mix = -1;
+    h->dev = -1;
 
-    if (-1 == ioctl(mix,MIXER_READ(SOUND_MIXER_DEVMASK),&devmask)) {
-	perror("mixer read devmask");
-	return -1;
+    if (-1 == (h->mix = open(filename,O_RDONLY))) {
+	fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
+	goto err;
+    }
+    fcntl(h->mix,F_SETFD,FD_CLOEXEC);
+
+    if (-1 == ioctl(h->mix,MIXER_READ(SOUND_MIXER_DEVMASK),&devmask)) {
+	fprintf(stderr,"%s: read devmask: %s",filename,strerror(errno));
+	goto err;
     }
     for (i = 0; i < SOUND_MIXER_NRDEVICES; i++) {
 	if ((1<<i) & devmask && strcasecmp(names[i],device) == 0) {
-	    if (-1 == ioctl(mix,MIXER_READ(i),&volume)) {
-		perror("mixer read volume");
-		return -1;
+	    if (-1 == ioctl(h->mix,MIXER_READ(i),&h->volume)) {
+		fprintf(stderr,"%s: read volume: %s",
+			filename,strerror(errno));
+		goto err;
 	    } else {
-		dev = i;
-		muted = 0;
+		h->dev = i;
 	    }
 	}
     }
-    if (-1 == dev) {
-	fprintf(stderr,"mixer: hav'nt found device '%s'\nmixer: available: ",device);
+
+    if (-1 == h->dev) {
+	fprintf(stderr,"%s: '%s' not found.\n%s: available: ",
+		filename,device,filename);
 	for (i = 0; i < SOUND_MIXER_NRDEVICES; i++)
 	    if ((1<<i) & devmask)
 		fprintf(stderr," '%s'",names[i]);
 	fprintf(stderr,"\n");
+	goto err;
     }
-    return (-1 != dev) ? 0 : -1;
-}
 
-void
-mixer_close()
-{
-    close(mix);
-    dev = -1;
-}
-
-int
-mixer_get_volume()
-{
-    if (-1 == ioctl(mix,MIXER_READ(dev),&volume)) {
-	perror("mixer write volume");
-	return -1;
-    }
-    return (-1 == dev) ? -1 : (volume & 0x7f);
-}
-
-int
-mixer_set_volume(int val)
-{
-    if (-1 == dev)
-	return -1;
-    val   &= 0x7f;
-    volume = val | (val << 8);;
-    if (-1 == ioctl(mix,MIXER_WRITE(dev),&volume)) {
-	perror("mixer write volume");
-	return -1;
-    }
-    muted = 0;
-    return 0;
-}
-
-int
-mixer_mute()
-{
-    int zero=0;
+    attrs = malloc(sizeof(mixer_attrs));
+    memcpy(attrs,mixer_attrs,sizeof(mixer_attrs));
+    for (i = 0; attrs[i].name != NULL; i++)
+	attrs[i].handle = h;
     
-    muted = 1;
-    if (-1 == dev)
-	return -1;
-    mixer_get_volume();
-    if (-1 == ioctl(mix,MIXER_WRITE(dev),&zero))
-	return -1;
-    return 0;
+    return attrs;
+
+ err:
+    if (h) {
+	if (-1 != h->mix)
+	    close(h->mix);
+	free(h);
+    }
+    return NULL;
 }
 
-int
-mixer_unmute()
+static int
+mixer_read_attr(struct ng_attribute *attr)
 {
-    muted = 0;
-    if (-1 == dev)
+    struct mixer_handle *h = attr->handle;
+    int vol;
+
+    switch (attr->id) {
+    case ATTR_ID_VOLUME:
+	if (-1 == ioctl(h->mix,MIXER_READ(h->dev),&h->volume))
+	    perror("oss mixer read volume");
+	vol = (h->volume & 0x7f) * 65535 / 100;
+	return vol;
+    case ATTR_ID_MUTE:
+	return h->muted;
+    default:
 	return -1;
-    if (-1 == ioctl(mix,MIXER_WRITE(dev),&volume))
-	return -1;
-    return 0;
+    }
 }
 
-int
-mixer_get_muted()
+static void
+mixer_write_attr(struct ng_attribute *attr, int val)
 {
-    return (-1 == dev) ? -1 : muted;
+    struct mixer_handle *h = attr->handle;
+
+    switch (attr->id) {
+    case ATTR_ID_VOLUME:
+	val = val * 100 / 65535;
+	val &= 0x7f;
+	h->volume = val | (val << 8);
+	if (-1 == ioctl(h->mix,MIXER_WRITE(h->dev),&h->volume))
+	    perror("oss mixer write volume");
+	h->muted = 0;
+	break;
+    case ATTR_ID_MUTE:
+	h->muted = val;
+	if (h->muted) {
+	    int zero = 0;
+	    if (-1 == ioctl(h->mix,MIXER_READ(h->dev),&h->volume))
+		perror("oss mixer read volume");
+	    if (-1 == ioctl(h->mix,MIXER_WRITE(h->dev),&zero))
+		perror("oss mixer write volume");
+	} else {
+	    if (-1 == ioctl(h->mix,MIXER_WRITE(h->dev),&h->volume))
+		perror("oss mixer write volume");
+	}
+	break;
+    }
 }
 
 /* -------------------------------------------------------------------- */
@@ -171,16 +204,18 @@ oss_setformat(struct oss_handle *h, struct ng_audio_fmt *fmt)
     /* format */
     ioctl(h->fd, SNDCTL_DSP_SETFMT, &h->afmt);
     if (h->afmt != afmt_to_oss[fmt->fmtid]) {
-	fprintf(stderr,"oss: SNDCTL_DSP_SETFMT(%d): %s\n",
-		afmt_to_oss[fmt->fmtid],strerror(errno));
+	if (debug)
+	    fprintf(stderr,"oss: SNDCTL_DSP_SETFMT(%d): %s\n",
+		    afmt_to_oss[fmt->fmtid],strerror(errno));
 	goto err;
     }
 
     /* channels */
     ioctl(h->fd, SNDCTL_DSP_CHANNELS, &h->channels);
     if (h->channels != ng_afmt_to_channels[fmt->fmtid]) {
-	fprintf(stderr,"oss: SNDCTL_DSP_CHANNELS(%d): %s\n",
-		ng_afmt_to_channels[fmt->fmtid],strerror(errno));
+	if (debug)
+	    fprintf(stderr,"oss: SNDCTL_DSP_CHANNELS(%d): %s\n",
+		    ng_afmt_to_channels[fmt->fmtid],strerror(errno));
 	goto err;
     }
 
@@ -188,11 +223,24 @@ oss_setformat(struct oss_handle *h, struct ng_audio_fmt *fmt)
     h->rate = fmt->rate;
     ioctl(h->fd, SNDCTL_DSP_SPEED, &h->rate);
     ioctl(h->fd, SNDCTL_DSP_SETFRAGMENT, &frag);
+    if (h->rate != fmt->rate) {
+	fprintf(stderr, "oss: warning: got sample rate %d (asked for %d)\n",
+		h->rate,fmt->rate);
+	if (h->rate < fmt->rate * 1001 / 1000 &&
+	    h->rate > fmt->rate *  999 / 1000) {
+	    /* ignore very small differences ... */
+	    h->rate = fmt->rate;
+	}
+    }
 
     if (-1 == ioctl(h->fd, SNDCTL_DSP_GETBLKSIZE,  &h->blocksize)) {
-	perror("SNDCTL_DSP_GETBLKSIZE");
+	if (debug)
+	    perror("SNDCTL_DSP_GETBLKSIZE");
         goto err;
     }
+    if (0 == h->blocksize)
+	/* dmasound bug compatibility */
+	h->blocksize = 4096;
 
     if (debug)
 	fprintf(stderr,"oss: bs=%d rate=%d channels=%d bits=%d (%s)\n",
@@ -220,9 +268,9 @@ oss_open(char *device, struct ng_audio_fmt *fmt)
 	return NULL;
     memset(h,0,sizeof(*h));
 
-    if (-1 == (h->fd = open(device ? device : "/dev/dsp", O_RDONLY))) {
+    if (-1 == (h->fd = open(device ? device : ng_dev.dsp, O_RDONLY))) {
 	fprintf(stderr,"oss: open %s: %s\n",
-		device ? device : "/dev/dsp",
+		device ? device : ng_dev.dsp,
 		strerror(errno));
 	goto err;
     }
@@ -271,14 +319,43 @@ oss_open(char *device, struct ng_audio_fmt *fmt)
     return NULL;
 }
 
-void
+int
 oss_startrec(void *handle)
 {
     struct oss_handle *h = handle;
     int trigger;
-    
+
+    if (debug)
+	fprintf(stderr,"oss: startrec\n");
+    trigger = 0;
+    ioctl(h->fd,SNDCTL_DSP_SETTRIGGER,&trigger);
+
+#if 1
+    /*
+     * Try to clear the sound driver buffers.  IMHO this shouldn't
+     * be needed, but looks like it is with some drivers ...
+     */
+    {
+	int oflags,flags,rc;
+	unsigned char buf[4096];
+
+	oflags = fcntl(h->fd,F_GETFL);
+	flags = oflags | O_NONBLOCK;
+	fcntl(h->fd,F_SETFL,flags);
+	for (;;) {
+	    rc = read(h->fd,buf,sizeof(buf));
+	    if (debug)
+		fprintf(stderr,"oss: clearbuf rc=%d errno=%s\n",rc,strerror(errno));
+	    if (rc != sizeof(buf))
+		break;
+	}
+	fcntl(h->fd,F_SETFL,oflags);
+    }
+#endif
+
     trigger = PCM_ENABLE_INPUT;
     ioctl(h->fd,SNDCTL_DSP_SETTRIGGER,&trigger);
+    return 0;
 }
 
 static struct ng_audio_buf*
@@ -305,11 +382,10 @@ oss_bufread(int fd,char *buffer,int blocksize)
 	if (rc < 0) {
 	    if (EINTR == errno)
 		continue;
-	    perror("read /dev/dsp");
+	    perror("oss: read");
 	    exit(1);
 	}
 	count += rc;
-	fprintf(stderr,"%d %d\n",count,blocksize);
 	if (count == blocksize)
 	    return;
     }
@@ -352,8 +428,73 @@ oss_read(void *handle, long long stopby)
     if (h->byteswap)
 	oss_bufswap(buf->data,bytes);
     h->bytes += bytes;
-    buf->ts = (long long)h->bytes * 1000000000 / h->bytes_per_sec;
+    buf->info.ts = (long long)h->bytes * 1000000000 / h->bytes_per_sec;
     return buf;
+}
+
+void
+oss_levels(struct ng_audio_buf *buf, int *left, int *right)
+{
+    int lmax,rmax,i,level;
+    signed char *s = buf->data;
+    unsigned char *u = buf->data;
+
+    lmax = 0;
+    rmax = 0;
+    switch (buf->fmt.fmtid) {
+    case AUDIO_U8_MONO:
+	i = 0;
+	while (i < buf->size) {
+	    level = abs((int)u[i++] - 128);
+	    if (lmax < level)
+		lmax = level, rmax = level;
+	}
+	break;
+    case AUDIO_U8_STEREO:
+	i = 0;
+	while (i < buf->size) {
+	    level = abs((int)u[i++] - 128);
+	    if (lmax < level)
+		lmax = level;
+	    level = abs((int)u[i++] - 128);
+	    if (rmax < level)
+		rmax = level;
+	}
+	break;
+    case AUDIO_S16_BE_MONO:
+    case AUDIO_S16_LE_MONO:
+	i = (AUDIO_S16_BE_MONO == buf->fmt.fmtid) ? 0 : 1;
+	while (i < buf->size) {
+	    level = abs((int)s[i]);
+	    i += 2;
+	    if (lmax < level)
+		lmax = level, rmax = level;
+	}
+	break;
+    case AUDIO_S16_LE_STEREO:
+    case AUDIO_S16_BE_STEREO:
+	i = (AUDIO_S16_BE_STEREO == buf->fmt.fmtid) ? 0 : 1;
+	while (i < buf->size) {
+	    level = abs((int)s[i]);
+	    i += 2;
+	    if (lmax < level)
+		lmax = level;
+	    level = abs((int)s[i]);
+	    i += 2;
+	    if (rmax < level)
+		rmax = level;
+	}
+	break;
+    }
+    *left  = lmax;
+    *right = rmax;
+}
+
+int
+oss_fd(void *handle)
+{
+    struct oss_handle *h = handle;
+    return h->fd;
 }
 
 void

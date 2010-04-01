@@ -1,13 +1,40 @@
 
-SUBDIRS=libvbi libng src man radio font tools webcam http #i2c vtx
+#########################################################
+# build stuff
 
-all build dep depend install clean distclean realclean::
+SUBDIRS=src http webcam libvbi libng libng/plugins radio tools cc man @SUBS@
+
+all build: $(SUBDIRS)
+.PHONY: $(SUBDIRS)
+
+
+src: libvbi libng .havedeps
+	(cd $@; $(MAKE) build)
+
+http: libvbi .havedeps
+	(cd $@; $(MAKE) build)
+
+webcam: libng .havedeps
+	(cd $@; $(MAKE) build)
+
+libvbi libng libng/plugins radio font tools cc man: .havedeps
+	(cd $@; $(MAKE) build)
+
+
+.havedeps dep depend:
 	set -ex; for dir in $(SUBDIRS); do	\
-		(cd $$dir; $(MAKE) $@);		\
+		(cd $$dir; $(MAKE) depend)	\
+	done
+	touch .havedeps
+
+install clean distclean realclean::
+	set -ex; for dir in $(SUBDIRS); do	\
+		(cd $$dir; $(MAKE) $@)		\
 	done
 
 distclean realclean::
-	-rm -f *~ debian/*~ config.cache config.h config.log config.status Makefile
+	-rm -f *~ debian/*~ xpm/*~ Makefile Make.config .havedeps
+	-rm -f config.cache config.h config.log config.status
 	cp Makefile.clean Makefile
 
 
@@ -16,24 +43,12 @@ distclean realclean::
 
 VERSION=@XAWTV_VERSION@
 
-realclean::
-	find . -name snap0*.ppm  -print | xargs -i rm -f
-	find . -name snap0*.jpeg -print | xargs -i rm -f
-	find . -name .nfs* -print | xargs -i rm -f
-	set -e; for dir in i2c; do make -C $$dir distclean; done
-
-diff:
-	last=`ls -t $(HOME)/strusel/linux/xawtv/xawtv_*.tar.gz | head -1`;\
-	tardiff $$last . | gzip > ../xawtv_$(VERSION).diff.gz
-
 checkit: distclean
 	dpkg-buildpackage -tc -us -uc -rfakeroot
 #	rpm -ta ../xawtv_*.tar.gz
 	lintian ../xawtv_*.changes
 
-#release: realclean diff
-release: distclean diff
-#	make -C font bdf
+release: distclean
 	dpkg-buildpackage -tc -rfakeroot
 
 port:
@@ -43,9 +58,21 @@ tarball: distclean
 	(cd ..; tar cvzf xawtv_$(VERSION).tar.gz \
 		xawtv-$(VERSION))
 
+snapshot: distclean
+	(cd ..; tar cvzf xawtv-snap-`date +%Y-%m-%d`.tar.gz \
+		xawtv-$(VERSION))
+
 auto:
 	rm -f config.cache
 	autoconf
 	autoheader
 	./configure
+	make distclean
+	make
+
+realclean::
+	find . -name snap0*.ppm  -print | xargs -i rm -f
+	find . -name snap0*.jpeg -print | xargs -i rm -f
+	find . -name .nfs* -print | xargs -i rm -f
+	set -e; for dir in i2c; do make -C $$dir distclean; done
 

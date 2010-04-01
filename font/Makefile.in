@@ -1,59 +1,48 @@
+
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=/usr/X11R6
-FONTDIR=$(ROOT)$(prefix)/lib/X11/fonts/misc
-PCF=led-latin1.pcf led-latin2.pcf led-koi8.pcf
+include ../Make.config
+
+FONTSERVER := unix/:7100
+FONTSPEC   := -misc-fixed-medium-r-semicondensed-*-13-120-75-75-c-60
+
+PCF        := led-iso8859-1.pcf led-iso8859-2.pcf led-koi8-r.pcf
+BDF        := $(PCF:pcf=bdf)
 
 all build: $(PCF)
 	mkfontdir
 
 install: all
-	mkdir -p $(R)$(FONTDIR)
-	for file in $(PCF); do \
-		install -m 644 $$file $(R)$(FONTDIR); \
+	mkdir -p $(fontdir)
+	for file in $(PCF); do				\
+		install -m 644 $$file $(fontdir);	\
+		gzip $(fontdir)/$$file;			\
 	done
-	if test "$(ROOT)" = ""; then		\
-		(cd $(FONTDIR); mkfontdir);	\
+	if test "$(DESTDIR)" = ""; then		\
+		(cd $(fontdir); mkfontdir);	\
 		xset fp rehash || true;		\
 	fi
+
 
 .SUFFIXES: .bdf .pcf
 .bdf.pcf:
 	bdftopcf -o $@ $<
 
-dep:
+$(BDF):
+	FONTSERVER=$(FONTSERVER); export FONTSERVER;		\
+	charset=`echo $@ | sed -e 's|led-||' -e 's|.bdf||'`;	\
+	perl ./bigfont.pl -fn "$(FONTSPEC)-$$charset" > $@
+
+
+dep depend:
 
 clean:
-	rm -f $(PCF)
+	rm -f *.pcf
 
 distclean: clean
-	rm -f Makefile *~ *.bak
+	rm -f Makefile *~ *.bak fonts.dir
 
-
-###########################################################################
-# don't use these, unless you know what you are doing...
-
-SERVER=tcp/goldbach:7100
-
-bdf: led-latin1.bdf led-latin2.bdf led-koi8.bdf
-
-led-latin1.bdf:
-	perl ./bigfont.pl -s $(SERVER) -fn \
-	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-1" > led-latin1.bdf
-
-led-latin2.bdf:
-	perl ./bigfont.pl -s $(SERVER) -fn \
-	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-2" > led-latin2.bdf
-
-led-koi8.bdf:
-	perl ./bigfont.pl -s $(SERVER) -fn \
-	  "-misc-fixed-medium-r-semicondensed--13-*-koi8-r" > led-koi8.bdf
-
-
-realclean: clean
-	rm -f *.bdf fonts.dir
-
-dist: realclean bdf
+realclean: distclean
+	rm -f *.bdf
 

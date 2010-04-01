@@ -10,12 +10,15 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
+#include "wmhooks.h"
+
 /* ------------------------------------------------------------------------ */
 
 void (*wm_stay_on_top)(Display *dpy, Window win, int state) = NULL;
 
 /* ------------------------------------------------------------------------ */
 
+extern int debug;
 static Atom net_wm;
 static Atom net_wm_state;
 static Atom net_wm_top;
@@ -23,7 +26,7 @@ static Atom net_wm_top;
 #define _NET_WM_STATE_REMOVE        0    /* remove/unset property */
 #define _NET_WM_STATE_ADD           1    /* add/set property */
 
-void
+static void
 net_wm_stay_on_top(Display *dpy, Window win, int state)
 {
     XEvent e;
@@ -54,7 +57,7 @@ static Atom gnome_layer;
 #define WIN_LAYER_ONTOP                  6
 
 /* tested with icewm + WindowMaker */
-void
+static void
 gnome_stay_on_top(Display *dpy, Window win, int state)
 {
     XClientMessageEvent  xev;
@@ -101,7 +104,8 @@ wm_detect(Display *dpy)
 	(dpy, root, gnome, 0, (65536 / sizeof(long)), False,
 	 AnyPropertyType, &type, &format, &nitems, &bytesafter, &args) &&
 	nitems > 0) {
-	fprintf(stderr,"wmhooks: gnome\n");
+	if (debug)
+	    fprintf(stderr,"wmhooks: gnome\n");
 	/* FIXME: check capabilities */
 	wm_stay_on_top = gnome_stay_on_top;
 	XFree(args);
@@ -113,7 +117,8 @@ wm_detect(Display *dpy)
         (dpy, root, net_wm, 0, (65536 / sizeof(long)), False,
          AnyPropertyType, &type, &format, &nitems, &bytesafter, &args) &&
 	nitems > 0) {
-	fprintf(stderr,"wmhooks: netwm\n");
+	if (debug)
+	    fprintf(stderr,"wmhooks: netwm\n");
 	wm_stay_on_top = net_wm_stay_on_top;
         XFree(args);
         return 0;

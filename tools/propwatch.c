@@ -110,13 +110,13 @@ static XtActionsRec actionTable[] = {
 
 /*-------------------------------------------------------------------------*/
 
-int
+static int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
     return 0;
 }
 
-void
+static void
 spy_input(XtPointer client_data, int *src, XtInputId *id)
 {
     Display *spy_dpy = client_data;
@@ -263,7 +263,7 @@ main(int argc, char *argv[])
 
 /*-------------------------------------------------------------------------*/
 
-int
+static int
 cmp(const void *a, const void *b)
 {
     char **aa = (char**)a;
@@ -271,8 +271,8 @@ cmp(const void *a, const void *b)
     return strcmp(*aa,*bb);
 }
 
-void
-RebuildList()
+static void
+RebuildList(void)
 {
     static char *empty = "empty";
     int i;
@@ -350,7 +350,7 @@ CheckWindow(Display *dpy, Window win)
 
 /*-------------------------------------------------------------------------*/
 
-void
+static void
 PropertyToString(Display *dpy, Window win, Atom prop, char *value)
 {
     Atom               type;

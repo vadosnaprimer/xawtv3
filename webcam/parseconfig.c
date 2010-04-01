@@ -64,7 +64,7 @@ cfg_find_section(struct CFG_SECTIONS *c, char *name)
     int i;
 
     for (i = 0; i < c->sec_count; i++)
-	if (0 == strcmp(c->sec_names[i],name))
+	if (0 == strcasecmp(c->sec_names[i],name))
 	    return c->sec_entries[i];
 
     /* 404 not found => create a new one */
@@ -87,7 +87,7 @@ cfg_set_entry(struct CFG_ENTRIES *e, char *name, char *value)
     int i;
 
     for (i = 0; i < e->ent_count; i++)
-	if (0 == strcmp(e->ent_names[i],name))
+	if (0 == strcasecmp(e->ent_names[i],name))
 	    break;
     if (i == e->ent_count) {
 	/* 404 not found => create a new one */
@@ -157,7 +157,7 @@ cfg_list_entries(char *name)
     int i;
     
     for (i = 0; i < c->sec_count; i++)
-	if (0 == strcmp(c->sec_names[i],name))
+	if (0 == strcasecmp(c->sec_names[i],name))
 	    return c->sec_entries[i]->ent_names;
     return NULL;
 }
@@ -170,12 +170,12 @@ cfg_get_str(char *sec, char *ent)
     int i;
     
     for (i = 0; i < c->sec_count; i++)
-	if (0 == strcmp(c->sec_names[i],sec))
+	if (0 == strcasecmp(c->sec_names[i],sec))
 	    e = c->sec_entries[i];
     if (NULL == e)
 	return NULL;
     for (i = 0; i < e->ent_count; i++)
-	if (0 == strcmp(e->ent_names[i],ent)) {
+	if (0 == strcasecmp(e->ent_names[i],ent)) {
 	    v = e->ent_values[i];
 	    e->ent_seen[i]++;
 	}

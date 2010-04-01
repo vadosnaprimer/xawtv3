@@ -1,17 +1,40 @@
-.TH radio 1 "(c) 1998,99 Gerd Knorr"
+.TH radio 1 "(c) 1998-2001 Gerd Knorr"
 .SH NAME
 radio - console radio application
 .SH SYNOPSIS
-.B radio [ frequency ]
+.B radio [ options ]
 .SH DESCRIPTION
 .B radio
-is a interactice, ncurses-bases console radio application.  If a
-command line argument is present,
-.B radio
-tries to interpret this as frequency (in MHz).
-.P
-If you want to use radio non-interactive to set the frequency,
-redirect both stdin and out to /dev/null.
+is a interactive, ncurses-bases console radio application.
+.SH OPTIONS
+.TP
+.B -h
+print a short help text.
+.TP
+.B -d
+enable debug output.
+.TP
+.B -q
+quit after processing the cmd line options, don't enter interactive
+ncurses mode.  Only useful together with other options for obvious
+reasons ...
+.TP
+.B -m
+mute radio.
+.TP
+.B -f freq
+tune the specified radio frequency (and unmute the radio).
+.TP
+.B -c dev
+specify radio device (default is /dev/radio).
+.TP
+.B -s
+Do a scan for radio stations.
+.TP
+.B -S
+Same as above + write a radio.fmmap with the signal for every
+frequency.  You can get a graph for it with gnuplot (plot
+"radio.fmmap" w lin).
 .SH CONFIGURATION
 .B radio
 picks up station names and present stations from a config file. 
@@ -42,9 +65,9 @@ the present stations, they get mapped to F1-F8.  The [Stations]
 section maps frequencies to station names.  The frequencies in
 both sections are specified in Hz.
 .SH AUTHOR
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
-Copyright (C) 1997-99 Gerd Knorr
+Copyright (C) 1997-2001 Gerd Knorr
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

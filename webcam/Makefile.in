@@ -1,20 +1,10 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=$(ROOT)@bindir@
-mandir=$(ROOT)@mandir@
+include ../Make.config
 
-CC=@CC@
-CFLAGS=-O2 -Wall -I$(srcdir)/../libng -I.. @CFLAGS@ #-D_GNU_SOURCE
-LDLIBS=@GFXLIBS@ @LIBPTHREAD@
-
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LIB_FLAGS) -I..
+LDLIBS=$(GFX_LIBS)
 
 PROGS=webcam
 
@@ -25,7 +15,7 @@ OBJS=webcam.o ftp.o parseconfig.o
 all build: $(PROGS)
 
 webcam: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) ../libng/libng.a $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) ../libng/libng.a $(LDLIBS) -ldl -Wl,-E
 
 install: all
 	$(INSTALL_DIR) $(bindir)

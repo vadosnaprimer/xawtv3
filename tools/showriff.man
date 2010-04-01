@@ -20,11 +20,11 @@ try to continue on errors.
 .SH SEE ALSO
 c't 11/1994, page 327 ff. (german computer mag)
 .SH AUTHOR
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
 1994 UP-Vision Computergrafik
 .br
-1998-200 Gerd Knorr
+1998-2000 Gerd Knorr
 .P
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
@@ -25,18 +27,15 @@
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
-
-#ifdef HAVE_MITSHM
-# include <sys/ipc.h>
-# include <sys/shm.h>
-# include <X11/extensions/XShm.h>
-#endif
+#include <X11/extensions/XShm.h>
 #ifdef HAVE_LIBXV
 # include <X11/extensions/Xv.h>
 # include <X11/extensions/Xvlib.h>
 #endif
 
 #include "grab-ng.h"
+#include "capture.h"
+#include "channel.h"
 #include "x11.h"
 #include "xv.h"
 #include "commands.h"
@@ -51,6 +50,7 @@
 
 extern XtAppContext    app_context;
 extern int             have_shmem;
+extern XVisualInfo     vinfo;
 
 static int             display_bits = 0;
 static int             display_bytes = 0;
@@ -119,18 +119,16 @@ x11_visual(Display *dpy)
     return vi;
 }
 
-int
+static int
 x11_init(Display *dpy, XVisualInfo *vinfo)
 {
     XPixmapFormatValues *pf;
     int                  i,n;
     int                  format = 0;
 
-#ifdef HAVE_MITSHM
     if (XShmQueryExtension(dpy)) {
 	have_shmem = 1;
     }
-#endif
 
     display_bits = vinfo->depth;
     display_bytes = (display_bits+7)/8;
@@ -232,14 +230,11 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
 {
     XImage         *ximage = NULL;
     unsigned char  *ximage_data;
-#ifdef HAVE_MITSHM
     XShmSegmentInfo *shminfo = NULL;
     void            *old_handler;
-#endif
 
     if (debug)
 	fprintf(stderr,"video: x11_create_ximage\n");
-#ifdef HAVE_MITSHM
     if (have_shmem) {
 	x11_error = 0;
 	old_handler = XSetErrorHandler(x11_error_dev_null);
@@ -288,7 +283,6 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
 	}
 	XSetErrorHandler(old_handler);
     }
-#endif
 
 no_sysvipc:
     if (ximage == NULL) {
@@ -307,13 +301,11 @@ no_sysvipc:
     return ximage;
 
 oom:
-#ifdef HAVE_MITSHM
     if (shminfo) {
 	if (shminfo->shmid && shminfo->shmid != -1)
 	    shmctl(shminfo->shmid, IPC_RMID, 0);
 	free(shminfo);
     }
-#endif
     if (ximage)
 	XDestroyImage(ximage);
     return NULL;
@@ -322,7 +314,6 @@ oom:
 void
 x11_destroy_ximage(Display *dpy, XImage * ximage, void *shm)
 {
-#ifdef HAVE_MITSHM
     XShmSegmentInfo *shminfo = shm;
 
     if (shminfo) {
@@ -331,7 +322,6 @@ x11_destroy_ximage(Display *dpy, XImage * ximage, void *shm)
 	shmdt(shminfo->shmaddr);
 	free(shminfo);
     } else
-#endif
 	XDestroyImage(ximage);
 
     if (debug)
@@ -382,6 +372,402 @@ x11_create_pixmap(Display *dpy, XVisualInfo *vinfo, Colormap colormap,
 }
 
 /* ------------------------------------------------------------------------ */
+/* video grabdisplay stuff                                                  */
+
+struct format_status {
+    int status;
+#define STATUS_UNKNOWN       0
+#define STATUS_BROKEN        1
+#define STATUS_CONVERT       2
+#define STATUS_XVIDEO        3
+
+    /* current ximage/xvimage */
+    struct ng_video_buf      buf;
+    void                     *shm;            /* MIT SHM */
+
+    /* convert stuff to RGB */
+    struct ng_video_conv     *conv;
+    struct ng_convert_handle *chandle;
+    XImage                   *ximage;
+
+    /* image filtering */
+    struct ng_filter         *filter;
+    void                     *fhandle;
+
+    /* Xvideo */
+#ifdef HAVE_LIBXV
+    int                      xv_id;
+    XvImage                  *xv_image;
+#endif
+};
+
+struct video_handle {
+    Widget                win;
+    Dimension             width,height;
+    GC                    gc;
+    XtWorkProcId          work_id;
+    int                   suspend;         /* temporarely disabled */
+    int                   nw,nh;           /* new size (suspend)   */
+    int                   using_xv;
+
+    struct ng_video_fmt   best;
+    struct format_status  formats[VIDEO_FMT_COUNT];
+};
+struct video_handle vh;
+
+Pixmap
+freeze_image(Display *dpy, Colormap colormap)
+{
+    struct ng_video_buf *buf;
+    struct ng_video_fmt fmt;
+    Pixmap pix = 0;
+    
+    if (!(f_drv & CAN_CAPTURE))
+	return 0;
+
+    fmt = x11_fmt;
+    if (NULL != (buf = ng_grabber_get_image(&fmt))) {
+	pix = x11_create_pixmap(dpy,&vinfo,colormap,buf->data,
+				buf->fmt.width, buf->fmt.height,
+				NULL);
+	ng_release_video_buf(buf);
+    }
+    return pix;
+}
+
+static void
+video_initformat(struct format_status *st, int fmtid)
+{
+    struct ng_video_conv *conv;
+    int i;
+    
+#ifdef HAVE_LIBXV
+    if (0 != im_formats[fmtid]) {
+	st->status = STATUS_XVIDEO;
+	return;
+    }
+#endif
+    if (x11_fmt.fmtid == fmtid) {
+	st->status = STATUS_CONVERT;
+	return;
+    }
+    for (i = 0;;) {
+	conv = ng_conv_find(x11_fmt.fmtid, &i);
+	if (NULL == conv) {
+	    st->status = STATUS_BROKEN;
+	    return;
+	}
+	if (conv->fmtid_in != fmtid)
+	    continue;
+	break;
+    }
+    st->status = STATUS_CONVERT;
+    st->conv   = conv;
+}
+
+static struct ng_video_buf*
+video_gd_filter(struct format_status *st, struct ng_video_buf *buf)
+{
+    if (NULL != st->filter && cur_filter != st->filter) {
+	st->filter->fini(st->fhandle);
+	st->filter  = NULL;
+	st->fhandle = NULL;
+    }
+    if ((1 << buf->fmt.fmtid) & cur_filter->fmts) {
+	if (NULL == st->filter) {
+	    st->filter  = cur_filter;
+	    st->fhandle = st->filter->init(&buf->fmt);
+	}
+	buf = cur_filter->frame(st->fhandle,buf);
+    }
+    return buf;
+}
+
+int
+video_gd_blitframe(struct video_handle *h, struct ng_video_buf *buf)
+{
+    struct format_status *st;
+
+    if (buf->fmt.width  > x11_fmt.width ||
+	buf->fmt.height > x11_fmt.height)
+	return -1;
+    st = h->formats + buf->fmt.fmtid;
+
+ again:
+    switch (st->status) {
+    case STATUS_UNKNOWN:
+	video_initformat(st,buf->fmt.fmtid);
+	goto again;
+
+    case STATUS_CONVERT:
+	if (debug > 1)
+	    fprintf(stderr,"gd: convert\n");
+	if (st->buf.fmt.width  != buf->fmt.width ||
+	    st->buf.fmt.height != buf->fmt.height) {
+	    if (st->chandle) {
+		ng_convert_fini(st->chandle);
+		st->chandle = NULL;
+	    }
+	    if (st->filter) {
+		st->filter->fini(st->fhandle);
+		st->filter  = NULL;
+		st->fhandle = NULL;
+	    }
+	    if (st->ximage) {
+		x11_destroy_ximage(XtDisplay(h->win),st->ximage,st->shm);
+		st->ximage = NULL;
+	    }
+	}
+	if (cur_filter)
+	    buf = video_gd_filter(st,buf);
+	if (NULL == st->chandle) {
+	    st->buf.fmt.fmtid  = x11_fmt.fmtid;
+	    st->buf.fmt.width  = buf->fmt.width;
+	    st->buf.fmt.height = buf->fmt.height;
+	    st->buf.fmt.bytesperline = 0;
+	    st->chandle = ng_convert_alloc(st->conv,&buf->fmt,&st->buf.fmt);
+	    ng_convert_init(st->chandle);
+	}
+	if (NULL == st->ximage) {
+	    st->ximage = x11_create_ximage(XtDisplay(h->win),&vinfo,
+					   st->buf.fmt.width,
+					   st->buf.fmt.height,
+					   &st->shm);
+	    st->buf.data = st->ximage->data;
+	}
+	buf = ng_convert_frame(st->chandle,&st->buf,buf);
+	XPUTIMAGE(XtDisplay(h->win), XtWindow(h->win), h->gc,st->ximage,0,0,
+		  (x11_fmt.width  - st->buf.fmt.width)  >> 1,
+		  (x11_fmt.height - st->buf.fmt.height) >> 1,
+		  st->buf.fmt.width, st->buf.fmt.height);
+	break;
+
+#ifdef HAVE_LIBXV
+    case STATUS_XVIDEO:
+	if (debug > 1)
+	    fprintf(stderr,"gd: xvideo\n");
+	if (st->buf.fmt.width  != buf->fmt.width ||
+	    st->buf.fmt.height != buf->fmt.height) {
+	    if (st->filter) {
+		st->filter->fini(st->fhandle);
+		st->filter  = NULL;
+		st->fhandle = NULL;
+	    }
+	    if (st->xv_image) {
+		xv_destroy_ximage(XtDisplay(h->win),st->xv_image,st->shm);
+		st->xv_image = NULL;
+	    }
+	}
+	if (cur_filter)
+	    buf = video_gd_filter(st,buf);
+	if (NULL == st->xv_image) {
+	    st->buf.fmt = buf->fmt;
+	    st->xv_image = xv_create_ximage(XtDisplay(h->win),
+					    st->buf.fmt.width,
+					    st->buf.fmt.height,
+					    im_formats[st->buf.fmt.fmtid],
+					    &st->shm);
+	}
+	memcpy(st->xv_image->data,buf->data,buf->size);
+	ng_release_video_buf(buf);
+	XVPUTIMAGE(XtDisplay(h->win), im_port, XtWindow(h->win),
+		   h->gc, st->xv_image,
+		   0, 0,  st->buf.fmt.width, st->buf.fmt.height,
+		   0, 0,  x11_fmt.width, x11_fmt.height);
+	h->using_xv = 1;
+	break;
+#endif
+
+    case STATUS_BROKEN:
+    default:
+	if (debug > 1)
+	    fprintf(stderr,"gd: oops\n");
+	ng_release_video_buf(buf);
+	return -1;
+
+    }
+    return 0;
+}
+
+static Boolean
+video_gd_idle(XtPointer data)
+{
+    struct video_handle *h = data;
+    struct ng_video_buf *buf;
+    
+    if (!(f_drv & CAN_CAPTURE))
+	goto oops;
+
+    buf = ng_grabber_grab_image(0);
+    if (NULL != buf) {
+	video_gd_blitframe(h,buf);
+    } else {
+	goto oops;
+    }
+    
+    if (debug) {
+	static long count,lastsec;
+	struct timeval  t;
+	struct timezone tz;
+	gettimeofday(&t,&tz);
+	if (t.tv_sec != lastsec) {
+	    if (lastsec == t.tv_sec-1)
+		fprintf(stderr,"%5ld fps \r", count);
+	    lastsec = t.tv_sec;
+	    count = 0;
+	}
+	count++;
+    }
+    return FALSE;
+
+ oops:
+    h->work_id = 0;
+    if (f_drv & CAN_CAPTURE)
+	drv->stopvideo(h_drv);
+    return TRUE;
+}
+
+void
+video_gd_start(void)
+{
+    struct video_handle *h = &vh;
+
+    if (0 == h->best.fmtid)
+	return;
+    if (debug)
+	fprintf(stderr,"gd: start\n");
+    ng_grabber_setformat(&h->best,0);
+    drv->startvideo(h_drv,-1,2);
+    h->work_id = XtAppAddWorkProc(app_context, video_gd_idle, h);
+}
+
+void
+video_gd_stop(void)
+{
+    struct video_handle *h = &vh;
+
+    if (debug)
+	fprintf(stderr,"gd: stop\n");
+    if (h->work_id) {
+	drv->stopvideo(h_drv);
+	XtRemoveWorkProc(h->work_id);
+	h->work_id = 0;
+#ifdef HAVE_LIBXV
+	if (h->using_xv)
+	    XvStopVideo(XtDisplay(h->win), im_port, XtWindow(h->win));
+#endif
+    }
+}
+
+void
+video_gd_suspend(void)
+{
+    struct video_handle *h = &vh;
+    
+    h->suspend = 1;
+    if (cur_capture != CAPTURE_GRABDISPLAY)
+	return;
+    do_va_cmd(2, "capture", "off");
+}
+
+void
+video_gd_restart(void)
+{
+    struct video_handle *h = &vh;
+
+    if (!h->suspend)
+	return;
+    h->suspend = 0;
+    if (h->nw && h->nh) {
+	video_gd_configure(h->nw,h->nh);
+	h->nw = 0;
+	h->nh = 0;
+    }
+    if (cur_capture != CAPTURE_OFF)
+	return;
+    do_va_cmd(2, "capture", "grab");
+}
+
+void
+video_gd_configure(int width, int height)
+{
+    struct ng_video_conv *conv;
+    struct video_handle *h = &vh;
+    int i;
+
+    if (!(f_drv & CAN_CAPTURE))
+	return;
+
+    if (h->suspend) {
+	if (debug)
+	    fprintf(stderr,"gd: delay configure\n");
+	h->nw = width;
+	h->nh = height;
+	return;
+    }
+
+    if (debug)
+	fprintf(stderr,"gd: config %dx%d win=%lx\n",
+		width,height,XtWindow(h->win));
+	
+    if (!XtWindow(h->win))
+	return;
+
+    if (!h->gc)
+	h->gc = XCreateGC(XtDisplay(h->win),XtWindow(h->win),0,NULL);
+
+    x11_fmt.width   = width;
+    x11_fmt.height  = height;
+    x11_fmt.bytesperline = 0;
+    h->best.width   = width;
+    h->best.height  = height;
+    h->best.bytesperline = 0;
+
+    if (0 == h->best.fmtid) {
+#ifdef HAVE_LIBXV
+	/* try yuv if we have hw scaling */
+	if (0 != im_formats[VIDEO_YUV422]) {
+	    h->best.fmtid = VIDEO_YUV422;
+	    if (0 == ng_grabber_setformat(&h->best,0))
+		goto done;
+	}
+	if (0 != im_formats[VIDEO_YUV420P]) {
+	    h->best.fmtid = VIDEO_YUV420P;
+	    if (0 == ng_grabber_setformat(&h->best,0))
+		goto done;
+	}
+#endif
+
+	/* try native rgb */
+	h->best.fmtid = x11_fmt.fmtid;
+	if (0 == ng_grabber_setformat(&h->best,0))
+	    goto done;
+
+	/* try to find something we can convert from */ 
+	for (i = 0;;) {
+	    conv = ng_conv_find(x11_fmt.fmtid, &i);
+	    if (NULL == conv)
+		break;
+	    h->best.fmtid = conv->fmtid_in;
+	    if (0 == ng_grabber_setformat(&h->best,0))
+		goto done;
+	}
+
+	/* failed */
+	h->best.fmtid = 0;
+    }
+
+ done:
+    if (debug)
+	fprintf(stderr,"grabdisplay: using \"%s\"\n",
+		ng_vfmt_to_desc[h->best.fmtid]);
+    if (cur_capture == CAPTURE_GRABDISPLAY) {
+	do_va_cmd(2, "capture", "off");
+	do_va_cmd(2, "capture", "grab");
+    }
+}
+
+/* ------------------------------------------------------------------------ */
 /* video overlay stuff                                                      */
 
 int        x11_native_format;
@@ -397,7 +783,8 @@ static int                   did_refresh, oc_count;
 static int                   visibility = VisibilityFullyObscured;
 static int                   conf = 1, move = 1;
 static int                   overlay_on = 0, overlay_enabled = 0;
-static struct OVERLAY_CLIP   oc[32];
+static struct OVERLAY_CLIP   oc[256];
+static XtWorkProcId          conf_id;
 
 /* ------------------------------------------------------------------------ */
 
@@ -499,7 +886,7 @@ get_clips(void)
 	XGetWindowAttributes(dpy, children[i], &wts);
 	if (!(wts.map_state & IsViewable))
 	    continue;
-	
+
 	x1=wts.x-wx;
 	y1=wts.y-wy;
 	x2=x1+wts.width+2*wts.border_width;
@@ -555,20 +942,11 @@ refresh_timer(XtPointer clientData, XtIntervalId *id)
     move = 0;
 }
 
-static void
-configure_overlay(void)
+static Boolean
+configure_delayed(XtPointer data)
 {
-    if (!overlay_enabled)
-	return;
-
-    if (have_xv) {
-	if (wfmt.width && wfmt.height)
-	    xv_video(XtWindow(video),wfmt.width,wfmt.height,1);
-	return;
-    }
-
     if (debug > 1)
-	fprintf(stderr,"video: configure");
+	fprintf(stderr,"video: configure delayed");
     if (wmap && visibility != VisibilityFullyObscured) {
 	if (visibility == VisibilityPartiallyObscured)
 	    get_clips();
@@ -599,6 +977,26 @@ configure_overlay(void)
 	    conf = 0;
 	}
     }
+    conf_id = 0;
+    return TRUE;
+}
+
+static void
+configure_overlay(void)
+{
+    if (!overlay_enabled)
+	return;
+
+#ifdef HAVE_LIBXV
+    if (have_xv) {
+	if (wfmt.width && wfmt.height)
+	    xv_video(XtWindow(video),wfmt.width,wfmt.height,1);
+	return;
+    }
+#endif
+
+    if (0 == conf_id)
+	conf_id = XtAppAddWorkProc(app_context,configure_delayed,NULL);
 }
 
 void
@@ -658,8 +1056,8 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    break;
 	default:
 	    if (debug > 1)
-	    fprintf(stderr,"video: shell: %s\n",
-		    events[event->type]);
+		fprintf(stderr,"video: shell: %s\n",
+			events[event->type]);
 	}
 	return;
 
@@ -733,9 +1131,12 @@ video_overlay(int state)
 	configure_overlay();
     } else {
 	if (1 == overlay_enabled) {
+#ifdef HAVE_LIBXV
 	    if (have_xv) {
 		xv_video(XtWindow(video),0,0,0);
-	    } else {
+	    } else
+#endif
+	    {
 		overlay_on = 0;
 		if (f_drv & CAN_OVERLAY)
 		    drv->overlay(h_drv,NULL,0,0,NULL,0,0);
@@ -758,6 +1159,7 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class)
     video_parent = parent;
     video = XtVaCreateManagedWidget("tv",class,parent,
 				    NULL);
+    vh.win = video;
 
     /* Shell widget -- need map, unmap, configure */
     XtAddEventHandler(parent,

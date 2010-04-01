@@ -1,7 +1,22 @@
+
+#define VTX_COUNT 256
+
+struct TEXTELEM {
+    char  str[42];
+    char  *fg;
+    char  *bg;
+    int   len;
+    int   line;
+    int   x,y;
+};
+
+/*------------------------------------------------------------------------*/
+
 /* feedback for the user */
 extern void (*update_title)(char *message);
 extern void (*display_message)(char *message);
-extern void (*vtx_message)(int argc, char **argv);
+extern void (*vtx_message)(struct TEXTELEM *tt);
+extern void (*rec_status)(char *message);
 
 /* for updating GUI elements / whatever */
 extern void (*attr_notify)(struct ng_attribute *attr, int val);
@@ -14,7 +29,7 @@ extern void (*setstation_notify)(void);
 extern void (*channel_switch_hook)(void);
 
 /* capture overlay/grab/off */
-extern void (*set_capture_hook)(int old, int new);
+extern void (*set_capture_hook)(int old, int new, int tmp_switch);
 
 /* toggle fullscreen */
 extern void (*fullscreen_hook)(void);
@@ -28,12 +43,14 @@ extern int do_overlay;
 extern char *snapbase;
 extern int have_shmem;
 extern struct ng_video_fmt x11_fmt;
-extern int cur_attrs[256];
+extern int cur_movie,cur_attrs[256];
+extern struct movie_parm m_parm;
 
 extern const struct ng_driver     *drv;
 extern void                       *h_drv;
-extern struct ng_attribute        *a_drv;
 extern int                         f_drv;
+
+extern struct ng_attribute        *attrs;
 
 /*------------------------------------------------------------------------*/
 
@@ -42,6 +59,8 @@ void audio_init(void);
 void audio_on(void);
 void audio_off(void);
 void set_defaults(void);
+
+void add_attrs(struct ng_attribute *new);
 
 int do_va_cmd(int argc, ...);
 int do_command(int argc, char **argv);

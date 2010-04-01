@@ -7,6 +7,8 @@
  *
  *  Security checks by okir@caldera.de
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,21 +16,29 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#ifdef HAVE_GETOPT_H
-# include <getopt.h>
-#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <linux/vt.h>
 #include <linux/fb.h>
-
-#include "config.h"
 #include <linux/videodev.h>
+#ifdef HAVE_GETOPT_H
+# include <getopt.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#ifdef HAVE_LIBXXF86DGA
-# include <X11/extensions/xf86dga.h>
+#ifndef X_DISPLAY_MISSING
+# include <X11/Xlib.h>
+# include <X11/Xutil.h>
+# ifdef HAVE_LIBXXF86DGA
+#  include <X11/extensions/xf86dga.h>
+# endif
+#endif
+
+#ifndef VIDIOC_QUERYCAP
+/* v4l2 not in kernel's videodev.h */
+# include "videodev2.h"
 #endif
 
 struct DISPLAYINFO {
@@ -37,16 +47,17 @@ struct DISPLAYINFO {
     int   depth;             /* color depth                     */
     int   bpp;               /* bit per pixel                   */
     int   bpl;               /* bytes per scanline              */
-    void  *base;
+    unsigned char *base;
 };
 
 int    verbose    = 1;
+int    yuv        = 0;
 int    user_bpp   = 0;
 int    user_shift = 0;
 void   *user_base = NULL;
 char   *display   = NULL;
-char   *video     = "/dev/video";
 char   *fbdev     = NULL;
+char   *videodev  = "/dev/video0";
 
 /* ---------------------------------------------------------------- */
 /* this is required for MkLinux                                     */
@@ -72,7 +83,7 @@ struct vc_mode {
 #define VC_SETCMAP      0x766a
 #define VC_GETCMAP      0x766b
 
-int
+static int
 is_mklinux(void)
 {
     int fd;
@@ -82,7 +93,7 @@ is_mklinux(void)
     return 1;
 }
 
-void
+static void
 displayinfo_mklinux(struct DISPLAYINFO *d)
 {
     struct vc_mode mode;
@@ -145,7 +156,8 @@ dev_open(const char *device, int major)
 /* ---------------------------------------------------------------- */
 /* get mode info                                                    */
 
-void
+#ifndef X_DISPLAY_MISSING
+static void
 displayinfo_x11(Display *dpy, struct DISPLAYINFO *d)
 {
     Window                   root;
@@ -194,7 +206,7 @@ displayinfo_x11(Display *dpy, struct DISPLAYINFO *d)
     }
 }
 
-void
+static void
 displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 {
 #ifdef HAVE_LIBXXF86DGA
@@ -220,20 +232,18 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
     fprintf(stderr,"WARNING: v4l-conf is compiled without DGA support.\n");
 #endif
 }
+#endif
 
-void
+static void
 displayinfo_fbdev(struct DISPLAYINFO *d)
 {
     struct fb_fix_screeninfo   fix;
     struct fb_var_screeninfo   var;
-#ifdef FBIOGET_CON2FBMAP
-    struct fb_con2fbmap c2m;
-    struct vt_stat vstat;
-#endif
+    struct fb_con2fbmap        c2m;
+    struct vt_stat             vstat;
     int fd;
 
     if (NULL == fbdev) {
-#ifdef FBIOGET_CON2FBMAP
 	if (-1 == (fd = open("/dev/tty0",O_RDWR,0))) {
 	    fprintf(stderr,"open /dev/tty0: %s\n",strerror(errno));
 	    exit(1);
@@ -255,9 +265,6 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
 	close(fd);
 	fprintf(stderr,"map: vt%02d => fb%d\n",c2m.console,c2m.framebuffer);
 	sprintf(fbdev=malloc(16),"/dev/fb%d",c2m.framebuffer);
-#else
-	fbdev="/dev/fb0";
-#endif
     }
     if (verbose)
 	fprintf(stderr,"v4l-conf: using framebuffer device %s\n",fbdev);
@@ -282,7 +289,7 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
     d->height = var.yres_virtual;
     d->bpp    = var.bits_per_pixel;
     d->bpl    = fix.line_length;
-    d->base   = fix.smem_start;
+    d->base   = (unsigned char*)fix.smem_start;
 
     d->depth  = d->bpp;
     if (var.green.length == 5)
@@ -292,24 +299,93 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
 /* ---------------------------------------------------------------- */
 /* set mode info                                                    */
 
-int
+static int
+displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
+{
+    struct v4l2_capability	cap;
+    struct v4l2_framebuffer     fb;
+
+    if (-1 == ioctl(fd,VIDIOC_QUERYCAP,&cap)) {
+	if (verbose)
+	    fprintf(stderr,"%s [v4l2]: ioctl VIDIOC_QUERYCAP: %s\n",
+		    videodev,strerror(errno));
+	return -1;
+    }
+    if (!(cap.flags & V4L2_FLAG_PREVIEW)) {
+	fprintf(stderr,"%s [v4l2]: no overlay support\n",videodev);
+	exit(1);
+    }
+
+    /* read-modify-write v4l screen parameters */
+    if (-1 == ioctl(fd,VIDIOC_G_FBUF,&fb)) {
+	fprintf(stderr,"%s [v4l2]: ioctl VIDIOC_G_FBUF: %s\n",
+		videodev,strerror(errno));
+	exit(1);
+    }
+
+    /* set values */
+    fb.fmt.width  = d->width;
+    fb.fmt.height = d->height;
+    fb.fmt.depth  = d->bpp;
+    switch (fb.fmt.depth) {
+    case  8: fb.fmt.pixelformat = V4L2_PIX_FMT_HI240;   break;
+#if BYTE_ORDER == BIG_ENDIAN
+    case 15: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB555X; break;
+    case 16: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB565X; break;
+    case 24: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB24;   break;
+    case 32: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB32;   break;
+#else
+    case 15: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB555;  break;
+    case 16: fb.fmt.pixelformat = V4L2_PIX_FMT_RGB565;  break;
+    case 24: fb.fmt.pixelformat = V4L2_PIX_FMT_BGR24;   break;
+    case 32: fb.fmt.pixelformat = V4L2_PIX_FMT_BGR32;   break;
+#endif
+    }
+    if (yuv)
+	fb.fmt.pixelformat = V4L2_PIX_FMT_YUYV;
+    fb.fmt.bytesperline = d->bpl;
+    fb.fmt.sizeimage = fb.fmt.height * fb.fmt.bytesperline;
+    if (NULL != d->base)
+	fb.base[0]   = d->base;
+    if (NULL == fb.base[0])
+	fprintf(stderr,
+		"WARNING: couldn't find framebuffer base address, try manual\n"
+		"         configuration (\"v4l-conf -a <addr>\")\n");
+
+    if (-1 == ioctl(fd,VIDIOC_S_FBUF,&fb)) {
+	fprintf(stderr,"%s [v4l2]: ioctl VIDIOC_S_FBUF: %s\n",
+		videodev,strerror(errno));
+	if (EPERM == errno  &&  0 != geteuid())
+	    fprintf(stderr,
+		    "v4l-conf: You should install me suid root, I need\n"
+		    "          root priviliges for the VIDIOC_S_FBUF ioctl.\n");
+	exit(1);
+    }
+    if (verbose)
+	fprintf(stderr,"%s [v4l2]: configuration done\n",videodev);
+    return 0;
+}
+
+static int
 displayinfo_v4l(int fd, struct DISPLAYINFO *d)
 {
     struct video_capability  capability;
     struct video_buffer      fbuf;
 
     if (-1 == ioctl(fd,VIDIOCGCAP,&capability)) {
-	fprintf(stderr,"%s: ioctl VIDIOCGCAP: %s\n",video,strerror(errno));
+	fprintf(stderr,"%s [v4l]: ioctl VIDIOCGCAP: %s\n",
+		videodev,strerror(errno));
 	return -1;
     }
     if (!(capability.type & VID_TYPE_OVERLAY)) {
-	fprintf(stderr,"%s: no overlay support\n",video);
+	fprintf(stderr,"%s [v4l]: no overlay support\n",videodev);
 	exit(1);
     }
 
     /* read-modify-write v4l screen parameters */
     if (-1 == ioctl(fd,VIDIOCGFBUF,&fbuf)) {
-	fprintf(stderr,"%s: ioctl VIDIOCGFBUF: %s\n",video,strerror(errno));
+	fprintf(stderr,"%s [v4l]: ioctl VIDIOCGFBUF: %s\n",
+		videodev,strerror(errno));
 	exit(1);
     }
 
@@ -330,13 +406,16 @@ displayinfo_v4l(int fd, struct DISPLAYINFO *d)
 	fbuf.depth = 15;
 
     if (-1 == ioctl(fd,VIDIOCSFBUF,&fbuf)) {
-	fprintf(stderr,"%s: ioctl VIDIOCSFBUF: %s\n",video,strerror(errno));
+	fprintf(stderr,"%s [v4l]: ioctl VIDIOCSFBUF: %s\n",
+		videodev,strerror(errno));
 	if (EPERM == errno  &&  0 != geteuid())
 	    fprintf(stderr,
 		    "v4l-conf: You should install me suid root, I need\n"
 		    "          root priviliges for the VIDIOCSFBUF ioctl.\n");
 	exit(1);
     }
+    if (verbose)
+	fprintf(stderr,"%s [v4l]: configuration done\n",videodev);
     return 0;
 }
 
@@ -346,9 +425,11 @@ int
 main(int argc, char *argv[])
 {
     struct DISPLAYINFO       d;
-    Display                  *dpy;
     int                      fd,c,i,n;
     char                     *h;
+#ifndef X_DISPLAY_MISSING
+    Display                  *dpy;
+#endif
 
     /* Make sure fd's 0 1 2 are open, otherwise
      * we might end up sending perror() messages to
@@ -366,17 +447,20 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hqd:c:b:s:fa:")))
+	if (-1 == (c = getopt(argc, argv, "hyqd:c:b:s:fa:")))
 	    break;
 	switch (c) {
 	case 'q':
 	    verbose = 0;
 	    break;
+	case 'y':
+	    yuv = 1;
+	    break;
 	case 'd':
 	    display = optarg;
 	    break;
 	case 'c':
-	    video = optarg;
+	    videodev = optarg;
 	    break;
 	case 'b':
 	    user_bpp = atoi(optarg);
@@ -407,7 +491,9 @@ main(int argc, char *argv[])
 		    "\n"
 		    "options:\n"
 		    "    -q        quiet\n"
+#ifndef X_DISPLAY_MISSING
 		    "    -d <dpy>  X11 Display     [%s]\n"
+#endif
 		    "    -c <dev>  video device    [%s]\n"
 		    "    -b <n>    displays color depth is <n> bpp\n"
 		    "    -s <n>    shift display by <n> bytes\n"
@@ -416,8 +502,10 @@ main(int argc, char *argv[])
 		    "              (in hex, root only, successful autodetect\n"
 		    "               will overwrite this address)\n",
 		    argv[0],
+#ifndef X_DISPLAY_MISSING
 		    display ? display : "none",
-		    video);
+#endif
+		    videodev);
 	    exit(1);
 	}
     }
@@ -429,6 +517,7 @@ main(int argc, char *argv[])
 	displayinfo_mklinux(&d);
     } else
 #endif
+#ifndef X_DISPLAY_MISSING
     if (NULL != display) {
 	/* using X11 */
 	if (display[0] != ':') {
@@ -448,7 +537,9 @@ main(int argc, char *argv[])
 	}
 	displayinfo_x11(dpy,&d);
 	displayinfo_dga(dpy,&d);
-    } else {
+    } else
+#endif
+    {
 	/* try framebuffer device */
 	displayinfo_fbdev(&d);
     }
@@ -484,11 +575,9 @@ main(int argc, char *argv[])
     }
 
     /* Set the parameters */
-    fd = dev_open(video, 81 /* VIDEO_MAJOR */);
-    displayinfo_v4l(fd,&d);
+    fd = dev_open(videodev, 81 /* VIDEO_MAJOR */);
+    if (-1 == displayinfo_v4l2(fd,&d))
+	displayinfo_v4l(fd,&d);
     close(fd);
-
-    if (verbose)
-	fprintf(stderr,"done\n");
     return 0;
 }

@@ -29,7 +29,7 @@ struct cache_ops
     struct vt_page *(*put)(struct cache *ca, struct vt_page *vtp);
     void (*reset)(struct cache *ca);
     struct vt_page *(*foreach_pg)(struct cache *ca, int pgno, int subno,
-				  int dir, int (*func)(), void *data);
+				  int dir, int (*func)(void), void *data);
     int (*mode)(struct cache *ca, int mode, int arg);
 };
 

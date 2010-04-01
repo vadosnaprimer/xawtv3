@@ -10,7 +10,12 @@
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
-#include <X11/Xaw/AsciiText.h>
+#ifdef ATHENA
+# include <X11/Xaw/AsciiText.h>
+#endif
+#ifdef MOTIF
+# include <Xm/Text.h>
+#endif
 
 #include "complete.h"
 
@@ -79,14 +84,25 @@ CompleteAction(Widget widget,
     char          **list;
     struct stat     st;
     int             i, n, len;
+#ifdef ATHENA
     XawTextPosition pos;
+#endif
+#ifdef MOTIF
+    XmTextPosition  pos;
+#endif
     struct passwd  *pw;
     char           *user, pwmatch[32];	/* anybody with more than 32 char uid ? */
 
+#ifdef ATHENA
     XtVaGetValues(widget,
 		  XtNstring, &fn,
 		  NULL);
     pos = XawTextGetInsertionPoint(widget);
+#endif
+#ifdef MOTIF
+    fn  = XmTextGetString(widget);
+    pos = XmTextGetInsertionPosition(widget);
+#endif
     fn2 = strdup(fn+pos);
     fn[pos] = 0;
     expand = tilde_expand(fn);
@@ -200,10 +216,16 @@ CompleteAction(Widget widget,
 #endif
     pos = strlen(filename);
     strcat(filename,fn2);
+#ifdef ATHENA
     XtVaSetValues(widget,
 		  XtNstring, filename,
 		  NULL);
     XawTextSetInsertionPoint(widget,pos);
+#endif
+#ifdef MOTIF
+    XmTextSetString(widget,filename);
+    XmTextSetInsertionPosition(widget,pos);
+#endif
 
     if (list) {
 	for (i = 0; i < n; i++)
@@ -216,7 +238,7 @@ CompleteAction(Widget widget,
 
 /*-------------------------------------------------------------------------*/
 
-char           *
+char*
 tilde_expand(char *file)
 {
     char           *ret, *user;

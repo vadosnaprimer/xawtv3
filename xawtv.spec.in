@@ -8,7 +8,7 @@
 
 Summary: Video4Linux Stream Capture Viewer
 Name:    xawtv
-Version: @XAWTV_VERSION@
+Version: @VERSION@
 Release: 1
 Source0: xawtv_%{version}.tar.gz
 Group: X11/Applications
@@ -70,11 +70,12 @@ http daemon which serves videotext pages as HTML.
 mkdir build
 cd build
 CFLAGS="$RPM_OPT_FLAGS" ../configure --prefix=%{prefix}
+make depend
 make
 
 %install
 cd build
-make ROOT="$RPM_BUILD_ROOT" SUID_ROOT="" install
+make DESTDIR="$RPM_BUILD_ROOT" SUID_ROOT="" install
 find "$RPM_BUILD_ROOT" -type f -print		\
 	| sed -e "s|$RPM_BUILD_ROOT||"		\
 	| grep -v "^/usr/doc"			\
@@ -90,7 +91,7 @@ egrep -ve "/(radio|dump-mixers|record|showriff|propwatch|webcam|alevtd|v4l-conf)
 %files -f build/rpm.xawtv
 %defattr(-,root,root)
 %attr(4711,root,root) %{prefix}/bin/v4l-conf
-%doc README Changes COPYING Programming-FAQ Trouble-Shooting Sound-FAQ
+%doc README Changes COPYING Programming-FAQ
 %doc README.* UPDATE_TO_v3.0
 %doc contrib/dot.lircrc contrib/frequencies*
 

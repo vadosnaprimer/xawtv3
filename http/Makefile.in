@@ -1,24 +1,13 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=$(ROOT)@bindir@
-mandir=$(ROOT)@mandir@
+include ../Make.config
 
-CC=@CC@
-DEPEND=@DEPEND@
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
-
-CFLAGS=-Wall -g -O2 -I. -I$(srcdir)/../libvbi -L../libvbi
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LIB_FLAGS) -I.
 LDLIBS=-lvbi
 
 PROG=alevtd
-OBJS=main.o request.o response.o page.o
+OBJS=main.o request.o response.o page.o devices.o
 HTML=alevt.css.h top.html.h bottom.html.h about.html.h
 
 .SUFFIXES: .in .h
@@ -30,10 +19,10 @@ all build: $(PROG)
 $(PROG): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-main.o: httpd.h
-request.o: httpd.h
-response.o: httpd.h
-page.o: httpd.h $(HTML)
+#main.o: httpd.h
+#request.o: httpd.h
+#response.o: httpd.h
+#page.o: httpd.h $(HTML)
 
 install: all
 	$(INSTALL_DIR) $(bindir) $(mandir)/man1
@@ -46,7 +35,7 @@ clean:
 realclean distclean: clean
 	rm -f $(PROG) Makefile *~ *.bak
 
-dep depend:
+dep depend: $(HTML)
 	$(DEPEND) -- $(CFLAGS) -- *.c
 
 #-------------------------------------------------------------------------

@@ -154,7 +154,7 @@ rgb15_le_gray(unsigned char *dest, unsigned char *src, int p)
 	unsigned char g = (src[1] & 0x03) << 3 | (src[0] & 0xe0) >> 5;
 	unsigned char b = src[0] & 0x1f;
 
-	*(dest++) = ((3*r + 6*g + b)/10) << 3;
+	*(d++) = ((3*r + 6*g + b)/10) << 3;
 	src += 2;
     }
 }

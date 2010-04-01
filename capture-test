@@ -5,8 +5,8 @@
 STREAMER=src/streamer
 PLAYBACK="xanim +f +Sr +Ze -Zr -Av"
 LEN=600
-DEST=/media/test
-#DEST=/usr/data/test
+#DEST=/media/test
+DEST=/tmp/media
 
 ################################################################
 # init

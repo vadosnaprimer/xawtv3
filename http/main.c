@@ -9,6 +9,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -19,8 +20,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#ifdef __linux__
+# include <linux/videodev.h>
+#endif
 
 #include "httpd.h"
+#include "devices.h"
 
 /* libvbi */
 #include "vt.h"
@@ -46,13 +51,13 @@ char    *listen_port   = "5654";
 char    server_host[256];
 char    user[17];
 char    group[17];
-char    *vbidev        = "/dev/vbi";
 char    *logfile       = NULL;
 FILE    *log           = NULL;
 int     flushlog       = 0;
 int     usesyslog      = 0;
 int     have_tty       = 1;
 int     max_conn       = 32;
+int     cachereset     = 0;
 
 time_t  now,start;
 int     slisten;
@@ -79,7 +84,7 @@ dummy_client(struct dl_head *reqs, struct vt_event *ev)
 
 /* ---------------------------------------------------------------------- */
 
-static int termsig,got_sighup;
+static int termsig,got_sighup,got_sigusr1;
 
 static void catchsig(int sig)
 {
@@ -87,6 +92,8 @@ static void catchsig(int sig)
 	termsig = sig;
     if (SIGHUP == sig)
 	got_sighup = 1;
+    if (SIGUSR1 == sig)
+	got_sigusr1 = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -118,9 +125,11 @@ usage(char *name)
 	    "  -n host  server hostname is >host<           [%s]\n"
 	    "  -i ip    bind to IP-address >ip<             [%s]\n"
 	    "  -l log   write access log to file >log<      [%s]\n"
-	    "  -L log   same as above + flush every line\n",
+	    "  -L log   same as above + flush every line\n"
+            "  -r       poll tv frequency and clear cache\n"
+	    "           on station changes                  [%s]\n",
 	    h ? h+1 : name,
-	    vbidev,
+	    ng_dev.vbi,
  	    debug     ?  "on" : "off",
  	    dontdetach ?  "on" : "off",
 	    usesyslog ?  "on" : "off",
@@ -128,7 +137,8 @@ usage(char *name)
 	    listen_port,
 	    server_host,
 	    listen_ip ? listen_ip : "any",
-	    logfile ? logfile : "none");
+	    logfile ? logfile : "none",
+	    cachereset ?  "on" : "off");
     if (getuid() == 0) {
 	pw = getpwuid(0);
 	gr = getgrgid(getgid());
@@ -142,7 +152,7 @@ usage(char *name)
 }
 
 static void
-fix_ug()
+fix_ug(void)
 {
     struct passwd  *pw = NULL;
     struct group   *gr = NULL;
@@ -231,13 +241,13 @@ access_log(struct REQUEST *req, time_t now)
  */
 
 static void
-syslog_init()
+syslog_init(void)
 {
     openlog("alevtd",LOG_PID, LOG_DAEMON);
 }
 
 static void
-syslog_start()
+syslog_start(void)
 {
     syslog(LOG_NOTICE,
 	   "started (listen on %s:%d, user=%s, group=%s)\n",
@@ -245,7 +255,7 @@ syslog_start()
 }
 
 static void
-syslog_stop()
+syslog_stop(void)
 {
     if (termsig)
 	syslog(LOG_NOTICE,"stopped on signal %d\n",termsig);
@@ -297,7 +307,7 @@ xerror(int loglevel, char *txt, char *peerhost)
 /* ---------------------------------------------------------------------- */
 /* main loop                                                              */
 
-void*
+static void*
 mainloop(void)
 {
     struct REQUEST *conns = NULL;
@@ -305,7 +315,7 @@ mainloop(void)
 
     struct REQUEST      *req,*prev,*tmp;
     struct timeval      tv;
-    int                 max,length;
+    int                 max,length,freq,lastfreq = 0;
     fd_set              rd,wr;
 
     for (;!termsig;) {
@@ -319,6 +329,13 @@ mainloop(void)
 	    }
 	    got_sighup = 0;
 	}
+	if (got_sigusr1) {
+	    if (debug)
+		fprintf(stderr,"got SIGUSR1, reset cached vbi pages\n");
+	    vbi->cache->op->reset(vbi->cache);
+	    got_sigusr1 = 0;
+	}
+
 	FD_ZERO(&rd);
 	FD_ZERO(&wr);
 	FD_SET(vbi->fd,&rd);
@@ -356,8 +373,20 @@ mainloop(void)
 	now = time(NULL);
 
 	/* vbi data? */
-	if (FD_ISSET(vbi->fd,&rd))
+	if (FD_ISSET(vbi->fd,&rd)) {
+#ifdef __linux__
+	    if (cachereset) {
+		ioctl(vbi->fd, VIDIOCGFREQ, &freq);
+		if (lastfreq != freq) {
+		    lastfreq = freq;
+		    vbi->cache->op->reset( vbi->cache) ;
+		    if (debug)
+			fprintf(stderr, "frequency change: cache cleared.\n");
+		}
+	    }
+#endif
 	    vbi_handler(vbi,vbi->fd);
+	}
 
 	/* new connection ? */
 	if (FD_ISSET(slisten,&rd)) {
@@ -519,6 +548,7 @@ main(int argc, char *argv[])
     char host[INET6_ADDRSTRLEN+1];
     char serv[16];
 
+    ng_device_init();
     gethostname(server_host,255);
     memset(&ask,0,sizeof(ask));
     ask.ai_flags = AI_CANONNAME;
@@ -529,7 +559,7 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc,argv,"69hsdFp:n:i:t:c:u:g:l:L:v:")))
+	if (-1 == (c = getopt(argc,argv,"69hsdFrp:n:i:t:c:u:g:l:L:v:")))
 	    break;
 	switch (c) {
 	case 'h':
@@ -549,6 +579,9 @@ main(int argc, char *argv[])
 	    break;
 	case 'F':
 	    dontdetach++;
+	    break;
+	case 'r':
+	    cachereset++;
 	    break;
 	case 'n':
 	    strcpy(server_host,optarg);
@@ -578,7 +611,7 @@ main(int argc, char *argv[])
 	    logfile = optarg;
 	    break;
 	case 'v':
-	    vbidev = optarg;
+	    ng_dev.vbi = optarg;
 	    break;
 	default:
 	    exit(1);
@@ -589,7 +622,7 @@ main(int argc, char *argv[])
 
     /* open vbi device */
     fdset_init(fds);
-    vbi = vbi_open(vbidev, cache_open(), 0, bttv);
+    vbi = vbi_open(ng_dev.vbi, cache_open(), 0, bttv);
     if (vbi == 0) {
 	xperror(LOG_ERR,"cannot open vbi device",NULL);
 	exit(1);
@@ -710,6 +743,7 @@ main(int argc, char *argv[])
     sigaction(SIGPIPE,&act,&old);
     act.sa_handler = catchsig;
     sigaction(SIGHUP,&act,&old);
+    sigaction(SIGUSR1,&act,&old);
     sigaction(SIGTERM,&act,&old);
     if (debug)
 	sigaction(SIGINT,&act,&old);

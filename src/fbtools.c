@@ -20,6 +20,7 @@
 #include <linux/kd.h>
 #include <linux/vt.h>
 #include <linux/fb.h>
+#include <linux/major.h>
 
 #include <asm/page.h>
 
@@ -38,7 +39,9 @@ int                        fb_switch_state = FB_ACTIVE;
 /* internal variables                                                   */
 
 static int                       fb,tty;
+#if 0
 static int                       bpp,black,white;
+#endif
 
 static int                       orig_vt_no = 0;
 static struct vt_mode            vt_mode;
@@ -50,124 +53,27 @@ static struct fb_var_screeninfo  fb_ovar;
 static unsigned short            ored[256], ogreen[256], oblue[256];
 static struct fb_cmap            ocmap = { 0, 256, ored, ogreen, oblue };
 
-static int             font_height;
-static unsigned char  *font_data;
-static char           *default_font[] = {
-    "/usr/lib/kbd/consolefonts/lat1-16.psf",
-    "/usr/lib/kbd/consolefonts/lat1-16.psfu",
-    "/usr/lib/kbd/consolefonts/lat1-16.psf.gz",
-    "/usr/lib/kbd/consolefonts/lat1-16.psfu.gz",
-    "/usr/share/consolefonts/lat1-16.psf",
-    "/usr/share/consolefonts/lat1-16.psf.gz",
-    NULL,
+/* -------------------------------------------------------------------- */
+/* devices                                                              */
+
+struct DEVS {
+    char *fb0;
+    char *fbnr;
+    char *ttynr;
 };
 
-/* -------------------------------------------------------------------- */
-/* fonts & printing chars in graphics mode                              */
+struct DEVS devs_default = {
+    fb0:   "/dev/fb0",
+    fbnr:  "/dev/fb%d",
+    ttynr: "/dev/tty%d",
+};
+struct DEVS devs_devfs = {
+    fb0:   "/dev/fb/0",
+    fbnr:  "/dev/fb/%d",
+    ttynr: "/dev/vc/%d",
+};
+struct DEVS *devices;
 
-static void
-fb_readfont(char **filename)
-{
-    int  i;
-    char *h,command[256];
-    FILE *fp;
-
-    for(i = 0; filename[i] != NULL; i++) {
-	if (-1 == access(filename[i],R_OK))
-	    continue;
-	break;
-    }
-    if (NULL == filename[i]) {
-	fprintf(stderr,"can't find font file\n");
-	exit(1);
-    }
-
-    h = filename[i]+strlen(filename[i])-3;
-    if (0 == strcmp(h,".gz")) {
-	sprintf(command,"zcat %s",filename[i]);
-	fp = popen(command,"r");
-    } else {
-	fp = fopen(filename[i], "r");
-    }
-    if (NULL == fp) {
-	fprintf(stderr,"can't open %s: %s\n",filename[i],strerror(errno));
-	exit(1);
-    }
-
-    if (fgetc(fp) != 0x36 ||
-	fgetc(fp) != 0x04) {
-	fprintf(stderr,"can't use font %s\n",filename[i]);
-	exit(1);
-    }
-    fgetc(fp);
-    font_height = fgetc(fp);
-    font_data = malloc(font_height * 256);
-    fread(font_data, 256, font_height, fp);
-    fclose(fp);
-}
-
-static void (*fb_setpixels)(int,int);
-
-static void fb_setpixels1(int pos, int bits)
-{
-    register int i;
-    register unsigned char *ptr = fb_mem+fb_mem_offset+pos;
-    
-    for (i = 7; i >= 0; i--)
-	*(ptr++) = (bits & (1 << i)) ? white : black;
-}
-
-static void fb_setpixels2(int pos, int bits)
-{
-    register int i;
-    register unsigned short *ptr = (unsigned short*)(fb_mem+fb_mem_offset+pos);
-    
-    for (i = 7; i >= 0; i--)
-	*(ptr++) = (bits & (1 << i)) ? white : black;
-}
-
-static void fb_setpixels3(int pos, int bits)
-{
-    register int i,v;
-    register unsigned char *ptr = fb_mem+fb_mem_offset+pos;
-    
-    for (i = 7; i >= 0; i--) {
-	v = (bits & (1 << i)) ? white : black;
-	*(ptr++) = (v >> 16) & 0xff;
-	*(ptr++) = (v >>  8) & 0xff;
-	*(ptr++) =  v        & 0xff;
-    }
-}
-
-static void fb_setpixels4(int pos, int bits)
-{
-    register int i;
-    register unsigned long *ptr = (unsigned long*)(fb_mem+fb_mem_offset+pos);
-    
-    for (i = 7; i >= 0; i--)
-	*(ptr++) = (bits & (1 << i)) ? white : black;
-}
-
-static void
-fb_putc(int x, int y, int c)
-{
-    int pos,i;
-    
-    pos = y*fb_fix.line_length*font_height + x*bpp*8;
-    c *= font_height;
-    for (i = 0; i < font_height; i++) {
-	fb_setpixels(pos,font_data[c++]);
-	pos += fb_fix.line_length;
-    }
-}
-
-int
-fb_puts(int x, int y, unsigned char *text)
-{
-	for (;*text;x++)
-		fb_putc(x,y,*(text++));
-	return x;
-}
 
 /* -------------------------------------------------------------------- */
 /* console switching                                                    */
@@ -255,7 +161,7 @@ fb_memset (void *addr, int c, size_t len)
 #endif
 }
 
-int
+static int
 fb_setmode(char *name)
 {
     FILE *fp;
@@ -329,7 +235,7 @@ fb_setmode(char *name)
     return -1;
 }
 
-void
+static void
 fb_setvt(int vtno)
 {
     struct vt_stat vts;
@@ -343,7 +249,7 @@ fb_setvt(int vtno)
     }
 
     vtno &= 0xff;
-    sprintf(vtname, "/dev/tty%d", vtno);
+    sprintf(vtname, devices->ttynr, vtno);
     chown(vtname, getuid(), getgid());
     if (-1 == access(vtname,R_OK | W_OK)) {
 	fprintf(stderr,"access %s: %s\n",vtname,strerror(errno));
@@ -383,43 +289,54 @@ fb_setvt(int vtno)
 }
 
 int
-fb_init(char *device, char *font, char *mode, int vt)
+fb_init(char *device, char *mode, int vt)
 {
     struct stat st;
     char   fbdev[16];
-    char   *fonts[2] = { font, NULL };
 
     tty = 0;
     if (vt != 0)
 	fb_setvt(vt);
 
+    /* FIXME: where are MAJOR() / MINOR() ??? */
+    fstat(tty,&st);
+    if (((st.st_rdev >> 8) & 0xff) != TTY_MAJOR) {
+	/* catch that here, give a more user friendly error message that just
+	 * throw a error about a failed ioctl later on ... */
+	fprintf(stderr,
+		"ERROR: tty is not a linux console.  You can not start this\n"
+		"       tool from a pseudo tty (xterm/ssh/screen/...).\n");
+	exit(1);
+    }
+    if (NULL == devices) {
+	struct stat dummy;
+	if (0 == stat("/dev/.devfsd",&dummy))
+	    devices = &devs_devfs;
+	else
+	    devices = &devs_default;
+    }
+    
     if (NULL == device) {
 	device = getenv("FRAMEBUFFER");
 	if (NULL == device) {
-#ifdef FBIOGET_CON2FBMAP
 	    struct fb_con2fbmap c2m;
-	    if (-1 == (fb = open("/dev/fb0",O_WRONLY,0))) {
-		fprintf(stderr,"open /dev/fb0: %s\n",strerror(errno));
+	    if (-1 == (fb = open(devices->fb0,O_WRONLY,0))) {
+		fprintf(stderr,"open %s: %s\n",devices->fb0,strerror(errno));
 		exit(1);
 	    }
-	    fstat(tty,&st);
-	    c2m.console = st.st_rdev & 0xff /* FIXME: where is MAJOR() ??? */;
+	    c2m.console = st.st_rdev & 0xff;
 	    if (-1 == ioctl(fb, FBIOGET_CON2FBMAP, &c2m)) {
 		perror("ioctl FBIOGET_CON2FBMAP");
 		exit(1);
 	    }
 	    close(fb);
-	    fprintf(stderr,"map: vt%02d => fb%d\n",c2m.console,c2m.framebuffer);
-	    sprintf(fbdev,"/dev/fb%d",c2m.framebuffer);
+	    fprintf(stderr,"map: vt%02d => fb%d\n",
+		    c2m.console,c2m.framebuffer);
+	    sprintf(fbdev,devices->fbnr,c2m.framebuffer);
 	    device = fbdev;
-#else
-	    device = "/dev/fb0";
-#endif
 	}
     }
-    
-    fb_readfont(font ? fonts : default_font);
-    
+
     /* get current settings (which we have to restore) */
     if (-1 == (fb = open(device,O_RDWR /* O_WRONLY */))) {
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
@@ -462,10 +379,10 @@ fb_init(char *device, char *font, char *mode, int vt)
 	fprintf(stderr,"can handle only packed pixel frame buffers\n");
 	goto err;
     }
+#if 0
     switch (fb_var.bits_per_pixel) {
     case 8:
-	white = 15; black = 0; bpp = 1;
-	fb_setpixels = fb_setpixels1;
+	white = 255; black = 0; bpp = 1;
 	break;
     case 15:
     case 16:
@@ -474,11 +391,9 @@ fb_init(char *device, char *font, char *mode, int vt)
 	else
 	    white = 0x7fff;
 	black = 0; bpp = 2;
-	fb_setpixels = fb_setpixels2;
 	break;
     case 24:
 	white = 0xffffff; black = 0; bpp = fb_var.bits_per_pixel/8;
-	fb_setpixels = fb_setpixels3;
 	break;
     case 32:
 	white = 0xffffff; black = 0; bpp = fb_var.bits_per_pixel/8;
@@ -489,8 +404,10 @@ fb_init(char *device, char *font, char *mode, int vt)
 		fb_var.bits_per_pixel);
 	goto err;
     }
+#endif
     fb_mem_offset = (unsigned long)(fb_fix.smem_start) & (~PAGE_MASK);
-    fb_mem = mmap(NULL,fb_fix.smem_len+fb_mem_offset,PROT_WRITE,MAP_SHARED,fb,0);
+    fb_mem = mmap(NULL,fb_fix.smem_len+fb_mem_offset,
+		  PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
     if (-1L == (long)fb_mem) {
 	perror("mmap");
 	goto err;

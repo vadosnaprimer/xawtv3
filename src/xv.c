@@ -1,24 +1,25 @@
 /*
- * this is a simple test app for playing around with the xvideo extention
+ * (most) Xvideo extention code is here.
+ *
+ * (c) 2001 Gerd Knorr <kraxel@bytesex.org>
  */
+
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
-#include <X11/Xlib.h>
-#include <X11/Xatom.h>
-
-#include "config.h"
-
-#ifdef HAVE_MITSHM
-# include <sys/ipc.h>
-# include <sys/shm.h>
-# include <X11/extensions/XShm.h>
-#endif
 #ifdef HAVE_LIBXV
+# include <X11/Xlib.h>
+# include <X11/Xatom.h>
+# include <X11/Intrinsic.h>
+# include <X11/Shell.h>
+# include <X11/extensions/XShm.h>
 # include <X11/extensions/Xv.h>
 # include <X11/extensions/Xvlib.h>
 #endif
@@ -30,13 +31,12 @@
 #ifndef HAVE_LIBXV
 /* dummy stubs */
 int have_xv;
-int have_xv_scale;
-void xv_init(int foo,int bar, int port)
+void xv_init(int foo,int bar, int port, int hwscan)
 {
     if (debug)
-	fprintf(stderr,"Xv: compiled without Xvideo extention support\n");
+	fprintf(stderr,"Xvideo: compiled without Xvideo extention support\n");
 }
-void xv_video(Window win, int width, int height, int on) {}
+//void xv_video(Window win, int width, int height, int on) {}
 #else
 
 /* ********************************************************************* */
@@ -44,8 +44,8 @@ void xv_video(Window win, int width, int height, int on) {}
 
 extern Display    *dpy;
 int               have_xv;
-int               have_xv_scale;
 int               im_adaptor = -1, im_port = -1;
+unsigned int      im_formats[VIDEO_FMT_COUNT];
 
 const struct ng_driver xv_driver;
 
@@ -53,7 +53,6 @@ static int              ver, rel, req, ev, err;
 static int              adaptors;
 static int              attributes;
 static int              formats;
-static unsigned int     im_format;
 static XvAdaptorInfo        *ai;
 static XvEncodingInfo       *ei;
 static XvAttribute          *at;
@@ -101,6 +100,7 @@ static const struct XVATTR {
     char  *atom;
 } xvattr[] = {
     { ATTR_ID_COLOR,    ATTR_TYPE_INTEGER, "XV_COLOR"       },
+    { ATTR_ID_COLOR,    ATTR_TYPE_INTEGER, "XV_SATURATION"  },
     { ATTR_ID_HUE,      ATTR_TYPE_INTEGER, "XV_HUE",        },
     { ATTR_ID_BRIGHT,   ATTR_TYPE_INTEGER, "XV_BRIGHTNESS", },
     { ATTR_ID_CONTRAST, ATTR_TYPE_INTEGER, "XV_CONTRAST",   },
@@ -111,6 +111,73 @@ static const struct XVATTR {
     { -1,               -1,                "XV_ENCODING",   },
     {}
 };
+
+static int xv_read_attr(struct ng_attribute *attr)
+{
+    struct xv_handle *h   = attr->handle;
+    const XvAttribute *at = attr->priv;
+    Atom atom;
+    int range, value = 0;
+
+    if (NULL != at) {
+	atom = XInternAtom(dpy, at->name, False);
+	XvGetPortAttribute(dpy, h->vi_port,atom,&value);
+	if (ATTR_TYPE_INTEGER == attr->type) {
+	    range = at->max_value - at->min_value;
+	    value = (value - at->min_value) * 65536 / range;
+	    if (value < 0)      value = 0;
+	    if (value > 65535)  value = 65535;
+	}
+	if (debug)
+	    fprintf(stderr,"xv: get %s: %d\n",at->name,value);
+	
+    } else if (attr->id == ATTR_ID_NORM) {
+	value = h->norm;
+	
+    } else if (attr->id == ATTR_ID_INPUT) {
+	value = h->input;
+
+    }
+    return value;
+}
+
+static void xv_write_attr(struct ng_attribute *attr, int value)
+{
+    struct xv_handle *h   = attr->handle;
+    const XvAttribute *at = attr->priv;
+    Atom atom;
+    int range,i;
+
+    if (NULL != at) {
+	atom = XInternAtom(dpy, at->name, False);
+	if (ATTR_TYPE_INTEGER == attr->type) {
+	    range = at->max_value - at->min_value;
+	    value = value * range / 65536 + at->min_value;
+	    if (value < at->min_value)  value = at->min_value;
+	    if (value > at->max_value)  value = at->max_value;
+	}
+	XvSetPortAttribute(dpy, h->vi_port,atom,value);
+	if (debug)
+	    fprintf(stderr,"xv: set %s: %d\n",at->name,value);
+
+    } else if (attr->id == ATTR_ID_NORM || attr->id == ATTR_ID_INPUT) {
+	if (attr->id == ATTR_ID_NORM)
+	    h->norm  = value;
+	if (attr->id == ATTR_ID_INPUT)
+	    h->input = value;
+	for (i = 0; i < h->encodings; i++) {
+	    if (h->enc_map[i].norm  == h->norm &&
+		h->enc_map[i].input == h->input) {
+		h->enc = i;
+		XvSetPortAttribute(dpy,h->vi_port,h->xv_encoding,h->enc);
+		break;
+	    }
+	}
+    }
+    /* needed for proper timing on the
+       "mute - wait - switch - wait - unmute" channel switches */
+    XSync(dpy,False);
+}
 
 static void
 xv_add_attr(struct xv_handle *h, int id, int type,
@@ -149,71 +216,10 @@ xv_add_attr(struct xv_handle *h, int id, int type,
     if (h->attr[h->nattr].id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name    = ng_attr_to_desc[h->attr[h->nattr].id];
 
+    h->attr[h->nattr].read    = xv_read_attr;
+    h->attr[h->nattr].write   = xv_write_attr;
+    h->attr[h->nattr].handle  = h;
     h->nattr++;
-}
-
-static int xv_read_attr(void *handle, struct ng_attribute *attr)
-{
-    struct xv_handle *h   = handle;
-    const XvAttribute *at = attr->priv;
-    Atom atom;
-    int range, value = 0;
-
-    if (NULL != at) {
-	atom = XInternAtom(dpy, at->name, False);
-	XvGetPortAttribute(dpy, h->vi_port,atom,&value);
-	if (ATTR_TYPE_INTEGER == attr->type) {
-	    range = at->max_value - at->min_value;
-	    value = (value + at->min_value) * 65536 / range ;
-	    if (value < 0)      value = 0;
-	    if (value > 65535)  value = 65535;
-	}
-	if (debug)
-	    fprintf(stderr,"xv: get %s: %d\n",at->name,value);
-	
-    } else if (attr->id == ATTR_ID_NORM) {
-	value = h->norm;
-	
-    } else if (attr->id == ATTR_ID_INPUT) {
-	value = h->input;
-
-    }
-    return value;
-}
-
-static void xv_write_attr(void *handle, struct ng_attribute *attr, int value)
-{
-    struct xv_handle *h   = handle;
-    const XvAttribute *at = attr->priv;
-    Atom atom;
-    int range,i;
-
-    if (NULL != at) {
-	atom = XInternAtom(dpy, at->name, False);
-	if (ATTR_TYPE_INTEGER == attr->type) {
-	    range = at->max_value - at->min_value;
-	    value = value * range / 65536 + at->min_value;
-	    if (value < at->min_value)  value = at->min_value;
-	    if (value > at->max_value)  value = at->max_value;
-	}
-	XvSetPortAttribute(dpy, h->vi_port,atom,value);
-	if (debug)
-	    fprintf(stderr,"xv: set %s: %d\n",at->name,value);
-
-    } else if (attr->id == ATTR_ID_NORM || attr->id == ATTR_ID_INPUT) {
-	if (attr->id == ATTR_ID_NORM)
-	    h->norm  = value;
-	if (attr->id == ATTR_ID_INPUT)
-	    h->input = value;
-	for (i = 0; i < h->encodings; i++) {
-	    if (h->enc_map[i].norm  == h->norm &&
-		h->enc_map[i].input == h->input) {
-		h->enc = i;
-		XvSetPortAttribute(dpy,h->vi_port,h->xv_encoding,h->enc);
-		break;
-	    }
-	}
-    }
 }
 
 static unsigned long
@@ -232,6 +238,7 @@ xv_setfreq(void *handle, unsigned long freq)
     struct xv_handle *h = handle;
 
     XvSetPortAttribute(dpy,h->vi_port,h->xv_freq,freq);
+    XSync(dpy,False);
 }
 
 static int
@@ -242,24 +249,39 @@ xv_tuned(void *handle)
 }
 
 void
-xv_video(Window win, int width, int height, int on)
+xv_video(Window win, int dw, int dh, int on)
 {
     struct xv_handle *h = h_drv; /* FIXME */
+    int sx,sy,dx,dy;
+    int sw,sh;
     
-    if (debug)
-	fprintf(stderr,"Xv: video: win=0x%lx, size=%dx%d, %s\n",
-		win, width, height, on ? "on" : "off");
     if (on) {
-	int ww = width, hh = height;
+	sx = sy = dx = dy = 0;
+	sw = dw;
+	sh = dh;
 	if (-1 != h->enc) {
-	    ww = ei[h->enc].width;
-	    hh = ei[h->enc].height;
+	    sw = ei[h->enc].width;
+	    sh = ei[h->enc].height;
 	}
 	if (NULL == h->vi_gc)
 	    h->vi_gc = XCreateGC(dpy, win, 0, NULL);
-	XvPutVideo(dpy,h->vi_port,win,h->vi_gc,0,0,ww,hh,0,0,width,height);
+#if 1
+	ng_ratio_fixup(&dw,&dh,&dx,&dy);
+#endif
+#if 0
+	ng_ratio_fixup2(&sw,&sh,&sx,&sy,dw,dh);
+#endif
+	XvPutVideo(dpy,h->vi_port,win,h->vi_gc,
+		   sx,sy,sw,sh, dx,dy,dw,dh);
+	if (debug)
+	    fprintf(stderr,"Xvideo: video: win=0x%lx, "
+		    "src=%dx%d+%d+%d dst=%dx%d+%d+%d\n",
+		    win, sw,sh,sx,sy, dw,dh,dx,dy);
     } else {
+	XClearArea(dpy,win,0,0,0,0,False);
 	XvStopVideo(dpy,h->vi_port,win);
+	if (debug)
+	    fprintf(stderr,"Xvideo: video off\n");
     }
 }
 
@@ -317,24 +339,23 @@ x11_error_dev_null(Display * dpy, XErrorEvent * event)
 }
 
 XvImage*
-xv_create_ximage(Display *dpy, int width, int height, void **shm)
+xv_create_ximage(Display *dpy, int width, int height,
+		 int format, void **shm)
 {
     XvImage         *xvimage = NULL;
     unsigned char   *ximage_data;
-#ifdef HAVE_MITSHM
     XShmSegmentInfo *shminfo;
     void            *old_handler;
-#endif
 
     if (debug)
-	fprintf(stderr,"xv: xv_create_ximage\n");
+	fprintf(stderr,"Xvideo: xv_create_ximage %dx%d\n",width,height);
 
     if (have_shmem) {
 	x11_error = 0;
 	old_handler = XSetErrorHandler(x11_error_dev_null);
 	shminfo = malloc(sizeof(XShmSegmentInfo));
 	memset(shminfo, 0, sizeof(XShmSegmentInfo));
-	xvimage = XvShmCreateImage(dpy, im_port, im_format, 0,
+	xvimage = XvShmCreateImage(dpy, im_port, format, 0,
 				   width, height, shminfo);
 	if (xvimage) {
 	    shminfo->shmid = shmget(IPC_PRIVATE, xvimage->data_size,
@@ -379,7 +400,7 @@ xv_create_ximage(Display *dpy, int width, int height, void **shm)
 	fprintf(stderr,"out of memory\n");
 	return NULL;
     }
-    xvimage = XvCreateImage(dpy, im_port, im_format, ximage_data,
+    xvimage = XvCreateImage(dpy, im_port, format, ximage_data,
 			    width, height);
     return xvimage;
 }
@@ -390,41 +411,44 @@ xv_destroy_ximage(Display *dpy, XvImage * xvimage, void *shm)
     XShmSegmentInfo *shminfo = shm;
 
     if (debug)
-	fprintf(stderr,"video: x11_destroy_ximage\n");
+	fprintf(stderr,"Xvideo: x11_destroy_ximage\n");
 
-    XShmDetach(dpy, shminfo);
-    XFree(xvimage);
-    shmdt(shminfo->shmaddr);
-    free(shminfo);
+    if (shminfo) {
+	XShmDetach(dpy, shminfo);
+	XFree(xvimage);
+	shmdt(shminfo->shmaddr);
+	free(shminfo);
+    } else
+	XFree(xvimage);
 }
 
 /* ********************************************************************* */
 
-void xv_init(int xvideo, int hwscale, int port)
+void xv_init(int xvideo, int hwscale, int port, int hwscan)
 {
     struct xv_handle *handle;
     struct STRTAB *norms  = NULL;
     struct STRTAB *inputs = NULL;
     char *h;
-    int i, vi_port = -1, vi_adaptor = -1;
+    int n, i, vi_port = -1, vi_adaptor = -1;
 
     if (!xvideo && !hwscale)
 	return;
 
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
 	if (debug)
-	    fprintf(stderr,"Xv: Server has no Xvideo extention support\n");
+	    fprintf(stderr,"Xvideo: Server has no Xvideo extention support\n");
 	return;
     }
     if (Success != XvQueryAdaptors(dpy,DefaultRootWindow(dpy),&adaptors,&ai)) {
-	fprintf(stderr,"Xv: XvQueryAdaptors failed");
+	fprintf(stderr,"Xvideo: XvQueryAdaptors failed");
 	exit(1);
     }
     if (debug)
-	fprintf(stderr,"Xv: %d adaptors available.\n",adaptors);
+	fprintf(stderr,"Xvideo: %d adaptors available.\n",adaptors);
     for (i = 0; i < adaptors; i++) {
 	if (debug)
-	    fprintf(stderr,"Xv: %s:%s%s%s%s%s, ports %ld-%ld\n",
+	    fprintf(stderr,"Xvideo: %s:%s%s%s%s%s, ports %ld-%ld\n",
 		    ai[i].name,
 		    (ai[i].type & XvInputMask)  ? " input"  : "",
 		    (ai[i].type & XvOutputMask) ? " output" : "",
@@ -433,16 +457,39 @@ void xv_init(int xvideo, int hwscale, int port)
 		    (ai[i].type & XvImageMask)  ? " image"  : "",
 		    ai[i].base_id,
 		    ai[i].base_id+ai[i].num_ports-1);
-
+	if (hwscan) {
+	    /* just print some info's about the Xvideo port */
+	    n = fprintf(stderr,"port %ld-%ld",
+			ai[i].base_id,ai[i].base_id+ai[i].num_ports-1);
+	    if ((ai[i].type & XvInputMask) &&
+		(ai[i].type & XvVideoMask))
+		fprintf(stderr,"%*s[ -xvport %ld ]",40-n,"",ai[i].base_id);
+	    fprintf(stderr,"\n");
+	    if ((ai[i].type & XvInputMask) &&
+		(ai[i].type & XvVideoMask))
+		fprintf(stderr,"    type : Xvideo, video overlay\n");
+	    if ((ai[i].type & XvInputMask) &&
+		(ai[i].type & XvImageMask))
+		fprintf(stderr,"    type : Xvideo, image scaler\n");
+	    fprintf(stderr,"    name : %s\n",ai[i].name);
+	    fprintf(stderr,"\n");
+	    continue;
+	}
+	
 	if ((ai[i].type & XvInputMask) &&
 	    (ai[i].type & XvVideoMask) &&
 	    (vi_port == -1)) {
-	    if (ai[i].base_id == port || 0 == port) {
+	    if (0 == port) {
 		vi_port = ai[i].base_id;
 		vi_adaptor = i;
+	    } else if (port >= ai[i].base_id  &&
+		       port <  ai[i].base_id+ai[i].num_ports) {
+		vi_port = port;
+		vi_adaptor = i;
 	    } else {
-		fprintf(stderr,"Xv: skipping port %ld (configured other: %d)\n",
-			ai[i].base_id, port);
+		if (debug)
+		    fprintf(stderr,"Xvideo: skipping ports %ld-%ld (configured other: %d)\n",
+			    ai[i].base_id, ai[i].base_id+ai[i].num_ports-1, port);
 	    }
 	}
 
@@ -453,16 +500,19 @@ void xv_init(int xvideo, int hwscale, int port)
 	    im_adaptor = i;
 	}
     }
+    if (hwscan)
+	return;
 
     /* *** video port *** */
     if (!xvideo) {
 	if (debug)
-	    fprintf(stderr,"Xv: video disabled\n");
+	    fprintf(stderr,"Xvideo: video disabled\n");
     } else if (vi_port == -1) {
 	if (debug)
-	    fprintf(stderr,"Xv: no usable video port found\n");
+	    fprintf(stderr,"Xvideo: no usable video port found\n");
     } else {
-	fprintf(stderr,"Xv: using port %d for video\n",vi_port);
+	if (debug)
+	    fprintf(stderr,"Xvideo: using port %d for video\n",vi_port);
 	handle = malloc(sizeof(struct xv_handle));
 	memset(handle,0,sizeof(struct xv_handle));
 	handle->vi_port     = vi_port;
@@ -519,45 +569,127 @@ void xv_init(int xvideo, int hwscale, int port)
 #if 0
 	if (xv_colorkey != None) {
 	    XvGetPortAttribute(dpy,vi_port,xv_colorkey,&xv.colorkey);
-	    fprintf(stderr,"Xv: colorkey: %x\n",xv.colorkey);
+	    fprintf(stderr,"Xvideo: colorkey: %x\n",xv.colorkey);
 	}
 #endif
 	have_xv = 1;
 	drv   = &xv_driver;
 	h_drv = handle;
 	f_drv = xv_flags(h_drv);
-	a_drv = xv_attrs(h_drv);
+	add_attrs(xv_attrs(h_drv));
     }
 
     /* *** image scaler port *** */
     if (!hwscale) {
 	if (debug)
-	    fprintf(stderr,"Xv: hw scaler disabled\n");
+	    fprintf(stderr,"Xvideo: hw scaler disabled\n");
     } else if (im_port == -1) {
 	if (debug)
-	    fprintf(stderr,"Xv: no usable hw scaler port found\n");
+	    fprintf(stderr,"Xvideo: no usable hw scaler port found\n");
     } else {
 	fo = XvListImageFormats(dpy, im_port, &formats);
-	printf("  image format list for port %d\n",im_port);
+	if (debug)
+	    fprintf(stderr,"  image format list for port %d\n",im_port);
 	for(i = 0; i < formats; i++) {
-	    fprintf(stderr, "    0x%x (%4.4s) %s\n",
-		    fo[i].id,
-		    (char*)&fo[i].id,
-		    (fo[i].format == XvPacked) ? "packed" : "planar");
+	    if (debug)
+		fprintf(stderr, "    0x%x (%c%c%c%c) %s",
+			fo[i].id,
+			(fo[i].id)       & 0xff,
+			(fo[i].id >>  8) & 0xff,
+			(fo[i].id >> 16) & 0xff,
+			(fo[i].id >> 24) & 0xff,
+			(fo[i].format == XvPacked) ? "packed" : "planar");
 	    if (0x32595559 == fo[i].id) {
-		im_format = fo[i].id;
-		have_xv_scale = 1;
+		if (debug)
+		    fprintf(stderr," [ok]");
+		im_formats[VIDEO_YUV422] = fo[i].id;
 	    }
-	}
-	if (have_xv_scale) {
-	    fprintf(stderr,"Xv: using port %d for hw scaling\n",
-		    im_port);
-	} else {
-	    fprintf(stderr,"Xv: no usable image format found (port %d)\n",
-		    im_port);
+	    if (0x30323449 == fo[i].id) {
+		if (debug)
+		    fprintf(stderr," [ok]");
+		im_formats[VIDEO_YUV420P] = fo[i].id;
+	    }
+	    if (debug)
+		fprintf(stderr,"\n");
 	}
     }
 }
+
+/* ********************************************************************* */
+
+#if 0
+static Window icon_win;
+static int icon_width,icon_height;
+
+static void
+icon_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
+{
+    switch (event->type) {
+    case Expose:
+	if (debug)
+	    fprintf(stderr,"icon expose\n");
+	xv_video(icon_win, icon_width, icon_height, 1);
+	break;
+    case MapNotify:
+	if (debug)
+	    fprintf(stderr,"icon map\n");
+	xv_video(icon_win, icon_width, icon_height, 1);
+	break;
+    case UnmapNotify:
+	if (debug)
+	    fprintf(stderr,"icon unmap\n");
+	break;
+    default:
+	fprintf(stderr,"icon other\n");
+	break;
+    }
+}
+
+void
+init_icon_window(Widget shell,WidgetClass class)
+{
+    Window root = RootWindowOfScreen(XtScreen(shell));
+    Widget widget;
+    XIconSize *is;
+    int i,count;
+
+    if (XGetIconSizes(XtDisplay(shell),root,&is,&count)) {
+	for (i = 0; i < count; i++) {
+	    fprintf(stderr,"icon size: min=%dx%d - max=%dx%d - inc=%dx%d\n",
+		    is[i].min_width, is[i].min_height,
+		    is[i].max_width, is[i].max_height,
+		    is[i].width_inc, is[i].height_inc);
+	}
+	icon_width  = is[0].max_width;
+	icon_height = is[0].max_height;
+	if (icon_width * 3 > icon_height * 4) {
+	    while (icon_width * 3 > icon_height * 4 &&
+		   icon_width - is[0].width_inc > is[0].min_width)
+		icon_width -= is[0].width_inc;
+	} else {
+	    while (icon_width * 3 < icon_height * 4 &&
+		   icon_height - is[0].height_inc > is[0].min_height)
+		icon_height -= is[0].height_inc;
+	}
+    } else {
+	icon_width  = 64;
+	icon_height = 48;
+    }
+    fprintf(stderr,"icon init %dx%d\n",icon_width,icon_height);
+    
+    icon_win = XCreateWindow(XtDisplay(shell),root,
+			     0,0,icon_width,icon_height,1,
+			     CopyFromParent,InputOutput,CopyFromParent,
+			     0,NULL);
+    widget = XtVaCreateWidget("icon",class,shell,NULL);
+    XtRegisterDrawable(XtDisplay(shell),icon_win,widget);
+    XtAddEventHandler(widget,StructureNotifyMask | ExposureMask,
+		      False,icon_event,NULL);
+    XSelectInput(XtDisplay(shell),icon_win,
+		 StructureNotifyMask | ExposureMask);
+    XtVaSetValues(shell,XtNiconWindow,icon_win,NULL);
+}
+#endif
 
 /* ********************************************************************* */
 
@@ -567,8 +699,6 @@ const struct ng_driver xv_driver = {
 
     capabilities:  xv_flags,
     list_attrs:    xv_attrs,
-    read_attr:     xv_read_attr,
-    write_attr:    xv_write_attr,
 
     overlay:       xv_overlay,
 

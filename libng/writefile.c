@@ -83,20 +83,14 @@ snap_filename(char *base, char *channel, char *ext)
 
 /* ---------------------------------------------------------------------- */
 
-int write_jpeg(char *filename, struct ng_video_buf *buf,
-	       int quality, int gray)
+static int do_write_jpeg(FILE *fp, struct ng_video_buf *buf,
+			 int quality, int gray)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
-    FILE *fp;
     int i;
     unsigned char *line;
     int line_length;
-
-    if (NULL == (fp = fopen(filename,"w"))) {
-	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
-	return -1;
-    }
 
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_compress(&cinfo);
@@ -120,6 +114,32 @@ int write_jpeg(char *filename, struct ng_video_buf *buf,
 
     return 0;
 }
+
+int write_jpeg(char *filename, struct ng_video_buf *buf,
+	       int quality, int gray)
+{
+    FILE *fp;
+
+    if (NULL == (fp = fopen(filename,"w"))) {
+	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
+	return -1;
+    }
+    return do_write_jpeg(fp,buf,quality,gray);
+}
+
+#if 0
+int write_jpeg_fd(int fd, struct ng_video_buf *buf,
+		  int quality, int gray)
+{
+    FILE *fp;
+    
+    if (NULL == (fp = fdopen(fd,"w"))) {
+	fprintf(stderr,"grab: can't fdopen(%d): %s\n",fd,strerror(errno));
+	return -1;
+    }
+    return do_write_jpeg(fp,buf,quality,gray);
+}
+#endif
 
 int write_ppm(char *filename, struct ng_video_buf *buf)
 {
@@ -270,7 +290,7 @@ struct files_handle {
     int      wav_size;
 
     /* misc */
-    int gotcha;
+    int      gotcha;
 };
 
 static void*
@@ -364,10 +384,15 @@ files_close(void *handle)
 
 /* ---------------------------------------------------------------------- */
 
+struct raw_priv {
+    int      yuv4mpeg;
+};
+
 struct raw_handle {
     /* format */
     struct ng_video_fmt video;
     struct ng_audio_fmt audio;
+    const struct raw_priv *vpriv;
 
     /* video file*/
     int      fd;
@@ -384,6 +409,7 @@ raw_open(char *videoname, char *audioname,
 	 struct ng_audio_fmt *audio, const void *priv_audio)
 {
     struct raw_handle *h;
+    int frame_rate_code = 0;
     
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -392,6 +418,7 @@ raw_open(char *videoname, char *audioname,
     memset(h,0,sizeof(*h));
     h->video         = *video;
     h->audio         = *audio;
+    h->vpriv         = priv_video;
 
     /* audio */
     if (h->audio.fmtid != AUDIO_NONE) {
@@ -406,6 +433,22 @@ raw_open(char *videoname, char *audioname,
 
     /* video */
     if (h->video.fmtid != VIDEO_NONE) {
+	if (h->vpriv && h->vpriv->yuv4mpeg) {
+	    switch (fps) {
+	    case 23976:  frame_rate_code = 1; break;   /* 24000 / 1001 */
+	    case 24000:  frame_rate_code = 2; break;
+	    case 25000:  frame_rate_code = 3; break;
+	    case 29970:  frame_rate_code = 4; break;   /* 30000 / 1001 */
+	    case 30000:  frame_rate_code = 5; break;
+	    case 50000:  frame_rate_code = 6; break;
+	    case 59940:  frame_rate_code = 7; break;   /* 60000 / 1001 */
+	    case 60000:  frame_rate_code = 8; break;
+	    default:
+		fprintf(stderr,"illegal frame rate\n");
+		free(h);
+		return NULL;
+	    }
+	}
 	if (NULL != videoname) {
 	    h->fd = open(videoname, O_CREAT | O_RDWR | O_TRUNC, 0666);
 	    if (-1 == h->fd) {
@@ -418,6 +461,12 @@ raw_open(char *videoname, char *audioname,
 	} else {
 	    h->fd = 1; /* use stdout */
 	}
+	if (h->vpriv && h->vpriv->yuv4mpeg) {
+	    char header[64];
+	    sprintf(header, "YUV4MPEG %d %d %d\n",
+		    h->video.width, h->video.height,frame_rate_code);
+	    write(h->fd, header, strlen(header));
+	}
     }
 
     return h;
@@ -428,6 +477,9 @@ raw_video(void *handle, struct ng_video_buf *buf)
 {
     struct raw_handle *h = handle;
 
+    if (h->vpriv && h->vpriv->yuv4mpeg)
+	if (6 != write(h->fd, "FRAME\n", 6))
+	    return -1;
     if (buf->size != write(h->fd,buf->data,buf->size))
 	return -1;
     return 0;
@@ -479,6 +531,10 @@ static const struct ng_format_list files_vformats[] = {
     }
 };
 
+static const struct raw_priv yuv4mpeg = {
+    yuv4mpeg: 1
+};
+
 static const struct ng_format_list raw_vformats[] = {
     {
 	name:  "rgb",
@@ -496,6 +552,12 @@ static const struct ng_format_list raw_vformats[] = {
 	name:  "422p",
 	ext:   "raw",
 	fmtid: VIDEO_YUV422P,
+    },{
+	name:  "4mpeg",
+	desc:  "yuv4mpeg (for mpeg2enc)",
+	ext:   "yuv",
+	fmtid: VIDEO_YUV420P,
+	priv:  &yuv4mpeg,
     },{
 	/* EOF */
     }

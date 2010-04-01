@@ -1,5 +1,5 @@
 /*
- * radio.c - (c) 1998 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ * radio.c - (c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>
  *
  * test tool for bttv + WinTV/Radio
  *
@@ -9,6 +9,12 @@
  * 20 Jun 99 - Juli Merino (JMMV) <jmmv@mail.com> - Added some features:
  *             visual menu, manual 'go to' function, negative symbol and a
  *             good interface. See code for more details.
+ * 30 Aug 2001 - Gunther Mayer <Gunther.Mayer@t-online.de>
+ *             Scan for Stations, ad-hoc algorithm for signal strength
+ *             analysis.  My Temic 4009FR5 finds all 19 stations here,
+ *             a Samsung TPI8PSB02P misses two stations below 90MHz,
+ *             which are received fine, but the tuner doesn't indicate
+ *             signal strength.
  */
 
 #include <stdio.h>
@@ -23,14 +29,15 @@
 
 #include <linux/videodev.h>
 
-#define DEVICE "/dev/radio"              /* major=81, minor=64 */
-
 /* JMMV: WINDOWS for radio */
+int ncurses = 0;
+int debug = 0;
+char *device = "/dev/radio";
 WINDOW *wfreq, *woptions, *wstations, *wcommand;
 
 /* Determine and return the appropriate frequency multiplier for
    the first tuner on the open video device with handle FD. */
-static int get_freq_fact(int fd) 
+static int get_freq_fact(int fd)
 {
     struct video_tuner tuner;
 
@@ -42,14 +49,14 @@ static int get_freq_fact(int fd)
     return 16000;
 }
 
-int
+static int
 radio_setfreq(int fd, float freq)
 {
     int ifreq = (freq+1.0/32)*get_freq_fact(fd);
     return ioctl(fd, VIDIOCSFREQ, &ifreq);
 }
 
-void
+static void
 radio_unmute(int fd)
 {
     struct video_audio vid_aud;
@@ -63,7 +70,7 @@ radio_unmute(int fd)
 	perror("VIDIOCSAUDIO");
 }
 
-void
+static void
 radio_mute(int fd)
 {
     struct video_audio vid_aud;
@@ -75,7 +82,34 @@ radio_mute(int fd)
 	perror("VIDIOCSAUDIO");
 }
 
-int
+static void
+radio_getstereo(int fd)
+{
+    struct video_audio va;
+    va.mode=-1;
+    
+    if (ioctl (fd, VIDIOCGAUDIO, &va) < 0)
+	mvwprintw(wfreq,2,1,"     ");
+    mvwprintw(wfreq,2,1,"%s", va.mode == VIDEO_SOUND_STEREO ?
+	      "STEREO":" MONO ");
+}
+
+static int
+radio_getsignal(int fd)
+{
+    struct video_tuner vt;
+    int i,signal;
+
+    memset(&vt,0,sizeof(vt));
+    ioctl (fd, VIDIOCGTUNER, &vt);
+    signal=vt.signal>>13;
+
+    for(i=0;i<8;i++)
+        mvwprintw(wfreq,3,i+1,"%s", signal>i ? "*":" ");
+    return signal;
+}
+
+static int
 select_wait(int sec)
 {
     struct timeval  tv;
@@ -96,7 +130,7 @@ char *digit[3][10] = {
    { "|_|", " | ", "|_ ", " _|", "  |", " _|", "|_|", "  |", "|_|", " _|" }
 };
 
-void print_freq(float freq)
+static void print_freq(float freq)
 {
     int x,y,i;
     char text[10]; 
@@ -124,8 +158,8 @@ int   freqs[99];
 char *labels[99];
 int   stations;
 
-void
-read_kradioconfig()
+static void
+read_kradioconfig(void)
 {
     char   name[80],file[256],n;
     int    ifreq;
@@ -148,7 +182,7 @@ read_kradioconfig()
     }
 }
 
-char*
+static char*
 find_label(int ifreq)
 {
     int i;
@@ -160,7 +194,7 @@ find_label(int ifreq)
     return NULL;
 }
 
-char *
+static char *
 make_label(int ifreq)
 {
     static char text[20],*l;
@@ -171,31 +205,252 @@ make_label(int ifreq)
     return text;
 }
 
+/* ---------------------------------------------------------------------- */
+/* autoscan                                                               */
+
+float g[411],baseline;
+int astation[100],max_astation=0,current_astation=-1;
+
+static void
+foundone(int m)
+{
+    int i;
+    
+    for(i=0;i<100 && astation[i];i++) {
+        if(abs(astation[i]-m) <5 )  // 20 kHz width 
+	    break;
+    }
+    if(g[m] > g[astation[i]]) {  //  select bigger signal
+	astation[i]=m;
+	max_astation=i;
+	fprintf(stderr,"Station %2d: %6.2f MHz - %.2f\n",i,87.5+m*0.05,g[m]);
+    }
+}
+
+static void 
+maxi(int m)
+{
+    int i,l,r;
+    float halbwert;
+
+    if (debug)
+	fprintf(stderr,"maxi i %d %f %f\n",m,87.5+m*0.05,g[m]);
+    if(g[m]<baseline)
+        return;
+    halbwert=(g[m]-baseline)/2+baseline;
+    
+    for(i=m;i>0;i--)
+	if(g[i]< halbwert)
+	    break;
+    l=i;
+    if (debug)
+	fprintf(stderr,"Links i %d %f %f\n",i,87.5+i*0.05,g[i]);
+    
+    for(i=m;i<411;i++)
+	if(g[i]< halbwert)
+	    break;
+    if (debug)
+	fprintf(stderr,"Rechts i %d %f %f\n",i,87.5+i*0.05,g[i]);
+    r=i;
+    m=(l+r)/2;
+    if (debug)
+	fprintf(stderr,"Mitte %d %f %f\n",m,87.5+m*0.05,g[m]);
+    foundone(m);
+}
+
+static void 
+findmax(void)
+{
+    int i;
+    
+    for(i=0;i<411;i++){
+        if(g[i+1]<g[i])
+	    maxi(i);
+    }
+}
+
+// find the baseline for this tuners signal strength
+static float
+get_baseline(float ming, float maxg)
+{
+    int unt,i,nullfound=0;
+    float nullinie=0,u;
+
+    if (debug)
+	fprintf(stderr,"get_baseline:  min=%f max=%f\n",ming,maxg);
+    for(u=ming;u<maxg; u+=0.1) {
+	unt=0;
+	for(i=0;i<411;i++)
+	    if (g[i]<u) {
+		unt++;
+	    }
+	if(unt>300 && !nullfound) {
+	    fprintf(stderr,"baseline at %.2f\n",u);
+	    nullinie=u;
+	    nullfound=1;
+	}
+	if (debug)
+	    fprintf(stderr,"%f %d\n",u,unt);
+    }
+    return nullinie;
+}
+
+static void 
+findstations(void)
+{
+    float maxg=0,ming=8;
+    int i;
+
+    for(i=0;i<411;i++) {
+	if(g[i]<ming) ming=g[i];
+	if(g[i]>maxg) maxg=g[i];
+    }
+
+    baseline=get_baseline(ming,maxg);
+    findmax();
+}
+
+static void do_scan(int fd,int scan)
+{
+    FILE * fmap=NULL;
+    float freq,s; 
+    int i,j;
+
+    if(scan > 1)
+	fmap=fopen("radio.fmmap","w");
+    for(i=0;i<411;i++) {
+	freq = 87.50+i*0.05;
+	s = 0;
+	radio_setfreq(fd,freq);
+	usleep(10000); /* give the tuner some time to settle */
+	for(j=1;j<5;j++) {
+	    s+=radio_getsignal(fd);
+	    radio_getstereo(fd);
+	    usleep(1000);
+	}
+	s=s/5; // average
+	g[i]=s;
+	if (scan > 1)
+	    fprintf(fmap,"%f %f\n", freq,s);
+	fprintf(stderr,"scanning: %6.2f MHz - %.2f\r", freq,s);
+    }
+    fprintf(stderr,"%40s\r","");
+    if (scan > 1)
+	fclose(fmap);
+    findstations();
+}
+
+/* ---------------------------------------------------------------------- */
+
+static void
+usage(FILE *out)
+{
+    fprintf(out,
+	    "radio -- interactive ncurses radio application\n"
+	    "usage:\n"
+	    "  radio [ options ]\n"
+	    "\n"
+	    "options:\n"
+	    "  -h       print this text\n"
+	    "  -d       enable debug output\n"
+	    "  -m       mute radio\n"
+	    "  -f freq  tune given frequency (also unmutes)\n"
+	    "  -c dev   use given device        [default: %s]\n"
+	    "  -s       scan\n"
+	    "  -S       scan + write radio.fmmap\n"
+	    "  -q       quit.  Useful with other options to control the\n"
+	    "           radio device without entering interactive mode,\n"
+	    "           i.e. \"radio -qf 91.4\"\n"
+	    "\n"
+	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n"
+	    "interface by Juli Merino <jmmv@mail.com>\n"
+	    "channel scan by Gunther Mayer <Gunther.Mayer@t-online.de>\n",
+	    device);
+}
+
 int
 main(int argc, char *argv[])
 {
     /* JMMV: lastfreq set to 1 to start radio at 0.0 */
-    int    fd,key,done,i,ifreq = 0,lastfreq = 1, mute=1;
+    int    fd,key=0,done,i,ifreq = 0,lastfreq = 1, mute=1;
     char   *name;
     /* Variables set by JMMV */
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
-    
-    if (argc > 1 && 1 == sscanf(argv[1],"%f",&ffreq)) {
-	ifreq = (int)(ffreq * 1000000);
-        ifreq += 25000;
-        ifreq -= ifreq % 50000;
-    }
+    int    quit=0, scan=0, arg_mute=0;
 
-    if (-1 == (fd = open(DEVICE, O_RDONLY))) {
-	perror("open " DEVICE);
+    /* parse args */
+    for (;;) {
+	c = getopt(argc, argv, "mhqdsSf:c:");
+	if (c == -1)
+	    break;
+	switch (c) {
+	case 'm':
+	    arg_mute = 1;
+	    break;
+	case 'q':
+	    quit = 1;
+	    break;
+	case 'd':
+	    debug= 1;
+	    break;
+	case 'S':
+	    scan = 2;
+	    break;
+	case 's':
+	    scan = 1;
+	    break;
+	case 'f':
+	    if (1 == sscanf(optarg,"%f",&ffreq)) {
+		ifreq = (int)(ffreq * 1000000);
+		ifreq += 25000;
+		ifreq -= ifreq % 50000;
+	    }
+	    break;
+	case 'c':
+	    device = optarg;
+	    break;
+	case 'h':
+	    usage(stdout);
+	    exit(0);
+	default:
+	    usage(stderr);
+	    exit(1);
+	}
+    }
+    
+    if (-1 == (fd = open(device, O_RDONLY))) {
+	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	exit(1);
     }
+
+    /* non-interactive stuff */
+    if (scan) {
+	do_scan(fd,scan);
+	if (!ifreq  &&  max_astation) {
+	    current_astation = 0;
+            ifreq=87500000+astation[current_astation]*50000;
+	}
+    }
+    if (ifreq) {
+	ffreq = (float)ifreq / 1000000;
+	fprintf(stderr,"tuned %.2f MHz\n",ffreq);
+	radio_setfreq(fd,ffreq);
+	radio_unmute(fd);
+    }
+    if (arg_mute) {
+	fprintf(stderr,"muted radio\n");
+	radio_mute(fd);
+    }
+    if (quit)
+	exit(0);
 
     read_kradioconfig();
     if (!ifreq && fkeys[0])
 	ifreq = fkeys[0];
 
+    /* enter interactive mode -- init ncurses */
+    ncurses=1;
     initscr();
     start_color();
     cbreak();
@@ -229,7 +484,7 @@ main(int argc, char *argv[])
     werase(wstations);
     box(wstations, 0, 0);
     mvwprintw(wstations, 0, 1, " Preset stations ");
-	
+    
     wcommand = newwin(3,COLS-4,LINES-4,2);
     wbkgd(wcommand,A_BOLD | COLOR_PAIR(3));
     werase(wcommand);
@@ -251,7 +506,8 @@ main(int argc, char *argv[])
 	    stset = 1;
 	}
     }
-    if (!stset) mvwprintw(wstations,1,1,"[none]");
+    if (!stset)
+	mvwprintw(wstations,1,1,"[none]");
     wrefresh(wstations);
     
     radio_unmute(fd);
@@ -265,16 +521,20 @@ main(int argc, char *argv[])
 		mvwprintw(wfreq,5,2,"%-20.20s",name);
 	    else
 		mvwprintw(wfreq,5,2,"%-20.20s","");
-	    wrefresh(wfreq);
 	}
+	radio_getstereo(fd);
+	radio_getsignal(fd);
+	wrefresh(wfreq);
+	wrefresh(wcommand);
 
-	wrefresh(wcommand);
-	select_wait(3);
-	mvwprintw(wcommand,1,1,"%50.50s","");
-	wrefresh(wcommand);
+	if (0 == select_wait(1)) {
+	    mvwprintw(wcommand,1,1,"%50.50s","");
+	    wrefresh(wcommand);
+	    continue;
+	}
 	key = getch();
 	switch (key) {
-	case EOF: /* for noninteractive use: "radio 95.8 <>/dev/null" */
+	case EOF:
 	case 'x':
 	case 'X':
 	    mute = 0;
@@ -311,6 +571,25 @@ main(int argc, char *argv[])
               ifreq = 108000000;
 	    mvwprintw(wcommand, 1, 2, "Decrease frequency");
 	    break;
+	case KEY_PPAGE:
+	case KEY_NPAGE:
+	    if (max_astation) {
+		current_astation += (key == KEY_NPAGE) ? -1 : 1;
+		if(current_astation<0)
+		    current_astation=max_astation;
+		if(current_astation>max_astation)
+		    current_astation=0;
+		ifreq=87500000+astation[current_astation]*50000;
+	    }
+	    break;
+        case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
 	case KEY_F(1):
 	case KEY_F(2):
 	case KEY_F(3):
@@ -319,9 +598,10 @@ main(int argc, char *argv[])
 	case KEY_F(6):
 	case KEY_F(7):
 	case KEY_F(8):
-	    if (fkeys[key - KEY_F(1)]) {
-		ifreq = fkeys[key - KEY_F(1)];
-		mvwprintw(wcommand, 1, 2, "Go to preset station %d", key - KEY_F(0));
+	    i = (key >= '1' && key <= '8')  ?  key - '1' : key - KEY_F(1);
+	    if (fkeys[i]) {
+		ifreq = fkeys[i];
+		mvwprintw(wcommand, 1, 2, "Go to preset station %d", i+1);
 	    }
 	    break;	    
 	}
@@ -334,9 +614,5 @@ main(int argc, char *argv[])
     clear();
     refresh();
     endwin();
-    printf("radio\n");
-    printf("copyright (c) 1998-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>\n");
-    printf("interface by Juli Merino <jmmv@mail.com>\n");
-
     return 0;
 }

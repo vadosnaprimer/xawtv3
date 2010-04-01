@@ -1,8 +1,8 @@
-/* MIT shared memory extention */
-#undef HAVE_MITSHM
-
 /* lirc lib */
 #undef HAVE_LIBLIRC_CLIENT
+
+/* alsa */
+#undef HAVE_ALSA
 
 /* quicktime lib */
 #undef HAVE_LIBQUICKTIME

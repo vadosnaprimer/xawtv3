@@ -1,13 +1,13 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* config.h.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define if the X Window System is missing or not being used.  */
 #undef X_DISPLAY_MISSING
 
-/* MIT shared memory extention */
-#undef HAVE_MITSHM
-
 /* lirc lib */
 #undef HAVE_LIBLIRC_CLIENT
+
+/* alsa */
+#undef HAVE_ALSA
 
 /* quicktime lib */
 #undef HAVE_LIBQUICKTIME
@@ -17,6 +17,9 @@
 
 /* ipv6 struct sockaddr_storage */
 #undef HAVE_SOCKADDR_STORAGE
+
+/* Define if you have the fseeko function.  */
+#undef HAVE_FSEEKO
 
 /* Define if you have the ftello function.  */
 #undef HAVE_FTELLO
@@ -30,11 +33,17 @@
 /* Define if you have the getpt function.  */
 #undef HAVE_GETPT
 
+/* Define if you have the <alsa/asoundlib.h> header file.  */
+#undef HAVE_ALSA_ASOUNDLIB_H
+
 /* Define if you have the <endian.h> header file.  */
 #undef HAVE_ENDIAN_H
 
 /* Define if you have the <getopt.h> header file.  */
 #undef HAVE_GETOPT_H
+
+/* Define if you have the <linux/joystick.h> header file.  */
+#undef HAVE_LINUX_JOYSTICK_H
 
 /* Define if you have the <soundcard.h> header file.  */
 #undef HAVE_SOUNDCARD_H

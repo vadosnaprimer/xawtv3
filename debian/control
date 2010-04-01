@@ -1,14 +1,14 @@
 Source: xawtv
 Section: graphics
 Priority: extra
-Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), xaw3dg-dev, liblircclient-dev, debhelper, xutils, libquicktime4linux-dev, xbase-clients
+Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), xaw3dg-dev, liblircclient-dev, debhelper, xutils, libquicktime4linux-dev, xbase-clients, aalib1-dev, libasound1-dev
 Maintainer: Gerd Knorr <kraxel@debian.org>
 Standards-Version: 3.5.2
 
 Package: xawtv
 Section: x11
 Architecture: any
-Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, pciutils
+Depends: ${shlibs:Depends}, v4l-conf, xutils, debconf, scantv
 Description: X11 TV application
  TV application for X11.  Supports video4linux
  devices and the Xvideo extension.
@@ -24,6 +24,24 @@ Description: linux console (fbcon) TV application
  TV application for the linux console, requires a
  framebuffer device (vesafb, matroxfb, atyfb, ...)
  and a video4linux driver like bttv.
+
+Package: ttv
+Architecture: any
+Depends: ${shlibs:Depends}
+Suggests: xawtv
+Description: tty TV application
+ TV application for terminals, based on aalib.
+ Uses video4linux devices as video input.
+
+Package: scantv
+Architecture: any
+Depends: ${shlibs:Depends}
+Replaces: xawtv (<< 3.53)
+Description: scan TV channels for stations
+ This utility can scan a channel set for TV stations
+ and write the ones found into a xawtv config file
+ (which is also read by some other utilities like fbtv).
+ It also tries to extract the station names from vbi data.
 
 Package: streamer
 Architecture: any
@@ -65,6 +83,12 @@ Description: Miscellaneous tools distributed with xawtv
                   level meter which might be useful to trouble
                   shoot sound problems.
   * showriff    - display the structure of RIFF files (avi, wav).
+
+Package: xawtv-plugins
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: plugins for xawtv and motv
+ a few image processing plugins.
 
 Package: webcam
 Section: net

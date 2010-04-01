@@ -1,6 +1,10 @@
-This is for vbi decoding.  Taken from alevt 1.5.1.
+This is for vbi decoding.  Taken from alevt 1.6.0
 Changes:
   * Makefile written from scratch.
   * cache.c:  removed help pages.
   * vbi.c:    removed "static" from vbi_handler
   * export.c: removed "static" from fmt_page
+
+Fixes:
+  vbi.c: vbi_open(): BTTV_VBISIZE is _IOR(int) and therefore wants
+  a valid (dummy) pointer as arg.

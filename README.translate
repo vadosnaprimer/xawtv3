@@ -1,0 +1,21 @@
+
+translate motv
+==============
+
+The new motif-gui version has i18n support, it is handled by using
+different application default files for the different languages.  All
+the strings are in the MoTV-<lang> files.  MoTV-default is the english
+version.  MoTV-fixed has the other (language-independant) app-default
+settings.  The Makefile merges these into MoTV.<lang>.ad files.
+
+To add another language you just need to create a new MoTV-<lang> file
+and add the language to Makefile.in (+ rerun ./configure).  "make i18n"
+builds the MoTV.<lang>.ad files.  If you set the XUSERFILESEARCHPATH
+environment variable to "./%N.%l.ad:./%N.ad" you can test it without
+installing the app-defaults in /etc/X11.
+
+
+other
+=====
+
+Currently I have no plans to localize xawtv and the command line tools.

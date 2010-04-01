@@ -1,14 +1,14 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-CC=@CC@
-DEPEND=@DEPEND@
+include ../Make.config
 
-CFLAGS=-Wall -O2 -g @CFLAGS@ -I..
-OBJS=grab-ng.o @NG_GRAB@				\
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) -I..	\
+	-DNG_PRIVATE -DLIBDIR='"$(libdir)"'
+OBJS=grab-ng.o devices.o @NG_GRAB@			\
 	color_common.o color_packed.o color_lut.o	\
 	color_yuv2rgb.o					\
-	mjpeg.o						\
+	clipping.o mjpeg.o				\
 	writefile.o writeavi.o writeqt.o
 
 all build: libng.a

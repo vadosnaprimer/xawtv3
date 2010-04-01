@@ -1,13 +1,18 @@
+#ifndef __LINUX_VIDEODEV2_H
+#define __LINUX_VIDEODEV2_H
 /*
  *	Video for Linux Two
  *
- *	Header file for V4L2 drivers and applications.
+ *	Header file for v4l or V4L2 drivers and applications, for
+ *	Linux kernels 2.2.x or 2.4.x.
+ *
+ *	See http://www.thedirks.org/v4l2/ for API specs and other
+ *	v4l2 documentation.
  *
  *	Author: Bill Dirks <bdirks@pacbell.net>
+ *		Justin Schoeman
+ *		et al.
  */
-
-#ifndef __LINUX_VIDEODEV_H
-#define __LINUX_VIDEODEV_H
 
 #define V4L2_MAJOR_VERSION	0
 #define V4L2_MINOR_VERSION	20
@@ -18,15 +23,14 @@
  */
 
 /*  Four-character-code (FOURCC) */
-#define fourcc(a,b,c,d)\
+#define v4l2_fourcc(a,b,c,d)\
         (((__u32)(a)<<0)|((__u32)(b)<<8)|((__u32)(c)<<16)|((__u32)(d)<<24))
 
 /*  Open flag for non-capturing opens on capture devices  */
 #define O_NONCAP	O_TRUNC
 #define O_NOIO		O_TRUNC
 
-/*  Timestamp data type, 64-bit signed integer  */
-/*  Should be removed from here when UST is added to kernel  */
+/*  Timestamp data type, 64-bit signed integer, in nanoseconds  */
 #ifndef STAMP_T
 #define STAMP_T
 typedef __s64 stamp_t;
@@ -59,6 +63,8 @@ struct v4l2_capability
 #define V4L2_TYPE_VTR		5	/* Is a tape recorder controller */
 #define V4L2_TYPE_VTX		6	/* Is a teletext device */
 #define V4L2_TYPE_RADIO		7	/* Is a radio device */
+#define V4L2_TYPE_VBI_INPUT	4	/* Is a VBI capture device */
+#define V4L2_TYPE_VBI_OUTPUT	9	/* Is a VBI output device */
 #define V4L2_TYPE_PRIVATE	1000	/* Start of driver private types */
 /* Flags for 'flags' field */
 #define V4L2_FLAG_READ		0x00001 /* Can capture via read() call */
@@ -86,37 +92,47 @@ struct v4l2_pix_format
 	__u32	priv;		/* private data, depends on pixelformat */
 };
 /*           Pixel format    FOURCC                  depth  Description   */
-#define V4L2_PIX_FMT_RGB332  fourcc('R','G','B','1') /*  8  RGB-3-3-2     */
-#define V4L2_PIX_FMT_RGB555  fourcc('R','G','B','O') /* 16  RGB-5-5-5     */
-#define V4L2_PIX_FMT_RGB565  fourcc('R','G','B','P') /* 16  RGB-5-6-5     */
-#define V4L2_PIX_FMT_BGR24   fourcc('B','G','R','3') /* 24  BGR-8-8-8     */
-#define V4L2_PIX_FMT_RGB24   fourcc('R','G','B','3') /* 24  RGB-8-8-8     */
-#define V4L2_PIX_FMT_BGR32   fourcc('B','G','R','4') /* 32  BGR-8-8-8-8   */
-#define V4L2_PIX_FMT_RGB32   fourcc('R','G','B','4') /* 32  RGB-8-8-8-8   */
-#define V4L2_PIX_FMT_GREY    fourcc('G','R','E','Y') /*  8  Greyscale     */
-#define V4L2_PIX_FMT_YVU410  fourcc('Y','V','U','9') /*  9  YVU 4:1:0     */
-#define V4L2_PIX_FMT_YVU420  fourcc('Y','V','1','2') /* 12  YVU 4:2:0     */
-#define V4L2_PIX_FMT_YUYV    fourcc('Y','U','Y','V') /* 16  YUV 4:2:2     */
-#define V4L2_PIX_FMT_UYVY    fourcc('U','Y','V','Y') /* 16  YUV 4:2:2     */
-#define V4L2_PIX_FMT_YVU422P fourcc('4','2','2','P') /* 16  YVU422 planar */
-#define V4L2_PIX_FMT_YVU411P fourcc('4','1','1','P') /* 16  YVU411 planar */
+#define V4L2_PIX_FMT_RGB332  v4l2_fourcc('R','G','B','1') /*  8  RGB-3-3-2     */
+#define V4L2_PIX_FMT_RGB555  v4l2_fourcc('R','G','B','O') /* 16  RGB-5-5-5     */
+#define V4L2_PIX_FMT_RGB565  v4l2_fourcc('R','G','B','P') /* 16  RGB-5-6-5     */
+#define V4L2_PIX_FMT_RGB555X v4l2_fourcc('R','G','B','Q') /* 16  RGB-5-5-5 BE  */
+#define V4L2_PIX_FMT_RGB565X v4l2_fourcc('R','G','B','R') /* 16  RGB-5-6-5 BE  */
+#define V4L2_PIX_FMT_BGR24   v4l2_fourcc('B','G','R','3') /* 24  BGR-8-8-8     */
+#define V4L2_PIX_FMT_RGB24   v4l2_fourcc('R','G','B','3') /* 24  RGB-8-8-8     */
+#define V4L2_PIX_FMT_BGR32   v4l2_fourcc('B','G','R','4') /* 32  BGR-8-8-8-8   */
+#define V4L2_PIX_FMT_RGB32   v4l2_fourcc('R','G','B','4') /* 32  RGB-8-8-8-8   */
+#define V4L2_PIX_FMT_GREY    v4l2_fourcc('G','R','E','Y') /*  8  Greyscale     */
+#define V4L2_PIX_FMT_YVU410  v4l2_fourcc('Y','V','U','9') /*  9  YVU 4:1:0     */
+#define V4L2_PIX_FMT_YVU420  v4l2_fourcc('Y','V','1','2') /* 12  YVU 4:2:0     */
+#define V4L2_PIX_FMT_YUYV    v4l2_fourcc('Y','U','Y','V') /* 16  YUV 4:2:2     */
+#define V4L2_PIX_FMT_UYVY    v4l2_fourcc('U','Y','V','Y') /* 16  YUV 4:2:2     */
+#if 0
+# define V4L2_PIX_FMT_YVU422P v4l2_fourcc('4','2','2','P') /* 16  YVU422 planar */
+# define V4L2_PIX_FMT_YVU411P v4l2_fourcc('4','1','1','P') /* 16  YVU411 planar */
+#endif
+#define V4L2_PIX_FMT_Y41P    v4l2_fourcc('Y','4','1','P') /* 12  YUV 4:1:1     */
 
 /*  The following formats are not defined in the V4L2 specification */
-#define V4L2_PIX_FMT_YUV410  fourcc('Y','U','V','9') /*  9  YUV 4:1:0     */
-#define V4L2_PIX_FMT_YUV420  fourcc('Y','U','1','2') /* 12  YUV 4:2:0     */
-#define V4L2_PIX_FMT_YYUV    fourcc('Y','Y','U','V') /* 16  YUV 4:2:2     */
-#define V4L2_PIX_FMT_HI240   fourcc('H','I','2','4') /*  8  8-bit color   */
+#define V4L2_PIX_FMT_YUV410  v4l2_fourcc('Y','U','V','9') /*  9  YUV 4:1:0     */
+#define V4L2_PIX_FMT_YUV420  v4l2_fourcc('Y','U','1','2') /* 12  YUV 4:2:0     */
+#define V4L2_PIX_FMT_YYUV    v4l2_fourcc('Y','Y','U','V') /* 16  YUV 4:2:2     */
+#define V4L2_PIX_FMT_HI240   v4l2_fourcc('H','I','2','4') /*  8  8-bit color   */
+
+/*  Vendor-specific formats   */
+#define V4L2_PIX_FMT_WNVA    v4l2_fourcc('W','N','V','A') /* Winnov hw compres */
 
 
 /*  Flags */
 #define V4L2_FMT_FLAG_COMPRESSED	0x0001	/* Compressed format */
 #define V4L2_FMT_FLAG_BYTESPERLINE	0x0002	/* bytesperline field valid */
+#define V4L2_FMT_FLAG_NOT_INTERLACED	0x0000
 #define V4L2_FMT_FLAG_INTERLACED	0x0004	/* Image is interlaced */
 #define V4L2_FMT_FLAG_TOPFIELD		0x0008	/* is a top field only */
 #define V4L2_FMT_FLAG_BOTFIELD		0x0010	/* is a bottom field only */
 #define V4L2_FMT_FLAG_ODDFIELD		V4L2_FMT_FLAG_TOPFIELD
 #define V4L2_FMT_FLAG_EVENFIELD		V4L2_FMT_FLAG_BOTFIELD
 #define V4L2_FMT_FLAG_COMBINED		V4L2_FMT_FLAG_INTERLACED
+#define V4L2_FMT_FLAG_FIELD_field	0x001C
 #define V4L2_FMT_CS_field		0xF000	/* Color space field mask */
 #define V4L2_FMT_CS_601YUV		0x1000	/* ITU YCrCb color space */
 #define V4L2_FMT_FLAG_SWCONVERSION	0x0800	/* used only in format enum. */
@@ -234,6 +250,7 @@ struct v4l2_buffer
 #define V4L2_BUF_TYPE_EFFECTSOUT	0x00000006
 #define V4L2_BUF_TYPE_VIDEOOUT		0x00000007
 #define V4L2_BUF_TYPE_FXCONTROL		0x00000008
+#define V4L2_BUF_TYPE_VBI		0x00000009
 
 /*  Starting value of driver private buffer types  */
 #define V4L2_BUF_TYPE_PRIVATE		0x00001000
@@ -576,7 +593,7 @@ struct v4l2_fxcontrol
 #define V4L2_CID_AUDIO_MUTE		(V4L2_CID_BASE+9)
 #define V4L2_CID_AUDIO_LOUDNESS		(V4L2_CID_BASE+10)
 #define V4L2_CID_BLACK_LEVEL		(V4L2_CID_BASE+11)
-#define V4l2_CID_AUTO_WHITE_BALANCE	(V4L2_CID_BASE+12)
+#define V4L2_CID_AUTO_WHITE_BALANCE	(V4L2_CID_BASE+12)
 #define V4L2_CID_DO_WHITE_BALANCE	(V4L2_CID_BASE+13)
 #define V4L2_CID_RED_BALANCE		(V4L2_CID_BASE+14)
 #define V4L2_CID_BLUE_BALANCE		(V4L2_CID_BASE+15)
@@ -588,7 +605,7 @@ struct v4l2_fxcontrol
 #define V4L2_CID_HFLIP			(V4L2_CID_BASE+20)
 #define V4L2_CID_VFLIP			(V4L2_CID_BASE+21)
 #define V4L2_CID_HCENTER		(V4L2_CID_BASE+22)
-#define V4L2_CID_VCENTER		(V4l2_CID_BASE+23)
+#define V4L2_CID_VCENTER		(V4L2_CID_BASE+23)
 #define V4L2_CID_LASTP1			(V4L2_CID_BASE+24) /* last CID + 1 */
 /*  Remember to change fill_ctrl_category() in videodev.c  */
 
@@ -685,12 +702,14 @@ struct v4l2_audioout
 
 /*
  *	D A T A   S E R V I C E S   ( V B I )
+ *
+ *	Data services API by Michael Schimek
  */
 
 struct v4l2_vbi_format
 {
 	__u32	sampling_rate;		/* in 1 Hz */
-	__u32	reserved1;		/* must be zero */
+	__u32	offset;
 	__u32	samples_per_line;
 	__u32	sample_format;		/* V4L2_VBI_SF_* */
 	__s32	start[2];
@@ -806,12 +825,6 @@ struct v4l2_streamparm
 
 #ifdef __KERNEL__
 /*
- *	These things are used only by drivers.
- */
-
-extern int videodev_init(void);
-
-/*
  *
  *	V 4 L 2   D R I V E R   H E L P E R   A P I
  *
@@ -820,10 +833,11 @@ extern int videodev_init(void);
 
 extern void v4l2_version(int *major, int *minor);
 extern int v4l2_major_number(void);
+extern void v4l2_fill_ctrl_category(struct v4l2_queryctrl *qc);
 
 /*  Memory management  */
 extern unsigned long v4l2_vmalloc_to_bus(void *virt);
-extern unsigned long v4l2_vmalloc_to_page(void *virt);
+extern struct page *v4l2_vmalloc_to_page(void *virt);
 
 /*  Simple queue management  */
 struct v4l2_q_node
@@ -843,6 +857,7 @@ extern void *v4l2_q_del_tail(struct v4l2_queue *q);
 extern void *v4l2_q_peek_head(struct v4l2_queue *q);
 extern void *v4l2_q_peek_tail(struct v4l2_queue *q);
 extern void *v4l2_q_yank_node(struct v4l2_queue *q, struct v4l2_q_node *node);
+extern int   v4l2_q_last(struct v4l2_queue *q);
 
 /*  Math functions  */
 extern u32 v4l2_math_div6432(u64 a, u32 d, u32 *r);
@@ -882,48 +897,24 @@ extern int v4l2_video_std_construct(struct v4l2_standard *vs,
 //#define V4L2_STD_SECAM_L	28	/* (France, Luxembourg, Monaco) */
 //#define V4L2_STD_SECAM_M	29	/* (Jamaica) */
 
-/*
- *	D E V I C E   D R I V E R   R E G I S T R A T I O N
- *
- */
-struct v4l2_device
-{
-	char	name[32];
-	int	type;
-	int	minor;
-
-	int	(*open)(struct v4l2_device *v,
-			int flags, void **idptr);
-	void	(*close)(void *id);
-	long	(*read)(void *id,
-			char *buf, unsigned long count, int noblock);
-	long	(*write)(void *id,
-			 const char *buf, unsigned long count, int noblock);
-	int	(*ioctl)(void *id,
-			 unsigned int cmd, void *arg);
-	int	(*mmap)(void *id,
-			struct vm_area_struct *vma);
-	int	(*poll)(void *id,
-			struct file *file, poll_table *table);
-
-	int	(*initialize)(struct v4l2_device *v);
-	void	*priv;	/*  may be used by the driver  */
-
-	int	busy;		/*  open count maintained by videodev.c  */
-	void	*v4l2_priv;		/*  for V4L2 use  */
-	int	v4l2_reserved[4];	/*  for V4L2 use  */
-};
-
 /*  Size of kernel ioctl arg buffer used in ioctl handler  */
 #define V4L2_MAX_IOCTL_SIZE		256
 
-extern int v4l2_register_device(struct v4l2_device *);
-extern void v4l2_unregister_device(struct v4l2_device *);
-
-/*  V4L2 structures  */
-extern struct v4l2_device *v4l2_device_from_file(struct file *file);
-extern void *v4l2_openid_from_file(struct file *file);
-
-#endif/*ifdef __KERNEL__ */
-
+/*  Compatibility layer interface  */
+struct v4l2_v4l_compat
+{
+    int	(*translate_ioctl)(struct inode         *inode,
+			   struct file		*file,
+			   int			cmd,
+			   void			*arg);
+#if 0
+    void (*fix_offset)(struct file *file,
+		       struct v4l2_device *vfl,
+		       struct vm_area_struct *vma);
 #endif
+};
+extern int v4l2_v4l_compat_register(struct v4l2_v4l_compat *);
+extern void v4l2_v4l_compat_unregister(struct v4l2_v4l_compat *);
+
+#endif /* __KERNEL__ */
+#endif /* __LINUX_VIDEODEV2_H */

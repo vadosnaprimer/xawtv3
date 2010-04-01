@@ -28,7 +28,8 @@ int lirc_tv_init()
     int fd;
     
     if (-1 == (fd = lirc_init("xawtv",debug))) {
-	fprintf(stderr,"no infrared remote support available\n");
+	if (debug)
+	    fprintf(stderr,"no infrared remote support available\n");
 	return -1;
     }
     

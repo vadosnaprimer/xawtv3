@@ -11,11 +11,6 @@ general
    it should be a station-specific offset to the overall volume.  Try to
    get this right for every soundcard / high + low volume / ... ).
  * mono/stereo config file options.
- * videotext decoder (for station ID, maybe subtitles)
- * switch to another toolkit, Xaw keyboard/menu support sucks
-   gtk?  Motif?
- * config file args for avi-params?
- * i18n/locale
  * hotkeys/remote commands for mono/stereo/...
  * two (more?) channel lists: "all" & "frequently used".
 

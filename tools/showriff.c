@@ -8,6 +8,7 @@
  *   - fixed warnings
  *   - added some tags (checked xanim sources for info)
  *   - LFS + OpenDML + mjpeg
+ *   - bytesex fixes
  */
 
 #include "config.h"
@@ -21,6 +22,29 @@
 #include <errno.h>
 #include <sys/types.h>
 
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
+#if BYTE_ORDER == BIG_ENDIAN
+# define SWAP2(x) (((x>>8) & 0x00ff) |\
+                   ((x<<8) & 0xff00))
+
+# define SWAP4(x) (((x>>24) & 0x000000ff) |\
+                   ((x>>8)  & 0x0000ff00) |\
+                   ((x<<8)  & 0x00ff0000) |\
+                   ((x<<24) & 0xff000000))
+#else
+# define SWAP2(a) (a)
+# define SWAP4(a) (a)
+#endif
+
+#ifndef HAVE_FTELLO
+# define ftello ftell
+#endif
+#ifndef HAVE_FSEEKO
+# define fseeko fseek
+#endif
+
 typedef unsigned long DWORD;
 typedef unsigned short WORD;
 typedef DWORD FOURCC;             /* Type of FOUR Character Codes */
@@ -32,8 +56,13 @@ typedef unsigned char boolean;
 /* Macro to convert expressions of form 'F','O','U','R' to
    numbers of type FOURCC: */
 
-#define MAKEFOURCC(a,b,c,d) ( ((DWORD)a)      | (((DWORD)b)<< 8) | \
-                             (((DWORD)c)<<16) | (((DWORD)d)<<24)  )
+#if BYTE_ORDER == BIG_ENDIAN
+# define MAKEFOURCC(a,b,c,d) ((((DWORD)a)<<24) | (((DWORD)b)<<16) | \
+                              (((DWORD)c)<< 8) | ( (DWORD)d)      )
+#else
+# define MAKEFOURCC(a,b,c,d) ( ((DWORD)a)      | (((DWORD)b)<< 8) | \
+                              (((DWORD)c)<<16) | (((DWORD)d)<<24)  )
+#endif
 
 /* The only FOURCCs interpreted by this program: */
 
@@ -53,12 +82,19 @@ typedef unsigned char boolean;
 /* Build a string from a FOURCC number
    (s must have room for at least 5 chars) */
 
-void FOURCC2Str(FOURCC fcc, char* s)
+static void FOURCC2Str(FOURCC fcc, char* s)
 {
+#if BYTE_ORDER == BIG_ENDIAN
+    s[0]=(fcc >> 24) & 0xFF;
+    s[1]=(fcc >> 16) & 0xFF;
+    s[2]=(fcc >>  8) & 0xFF;
+    s[3]=(fcc      ) & 0xFF;
+#else
     s[0]=(fcc      ) & 0xFF;
     s[1]=(fcc >>  8) & 0xFF;
     s[2]=(fcc >> 16) & 0xFF;
     s[3]=(fcc >> 24) & 0xFF;
+#endif
     s[4]=0;
 }
 
@@ -155,7 +191,7 @@ struct VAL names_dmlh[] = {
     { EoLST,  NULL }    
 };
 
-void dump_vals(FILE *f, int count, struct VAL *names)
+static void dump_vals(FILE *f, int count, struct VAL *names)
 {
     DWORD i,j,val32;
     WORD  val16;
@@ -164,10 +200,12 @@ void dump_vals(FILE *f, int count, struct VAL *names)
 	switch (names[i].type) {
 	case INT32:
 	    fread(&val32,4,1,f);
+	    val32 = SWAP4(val32);
 	    printf("\t%-12s = %ld\n",names[i].name,val32);
 	    break;
 	case CCODE:
 	    fread(&val32,4,1,f);
+	    val32 = SWAP4(val32);
 	    if (val32) {
 		printf("\t%-12s = %c%c%c%c (0x%lx)\n",names[i].name,
 		       (int)( val32        & 0xff),
@@ -181,6 +219,7 @@ void dump_vals(FILE *f, int count, struct VAL *names)
 	    break;
 	case FLAGS:
 	    fread(&val32,4,1,f);
+	    val32 = SWAP4(val32);
 	    printf("\t%-12s = 0x%lx\n",names[i].name,val32);
 	    if (names[i].flags) {
 		for (j = 0; names[i].flags[j].bit != 0; j++)
@@ -191,6 +230,7 @@ void dump_vals(FILE *f, int count, struct VAL *names)
 	    break;
 	case INT16:
 	    fread(&val16,2,1,f);
+	    val16 = SWAP2(val16);
 	    printf("\t%-12s = %ld\n",names[i].name,(long)val16);
 	    break;
 	}
@@ -234,7 +274,7 @@ static void hexlog(unsigned char *buf, int count)
     }
 }
 
-void dump_jpeg(unsigned char *buf, int len)
+static void dump_jpeg(unsigned char *buf, int len)
 {
     int i,j,type,skip;
 
@@ -289,7 +329,7 @@ void dump_jpeg(unsigned char *buf, int len)
     }
 }
 
-unsigned char*
+static unsigned char*
 off_t_to_char(off_t val, int base, int len)
 {
     static const char digit[] = "0123456789abcdef";
@@ -308,10 +348,11 @@ off_t_to_char(off_t val, int base, int len)
 /* Reads a chunk ID and the chunk's size from file f at actual
    file position : */
 
-boolean ReadChunkHead(FILE* f, FOURCC* ID, DWORD* size)
+static boolean ReadChunkHead(FILE* f, FOURCC* ID, DWORD* size)
 {
     if (!fread(ID,sizeof(FOURCC),1,f)) return(FALSE);
     if (!fread(size,sizeof(DWORD),1,f)) return(FALSE);
+    *size = SWAP4(*size);
     return(TRUE);
 }
 
@@ -327,9 +368,9 @@ boolean ReadChunkHead(FILE* f, FOURCC* ID, DWORD* size)
    ProcessChunk prints out information of the chunk to stdout
    and returns FALSE, if an error occured. */
 
-boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
-                     FOURCC DesiredTag, int RekDepth,
-                     DWORD* chunksize)
+static boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
+			    FOURCC DesiredTag, int RekDepth,
+			    DWORD* chunksize)
 {
     char   buf[BUFSIZE];
     int    buflen;
@@ -342,7 +383,7 @@ boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
 	if (stop_on_errors)
 	    return(FALSE);
     }
-    fseek(f,filepos,SEEK_SET);    /* Go to desired file position!     */
+    fseeko(f,filepos,SEEK_SET);    /* Go to desired file position!     */
     
     if (!ReadChunkHead(f,&chunkid,chunksize)) {  /* read chunk header */
 	printf("  *****  Error reading chunk at filepos 0x%s\n",
@@ -459,7 +500,7 @@ boolean ProcessChunk(FILE* f, off_t filepos, off_t filesize,
     return(TRUE);
 }
 
-void
+static void
 usage(char *prog)
 {
     char *h;
@@ -517,17 +558,13 @@ int main (int argc, char **argv)
 	return(1);
     }
     
-    fseek(f, 0, SEEK_END);
-#ifdef HAVE_FTELLO
+    fseeko(f, 0, SEEK_END);
     filesize = ftello(f);
-#else
-    filesize = ftell(f);
-#endif
-    fseek(f, 0, SEEK_SET);
+    fseeko(f, 0, SEEK_SET);
 
-    printf("Contents of file %s (%s/",argv[optind],
-	   off_t_to_char(filesize,10,1));
-    printf("0x%s bytes):\n\n",off_t_to_char(filesize,16,1));
+    printf("Contents of file %s (%s/0x%s bytes):\n\n",argv[optind],
+	   off_t_to_char(filesize,10,1),
+	   off_t_to_char(filesize,16,1));
 
     for (filepos = 0; filepos < filesize;) {
 	chunksize = 0;

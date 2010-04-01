@@ -94,8 +94,10 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
     static int width,height;
     int wx,wy,wwidth,wheight;
     Display *dpy = XtDisplay(video);
+#if 0
     Screen  *scr = DefaultScreenOfDisplay(dpy);
     Pixmap   pix;
+#endif
 
     switch(event->type) {
     case ConfigureNotify:
@@ -159,6 +161,10 @@ main(int argc, char *argv[])
     Display *dpy;
     Atom attr;
 
+    XVisualInfo  *info, template;
+    int          found,v;
+    char         *class;
+
     int ver, rel, req, ev, err, val;
     int adaptors,encodings,attributes,formats;
     int i,j,p,c;
@@ -200,12 +206,17 @@ main(int argc, char *argv[])
 	    fprintf(stderr,
 		    "This is a xvideo test application.\n"
 		    "Options:\n"
-		    "  -h | --help    this text"
-		    "  -p | --port n  create a window and call XvPutVideo with"
-		    "                 port >n<\n");
+		    "  -h | --help    this text\n"
+		    "  -p | --port n  create a window and call XvPutVideo\n"
+		    "                 with port >n<\n");
 	    exit(1);
 	}
     }
+
+    /* query visuals */
+    memset(&template,0,sizeof(template));
+    template.screen = XDefaultScreen(dpy);
+    info = XGetVisualInfo(dpy, VisualScreenMask,&template,&found);
 
     /* query+print Xvideo properties */
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
@@ -230,19 +241,33 @@ main(int argc, char *argv[])
 	       (ai[i].type & XvImageMask)  ? "image "  : "",
 	       ai[i].num_ports,
 	       ai[i].base_id);
-	printf("  format list\n");
+	printf("  format list (n=%ld)\n",ai[i].num_formats);
 	for (j = 0; j < ai[i].num_formats; j++) {
-	    printf("    depth=%d, visual=%ld\n",
+	    printf("    depth=%d, visual: id=0x%lx",
 		   ai[i].formats[j].depth,
 		   ai[i].formats[j].visual_id);
+	    for (v = 0; v < found; v++) {
+		if (ai[i].formats[j].visual_id != info[v].visualid)
+		    continue;
+		switch (info[v].class) {
+		case StaticGray:   class = "StaticGray";  break;
+		case GrayScale:    class = "GrayScale";   break;
+		case StaticColor:  class = "StaticColor"; break;
+		case PseudoColor:  class = "PseudoColor"; break;
+		case TrueColor:    class = "TrueColor";   break;
+		case DirectColor:  class = "DirectColor"; break;
+		default:           class = "UNKNOWN";     break;
+		}
+		printf(", class=%d (%s)",info[v].class,class);
+	    }
+	    printf("\n");
 	}
 	for (p = ai[i].base_id; p < ai[i].base_id+ai[i].num_ports; p++) {
-
-	    printf("  encoding list for port %d\n",p);
 	    if (Success != XvQueryEncodings(dpy, p, &encodings, &ei)) {
 		puts("Oops: XvQueryEncodings failed");
 		continue;
 	    }
+	    printf("  encoding list for port %d (n=%d)\n",p,encodings);
 	    for (j = 0; j < encodings; j++) {
 		printf("    id=%ld, name=%s, size=%ldx%ld\n",
 		       ei[j].encoding_id, ei[j].name,
@@ -250,31 +275,51 @@ main(int argc, char *argv[])
 	    }
 	    XvFreeEncodingInfo(ei);
 
-	    printf("  attribute list for port %d\n",p);
 	    at = XvQueryPortAttributes(dpy,p,&attributes);
+	    printf("  attribute list for port %d (n=%d)\n",p,attributes);
 	    for (j = 0; j < attributes; j++) {
-		fprintf(stderr,"    %s%s%s, %i -> %i",
-			at[j].name,
-			(at[j].flags & XvGettable) ? " get" : "",
-			(at[j].flags & XvSettable) ? " set" : "",
-			at[j].min_value,at[j].max_value);
+		printf("    %s%s%s, %i -> %i",
+		       at[j].name,
+		       (at[j].flags & XvGettable) ? " get" : "",
+		       (at[j].flags & XvSettable) ? " set" : "",
+		       at[j].min_value,at[j].max_value);
 		attr = XInternAtom(dpy, at[j].name, False);
 		if (at[j].flags & XvGettable) {
 		    XvGetPortAttribute(dpy, p, attr, &val);
-		    fprintf(stderr,", val=%d",val);
+		    printf(", val=%d",val);
 		}
-		fprintf(stderr,"\n");
+		printf("\n");
 	    }
 	    if (at)
 		XFree(at);
 	    
 	    fo = XvListImageFormats(dpy, p, &formats);
-	    printf("  image format list for port %d\n",p);
+	    printf("  image format list for port %d (n=%d)\n",p,formats);
 	    for(j = 0; j < formats; j++) {
-		fprintf(stderr, "    0x%x (%4.4s) %s\n",
+		fprintf(stderr, "    0x%x (%c%c%c%c) %s",
 			fo[j].id,
-			(char*)&fo[j].id,
+			(fo[j].id)       & 0xff,
+			(fo[j].id >>  8) & 0xff,
+			(fo[j].id >> 16) & 0xff,
+			(fo[j].id >> 24) & 0xff,
 			(fo[j].format == XvPacked) ? "packed" : "planar");
+		if (fo[j].type == XvRGB)
+		    fprintf(stderr," rgb: depth=%d masks=0x%x/0x%x/0x%x",
+			    fo[j].depth,fo[j].red_mask,fo[j].green_mask,
+			    fo[j].blue_mask);
+		if (fo[j].type == XvYUV)
+		    fprintf(stderr," yuv: bits=%d/%d/%d horiz=%d/%d/%d "
+			    "vert=%d/%d/%d",
+			    fo[j].y_sample_bits,
+			    fo[j].u_sample_bits,
+			    fo[j].v_sample_bits,
+			    fo[j].horz_y_period,
+			    fo[j].horz_u_period,
+			    fo[j].horz_v_period,
+			    fo[j].vert_y_period,
+			    fo[j].vert_u_period,
+			    fo[j].vert_v_period);
+		fprintf(stderr,"\n");
 	    }
 	    if (fo)
 		XFree(fo);

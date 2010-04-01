@@ -37,8 +37,8 @@ int ftp_passive = 1;
 int ftp_auto    = 0;
 int ftp_local   = 0;
 
-char *grab_device = "/dev/video0";
 char *grab_text   = "webcam %Y-%m-%d %H:%M:%S"; /* strftime */
+char *grab_infofile = NULL;
 int   grab_width  = 320;
 int   grab_height = 240;
 int   grab_delay  = 3;
@@ -50,18 +50,15 @@ int   grab_right  = -1;
 int   grab_quality= 75;
 int   grab_trigger=  0;
 int   grab_once   =  0;
+char  *archive    = NULL;
 
 char  *grab_input;
 char  *grab_norm;
 
 /* ---------------------------------------------------------------------- */
-
-void swap_rgb24(char *mem, int n);
-
-/* ---------------------------------------------------------------------- */
 /* jpeg stuff                                                             */
 
-int
+static int
 write_file(int fd, char *data, int width, int height)
 {
     struct jpeg_compress_struct cinfo;
@@ -97,16 +94,17 @@ write_file(int fd, char *data, int width, int height)
 
 const struct ng_driver    *drv;
 void                      *h_drv;
-struct ng_video_fmt       fmt;
-int                       need_swap = 0;
+struct ng_video_fmt       fmt,gfmt;
+struct ng_video_conv      *conv;
+void                      *hconv;
 
-void
-grab_init()
+static void
+grab_init(void)
 {
     struct ng_attribute *attr;
-    int val;
+    int val,i;
     
-    drv = ng_grabber_open(grab_device,NULL,0,&h_drv);
+    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -123,7 +121,7 @@ grab_init()
 	    fprintf(stderr,"invalid input: %s\n",grab_input);
 	    exit(1);
 	}
-	drv->write_attr(h_drv,attr,val);
+	attr->write(attr,val);
     }
     if (grab_norm) {
 	attr = ng_attr_byid(drv->list_attrs(h_drv),ATTR_ID_NORM);
@@ -132,58 +130,102 @@ grab_init()
 	    fprintf(stderr,"invalid norm: %s\n",grab_norm);
 	    exit(1);
 	}
-	drv->write_attr(h_drv,attr,val);
+	attr->write(attr,val);
     }
-    
+
+    /* try native */
     fmt.fmtid  = VIDEO_RGB24;
     fmt.width  = grab_width;
     fmt.height = grab_height;
-    if (0 != drv->setformat(h_drv,&fmt)) {
-	fmt.fmtid = VIDEO_BGR24;
-	need_swap = 1;
-	if (0 != drv->setformat(h_drv,&fmt)) {
-	    fprintf(stderr,"can't set capture format\n");
-	    exit(1);
+    if (0 == drv->setformat(h_drv,&fmt))
+	return;
+    
+    /* check all available conversion functions */
+    for (i = 0;;) {
+	conv = ng_conv_find(fmt.fmtid, &i);
+	if (NULL == conv)
+	    break;
+	gfmt = fmt;
+	gfmt.fmtid = conv->fmtid_in;
+	if (0 == drv->setformat(h_drv,&gfmt)) {
+	    fmt.width  = gfmt.width;
+	    fmt.height = gfmt.height;
+	    hconv = conv->init(&fmt,conv->priv);
+	    return;
 	}
     }
+    fprintf(stderr,"can't get rgb24 data\n");
+    exit(1);
 }
 
-unsigned char*
+static unsigned char*
 grab_one(int *width, int *height)
 {
-    static struct ng_video_buf *buf;
+    static struct ng_video_buf *cap,*buf;
 
     if (NULL != buf)
 	ng_release_video_buf(buf);
-    if (NULL == (buf = drv->getimage(h_drv))) {
+    if (NULL == (cap = drv->getimage(h_drv))) {
 	fprintf(stderr,"capturing image failed\n");
 	exit(1);
     }
+
+    if (NULL != conv) {
+        buf = ng_malloc_video_buf(&fmt,3*fmt.width*fmt.height);
+	conv->frame(hconv,buf,cap);
+	buf->info = cap->info;
+	ng_release_video_buf(cap);
+    } else {
+	buf = cap;
+    }
+    
     *width  = buf->fmt.width;
     *height = buf->fmt.height;
-    if (need_swap)
-	swap_rgb24(buf->data, buf->fmt.width * buf->fmt.height);
     return buf->data;
 }
 
 /* ---------------------------------------------------------------------- */
+
+#define MSG_MAXLEN   256
 
 #define CHAR_HEIGHT  11
 #define CHAR_WIDTH   6
 #define CHAR_START   4
 #include "font_6x11.h"
 
-void
+static char*
+get_message(void)
+{
+    static char buffer[MSG_MAXLEN+1];
+    FILE *fp;
+    char *p;
+    
+    if (NULL == grab_infofile)
+	return grab_text;
+
+    if (NULL == (fp = fopen(grab_infofile, "r"))) {
+	fprintf(stderr,"open %s: %s\n",grab_infofile,strerror(errno));
+	return grab_text;
+    }
+
+    fgets(buffer, MSG_MAXLEN, fp);
+    fclose(fp);
+    if (NULL != (p = strchr(buffer,'\n')))
+	*p = '\0';
+    return buffer;
+}
+
+static void
 add_text(char *image, int width, int height)
 {
     time_t      t;
     struct tm  *tm;
-    char        line[128],*ptr;
+    char        line[MSG_MAXLEN+1],*ptr;
     int         i,x,y,f,len;
 
     time(&t);
     tm = localtime(&t);
-    len = strftime(line,127,grab_text,tm);
+    len = strftime(line,MSG_MAXLEN,get_message(),tm);
     fprintf(stderr,"%s\n",line);
 
     for (y = 0; y < CHAR_HEIGHT; y++) {
@@ -202,20 +244,7 @@ add_text(char *image, int width, int height)
     }
 }
 
-void
-swap_rgb24(char *mem, int n)
-{
-    char  c;
-    char *p = mem;
-    int   i = n;
-    
-    while (--i) {
-	c = p[0]; p[0] = p[2]; p[2] = c;
-	p += 3;
-    }
-}
-
-unsigned char *
+static unsigned char *
 rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 	     int top, int left, int bottom, int right)
 {
@@ -289,7 +318,7 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
     return rotimg;	
 }
 
-unsigned int
+static unsigned int
 compare_images(unsigned char *last, unsigned char *current,
 	       int width, int height)
 {
@@ -326,6 +355,7 @@ main(int argc, char *argv[])
     }
     fprintf(stderr,"reading config file: %s\n",filename);
     cfg_parse_file(filename);
+    ng_init();
 
     if (NULL != (val = cfg_get_str("ftp","host")))
 	ftp_host = val;
@@ -349,9 +379,11 @@ main(int argc, char *argv[])
 	ftp_local = i;
 
     if (NULL != (val = cfg_get_str("grab","device")))
-	grab_device = val;
+	ng_dev.video = val;
     if (NULL != (val = cfg_get_str("grab","text")))
 	grab_text = val;
+    if (NULL != (val = cfg_get_str("grab","infofile")))
+	grab_infofile = val;
     if (NULL != (val = cfg_get_str("grab","input")))
 	grab_input = val;
     if (NULL != (val = cfg_get_str("grab","norm")))
@@ -376,6 +408,8 @@ main(int argc, char *argv[])
 	grab_trigger = i;
     if (-1 != (i = cfg_get_int("grab","once")))
 	grab_once = i;
+    if (NULL != (val = cfg_get_str("grab","archive")))
+	archive = val;
 
     if ( grab_top < 0 ) grab_top = 0;
     if ( grab_left < 0 ) grab_left = 0;
@@ -398,28 +432,29 @@ main(int argc, char *argv[])
 	}
     }
 
+    /* init everything */
+    grab_init();
+    if (!ftp_local) {
+	ftp_init(ftp_auto,ftp_passive);
+	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
+    }
+    tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
+
     /* print config */
-    fprintf(stderr,"video4linux webcam v1.3 - (c) 1998-2000 Gerd Knorr\n");
-    fprintf(stderr,"grabber config: size %dx%d, input %s, norm %s, "
-	    "jpeg quality %d\n",
-	    grab_width,grab_height,grab_input,grab_norm, grab_quality);
-    fprintf(stderr, "rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
+    fprintf(stderr,"video4linux webcam v1.3 - (c) 1998-2001 Gerd Knorr\n");
+    fprintf(stderr,"grabber config:\n  size %dx%d [%s]\n",
+	    fmt.width,fmt.height,ng_vfmt_to_desc[gfmt.fmtid]);
+    fprintf(stderr,"  input %s, norm %s, jpeg quality %d\n",
+	    grab_input,grab_norm, grab_quality);
+    fprintf(stderr,"  rotate=%d, top=%d, left=%d, bottom=%d, right=%d\n",
 	   grab_rotate, grab_top, grab_left, grab_bottom, grab_right);
 
-    if ( ftp_local )
+    if (ftp_local)
 	fprintf(stderr,"ftp config:\n  local transfer %s => %s\n",
 		ftp_tmp,ftp_file);
     else 
 	fprintf(stderr,"ftp config:\n  %s@%s:%s\n  %s => %s\n",
 		ftp_user,ftp_host,ftp_dir,ftp_tmp,ftp_file);
-
-    /* init everything */
-    grab_init();
-    if ( ! ftp_local ) {
-	ftp_init(ftp_auto,ftp_passive);
-	ftp_connect(ftp_host,ftp_user,ftp_pass,ftp_dir);
-    }
-    tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
 
     /* main loop */
     for (;;) {
@@ -442,13 +477,13 @@ main(int argc, char *argv[])
 
 	/* ok, label it and upload */
 	add_text(image,width,height);
-	if ( ftp_local ) {
-	    if (-1 == (fh = open(ftp_tmp,O_WRONLY,0600))) {
+	if (ftp_local) {
+	    if (-1 == (fh = open(ftp_tmp,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
 		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
 		exit(1);
 	    }
 	    write_file(fh, image, width, height);
-	    if ( rename(ftp_tmp, ftp_file) ) {
+	    if (rename(ftp_tmp, ftp_file) ) {
 		fprintf(stderr, "can't move %s -> %s\n", ftp_tmp, ftp_file);
 	    }
 	} else {
@@ -463,11 +498,28 @@ main(int argc, char *argv[])
 	    ftp_upload(filename,ftp_file,ftp_tmp);
 	    unlink(filename);
 	}
+	if (archive) {
+	    time_t      t;
+	    struct tm  *tm;
+
+	    time(&t);
+	    tm = localtime(&t);
+	    strftime(filename,sizeof(filename)-1,archive,tm);
+	    if (-1 == (fh = open(filename,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
+		fprintf(stderr,"open %s: %s\n",ftp_tmp,strerror(errno));
+		exit(1);
+	    }
+	    write_file(fh, image, width, height);
+	}
 
 	if (grab_once)
 	    break;
 	if (grab_delay > 0)
 	    sleep(grab_delay);
+    }
+    if (!ftp_local) {
+	ftp_send(1,"bye");
+	ftp_recv();
     }
     return 0;
 }

@@ -1,25 +1,38 @@
 
-IMPORTANT:  Don't send me mails with images attached unless I ask you
-to do so.  Mails with images attached will go to /dev/null unseen.
+Documentation overview
+======================
 
+README		[this file] gives a overview over the package.
+		Build instructions, short overview over every
+		program, some maybe useful URL's.
 
-small is beautiful
-==================
+man pages	For most programs a manual page is available.
 
-This is a _simple_ xaw-based TV Program which uses the bttv driver or
-video4linux (included in 2.1.x).  Copy Policy is GNU GPL.
+README.xfree4	Some notes about XFree86 4.x and the Xvideo
+		extention.
+
+README.recording If you want record videos, have a look at this
+		file.  It also has some notes about how to process /
+		playback the files recorded by xawtv/streamer.
+
+README.network	How to stream video/audio over the net. Pointers to
+		other software for the most part.
+
+README.lirc	Some hints how make lirc work with xawtv.
+
+README.bttv	Some hints to get bttv going, also lists some
+		known problems.
+
+UPDATE_TO_v3.0	Some hints for upgrading from 2.x to 3.x (config
+		file syntax changes, ...)
 
 
 before sending me email...
 ==========================
 
-If you are upgrading from 2.x to 3.x, read the UPDATE_TO_v3.0
-file.  There are a few incompatible changes you have to take care
-of.
-
-READ THE F*** MANUAL FIRST (this README file, Trouble-Shooting file,
-KNOWN_PROBLEMS file, xawtv man page, documentation for the driver
-you are using).
+IMPORTANT:  Don't send me mails with images attached unless I ask you
+to do so.  Mails with images attached will go to /dev/null unseen, you
+will never ever see an answer for these.
 
 If you have problems after upgrading, please check the ChangeLog for
 hints first.  Looking into the ChangeLog is a good idea in general,
@@ -52,6 +65,7 @@ problem, you can skip it.  But if in doubt, better include it...
 
 
 For patches/changes:
+
  * Please add a comment what is changed and and why you changed it.
  * Please send unified diffs ("diff -u") against the latest version.
  * Please don't reformat my source code.
@@ -63,12 +77,20 @@ For patches/changes:
 compile & install
 =================
 
-A simple
+The commands
 
+	$ ./configure [ options ]
 	$ make
 
-should compile xawtv, v4l-conf, maybe kradio and a few other
-utilities.  You can install the programs (as root) with:
+should compile xawtv, v4l-conf, fbtv and a few other utilities.  You can
+also simply type "make" if you don't want to pass any options to
+configure.
+
+If it failes, check that all required packages are installed.  Note that
+the *-devel packages are also required to compile stuff, i.e. you need
+both libjpeg and libjpeg-devel for example.
+
+You can install the programs (as root) with:
 
 	# make install
 
@@ -86,7 +108,9 @@ bttv
 ----
 
 bttv is'nt bundled with xawtv any more.  You can the latest version
-from http://www.strusel007.de/linux/bttv/
+from http://bytesex.org/bttv/.  If you are using kernel 2.4.x, it is
+very unlikely that you need a update, the bttv driver in 2.4.x is
+updated in regular intervals.
 
 
 v4l-conf
@@ -126,11 +150,23 @@ file).  If v4l-conf is'nt installed too, you have to run it once
 (as root) before starting xawtv.
 
 
+motv
+----
+
+That's basically xawtv with better (IMO), motif-based GUI.  Feature set
+is very close to xawtv, they share alot of code (basically everything
+but the athena/motif GUI code).
+
+motv uses Motif 2.x features (utm, render tables).  This means you
+need openmotif, lesstif does *not* work.
+
+
 xawtv-remote
 ------------
 
-remote control for xawtv.  Takes commands for xawtv as command line
-arguments.  Check 'xawtv-remote -h' for details.
+remote control for xawtv.  Works with motv too.  Takes commands for
+xawtv as command line arguments.  Check 'xawtv-remote -h' for details.
+A man-page exists too.
 
 ObSecurity:  This uses X Properties, everyone who is allowed to connect
 to your X11 Display can control xawtv.
@@ -143,22 +179,28 @@ fbtv
 ----
 
 TV program for the linux console.  Runs on top of a framebuffer
-device, tested with vesafb (2.1.109+) so far.  Check out man-page and
-source code for details.
+device.  Check out man-page and source code for details.
+
+
+ttv
+---
+
+aa-lib based TV app which renders the TV image on any text terminal.
 
 
 v4lctl
 ------
 
-This tool allows to control a v4l device from the command line.  Check
-the man-page for details.
+This tool allows to control a v4l device from the command line.
+Also can capture images.  Check the man-page for details.
 
 
 streamer
 --------
 
-Command line tool for streaming capture (single frames work too).
-Try the '-h' switch for a description.
+Command line tool for streaming capture, including audio.  Single
+frames work too.  Try the '-h' switch for a description.  A (short)
+man page is available too.
 
 
 radio
@@ -181,17 +223,10 @@ separate tarball now.
 videotext / teletext
 --------------------
 
-There is a new videotext application for bttv: alevt.  Your friendly
-sunsite mirror has it.
+alevt is _the_ videotext application for bttv.  URL below.
 
-Ralph has written a software decoder for teletext.  You can download
-it from his web-page.  There is a program called videoteXt which can
-be used to view the teletext pages.  A link to this package is on
-Ralphs page too.
-
-In the vtx subdirectory is a simple vtx2ascii converter, build quick&diry
-out of the videoteXt sources.  Can output ascii (with and without
-ansi-colors) and html.  A perl-cgi is included too.
+A http server for videotext which is based on alevt's vbi decoder engine
+is in the http subdirectory.  It's called alevtd.
 
 
 webcam
@@ -214,15 +249,14 @@ nifty tool to do a channel scan (decodes the station ID from vbi).
 resources
 =========
 
-http://www.strusel007.de/linux/xawtv/			- xawtv	[me]
-http://user.exit.de/froese/				- alevt	[Edgar]
-http://www.metzlerbros.de/bttv.html			- bttv	[Ralph]
+http://bytesex.org/xawtv/				- xawtv	[me]
+http://bytesex.org/bttv/				- bttv	[me]
+http://lecker.essen.de/~froese/				- alevt	[Edgar]
 http://bttv-v4l2.sourceforge.net/			- bttv2 [Justin]
 http://roadrunner.swansea.uk.linux.org/v4l.shtml	- v4l	[Alan]
 http://www.thedirks.org/v4l2/				- v4l2	[Bill]
 http://www.tk.uni-linz.ac.at/~simon/private/i2c/	- i2c	[Simon]
 http://www-mice.cs.ucl.ac.uk/multimedia/software/vic/	- vic
-
 
 Have fun!
 

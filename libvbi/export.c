@@ -184,7 +184,7 @@ adjust(char *p, char *str, char fill, int width)
 {
     int l = width - strlen(str);
 
-    while (l > 0)
+    while (l-- > 0)
 	*p++ = fill;
     while (*p = *str++)
 	p++;

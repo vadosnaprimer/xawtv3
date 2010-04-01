@@ -1,15 +1,12 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 # defaults
-$fserver = "";
 $fname = "fixed";
+$debug = 0;
 
 # parse args
-while ($ARGV[0] =~ /^-(.+)/) {
-    if ($1 eq "s") {
-	$fserver = "-s $ARGV[1]";
-	shift; shift;
-    } elsif ($1 eq "fn") {
+while (defined($ARGV[0]) && $ARGV[0] =~ /^-(.+)/) {
+    if ($1 eq "fn") {
 	$fname = $ARGV[1];
 	shift; shift;
     } else {
@@ -43,16 +40,16 @@ sub printline () {
     $start = 4 * length($bits);
     $val = hex($bits);
 
-    print STDERR "|";
+    print STDERR "|" if $debug;
     for ($i = $start-1; $i >= $start-$width; $i--) {
 	if ($val & (1 << ($left+$i))) {
-	    print STDERR "*";
+	    print STDERR "*" if $debug;
 	} else {
-	    print STDERR " ";
+	    print STDERR " " if $debug;
 	}
     }
     $big = &bitscale($val,3);
-    printf(STDERR "| %s | %0*x |\n",$bits,$start/4*3,$big);
+    printf(STDERR "| %s | %0*x |\n",$bits,$start/4*3,$big) if $debug;
     $big |= ($big >> 1);
     printf("%0*x\n",$start/4*3,$big);
     printf("%0*x\n",$start/4*3,$big);
@@ -68,7 +65,8 @@ sub parsechar () {
     local($n) = 0;
     local($s) = 3;
     
-    print STDERR "--\n";
+    print STDERR "--\n"	if $debug;
+    print STDERR "*"	if !$debug;
     print "STARTCHAR $name\n";
     while (<FONT>) {
 	last if /ENDCHAR/;
@@ -98,7 +96,7 @@ sub parsechar () {
 
 ########################################################################
 
-open(FONT,"fstobdf $fserver -fn $fname |") || die;
+open(FONT,"fstobdf -fn $fname |") || die;
 
 while (<FONT>) {
     if (/STARTCHAR (.*)/) {
@@ -120,4 +118,4 @@ while (<FONT>) {
     }
 }
 
-
+print STDERR " done\n"	if !$debug;

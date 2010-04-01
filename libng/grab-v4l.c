@@ -32,7 +32,7 @@ const struct ng_driver v4l_driver;
 
 #include <linux/videodev.h>
 
-#define SYNC_TIMEOUT 1
+#define SYNC_TIMEOUT 3
 
 /* ---------------------------------------------------------------------- */
 
@@ -41,10 +41,11 @@ static void*   v4l_open(char *device);
 static int     v4l_close(void *handle);
 
 /* attributes */
+static char*   v4l_devname(void *handle);
 static int     v4l_flags(void *handle);
 static struct ng_attribute* v4l_attrs(void *handle);
-static int     v4l_read_attr(void *handle, struct ng_attribute*);
-static void    v4l_write_attr(void *handle, struct ng_attribute*, int val);
+static int     v4l_read_attr(struct ng_attribute*);
+static void    v4l_write_attr(struct ng_attribute*, int val);
 
 /* overlay */
 static int   v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
@@ -103,10 +104,10 @@ static struct STRTAB norms_bttv[] = {
     { -1, NULL }
 };
 
-static const unsigned short format2palette[VIDEO_FMT_COUNT] = {
-    0,				/* unused */
-    VIDEO_PALETTE_HI240,	/* RGB8   */
-    VIDEO_PALETTE_GREY,		/* GRAY8  */
+static unsigned short format2palette[VIDEO_FMT_COUNT] = {
+    0,				/* unused    */
+    VIDEO_PALETTE_HI240,	/* RGB8      */
+    VIDEO_PALETTE_GREY,		/* GRAY8     */
     VIDEO_PALETTE_RGB555,	/* RGB15_LE  */
     VIDEO_PALETTE_RGB565,	/* RGB16_LE  */
     0,
@@ -115,15 +116,11 @@ static const unsigned short format2palette[VIDEO_FMT_COUNT] = {
     VIDEO_PALETTE_RGB32,	/* BGR32     */
     0,
     0,
-    0,                          /* LUT 2    */
-    0,                          /* LUT 4    */
-    VIDEO_PALETTE_YUV422,       /* YUV422   */
-    VIDEO_PALETTE_YUV422P,      /* YUV422P  */
-#if 0 /* broken in bttv (fixed in 0.8.x) */
-    VIDEO_PALETTE_YUV420P,      /* YUV420P  */
-#else
-    0,                          /* YUV420P  */
-#endif
+    0,                          /* LUT 2     */
+    0,                          /* LUT 4     */
+    VIDEO_PALETTE_YUV422,       /* YUV422    */
+    VIDEO_PALETTE_YUV422P,      /* YUV422P   */
+    VIDEO_PALETTE_YUV420P,      /* YUV420P   */
 };
 #define FMT2PAL(fmt) ((fmt < sizeof(format2palette)/sizeof(unsigned short)) ?\
 		      format2palette[fmt] : 0);
@@ -147,6 +144,7 @@ struct v4l_handle {
     int                      nattr;
     struct ng_attribute      *attr;
     int                      input;
+    int                      audio_mode;
     
     /* overlay */
     struct video_buffer      fbuf;
@@ -183,10 +181,9 @@ const struct ng_driver v4l_driver = {
     open:          v4l_open,
     close:         v4l_close,
 
+    get_devname:   v4l_devname,
     capabilities:  v4l_flags,
     list_attrs:    v4l_attrs,
-    read_attr:     v4l_read_attr,
-    write_attr:    v4l_write_attr,
 
     setupfb:       v4l_setupfb,
     overlay:       v4l_overlay,
@@ -210,7 +207,7 @@ static void
 sigalarm(int signal)
 {
     alarms++;
-    fprintf(stderr,"v4l: oops: got sigalarm\n");
+    fprintf(stderr,"v4l: timeout (got SIGALRM), hardware/driver problems?\n");
 }
 
 static void
@@ -364,6 +361,10 @@ v4l_add_attr(struct v4l_handle *h, int id, int type,
     h->attr[h->nattr].choices = choices;
     if (id < ATTR_ID_COUNT)
 	h->attr[h->nattr].name = ng_attr_to_desc[id];
+
+    h->attr[h->nattr].read    = v4l_read_attr;
+    h->attr[h->nattr].write   = v4l_write_attr;
+    h->attr[h->nattr].handle  = h;
     h->nattr++;
 }
 
@@ -490,7 +491,7 @@ v4l_open(char *device)
 #define BTTV_VERSION  	        _IOR('v' , BASE_VIDIOCPRIVATE+6, int)
     /* dirty hack time / v4l design flaw -- works with bttv only
      * this adds support for a few less common PAL versions */
-    if (-1 != (rc = ioctl(h->fd,BTTV_VERSION,0))) {
+    if (-1 != (rc = ioctl(h->fd,BTTV_VERSION,&i))) {
 	norms = norms_bttv;
 	if (ng_debug || rc < 0x000700)
 	    fprintf(stderr,"v4l: bttv version %d.%d.%d\n",
@@ -587,6 +588,13 @@ v4l_close(void *handle)
 
 /* ---------------------------------------------------------------------- */
 
+static char*
+v4l_devname(void *handle)
+{
+    struct v4l_handle *h = handle;
+    return h->capability.name;
+}
+
 static int v4l_flags(void *handle)
 {
     struct v4l_handle *h = handle;
@@ -599,6 +607,8 @@ static int v4l_flags(void *handle)
 	ret |= CAN_CAPTURE;
     if (h->capability.type & VID_TYPE_TUNER)
 	ret |= CAN_TUNE;
+    if (h->capability.type & VID_TYPE_CHROMAKEY)
+	ret |= NEEDS_CHROMAKEY;
     return ret;
 }
 
@@ -608,9 +618,9 @@ static struct ng_attribute* v4l_attrs(void *handle)
     return h->attr;
 }
 
-static int v4l_read_attr(void *handle, struct ng_attribute *attr)
+static int v4l_read_attr(struct ng_attribute *attr)
 {
-    struct v4l_handle *h = handle;
+    struct v4l_handle *h = attr->handle;
 
     switch (attr->id) {
     case ATTR_ID_INPUT:
@@ -643,9 +653,9 @@ static int v4l_read_attr(void *handle, struct ng_attribute *attr)
     return -1;
 }
 
-static void v4l_write_attr(void *handle, struct ng_attribute *attr, int val)
+static void v4l_write_attr(struct ng_attribute *attr, int val)
 {
-    struct v4l_handle *h = handle;
+    struct v4l_handle *h = attr->handle;
 
     /* read ... */
     switch (attr->id) {
@@ -672,9 +682,11 @@ static void v4l_write_attr(void *handle, struct ng_attribute *attr, int val)
     switch (attr->id) {
     case ATTR_ID_INPUT:
 	h->input = val;
+	h->audio_mode = 0;
 	break;
     case ATTR_ID_NORM:
 	h->channels[h->input].norm = val;
+	h->audio_mode = 0;
 	break;
     case ATTR_ID_MUTE:
 	if (val)
@@ -686,7 +698,7 @@ static void v4l_write_attr(void *handle, struct ng_attribute *attr, int val)
 	h->audio.volume = val;
 	break;
     case ATTR_ID_AUDIO_MODE:
-	h->audio.mode = val;
+	h->audio_mode = val;
 	break;
     case ATTR_ID_COLOR:
 	h->pict.colour = val;
@@ -701,6 +713,12 @@ static void v4l_write_attr(void *handle, struct ng_attribute *attr, int val)
 	h->pict.contrast = val;
 	break;
     }
+    /* have to set that all the time as read and write have
+       slightly different semantics:
+          read  == bitmask with all available modes flagged
+	  write == one bit set (for the selected mode, zero is autodetect)
+    */
+    h->audio.mode = h->audio_mode;
 
     /* ... write */
     switch (attr->id) {
@@ -740,6 +758,7 @@ v4l_setfreq(void *handle, unsigned long freq)
     if (ng_debug)
 	fprintf(stderr,"v4l: freq: %.3f\n",(float)freq/16);
     xioctl(h->fd, VIDIOCSFREQ, &freq);
+    h->audio_mode = 0;
 }
 
 static int
@@ -747,7 +766,7 @@ v4l_tuned(void *handle)
 {
     struct v4l_handle *h = handle;
 
-    usleep(10000);
+    /* usleep(10000); */
     if (-1 == xioctl(h->fd,VIDIOCGTUNER,&h->tuner))
 	return 0;
     return h->tuner.signal ? 1 : 0;
@@ -770,9 +789,10 @@ v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
     }
 
     /* double-check settings */
-    fprintf(stderr,"v4l: %dx%d, %d bit/pixel, %d byte/scanline\n",
-	    h->fbuf.width,h->fbuf.height,
-	    h->fbuf.depth,h->fbuf.bytesperline);
+    if (ng_debug)
+	fprintf(stderr,"v4l: %dx%d, %d bit/pixel, %d byte/scanline\n",
+		h->fbuf.width,h->fbuf.height,
+		h->fbuf.depth,h->fbuf.bytesperline);
     if ((fmt->bytesperline > 0 &&
 	 h->fbuf.bytesperline != fmt->bytesperline) ||
 	(h->fbuf.width  != fmt->width) ||
@@ -812,6 +832,8 @@ v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 static void
 v4l_overlay_set(struct v4l_handle *h, int state)
 {
+    int rc;
+    
     if (0 == state) {
 	/* off */
 	if (0 == h->ov_on)
@@ -823,11 +845,17 @@ v4l_overlay_set(struct v4l_handle *h, int state)
 	h->pict.depth   = ng_vfmt_to_depth[h->ov_fmtid];
 	h->pict.palette = FMT2PAL(h->ov_fmtid);
 	xioctl(h->fd, VIDIOCSPICT, &h->pict);
-	xioctl(h->fd, VIDIOCSWIN, &h->win);
-	if (0 != h->ov_on)
-	    return;
-	xioctl(h->fd, VIDIOCCAPTURE, &one);
-	h->ov_on = 1;
+	rc = xioctl(h->fd, VIDIOCSWIN, &h->win);
+	if (0 == rc) {
+	    if (0 != h->ov_on)
+		return;
+	    xioctl(h->fd, VIDIOCCAPTURE, &one);
+	    h->ov_on = 1;
+	} else {
+	    /* disable overlay on SWIN failure */
+	    xioctl(h->fd, VIDIOCCAPTURE, &zero);
+	    h->ov_on = 0;
+	}
     }
 }
 
@@ -836,7 +864,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	    struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     struct v4l_handle *h = handle;
-    int i,xadjust=0,yadjust=0;
+    int i;
 
     if (h->ov_error)
 	return -1;
@@ -856,7 +884,6 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     h->win.flags      = 0;
     h->win.chromakey  = 0;
 
-#if 1
     /* check against max. size */
     xioctl(h->fd,VIDIOCGCAP,&h->capability);
     if (h->win.width > h->capability.maxwidth) {
@@ -870,6 +897,7 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     if (aspect)
 	ng_ratio_fixup(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
 
+#if 1
     /* pass aligned values -- the driver does'nt get it right yet */
     h->win.width  &= ~3;
     h->win.height &= ~3;
@@ -878,11 +906,12 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->win.x     += 4;
     if (h->win.x+h->win.width > x+fmt->width)
 	h->win.width -= 4;
+#endif
 
     /* fixups */
-    xadjust = h->win.x - x;
-    yadjust = h->win.y - y;
-#endif
+    ng_check_clipping(h->win.width, h->win.height,
+		      x - h->win.x, y - h->win.y,
+		      oc, &count);
 
     /* handle clipping */
     if (h->win.clips) {
@@ -894,16 +923,14 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->win.clipcount  = count;
 	h->win.clips      = malloc(count * sizeof(struct video_clip));
 	for (i = 0; i < count; i++) {
-	    h->win.clips[i].x      = oc[i].x1 - xadjust;
-	    h->win.clips[i].y      = oc[i].y1 - yadjust;
+	    h->win.clips[i].x      = oc[i].x1;
+	    h->win.clips[i].y      = oc[i].y1;
 	    h->win.clips[i].width  = oc[i].x2-oc[i].x1;
 	    h->win.clips[i].height = oc[i].y2-oc[i].y1;
-	    if (ng_debug)
-		fprintf(stderr,"v4l: clip=%dx%d+%d+%d\n",
-			h->win.clips[i].width,h->win.clips[i].height,
-			h->win.clips[i].x,h->win.clips[i].y);
 	}
     }
+    if (h->capability.type & VID_TYPE_CHROMAKEY)
+	h->win.chromakey = ng_chromakey;
     h->ov_enabled = 1;
     h->ov_fmtid = fmt->fmtid;
     v4l_overlay_set(h,h->ov_enabled);
@@ -990,9 +1017,14 @@ mm_probe(struct v4l_handle *h, int fmtid)
 		ng_vfmt_to_desc[fmtid]);
 
     h->buf_v4l[0].frame  = 0;
-    h->buf_v4l[0].width  = 64;
-    h->buf_v4l[0].height = 48;
+    h->buf_v4l[0].width  = h->capability.minwidth;
+    h->buf_v4l[0].height = h->capability.minheight;
     h->buf_v4l[0].format = FMT2PAL(fmtid);
+#if 1 /* bug compatibility: bttv up to 0.7.67 reports wrong minwidth */
+    if (h->buf_v4l[0].width == 32)
+	h->buf_v4l[0].width = 48;
+#endif
+
     if (0 == h->buf_v4l[0].format)
 	goto fail;
     if (-1 == mm_queue(h))
@@ -1108,7 +1140,7 @@ v4l_setformat(void *handle, struct ng_video_fmt *fmt)
 #if 0
     /* for debugging color space conversion functions:
        force xawtv to capture some specific format */
-    if (fmt->fmtid != VIDEO_YUV422)
+    if (fmt->fmtid != VIDEO_YUV420P)
 	return -1;
 #endif
     
@@ -1184,15 +1216,17 @@ v4l_nextframe(void *handle)
 	v4l_overlay_set(h,h->ov_enabled);
 	if (NULL == buf)
 	    return NULL;
-	buf->ts = ng_get_timestamp() - h->start;
+	memset(&buf->info,0,sizeof(buf->info));
+	buf->info.ts = ng_get_timestamp() - h->start;
 	return buf;
     } else {
 	mm_queue_all(h);
 	frame = mm_waiton(h);
 	if (-1 == frame)
 	    return NULL;
+	memset(&h->buf_me[frame].info,0,sizeof(h->buf_me[frame].info));
 	h->buf_me[frame].refcount++;
-	h->buf_me[frame].ts = ng_get_timestamp() - h->start;
+	h->buf_me[frame].info.ts = ng_get_timestamp() - h->start;
 	return h->buf_me+frame;
     }
 }
@@ -1229,3 +1263,8 @@ v4l_getimage(void *handle)
 }
 
 #endif /* __linux__ */
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

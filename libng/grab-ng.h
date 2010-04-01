@@ -5,8 +5,13 @@
  *
  */
 
+#include "devices.h"
+
 extern int  ng_debug;
-extern int  ng_mjpeg_quality;
+extern int  ng_chromakey;
+extern int  ng_jpeg_quality;
+extern int  ng_ratio_x;
+extern int  ng_ratio_y;
 extern char ng_v4l_conf[256];
 
 /* --------------------------------------------------------------------- */
@@ -40,13 +45,18 @@ extern char ng_v4l_conf[256];
 #define AUDIO_S16_BE_MONO    5
 #define AUDIO_S16_BE_STEREO  6
 #define AUDIO_FMT_COUNT      7
+
 #if BYTE_ORDER == BIG_ENDIAN
 # define AUDIO_S16_NATIVE_MONO   AUDIO_S16_BE_MONO
 # define AUDIO_S16_NATIVE_STEREO AUDIO_S16_BE_STEREO
+# define VIDEO_RGB15_NATIVE      VIDEO_RGB15_BE
+# define VIDEO_RGB16_NATIVE      VIDEO_RGB16_BE
 #endif
 #if BYTE_ORDER == LITTLE_ENDIAN
 # define AUDIO_S16_NATIVE_MONO   AUDIO_S16_LE_MONO
 # define AUDIO_S16_NATIVE_STEREO AUDIO_S16_LE_STEREO
+# define VIDEO_RGB15_NATIVE      VIDEO_RGB15_LE
+# define VIDEO_RGB16_NATIVE      VIDEO_RGB16_LE
 #endif
 
 #define ATTR_TYPE_INTEGER    1   /*  range 0 - 65535  */
@@ -67,6 +77,7 @@ extern char ng_v4l_conf[256];
 #define CAN_OVERLAY          1
 #define CAN_CAPTURE          2
 #define CAN_TUNE             4
+#define NEEDS_CHROMAKEY      8
 
 /* --------------------------------------------------------------------- */
 
@@ -105,8 +116,12 @@ struct ng_video_buf {
     int                  size;
     char                 *data;
 
-    /* frame timestamp */
-    long long            ts;
+    /* meta info for frame */
+    struct {
+	long long        ts;      /* time stamp */
+	int              seq;
+	int              twice;
+    } info;
 
     /*
      * the lock is for the reference counter.
@@ -142,7 +157,9 @@ struct ng_audio_buf {
     int                  size;
     char                 *data;
 
-    long long            ts;
+    struct {
+	long long        ts;
+    } info;
 };
 
 
@@ -184,6 +201,9 @@ struct ng_attribute {
     int                  defval;
     struct STRTAB        *choices;
     const void           *priv;
+    void                 *handle;
+    int         (*read)(struct ng_attribute*);
+    void        (*write)(struct ng_attribute*, int val);
 };
 
 struct ng_attribute* ng_attr_byid(struct ng_attribute *attrs, int id);
@@ -194,8 +214,9 @@ void ng_attr_listchoices(struct ng_attribute *attr);
 
 /* --------------------------------------------------------------------- */
 
-void ng_ratio_configure(int x, int y);
 void ng_ratio_fixup(int *width, int *height, int *xoff, int *yoff);
+void ng_ratio_fixup2(int *width, int *height, int *xoff, int *yoff,
+		     int ratio_x, int ratio_y, int up);
 
 /* --------------------------------------------------------------------- */
 /* capture/overlay interface driver                                      */
@@ -208,11 +229,10 @@ struct ng_driver {
     int    (*close)(void *handle);
 
     /* attributes */
+    char* (*get_devname)(void *handle);
     int   (*capabilities)(void *handle);
     struct ng_attribute* (*list_attrs)(void *handle);
-    int   (*read_attr)(void *handle, struct ng_attribute*);
-    void  (*write_attr)(void *handle, struct ng_attribute*, int val);
-
+    
     /* overlay */
     int   (*setupfb)(void *handle, struct ng_video_fmt *fmt, void *base);
     int   (*overlay)(void *handle, struct ng_video_fmt *fmt, int x, int y,
@@ -225,7 +245,6 @@ struct ng_driver {
     struct ng_video_buf* (*nextframe)(void *handle); /* video frame */
     struct ng_video_buf* (*getimage)(void *handle);  /* single image */
 
-
     /* tuner */
     unsigned long (*getfreq)(void *handle);
     void  (*setfreq)(void *handle, unsigned long freq);
@@ -234,7 +253,7 @@ struct ng_driver {
 
 
 /* --------------------------------------------------------------------- */
-/* maybe add filters for on-the-fly image processing later               */
+/* color space converters                                                */
 
 struct ng_video_conv {
     int                   fmtid_in;
@@ -248,14 +267,28 @@ struct ng_video_conv {
     void                  *priv;
 };
 
+/* --------------------------------------------------------------------- */
+/* filters                                                               */
+
+struct ng_filter {
+    char                  *name;
+    int                   fmts;
+    void*                 (*init)(struct ng_video_fmt *fmt);
+    struct ng_video_buf*  (*frame)(void *handle,
+				   struct ng_video_buf *in);
+    void                  (*fini)(void *handle);
+};
 
 /* --------------------------------------------------------------------- */
 
 extern const struct ng_driver *ng_drivers[];
 extern const struct ng_writer *ng_writers[];
+extern struct ng_filter **ng_filters;
 
 void ng_conv_register(struct ng_video_conv *list, int count);
 struct ng_video_conv* ng_conv_find(int out, int *i);
+
+void ng_filter_register(struct ng_filter *list, int count);
 
 const struct ng_driver*
 ng_grabber_open(char *device, struct ng_video_fmt *screen,
@@ -271,6 +304,8 @@ void ng_lut_init(unsigned long red_mask, unsigned long green_mask,
 /* --------------------------------------------------------------------- */
 /* internal stuff starts here                                            */
 
+#ifdef NG_PRIVATE
+
 /* init functions */
 void ng_color_packed_init(void);
 void ng_color_yuv2rgb_init(void);
@@ -282,7 +317,13 @@ unsigned long   ng_lut_green[256];
 unsigned long   ng_lut_blue[256];
 void ng_yuv422_to_lut2(unsigned char *dest, unsigned char *s, int p);
 void ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p);
+void ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out,
+			struct ng_video_buf *in);
+void ng_yuv420p_to_lut4(void *h, struct ng_video_buf *out,
+			struct ng_video_buf *in);
 void ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out,
+			struct ng_video_buf *in);
+void ng_yuv422p_to_lut4(void *h, struct ng_video_buf *out,
 			struct ng_video_buf *in);
 
 /* color_common.c stuff */
@@ -296,3 +337,16 @@ void  ng_conv_nop_fini(void *handle);
 	init:           ng_packed_init,		\
 	frame:          ng_packed_frame,       	\
 	fini:           ng_conv_nop_fini
+
+/* clipping.c stuff */
+void ng_check_clipping(int width, int height, int xadjust, int yadjust,
+		       struct OVERLAY_CLIP *oc, int *count);
+
+#endif /* NG_PRIVATE */
+
+/* --------------------------------------------------------------------- */
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

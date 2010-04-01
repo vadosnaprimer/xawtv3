@@ -1,7 +1,9 @@
 /*
- *  (c) 2000 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ * (c) 2000,01 Gerd Knorr <kraxel@goldbach.in-berlin.de>
  *
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,21 +15,11 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-#include "config.h"
-
-#include <X11/Xlib.h>
-#include <X11/Intrinsic.h>
-#ifdef HAVE_LIBXV
-# include <X11/extensions/Xv.h>
-# include <X11/extensions/Xvlib.h>
-#endif
-
 /* xawtv */
 #include "channel.h"
 #include "frequencies.h"
 #include "grab-ng.h"
 #include "commands.h"
-#include "xv.h"
 
 /* libvbi */
 #include "vt.h"
@@ -39,8 +31,6 @@
 
 int debug = 0;
 int have_dga = 0;
-char *device = "/dev/video";
-Display *dpy;
 
 int timeout = 3;
 char xpacket[64];
@@ -52,13 +42,13 @@ char scratch[1024*256];
 static void
 grabber_init(void)
 {
-    drv = ng_grabber_open(device,NULL,0,&h_drv);
+    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
     }
     f_drv = drv->capabilities(h_drv);
-    a_drv = drv->list_attrs(h_drv);
+    add_attrs(drv->list_attrs(h_drv));
 }
 
 static void
@@ -91,7 +81,7 @@ event(struct dl_head *reqs, struct vt_event *ev)
     }
 }
 
-char*
+static char*
 get_vbi_name(void)
 {
     int start;
@@ -138,7 +128,7 @@ get_vbi_name(void)
     return NULL;
 }
 
-int
+static int
 menu(char *intro, struct STRTAB *tab, char *opt)
 {
     int i,ret;
@@ -168,7 +158,7 @@ menu(char *intro, struct STRTAB *tab, char *opt)
     }
 }
 
-void
+static void
 usage(FILE *out, char *prog)
 {
     fprintf(out,
@@ -181,7 +171,6 @@ usage(FILE *out, char *prog)
 int
 main(int argc, char **argv)
 {
-    char *vbi_name = "/dev/vbi";
     struct vbi *vbi;
     struct ng_attribute *attr;
     int c,i,j,scan=1;
@@ -195,7 +184,7 @@ main(int argc, char **argv)
 
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hsdn:f:o:")))
+	if (-1 == (c = getopt(argc, argv, "hsdn:f:o:c:C:")))
 	    break;
 	switch (c) {
 	case 'd':
@@ -212,6 +201,12 @@ main(int argc, char **argv)
 	    break;
 	case 'o':
 	    outfile = optarg;
+	    break;
+	case 'c':
+	    ng_dev.video = optarg;
+	    break;
+	case 'C':
+	    ng_dev.vbi = optarg;
 	    break;
 	case 'h':
 	    usage(stdout,argv[0]);
@@ -230,12 +225,6 @@ main(int argc, char **argv)
     }
 
     /* video */
-#if 0
-    if (NULL != getenv("DISPLAY"))
-	dpy = XOpenDisplay(NULL);
-    if (dpy)
-	xv_init(1,0);
-#endif
     if (NULL == drv)
 	grabber_init();
     if (NULL == drv) {
@@ -243,12 +232,11 @@ main(int argc, char **argv)
 	exit(1);
     }
 
-    have_mixer = 0; /* don't use it */
     attr_init();
     audio_init();
 
     /* ask the user some questions ... */
-    attr = ng_attr_byid(a_drv,ATTR_ID_NORM);
+    attr = ng_attr_byid(attrs,ATTR_ID_NORM);
     i = menu("please select your TV norm",attr->choices,tvnorm);
     j = menu("please select a frequency table",chanlist_names,freqtab);
 
@@ -273,8 +261,8 @@ main(int argc, char **argv)
 
     /* vbi */
     fdset_init(fds);
-    if (not(vbi = vbi_open(vbi_name, 0, 0, -1)))
-	fatal("cannot open %s", vbi_name);
+    if (not(vbi = vbi_open(ng_dev.vbi, 0, 0, -1)))
+	fatal("cannot open %s", ng_dev.vbi);
 
     /* scan channels */
     fprintf(stderr,"\nscanning...\n");
@@ -300,11 +288,15 @@ main(int argc, char **argv)
     /* cleanup */
     audio_off();
     drv->close(h_drv);
-    if (dpy)
-	XCloseDisplay(dpy);
 
     vbi_del_handler(vbi, event, NULL);
     vbi_close(vbi);
 
     exit(0);
 }
+
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

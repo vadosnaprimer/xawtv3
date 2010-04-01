@@ -92,7 +92,7 @@ add_menu_sep(Widget menu,char *name)
 
 static long sel=-1;
 
-void
+static void
 popdown_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
     if (-1 == sel)
@@ -101,7 +101,7 @@ popdown_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
     XtDestroyWidget(widget);
 }
 
-void
+static void
 select_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
     sel = (long)client_data;

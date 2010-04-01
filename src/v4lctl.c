@@ -13,9 +13,8 @@
 
 #include "config.h"
 
-#include <X11/Xlib.h>
-#include <X11/Intrinsic.h>
 #ifdef HAVE_LIBXV
+# include <X11/Xlib.h>
 # include <X11/extensions/Xv.h>
 # include <X11/extensions/Xvlib.h>
 #endif
@@ -28,20 +27,25 @@
 
 int debug = 0;
 int have_dga = 0;
-char *device = "/dev/video";
+#ifdef HAVE_LIBXV
 Display *dpy;
+#endif
 
 /*--- main ---------------------------------------------------------------*/
 
 static void
 grabber_init(void)
 {
-    drv = ng_grabber_open(device,NULL,0,&h_drv);
+    drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
+    if (NULL == drv) {
+	fprintf(stderr,"no grabber device available\n");
+	exit(1);
+    }
     f_drv = drv->capabilities(h_drv);
-    a_drv = drv->list_attrs(h_drv);
+    add_attrs(drv->list_attrs(h_drv));
 }
 
-void
+static void
 usage(void)
 {
     fprintf(stderr,
@@ -49,15 +53,17 @@ usage(void)
 	    "usage: v4lctl [ options ] command\n"
 	    "options:\n"
 	    "  -v, --debug=n      debug level n, n = [0..2]\n"
-	    "  -c  --device=file  use <file> as video4linux device\n"
-	    "  -h  --help         print this text\n"
+	    "  -c, --device=file  use <file> as video4linux device\n"
+	    "  -h, --help         print this text\n"
 	    "\n");
 }
 
 int main(int argc, char *argv[])
 {
     int c;
+    int xvideo = 1;
 
+    ng_init();
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "hv:c:")))
 	    break;
@@ -66,7 +72,8 @@ int main(int argc, char *argv[])
 	    ng_debug = debug = atoi(optarg);
 	    break;
 	case 'c':
-	    device = optarg;
+	    ng_dev.video = optarg;
+	    xvideo = 0;
 	    break;
 	case 'h':
 	default:
@@ -78,24 +85,34 @@ int main(int argc, char *argv[])
 	usage();
 	exit(1);
     }
-    ng_init();
 
+#ifdef HAVE_LIBXV
     if (NULL != getenv("DISPLAY"))
 	dpy = XOpenDisplay(NULL);
     if (dpy)
-	xv_init(1,0,0);
+	xv_init(xvideo,0,0,0);
+#endif
     if (NULL == drv)
 	grabber_init();
     read_config();
 
-    have_mixer = 0; /* don't use it */
     attr_init();
     audio_init();
     audio_init();
 
+    parse_config();
+
     do_command(argc-optind,argv+optind);
     drv->close(h_drv);
+#ifdef HAVE_LIBXV
     if (dpy)
 	XCloseDisplay(dpy);
+#endif
     return 0;
 }
+
+/*
+ * Local variables:
+ * compile-command: "(cd ..; make)"
+ * End:
+ */

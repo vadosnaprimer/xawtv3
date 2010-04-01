@@ -20,7 +20,7 @@
 
 /* ------------------------------------------------------------------- */
 
-#define CLIP        320
+#define CLIP         320
 
 #if 0
 # define RED_NULL    137
@@ -58,7 +58,20 @@ static unsigned int  ng_clip[256 + 2 * CLIP];
 #define BLUE(gray,blue)		ng_clip[ CLIP + gray + ng_yuv_blue[blue] ]
 
 /* ------------------------------------------------------------------- */
-/* packed pixel yuv to RGB                                             */
+/* packed pixel yuv to gray / rgb                                      */
+
+static void
+yuv422_to_gray(unsigned char *dest, unsigned char *s, int p)
+{
+    unsigned char *d = dest;
+    
+    while (p) {
+	d[0] = GRAY(s[0]);
+	p--;
+	d++;
+	s+=2;
+    }
+}
 
 static void
 yuv422_to_rgb24(unsigned char *dest, unsigned char *s, int p)
@@ -126,9 +139,64 @@ ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p)
 }
 
 /* ------------------------------------------------------------------- */
-/* planar yuv to RGB                                                   */
+/* planar yuv to gray / rgb                                            */
 
-void
+static void
+yuv42xp_to_gray(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
+{
+    unsigned char *y;
+    unsigned char *dp,*d;
+    int i,j;
+
+    dp = out->data;
+    y  = in->data;
+
+    for (i = 0; i < in->fmt.height; i++) {
+	d = dp;
+	for (j = 0; j < in->fmt.width; j++) {
+	    *d = GRAY(*y);
+	    d++,y++;
+	}
+	dp += out->fmt.bytesperline;
+    }
+}
+
+static void
+yuv420p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
+{
+    unsigned char *y,*u,*v;
+    unsigned char *us,*vs;
+    unsigned char *dp,*d;
+    int i,j,gray;
+
+    dp = out->data;
+    y  = in->data;
+    u  = y + in->fmt.width * in->fmt.height;
+    v  = u + in->fmt.width * in->fmt.height / 4;
+    
+    for (i = 0; i < in->fmt.height; i++) {
+	d = dp;
+	us = u; vs = v;
+	for (j = 0; j < in->fmt.width; j+= 2) {
+	    gray   = GRAY(*y);
+	    *(d++) = RED(gray,*v);
+	    *(d++) = GREEN(gray,*v,*u);
+	    *(d++) = BLUE(gray,*u);
+	    y++;
+	    gray   = GRAY(*y);
+	    *(d++) = RED(gray,*v);
+	    *(d++) = GREEN(gray,*v,*u);
+	    *(d++) = BLUE(gray,*u);
+	    y++; u++; v++;
+	}
+	if (0 == (i % 2)) {
+	    u = us; v = vs;
+	}
+	dp += out->fmt.bytesperline;
+    }
+}
+
+static void
 yuv422p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 {
     unsigned char *y,*u,*v;
@@ -153,6 +221,44 @@ yuv422p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 	    *(d++) = GREEN(gray,*v,*u);
 	    *(d++) = BLUE(gray,*u);
 	    y++; u++; v++;
+	}
+	dp += out->fmt.bytesperline;
+    }
+}
+
+void
+ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
+{
+    unsigned char *y,*u,*v;
+    unsigned char *us,*vs;
+    unsigned char *dp;
+    unsigned short *d;
+    int i,j,gray;
+
+    dp = out->data;
+    y  = in->data;
+    u  = y + in->fmt.width * in->fmt.height;
+    v  = u + in->fmt.width * in->fmt.height / 4;
+
+    for (i = 0; i < in->fmt.height; i++) {
+	d = (unsigned short*) dp;
+	us = u; vs = v;
+	for (j = 0; j < in->fmt.width; j+= 2) {
+	    gray   = GRAY(*y);
+	    *(d++) =
+		ng_lut_red[RED(gray,*v)] |
+		ng_lut_green[GREEN(gray,*v,*u)] |
+		ng_lut_blue[BLUE(gray,*u)];
+	    y++;
+	    gray   = GRAY(*y);
+	    *(d++) =
+		ng_lut_red[RED(gray,*v)] |
+		ng_lut_green[GREEN(gray,*v,*u)] |
+		ng_lut_blue[BLUE(gray,*u)];
+	    y++; u++; v++;
+	}
+	if (0 == (i % 2)) {
+	    u = us; v = vs;
 	}
 	dp += out->fmt.bytesperline;
     }
@@ -186,6 +292,44 @@ ng_yuv422p_to_lut2(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
 		ng_lut_green[GREEN(gray,*v,*u)] |
 		ng_lut_blue[BLUE(gray,*u)];
 	    y++; u++; v++;
+	}
+	dp += out->fmt.bytesperline;
+    }
+}
+
+void
+ng_yuv420p_to_lut4(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
+{
+    unsigned char *y,*u,*v;
+    unsigned char *us,*vs;
+    unsigned char *dp;
+    unsigned int  *d;
+    int i,j,gray;
+
+    dp = out->data;
+    y  = in->data;
+    u  = y + in->fmt.width * in->fmt.height;
+    v  = u + in->fmt.width * in->fmt.height / 4;
+
+    for (i = 0; i < in->fmt.height; i++) {
+	d = (unsigned int*) dp;
+	us = u; vs = v;
+	for (j = 0; j < in->fmt.width; j+= 2) {
+	    gray   = GRAY(*y);
+	    *(d++) =
+		ng_lut_red[RED(gray,*v)] |
+		ng_lut_green[GREEN(gray,*v,*u)] |
+		ng_lut_blue[BLUE(gray,*u)];
+	    y++;
+	    gray   = GRAY(*y);
+	    *(d++) =
+		ng_lut_red[RED(gray,*v)] |
+		ng_lut_green[GREEN(gray,*v,*u)] |
+		ng_lut_blue[BLUE(gray,*u)];
+	    y++; u++; v++;
+	}
+	if (0 == (i % 2)) {
+	    u = us; v = vs;
 	}
 	dp += out->fmt.bytesperline;
     }
@@ -233,11 +377,34 @@ static struct ng_video_conv conv_list[] = {
 	fmtid_out:	VIDEO_RGB24,
 	priv:		yuv422_to_rgb24,
     },{
+	NG_GENERIC_PACKED,
+	fmtid_in:	VIDEO_YUV422,
+	fmtid_out:	VIDEO_GRAY,
+	priv:		yuv422_to_gray,
+    },{
 	init:           ng_conv_nop_init,
 	fini:           ng_conv_nop_fini,
 	frame:          yuv422p_to_rgb24,
 	fmtid_in:	VIDEO_YUV422P,
 	fmtid_out:	VIDEO_RGB24,
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          yuv420p_to_rgb24,
+	fmtid_in:	VIDEO_YUV420P,
+	fmtid_out:	VIDEO_RGB24,
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          yuv42xp_to_gray,
+	fmtid_in:	VIDEO_YUV422P,
+	fmtid_out:	VIDEO_GRAY,
+    },{
+	init:           ng_conv_nop_init,
+	fini:           ng_conv_nop_fini,
+	frame:          yuv42xp_to_gray,
+	fmtid_in:	VIDEO_YUV420P,
+	fmtid_out:	VIDEO_GRAY,
     }
 };
 static const int nconv = sizeof(conv_list)/sizeof(struct ng_video_conv);

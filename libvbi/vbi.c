@@ -12,21 +12,48 @@
 #include "hamm.h"
 #include "lang.h"
 
+#define KRAXEL_DEBUG 1
+#define FAC	(1<<16)		// factor for fix-point arithmetic
 
-#define BPL	2048
-#define FAC	(1<<16)
-#define STEP	335062	// (int)(35.468950/6.9375*FAC+.5)	// PAL!
+static u8 *rawbuf;		// one common buffer for raw vbi data.
+static int rawbuf_size;		// its current size
+
+
+/***** bttv api *****/
 
 #define BASE_VIDIOCPRIVATE	192
 #define BTTV_VERSION		_IOR('v' , BASE_VIDIOCPRIVATE+6, int)
 #define BTTV_VBISIZE		_IOR('v' , BASE_VIDIOCPRIVATE+8, int)
 
+/***** v4l2 vbi-api *****/
 
-static u8 rawbuf[BPL*19*2];	// one global buffer for raw vbi data
-			// (putting this on the stack may trash the mm-system)
+struct v4l2_vbi_format
+{
+    u32 sampling_rate;		/* in 1 Hz */
+    u32 offset;			/* sampling starts # samples after rising hs */
+    u32 samples_per_line;
+    u32 sample_format;		/* V4L2_VBI_SF_* */
+    s32 start[2];
+    u32 count[2];
+    u32 flags;			/* V4L2_VBI_* */
+    u32 reserved2;		/* must be zero */
+};
 
-int vbi_big_buf = -1;
-int vbi_fine_tune = 0;	// delay decoding n/10 bit length
+struct v4l2_format
+{
+    u32	type;			/* V4L2_BUF_TYPE_* */
+    union
+    {
+	struct v4l2_vbi_format vbi;	/*  VBI data  */
+	u8 raw_data[200];		/* user-defined */
+    } fmt;
+};
+
+#define V4L2_VBI_SF_UBYTE	1
+#define V4L2_BUF_TYPE_VBI       0x00000009
+#define VIDIOC_G_FMT		_IOWR('V',  4, struct v4l2_format)
+
+/***** end of api definitions *****/
 
 
 
@@ -152,8 +179,13 @@ vt_line(struct vbi *vbi, u8 *p)
     int err = 0;
 
     hdr = hamm16(p, &err);
-    if (err & 0xf000)
+    if (err & 0xf000) {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf("vt_line: hamm error\n",pkt);
+#endif
 	return -4;
+    }
 
     mag = hdr & 7;
     mag8 = mag?: 8;
@@ -163,6 +195,10 @@ vt_line(struct vbi *vbi, u8 *p)
     rvtp = vbi->rpage + mag;
     cvtp = rvtp->page;
 
+#if KRAXEL_DEBUG
+    if (debug)
+	printf("vt_line: pkt=%d\n",pkt);
+#endif
     switch (pkt)
     {
 	case 0:
@@ -173,6 +209,12 @@ vt_line(struct vbi *vbi, u8 *p)
 	    b2 = hamm16(p+2, &err);	// subpage number + flags
 	    b3 = hamm16(p+4, &err);	// subpage number + flags
 	    b4 = hamm16(p+6, &err);	// language code + more flags
+
+#if KRAXEL_DEBUG
+	    if (debug)
+		printf("vt_line: bytes %x %x %x %x err %x\n",
+		       b1,b2,b3,b4,err);
+#endif
 
 	    if (vbi->ppage->page->flags & PG_MAGSERIAL)
 		vbi_send_page(vbi, vbi->ppage, b1);
@@ -306,17 +348,22 @@ vbi_line(struct vbi *vbi, u8 *p)
     u8 data[43], min, max;
     int dt[256], hi[6], lo[6];
     int i, n, sync, thr;
+    int bpb = vbi->bpb;
 
     /* remove DC. edge-detector */
-    for (i = 40; i < 240; ++i)
-	dt[i] = p[i+STEP/FAC] - p[i];	// amplifies the edges best.
+    for (i = vbi->soc; i < vbi->eoc; ++i)
+	dt[i] = p[i+bpb/FAC] - p[i];	// amplifies the edges best.
 
     /* set barrier */
-    for (i = 240; i < 256; i += 2)
+    for (i = vbi->eoc; i < vbi->eoc+16; i += 2)
 	dt[i] = 100, dt[i+1] = -100;
 
     /* find 6 rising and falling edges */
-    for (i = 40, n = 0; n < 6; ++n)
+#if KRAXEL_DEBUG
+    if (debug)
+	printf("vbi_line:");
+#endif
+    for (i = vbi->soc, n = 0; n < 6; ++n)
     {
 	while (dt[i] < 32)
 	    i++;
@@ -324,13 +371,28 @@ vbi_line(struct vbi *vbi, u8 *p)
 	while (dt[i] > -32)
 	    i++;
 	lo[n] = i;
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf(" %d-%d",hi[n],lo[n]);
+#endif
     }
-    if (i >= 240)
+    if (i >= vbi->eoc) {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf(" - not enough periods found\n");
+#endif
 	return -1;	// not enough periods found
+    }
 
-    i = hi[5] - hi[1];	// length of 4 periods (8 bits), normally 40.9
-    if (i < 39 || i > 42)
+    i = hi[5] - hi[1];	// length of 4 periods (8 bits)
+    if (i < vbi->bp8bl || i > vbi->bp8bh) {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf(" - bad frequency [%d-%d / %d]\n",
+		   vbi->bp8bl,vbi->bp8bh,i);
+#endif
 	return -1;	// bad frequency
+    }
 
     /* AGC and sync-reference */
     min = 255, max = 0, sync = 0;
@@ -345,19 +407,28 @@ vbi_line(struct vbi *vbi, u8 *p)
     p += sync;
 
     /* search start-byte 11100100 */
-    for (i = 4*STEP + vbi->pll_adj*STEP/10; i < 16*STEP; i += STEP)
-	if (p[i/FAC] > thr && p[(i+STEP)/FAC] > thr) // two ones is enough...
+    for (i = 4*bpb + vbi->pll_adj*bpb/10; i < 16*bpb; i += bpb)
+	if (p[i/FAC] > thr && p[(i+bpb)/FAC] > thr) // two ones is enough...
 	{
 	    /* got it... */
 	    memset(data, 0, sizeof(data));
 
-	    for (n = 0; n < 43*8; ++n, i += STEP)
+	    for (n = 0; n < 43*8; ++n, i += bpb)
 		if (p[i/FAC] > thr)
 		    data[n/8] |= 1 << (n%8);
 
-	    if (data[0] != 0x27)	// really 11100100? (rev order!)
+	    if (data[0] != 0x27) {	// really 11100100? (rev order!)
+#if KRAXEL_DEBUG
+		if (debug)
+		    printf(" - 404 11100100 [0x27 != 0x%d]\n",data[0]);
+#endif
 		return -1;
+	    }
 
+#if KRAXEL_DEBUG
+	    if (debug)
+		printf(" - line ok\n");
+#endif
 	    if (i = vt_line(vbi, data+1))
 		if (i < 0)
 		    pll_add(vbi, 2, -i);
@@ -365,6 +436,10 @@ vbi_line(struct vbi *vbi, u8 *p)
 		    pll_add(vbi, 1, i);
 	    return 0;
 	}
+#if KRAXEL_DEBUG
+    if (debug)
+	printf(" - eof\n");
+#endif
     return -1;
 }
 
@@ -383,12 +458,21 @@ vbi_handler(struct vbi *vbi, int fd)
     if (dl_empty(vbi->clients))
 	return;
 
-    if (n != vbi->bufsize)
+    if (n != vbi->bufsize) {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf("size mismatch [%d / %d]\n",n,vbi->bufsize);
+#endif
 	return;
+    }
 
     seq = *(u32 *)&rawbuf[n - 4];
     if (vbi->seq+1 != seq)
     {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf("out of sync [seq=%d]\n",seq);
+#endif
 	out_of_sync(vbi);
 	if (seq < 3 && vbi->seq >= 3)
 	    vbi_reset(vbi);
@@ -396,7 +480,7 @@ vbi_handler(struct vbi *vbi, int fd)
     vbi->seq = seq;
 
     if (seq > 1)	// the first may contain data from prev channel
-	for (i = 0; i+BPL <= n; i += BPL)
+	for (i = 0; i+vbi->bpl <= n; i += vbi->bpl)
 	    vbi_line(vbi, rawbuf + i);
 }
 
@@ -433,6 +517,144 @@ vbi_del_handler(struct vbi *vbi, void *handler, void *data)
 
 
 
+static int
+set_decode_parms(struct vbi *vbi, struct v4l2_vbi_format *p)
+{
+    double fs;		// sampling rate
+    double bpb;		// bytes per bit
+    int soc, eoc;	// start/end of clock run-in
+    int bpl;		// bytes per line
+
+    if (p->sample_format != V4L2_VBI_SF_UBYTE)
+    {
+	error("v4l2: unsupported vbi data format");
+	return -1;
+    }
+
+    // some constants from the standard:
+    //   horizontal frequency			fh = 15625Hz
+    //   teletext bitrate			ft = 444*fh = 6937500Hz
+    //   teletext identification sequence	10101010 10101010 11100100
+    //   13th bit of seq rel to falling hsync	12us -1us +0.4us
+    // I search for the clock run-in (10101010 10101010) from 12us-1us-12.5/ft
+    // (earliest first bit) to 12us+0.4us+3.5/ft (latest last bit)
+    //   earlist first bit			tf = 12us-1us-12.5/ft = 9.2us
+    //   latest last bit			tl = 12us+0.4us+3.5/ft = 12.9us
+    //   total number of used bits		n = (2+1+2+40)*8 = 360
+
+    bpl = p->samples_per_line;
+    fs = p->sampling_rate;
+    bpb = fs/6937500.0;
+    soc = (int)(9.2e-6*fs) - (int)p->offset;
+    eoc = (int)(12.9e-6*fs) - (int)p->offset;
+    if (soc < 0)
+	soc = 0;
+    if (eoc > bpl - (int)(43*8*bpb))
+	eoc = bpl - (int)(43*8*bpb);
+    if (eoc - soc < (int)(16*bpb))
+    {
+	// line too short or offset too large or wrong sample_rate
+	error("v4l2: broken vbi format specification [%d-%d @ %lf]",
+	      soc,eoc,bpb);
+	return -1;
+    }
+    if (eoc > 240)
+    {
+	// the vbi_line routine can hold max 240 values in its work buffer
+	error("v4l2: unable to handle these sampling parameters");
+	return -1;
+    }
+
+    vbi->bpb = bpb * FAC + 0.5;
+    vbi->soc = soc;
+    vbi->eoc = eoc;
+    vbi->bp8bl = 0.97 * 8*bpb; // -3% tolerance
+    vbi->bp8bh = 1.03 * 8*bpb; // +3% tolerance
+
+    vbi->bpl = bpl;
+    vbi->bufsize = bpl * (p->count[0] + p->count[1]);
+#if KRAXEL_DEBUG
+    if (debug)
+	printf("params: %d - %d @ %f\n",
+	       vbi->soc,vbi->eoc, (float)vbi->bpb / FAC);
+#endif
+
+    return 0;
+}
+
+
+static int
+setup_dev(struct vbi *vbi)
+{
+    struct v4l2_format v4l2_format[1];
+    struct v4l2_vbi_format *vbifmt = &v4l2_format->fmt.vbi;
+    int dummy;
+
+    if (ioctl(vbi->fd, VIDIOC_G_FMT, v4l2_format) == -1
+	|| v4l2_format->type != V4L2_BUF_TYPE_VBI)
+    {
+	// not a v4l2 device.  assume bttv and create a standard fmt-struct.
+	int size;
+
+	vbifmt->sample_format = V4L2_VBI_SF_UBYTE;
+	vbifmt->sampling_rate = 35468950;
+	vbifmt->samples_per_line = 2048;
+	vbifmt->offset = 244;
+	if ((size = ioctl(vbi->fd, BTTV_VBISIZE, &dummy)) == -1)
+	{
+	    // BSD or older bttv driver.
+	    vbifmt->count[0] = 16;
+	    vbifmt->count[1] = 16;
+#if KRAXEL_DEBUG
+	    if (debug)
+		printf("device: old bttv / bsd\n");
+#endif
+	}
+	else if (size % 2048)
+	{
+	    error("broken bttv driver (bad buffer size)");
+	    return -1;
+	}
+	else
+	{
+	    size /= 2048;
+	    vbifmt->count[0] = size/2;
+	    vbifmt->count[1] = size - size/2;
+#if KRAXEL_DEBUG
+	    if (debug)
+		printf("device: new bttv [%d]\n",size);
+#endif
+	}
+    } else {
+#if KRAXEL_DEBUG
+	if (debug)
+	    printf("device: v4l2\n");
+#endif
+    }
+
+    if (set_decode_parms(vbi, vbifmt) == -1)
+	return -1;
+
+    if (vbi->bpl < 1 || vbi->bufsize < vbi->bpl || vbi->bufsize % vbi->bpl != 0)
+    {
+	error("strange size of vbi buffer (%d/%d)", vbi->bufsize, vbi->bpl);
+	return -1;
+    }
+
+    // grow buffer if necessary
+    if (rawbuf_size < vbi->bufsize)
+    {
+	if (rawbuf)
+	    free(rawbuf);
+	if (not(rawbuf = malloc(rawbuf_size = vbi->bufsize)))
+	    out_of_mem(rawbuf_size); // old buffer already freed.  abort.
+    }
+
+    return 0;
+}
+
+
+
 struct vbi *
 vbi_open(char *vbi_name, struct cache *ca, int fine_tune, int big_buf)
 {
@@ -455,23 +677,11 @@ vbi_open(char *vbi_name, struct cache *ca, int fine_tune, int big_buf)
 	goto fail2;
     }
 
-    if ((vbi->bufsize = ioctl(vbi->fd, BTTV_VBISIZE)) == -1)
-    {
-	// big_buf == -1 default, 0 small, 1 large buffer
-#ifdef DEFAULT_SMALL_BUF
-	vbi->bufsize = big_buf==1 ? 19*2*2048 : 16*2*2048; // small is def
-#else
-	vbi->bufsize = big_buf!=0 ? 19*2*2048 : 16*2*2048; // large is def
-#endif
-    }
-    else if (vbi->bufsize < BPL || vbi->bufsize > (int)sizeof(rawbuf)
-						    || vbi->bufsize % BPL != 0)
-    {
-	error("illegal size of bttv driver's buffer (%d bytes)", vbi->bufsize);
+    if (big_buf != -1)
+	error("-oldbttv/-newbttv is obsolete.  option ignored.");
+
+    if (setup_dev(vbi) == -1)
 	goto fail3;
-    }
-    else if (big_buf != -1)
-	error("-oldbttv/-newbttv option ignored.");
 
     vbi->cache = ca;
 

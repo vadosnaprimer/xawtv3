@@ -98,7 +98,7 @@ mjpg_init(struct ng_video_fmt *fmt)
     return h;
 }
 
-void
+static void
 mjpg_cleanup(void *handle)
 {
     struct mjpeg_handle *h = handle;
@@ -116,7 +116,7 @@ mjpg_cleanup(void *handle)
 
 /* ---------------------------------------------------------------------- */
 
-void*
+static void*
 mjpg_rgb_init(struct ng_video_fmt *out, void *priv)
 {
     struct mjpeg_handle *h;
@@ -133,13 +133,13 @@ mjpg_rgb_init(struct ng_video_fmt *out, void *priv)
 
     jpeg_set_defaults(&h->mjpg_cinfo);
     h->mjpg_cinfo.dct_method = JDCT_FASTEST;
-    jpeg_set_quality(&h->mjpg_cinfo, ng_mjpeg_quality, TRUE);
+    jpeg_set_quality(&h->mjpg_cinfo, ng_jpeg_quality, TRUE);
     jpeg_suppress_tables(&h->mjpg_cinfo, TRUE);
 
     return h;
 }
 
-void
+static void
 mjpg_rgb_compress(void *handle, struct ng_video_buf *out,
 		  struct ng_video_buf *in)
 {
@@ -161,7 +161,7 @@ mjpg_rgb_compress(void *handle, struct ng_video_buf *out,
     out->size = h->mjpg_bufused;
 }
 
-void
+static void
 mjpg_bgr_compress(void *handle, struct ng_video_buf *out,
 		  struct ng_video_buf *in)
 {
@@ -171,7 +171,7 @@ mjpg_bgr_compress(void *handle, struct ng_video_buf *out,
 
 /* ---------------------------------------------------------------------- */
 
-void*
+static void*
 mjpg_yuv_init(struct ng_video_fmt *out, void *priv)
 {
     struct mjpeg_handle    *h;
@@ -189,7 +189,7 @@ mjpg_yuv_init(struct ng_video_fmt *out, void *priv)
 
     jpeg_set_defaults(&h->mjpg_cinfo);
     h->mjpg_cinfo.dct_method = JDCT_FASTEST;
-    jpeg_set_quality(&h->mjpg_cinfo, ng_mjpeg_quality, TRUE);
+    jpeg_set_quality(&h->mjpg_cinfo, ng_jpeg_quality, TRUE);
 
     h->mjpg_cinfo.raw_data_in = TRUE;
     jpeg_set_colorspace(&h->mjpg_cinfo,JCS_YCbCr);

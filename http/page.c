@@ -42,7 +42,8 @@ static char page_bottom[] =
 
 /* ---------------------------------------------------------------------- */
 
-static void vbipage(struct REQUEST *req, struct vt_page *page)
+static void vbipage(struct REQUEST *req, struct vt_page *page,
+		    int pagenr, int subnr, int html)
 {
     char *out;
     int size,len,x,y;
@@ -57,7 +58,8 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
     out = malloc(size);
     len = 0;
 
-    len += sprintf(out+len,page_top,page->pgno,page->subno);
+    if (html)
+	len += sprintf(out+len,page_top,page->pgno,page->subno);
     for (y = 0; y < H; y++) {
 	if (~pg->hid & (1 << y)) {  /* !hidden */
 	    for (x = 0; x < W; ++x) {
@@ -85,7 +87,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 	    for (x = 0; x < W; ++x)
 		if (L[x].ch == ' ') {
 		    L[x].fg = L[x-1].fg;
-		    l[x].attr = L[x-1].attr;
+		    L[x].attr = L[x-1].attr;
 		}
 
 	    /* move fg and attr changes to prev bg change point */
@@ -99,7 +101,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 	    lcolor = -1; link = -1;
 	    for (x = 0; x < W; ++x) {
 		/* close link tags */
-		if (link >= 0) {
+		if (html && link >= 0) {
 		    if (0 == link)
 			len += sprintf(out+len,"</a>");
 		    link--;
@@ -107,7 +109,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 
 		/* color handling */
 		color = (L[x].fg&0x0f) * 10 + (L[x].bg&0x0f);
-		if (color != lcolor) {
+		if (html && color != lcolor) {
 		    if (-1 != lcolor)
 			len += sprintf(out+len,"</span>");
 		    len += sprintf(out+len,"<span class=\"c%02d\">",color);
@@ -115,7 +117,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 		}
 
 		/* check for refences to other pages */
-		if (y > 0 && -1 == link && x < W-2 &&
+		if (html && y > 0 && -1 == link && x < W-2 &&
 		    isdigit(L[x].ch) &&
 		    isdigit(L[x+1].ch) &&
 		    isdigit(L[x+2].ch) &&
@@ -125,14 +127,14 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 				   L[x].ch, L[x+1].ch, L[x+2].ch);
 		    link = 2;
 		}
-		if (y > 0 && -1 == link && x < W-1 &&
+		if (html && y > 0 && -1 == link && x < W-1 &&
 		    '>' == L[x].ch &&
 		    '>' == L[x+1].ch) {
 		    len += sprintf(out+len,"<a href=\"/%03x/\">",
 				   page->pgno+1);
 		    link = 1;
 		}
-		if (y > 0 && -1 == link && x < W-1 &&
+		if (html && y > 0 && -1 == link && x < W-1 &&
 		    '<' == L[x].ch &&
 		    '<' == L[x+1].ch) {
 		    len += sprintf(out+len,"<a href=\"/%03x/\">",
@@ -140,7 +142,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 		    link = 1;
 		}
 		/* check for refences to other subpages */
-		if (y > 0 && -1 == link && x < W-2 &&
+		if (html && y > 0 && -1 == link && x < W-2 &&
 		    page->subno > 0 && 
 		    isdigit(L[x].ch) &&
 		    '/' == L[x+1].ch &&
@@ -156,7 +158,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 		    link = 2;
 		}
 		/* check for FastText links */
-		if (page->flof && -1 == link && x<W-2 &&
+		if (html && page->flof && -1 == link && x<W-2 &&
 		    24 == y &&
 		    L[x].fg>0 &&
 		    L[x].fg<8 &&
@@ -188,9 +190,9 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 		out[len++] = L[x].ch;
 	    }
 	    /* close any tags + put newline */
-	    if (link >= 0)
+	    if (html && link >= 0)
 		len += sprintf(out+len,"</a>");
-	    if (-1 != lcolor)
+	    if (html && -1 != lcolor)
 		len += sprintf(out+len,"</span>");
 	    out[len++] = '\n';
 
@@ -201,9 +203,33 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 	    }
 	}
     }
-    len += sprintf(out+len,"%s",page_bottom);
+    if (html) {
+#define MAXSUBPAGES    32
+        int subpage;
+	
+	/* close preformatted text header */
+	len+=sprintf(out+len,"</pre>\n<div class=quick>\n") ;
+	if (vbi->cache->op->get(vbi->cache,pagenr,1)) {
+	    /* link all subpages */
+	    len += sprintf(out+len,"Subpages:");
+	    for (subpage = 1; subpage <= MAXSUBPAGES; subpage++) {
+		if (NULL == vbi->cache->op->get(vbi->cache,pagenr,subpage))
+		    continue;
+		if (subpage != subnr) {
+		    len += sprintf(out+len," <a href=\"/%03x/%02x.html\">%02x</a>",
+				   pagenr, subpage, subpage);
+		} else {
+		    len += sprintf(out+len," %02x", subpage);
+		}
+	    }
+	    len += sprintf(out+len,"<br>\n") ;
+	}
+	len += sprintf(out+len,"%s",page_bottom);
+	req->mime = "text/html; charset=\"iso-8859-1\"";
+    } else {
+	req->mime = "text/plain; charset=\"iso-8859-1\"";
+    }
 
-    req->mime  = "text/html; charset=\"iso-8859-1\"";
     req->body  = out;
     req->lbody = len;
     req->free_the_mallocs = 1;
@@ -215,6 +241,7 @@ static void vbipage(struct REQUEST *req, struct vt_page *page)
 void buildpage(struct REQUEST *req)
 {
     int pagenr, subpage;
+    char type;
     struct vt_page *page;
 
     /* style sheet */
@@ -243,12 +270,12 @@ void buildpage(struct REQUEST *req)
     }
 
     /* page with subpages */
-    if (2 == sscanf(req->path,"/%3x/%2x.html",&pagenr,&subpage)) {
+    if (3 == sscanf(req->path,"/%3x/%2x.%c",&pagenr,&subpage,&type)) {
 	if (debug)
 	    fprintf(stderr,"trying %03x/%02x\n",pagenr,subpage);
 	page = vbi->cache->op->get(vbi->cache,pagenr,subpage);
 	if (NULL != page) {
-	    vbipage(req,page);
+	    vbipage(req,page,pagenr,subpage,type=='h');
 	    return;
 	}
 	mkerror(req,404,1);
@@ -261,7 +288,7 @@ void buildpage(struct REQUEST *req)
 	    fprintf(stderr,"trying %03x\n",pagenr);
 	page = vbi->cache->op->get(vbi->cache,pagenr,0);
 	if (NULL != page) {
-	    vbipage(req,page);
+	    vbipage(req,page,pagenr,0,1);
 	    return;
 	}
 	page = vbi->cache->op->get(vbi->cache,pagenr,ANY_SUB);

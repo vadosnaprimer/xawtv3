@@ -23,7 +23,6 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/wait.h>
-#include <X11/Intrinsic.h>
 
 #include "grab-ng.h"
 #include "writefile.h"
@@ -35,10 +34,9 @@
 /* ---------------------------------------------------------------------- */
 
 static int       bufcount = 16;
+static int       parallel = 1;
 static char*     tvnorm = NULL;
 static char*     input  = NULL;
-static char*     v4l_device = "/dev/video";
-static char*     dsp_device = "/dev/dsp";
 static char*     moviename = NULL;
 static char*     audioname = NULL;
 static char*     vfmt_name;
@@ -57,7 +55,7 @@ static struct ng_audio_fmt        audio = {
 static void *movie_state;
 
 static int  absframes = 1;
-static int  quiet = 0, fps = 10;
+static int  quiet = 0, fps = 10000;
 
 static int  signaled = 0, wait_seconds = 0;
 
@@ -65,7 +63,7 @@ int debug = 0, have_dga = 0;
 
 /* ---------------------------------------------------------------------- */
 
-void
+static void
 list_formats(FILE *out)
 {
     const struct ng_writer *wr;
@@ -98,33 +96,28 @@ list_formats(FILE *out)
     }
 }
 
-void
-usage(FILE *out, char *prog)
+static void
+usage(FILE *out)
 {
-    char *h;
-
-    if (NULL != (h = strrchr(prog,'/')))
-	prog = h+1;
-    
     fprintf(out,
-	    "%s grabs image(s) and records movies\n"
-	    "from a video4linux device\n"
+	    "streamer grabs image(s), records movies and sound\n"
 	    "\n"
-	    "usage: %s [ options ]\n"
+	    "usage: streamer [ options ]\n"
 	    "\n"
 	    "general options:\n"
 	    "  -h          print this help text\n"
 	    "  -q          quiet operation\n"
+	    "  -p n        use n compression threads    [%d]\n"
 	    "  -w seconds  wait before grabbing         [%d]\n"
 	    "\n"
 	    "video options:\n"
 	    "  -o file     video/movie file name\n"
 	    "  -f format   specify video format\n"
 	    "  -c device   specify video4linux device   [%s]\n"
-	    "  -r fps      frame rate                   [%d]\n"
+	    "  -r fps      frame rate                   [%d.%03d]\n"
 	    "  -s size     specify size                 [%dx%d]\n"
 	    "\n"
-	    "  -t times    number of frames             [%d]\n"
+	    "  -t times    number of frames or hh:mm:ss [%d]\n"
 	    "  -b buffers  specify # of buffers         [%d]\n"
 	    "  -j quality  quality for mjpeg or jpeg    [%d]\n"
 	    "  -n tvnorm   set pal/ntsc/secam\n"
@@ -136,30 +129,59 @@ usage(FILE *out, char *prog)
 	    "  -C device   specify dsp device           [%s]\n"
 	    "  -R rate     sample rate                  [%d]\n"
 	    "\n",
-	    prog, prog,
 	    
-	    wait_seconds,
-	    v4l_device, fps, video.width, video.height,
-	    absframes, bufcount, jpeg_quality,
-	    dsp_device, audio.rate
+	    parallel,wait_seconds,
+	    ng_dev.video, fps/1000, fps%1000,
+	    video.width, video.height,
+	    absframes, bufcount, ng_jpeg_quality,
+	    ng_dev.dsp, audio.rate
 	);
 
     list_formats(out);
     fprintf(out,
 	    "If you want to capture to multiple image files you should include some\n"
-	    "digits into the movie filename (foo0000.jpeg for example), %s will\n"
+	    "digits into the movie filename (foo0000.jpeg for example), streamer will\n"
 	    "use the digit block to enumerate the image files.\n"
+	    "\n"
 	    "For file formats which can hold *both* audio and video (like AVI and\n"
 	    "QuickTime) the -O option has no effect.\n"
 	    "\n"
+	    "streamer will use the file extention of the output file name to figure\n"
+	    "which format to use.  You need the -f/-F options only if the extention\n"
+	    "allows more than one format.\n"
+	    "\n"
+	    "Examples:\n"
+	    "  capture a single frame:\n"
+	    "    streamer -o foobar.ppm\n"
+	    "\n"
+	    "  capture ten frames, two per second:\n"
+	    "    streamer -t 10 -r 2 -o foobar00.jpeg\n"
+	    "\n"
+	    "  record 30 seconds stereo sound:\n"
+	    "    streamer -t 0:30 -O soundtrack.wav -F stereo\n"
+	    "\n"
+	    "  record a quicktime movie with sound:\n"
+	    "    streamer -t 0:30 -o movie.mov -f jpeg -F mono16\n"
+	    "\n"
+	    "  build mpeg movies using mjpegtools + compressed avi file:\n"
+	    "    streamer -t 0:30 -s 352x240 -r 24 -o movie.avi -f mjpeg -F stereo\n"
+	    "    lav2wav +p movie.avi | mp2enc -o audio.mp2\n"
+	    "    lav2yuv +p movie.avi | mpeg2enc -o video.m1v\n"
+	    "    mplex audio.mp2 video.m1v -o movie.mpg\n"
+	    "\n"
+	    "  build mpeg movies using mjpegtools + raw, uncompressed video:\n"
+	    "    streamer -t 0:30 -s 352x240 -r 24 -o video.yuv -O audio.wav -F stereo\n"
+	    "    mp2enc -o audio.mp2 < audio.wav\n"
+	    "    mpeg2enc -o video.m1v < video.yuv\n"
+	    "    mplex audio.mp2 video.m1v -o movie.mpg\n"
+	    "\n"
 	    "-- \n"
-	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n",
-	    prog);
+	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n");
 }
 
 /* ---------------------------------------------------------------------- */
 
-void
+static void
 find_formats(void)
 {
     const struct ng_writer *wr = NULL;
@@ -179,9 +201,14 @@ find_formats(void)
     }
     for (w = 0; NULL != ng_writers[w]; w++) {
 	wr = ng_writers[w];
-	if ((!wr->combined && mext) || NULL != vfmt_name) {
-	    if (NULL == wr->video)
+	if (debug)
+	    fprintf(stderr,"checking writer %s... ",wr->name);
+	if ((/*!wr->combined && */mext) || NULL != vfmt_name) {
+	    if (NULL == wr->video) {
+		if (debug)
+		    fprintf(stderr,"no video\n");
 		continue;
+	    }
 	    for (v = 0; NULL != wr->video[v].name; v++) {
 		if (mext && 0 != strcasecmp(wr->video[v].ext,mext))
 		    continue;
@@ -189,12 +216,19 @@ find_formats(void)
 		    continue;
 		break;
 	    }
-	    if (NULL == wr->video[v].name)
+	    if (NULL == wr->video[v].name) {
+		if (debug)
+		    fprintf(stderr,"video fmt not found [ext=%s,name=%s]\n",
+			    mext,vfmt_name);
 		continue;
+	    }
 	}
 	if ((!wr->combined && aext) || NULL != afmt_name) {
-	    if (NULL == wr->audio)
+	    if (NULL == wr->audio) {
+		if (debug)
+		    fprintf(stderr,"no audio\n");
 		continue;
+	    }
 	    for (a = 0; NULL != wr->audio[a].name; a++) {
 		if (!wr->combined &&
 		    aext && 0 != strcasecmp(wr->audio[a].ext,aext))
@@ -206,29 +240,64 @@ find_formats(void)
 		    continue;
 		break;
 	    }
-	    if (NULL == wr->audio[a].name)
+	    if (NULL == wr->audio[a].name) {
+		if (debug)
+		    fprintf(stderr,"audio fmt not found [ext=%s,name=%s]\n",
+			    wr->combined ? mext : aext, afmt_name);
 		continue;
+	    }
 	}
+	if (debug)
+	    fprintf(stderr,"ok:");
 	break;
     }
     if (NULL != ng_writers[w]) {
 	writer = wr;
 	if (-1 != v) {
+	    if (debug)
+		fprintf(stderr," video=%s",wr->video[v].name);
 	    video.fmtid = wr->video[v].fmtid;
 	    video_priv  = wr->video[v].priv;
 	}
 	if (-1 != a) {
+	    if (debug)
+		fprintf(stderr," audio=%s",wr->audio[a].name);
 	    audio.fmtid = wr->audio[a].fmtid;
 	    audio_priv  = wr->audio[a].priv;
 	}
+	if (debug)
+	    fprintf(stderr,"\n");
     }
 }
 
+static int
+parse_time(char *time)
+{
+    int hours, minutes, seconds, total=0;
+
+    if (3 == sscanf(time,"%d:%d:%d",&hours,&minutes,&seconds))
+	total = hours * 60*60 + minutes * 60 + seconds;
+    else if (2 == sscanf(time,"%d:%d",&minutes,&seconds))
+	total = minutes * 60 + seconds;
+
+    if (0 != total) {
+	/* hh:mm:ss => framecount */
+	return total * fps / 1000;
+    }
+
+    return atoi(time);
+}
+
+
 /* ---------------------------------------------------------------------- */
 
-void set_capture(int capture) {}
+static void
+do_rec_status(char *message)
+{
+    fprintf(stderr,"%s  \r",message);
+}
 
-void
+static void
 ctrlc(int signal)
 {
     static char text[] = "^C - one moment please\n";
@@ -240,11 +309,13 @@ int
 main(int argc, char **argv)
 {
     int  c,queued=0;
+    char *raw_length=NULL;
 
     /* parse options */
+    ng_init();
     for (;;) {
 	if (-1 == (c = getopt(argc, argv,
-			      "hqdw:" "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
+			      "hqdp:w:" "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
 	    break;
 	switch (c) {
 	    /* general options */
@@ -258,6 +329,9 @@ main(int argc, char **argv)
 	case 'w':
 	    wait_seconds = atoi(optarg);
 	    break;
+	case 'p':
+	    parallel = atoi(optarg);
+	    break;
 
 	    /* video options */
 	case 'o':
@@ -267,10 +341,10 @@ main(int argc, char **argv)
 	    vfmt_name = optarg;
 	    break;
 	case 'c':
-	    v4l_device = optarg;
+	    ng_dev.video = optarg;
 	    break;
 	case 'r':
-	    fps = atoi(optarg);
+	    fps = (int)(atof(optarg) * 1000 + 0.5);
 	    break;
 	case 's':
 	    if (2 != sscanf(optarg,"%dx%d",&video.width,&video.height))
@@ -278,13 +352,13 @@ main(int argc, char **argv)
 	    break;
 	    
 	case 't':
-	    absframes = atoi(optarg);
+	    raw_length = optarg;
 	    break;
 	case 'b':
 	    bufcount = atoi(optarg);
 	    break;
 	case 'j':
-	    jpeg_quality = ng_mjpeg_quality = atoi(optarg);
+	    ng_jpeg_quality = atoi(optarg);
 	    break;
 	case 'n':
 	    tvnorm = optarg;
@@ -301,7 +375,7 @@ main(int argc, char **argv)
 	    afmt_name = optarg;
 	    break;
 	case 'C':
-	    dsp_device = optarg;
+	    ng_dev.dsp = optarg;
 	    break;
 	case 'R':
 	    audio.rate = atoi(optarg);
@@ -309,14 +383,15 @@ main(int argc, char **argv)
 
 	    /* errors / help */
 	case 'h':
-	    usage(stdout,argv[0]);
+	    usage(stdout);
 	    exit(0);
 	default:
-	    usage(stderr,argv[0]);
+	    usage(stderr);
 	    exit(1);
 	}
     }
-    ng_init();
+    if (raw_length)
+	absframes = parse_time(raw_length);
     find_formats();
 
     /* sanity checks */
@@ -333,19 +408,22 @@ main(int argc, char **argv)
 	exit(1);
     }
 
+    /* set hooks */
+    rec_status = do_rec_status;
+
     /* open */
     if (writer && !quiet)
 	fprintf(stderr,"%s / video: %s / audio: %s\n",writer->name,
 		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
 
     if (video.fmtid != VIDEO_NONE) {
-	drv = ng_grabber_open(v4l_device,NULL,0,&h_drv);
+	drv = ng_grabber_open(ng_dev.video,NULL,0,&h_drv);
 	if (NULL == drv) {
 	    fprintf(stderr,"no grabber device available\n");
 	    exit(1);
 	}
 	f_drv = drv->capabilities(h_drv);
-	a_drv = drv->list_attrs(h_drv);
+	add_attrs(drv->list_attrs(h_drv));
 	if (!(f_drv & CAN_CAPTURE)) {
 	    fprintf(stderr,"%s: capture not supported\n",drv->name);
 	    exit(1);
@@ -361,10 +439,13 @@ main(int argc, char **argv)
     }
 	
     /* init movie writer */
+    ng_ratio_x = video.width;
+    ng_ratio_y = video.height;
     movie_state = movie_writer_init
 	(moviename, audioname, writer,
 	 &video, video_priv, fps,
-	 &audio, audio_priv, bufcount);
+	 &audio, audio_priv, ng_dev.dsp,
+	 bufcount, parallel);
     if (NULL == movie_state) {
 	fprintf(stderr,"movie writer initialisation failed\n");
 	if (video.fmtid != VIDEO_NONE) {
@@ -386,11 +467,10 @@ main(int argc, char **argv)
     for (;queued < absframes && !signaled;) {
 	if (video.fmtid != VIDEO_NONE) {
 	    /* video */
-	    queued = movie_grab_put_video(movie_state);
+	    queued = movie_grab_put_video(movie_state,NULL);
 	} else {
-	    /* quick+dirty: use #frames as #seconds */
 	    sleep(1);
-	    queued++;
+	    queued += fps / 1000;
 	}
     }
     movie_writer_stop(movie_state);

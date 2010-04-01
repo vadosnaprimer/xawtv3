@@ -21,6 +21,8 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -29,7 +31,6 @@
 #include <math.h>
 #include <pthread.h>
 
-#include <X11/Intrinsic.h>
 #ifndef NO_X11
 # include <X11/StringDefs.h>
 # include <X11/Xaw/XawInit.h>
@@ -52,39 +53,44 @@ struct CHANNEL defaults = {
     cname:    "none",
     capture:  CAPTURE_OVERLAY,
     audio:    -1,
-    color:    32768,
-    bright:   32768,
-    hue:      32768,
-    contrast: 32768,
+    color:    -1,
+    bright:   -1,
+    hue:      -1,
+    contrast: -1,
 };
 				
 struct CHANNEL  **channels  = NULL;
 int             count       = 0;
 int             alloc_count = 0;
-int             have_mixer  = 0;
 
 int last_sender = -1, cur_sender = -1, cur_channel = -1, cur_fine = 0;
 int cur_freq;
+struct ng_filter *cur_filter;
 
-int cur_capture, cur_movie;
+int cur_capture;
 int have_config;
-int jpeg_quality = 75;
 int keypad_ntsc = 0;
+int keypad_partial = 1;
 int use_osd = 1;
 int fs_width,fs_height,fs_xoff,fs_yoff;
 int pix_width=128, pix_height=96, pix_cols=1;
-static int grab_ratio_x,grab_ratio_y;
+
+char *mov_driver = NULL;
+char *mov_video  = NULL;
+char *mov_fps    = NULL;
+char *mov_audio  = NULL;
+char *mov_rate   = NULL;
 
 #ifndef NO_X11
-void button_cb(Widget widget, XtPointer clientdata, XtPointer call_data);
-
 extern Widget chan_box, chan_viewport, tv, opt_paned, launch_paned;
 #endif
 
-char *mixer  = NULL;
+static char *mixer = NULL;
+char mixerdev[32],mixerctl[16];
+char *midi = NULL;
 
 struct LAUNCH *launch = NULL;
-int nlaunch          = 0;
+int nlaunch           = 0;
 
 /* ----------------------------------------------------------------------- */
 
@@ -196,7 +202,8 @@ void hotkey_channel(struct CHANNEL *channel)
     XtOverrideTranslations(chan_viewport,XtParseTranslationTable(str));
 }
 
-void launch_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+static void
+launch_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     char *argv[2];
 
@@ -205,7 +212,8 @@ void launch_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     XtCallActionProc(widget,"Launch",NULL,argv,1);
 }
 
-void hotkey_launch(struct LAUNCH *launch)
+static void
+hotkey_launch(struct LAUNCH *launch)
 {
     Widget c;
     char str[100],key[32],ctrl[16],label[64];
@@ -230,6 +238,13 @@ void hotkey_launch(struct LAUNCH *launch)
     XtAddCallback(c,XtNcallback,launch_cb,(XtPointer)(launch->name));
 }
 
+static void
+button_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    struct CHANNEL *channel = clientdata;
+    do_va_cmd(2,"setstation",channel->name);
+}
+
 /* ... and initalize later */
 void configure_channel(struct CHANNEL *channel)
 {
@@ -248,9 +263,6 @@ void configure_channel(struct CHANNEL *channel)
 void
 del_channel(int i)
 {
-#ifndef NO_X11
-    XtDestroyWidget(channels[i]->button);
-#endif
     free(channels[i]->name);
     if (channels[i]->key)
 	free(channels[i]->key);
@@ -291,7 +303,7 @@ init_channel(char *name, struct CHANNEL *c)
 	else
 	    fprintf(stderr,"config: invalid value for capture: %s\n",val);
     }
-    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_INPUT)) &&
+    if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_INPUT)) &&
 	(NULL != (val = cfg_get_str(name,"input")) ||
 	 NULL != (val = cfg_get_str(name,"source")))) { /* obsolete */
 	if (-1 != (i = ng_attr_getint(attr,val)))
@@ -301,7 +313,7 @@ init_channel(char *name, struct CHANNEL *c)
 	    ng_attr_listchoices(attr);
 	}
     }
-    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_NORM)) &&
+    if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_NORM)) &&
 	NULL != (val = cfg_get_str(name,"norm"))) {
 	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->norm = i;
@@ -310,7 +322,7 @@ init_channel(char *name, struct CHANNEL *c)
 	    ng_attr_listchoices(attr);
 	}
     }
-    if (NULL != (attr = ng_attr_byid(a_drv,ATTR_ID_AUDIO_MODE)) &&
+    if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_AUDIO_MODE)) &&
 	NULL != (val = cfg_get_str(name,"audio"))) {
 	if (-1 != (i = ng_attr_getint(attr,val)))
 	    c->audio = i;
@@ -329,6 +341,8 @@ init_channel(char *name, struct CHANNEL *c)
 
     if (NULL != (val = cfg_get_str(name,"key")))
 	c->key   = strdup(val);
+    if (-1 != (n = attr_to_int(cfg_get_str(name,"midi"))))
+	c->midi = n;
 
     if (-1 != (n = attr_to_int(cfg_get_str(name,"color"))))
 	c->color = n;
@@ -341,11 +355,10 @@ init_channel(char *name, struct CHANNEL *c)
 }
 
 void
-read_config()
+read_config(void)
 {
-    char filename[100], key[16], cmdline[128];
-    char mixerdev[32],mixerctl[16];
-    char **list,*val;
+    char filename[100];
+    char *val;
     int  i;
 
     cfg_parse_file(CONFIGFILE);
@@ -357,15 +370,14 @@ read_config()
     if (NULL != (val = cfg_get_str("global","mixer"))) {
 	mixer = strdup(val);
 	if (2 != sscanf(mixer,"%31[^:]:%15s",mixerdev,mixerctl)) {
-	    strcpy(mixerdev,"/dev/mixer");
+	    strcpy(mixerdev,ng_dev.mixer);
 	    strncpy(mixerctl,val,15);
 	    mixerctl[15] = 0;
 	}
-	if (-1 != mixer_open(mixerdev, mixerctl))
-	    have_mixer = 1;
-	else
-	    fprintf(stderr,"invalid value for mixer: %s\n",val);
     }
+
+    if (NULL != (val = cfg_get_str("global","midi")))
+	midi = strdup(val);
 
     if (NULL != (val = cfg_get_str("global","freqtab"))) {
 	for (i = 0; chanlists[i].name != NULL; i++)
@@ -403,24 +415,45 @@ read_config()
 	}
     }
     if (NULL != (val = cfg_get_str("global","ratio"))) {
-	if (2 != sscanf(val,"%d:%d",&grab_ratio_x,&grab_ratio_y)) {
+	if (2 != sscanf(val,"%d:%d",&ng_ratio_x,&ng_ratio_y)) {
 	    fprintf(stderr,"invalid value for ratio: %s\n",val);
-	    grab_ratio_x = grab_ratio_y = 0;
+	    ng_ratio_x = ng_ratio_y = 0;
 	}
-	ng_ratio_configure(grab_ratio_x,grab_ratio_y);
     }
-	
+    
     if (-1 != (i = cfg_get_int("global","jpeg-quality")))
-	jpeg_quality = i;
-    if (-1 != (i = cfg_get_int("global","mjpeg-quality")))
-	ng_mjpeg_quality = i;
+	ng_jpeg_quality = i;
 
     if (NULL != (val = cfg_get_str("global","keypad-ntsc")))
 	if (-1 != (i = str_to_int(val,booltab)))
 	    keypad_ntsc = i;
+    if (NULL != (val = cfg_get_str("global","keypad-partial")))
+	if (-1 != (i = str_to_int(val,booltab)))
+	    keypad_partial = i;
     if (NULL != (val = cfg_get_str("global","osd")))
 	if (-1 != (i = str_to_int(val,booltab)))
 	    use_osd = i;
+
+    if (NULL != (val = cfg_get_str("global","mov-driver")))
+	mov_driver = val;
+    if (NULL != (val = cfg_get_str("global","mov-video")))
+	mov_video = val;
+    if (NULL != (val = cfg_get_str("global","mov-fps")))
+	mov_fps = val;
+    if (NULL != (val = cfg_get_str("global","mov-audio")))
+	mov_audio = val;
+    if (NULL != (val = cfg_get_str("global","mov-rate")))
+	mov_rate = val;
+}
+
+void
+parse_config(void)
+{
+    char key[16], cmdline[128];
+    char **list,*val;
+#ifndef NO_X11
+    int i;
+#endif
 
     /* launch */
     list = list = cfg_list_entries("launch");
@@ -493,17 +526,31 @@ save_config()
 	fprintf(fp,"fullscreen = %d x %d\n",fs_width,fs_height);
     if (fs_xoff || fs_yoff)
 	fprintf(fp,"wm-off-by = %+d%+d\n",fs_xoff,fs_yoff);
-    if (grab_ratio_x || grab_ratio_y)
-	fprintf(fp,"ratio = %d:%d\n",grab_ratio_x,grab_ratio_y);
+    if (ng_ratio_x || ng_ratio_y)
+	fprintf(fp,"ratio = %d:%d\n",ng_ratio_x,ng_ratio_y);
     fprintf(fp,"freqtab = %s\n",chanlists[chantab].name);
     fprintf(fp,"pixsize = %d x %d\n",pix_width,pix_height);
     fprintf(fp,"pixcols = %d\n",pix_cols);
-    fprintf(fp,"jpeg-quality = %d\n",jpeg_quality);
-    fprintf(fp,"mjpeg-quality = %d\n",ng_mjpeg_quality);
+    fprintf(fp,"jpeg-quality = %d\n",ng_jpeg_quality);
     fprintf(fp,"keypad-ntsc = %s\n",int_to_str(keypad_ntsc,booltab));
+    fprintf(fp,"keypad-partial = %s\n",int_to_str(keypad_partial,booltab));
     fprintf(fp,"osd = %s\n",int_to_str(use_osd,booltab));
     if (mixer)
 	fprintf(fp,"mixer = %s\n",mixer);
+    if (midi)
+	fprintf(fp,"midi = %s\n",midi);
+
+    if (mov_driver)
+	fprintf(fp,"mov-driver = %s\n",mov_driver);
+    if (mov_video)
+	fprintf(fp,"mov-video = %s\n",mov_video);
+    if (mov_fps)
+	fprintf(fp,"mov-fps = %s\n",mov_fps);
+    if (mov_audio)
+	fprintf(fp,"mov-audio = %s\n",mov_audio);
+    if (mov_rate)
+	fprintf(fp,"mov-rate = %s\n",mov_rate);
+    
     fprintf(fp,"\n");
     
     if (nlaunch > 0) {
@@ -533,10 +580,10 @@ save_config()
     /* write defaults */
     fprintf(fp,"[defaults]\n");
     fprintf(fp,"norm = %s\n",
-	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
+	    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_NORM),
 			   cur_attrs[ATTR_ID_NORM]));
     fprintf(fp,"input = %s\n",
-	    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),
+	    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_INPUT),
 			   cur_attrs[ATTR_ID_INPUT]));
     fprintf(fp,"capture = %s\n",int_to_str(cur_capture,captab));
     if (cur_attrs[ATTR_ID_COLOR] != 32768)
@@ -562,14 +609,16 @@ save_config()
 	
 	if ( channels[i]->norm != cur_attrs[ATTR_ID_NORM])
 	    fprintf(fp,"norm = %s\n",
-		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_NORM),
+		    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_NORM),
 				   channels[i]->norm));
 	if (channels[i]->input != cur_attrs[ATTR_ID_INPUT])
 	    fprintf(fp,"input = %s\n",
-		    ng_attr_getstr(ng_attr_byid(a_drv,ATTR_ID_INPUT),
+		    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_INPUT),
 				   channels[i]->input));
 	if (channels[i]->key != NULL)
 	    fprintf(fp,"key = %s\n",channels[i]->key);
+	if (channels[i]->midi != 0)
+	    fprintf(fp,"midi = %d\n",channels[i]->midi);
 	if (channels[i]->capture != cur_capture)
 	    fprintf(fp,"capture = %s\n",
 		    int_to_str(channels[i]->capture,captab));

@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <quicktime/quicktime.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
 
 #include "grab-ng.h"
 
@@ -13,6 +16,7 @@
 struct qt_video_priv {
     const char codec[4];
     const int libencode;
+    const int yuvsign;
 };
 
 struct qt_audio_priv {
@@ -31,13 +35,15 @@ struct qt_handle {
     /* misc */
     int lib_video;
     int lib_audio;
+    int yuvsign;
     int audio_sample;
     unsigned char **rows;
+    unsigned char *data;
 };
 
 /* ----------------------------------------------------------------------- */
 
-void*
+static void*
 qt_open(char *filename, char *dummy,
 	struct ng_video_fmt *video, const void *priv_video, int fps,
 	struct ng_audio_fmt *audio, const void *priv_audio)
@@ -52,8 +58,10 @@ qt_open(char *filename, char *dummy,
     memset(h,0,sizeof(*h));
     h->video      = *video;
     h->audio      = *audio;
-    if (h->video.fmtid != VIDEO_NONE)
+    if (h->video.fmtid != VIDEO_NONE) {
 	h->lib_video  = pvideo->libencode;
+	h->yuvsign    = pvideo->yuvsign;
+    }
     if (h->audio.fmtid != AUDIO_NONE)
 	h->lib_audio  = paudio->libencode;
 
@@ -63,6 +71,9 @@ qt_open(char *filename, char *dummy,
     }
     if (h->lib_video)
 	if (NULL == (h->rows = malloc(h->video.height * sizeof(char*))))
+	    goto fail;
+    if (h->yuvsign)
+	if (NULL == (h->data = malloc(h->video.height * h->video.width * 2)))
 	    goto fail;
 
     if (h->audio.fmtid != AUDIO_NONE) {
@@ -79,8 +90,8 @@ qt_open(char *filename, char *dummy,
 	}
     }
     if (h->video.fmtid != VIDEO_NONE) {
-	quicktime_set_video(h->fh,1,h->video.width,h->video.height,fps,
-			    (char*)pvideo->codec);
+	quicktime_set_video(h->fh,1,h->video.width,h->video.height,
+			    (float)fps/1000,(char*)pvideo->codec);
 	if (h->lib_video && !quicktime_supported_video(h->fh, 0)) {
 	    fprintf(stderr,"libquicktime: video codec not supported\n");
 	    goto fail;
@@ -92,15 +103,18 @@ qt_open(char *filename, char *dummy,
  fail:
     if (h->rows)
 	free(h->rows);
+    if (h->data)
+	free(h->data);
     free(h);
     return NULL;
 }
 
-int
+static int
 qt_video(void *handle, struct ng_video_buf *buf)
 {
     struct qt_handle *h = handle;
-    int rc;
+    unsigned int *src,*dest;
+    int rc,i,n;
 
     if (h->lib_video) {
 	int row,len;
@@ -111,13 +125,28 @@ qt_video(void *handle, struct ng_video_buf *buf)
 	for (row = 0, line = buf->data; row < h->video.height; row++, line += len)
 	    h->rows[row] = line;
 	rc = quicktime_encode_video(h->fh, h->rows, 0);
+
+    } else if (h->yuvsign) {
+	dest = (unsigned int *)h->data;
+	src  = (unsigned int *)buf->data;
+	n    = buf->size / 4;
+	/* U V values are signed but Y R G B values are unsigned. */
+	for (i = 0; i < n; i++) {
+#if BYTE_ORDER == BIG_ENDIAN
+	    *(dest++) = *(src++) ^ 0x00800080;
+#else
+	    *(dest++) = *(src++) ^ 0x80008000;
+#endif
+	}
+	rc = quicktime_write_frame(h->fh, h->data, buf->size, 0);
+
     } else {
 	rc = quicktime_write_frame(h->fh, buf->data, buf->size, 0);
     }
     return rc;
 }
 
-int
+static int
 qt_audio(void *handle, struct ng_audio_buf *buf)
 {
     struct qt_handle *h = handle;
@@ -130,7 +159,7 @@ qt_audio(void *handle, struct ng_audio_buf *buf)
     }
 }
 
-int
+static int
 qt_close(void *handle)
 {
     struct qt_handle *h = handle;
@@ -138,6 +167,9 @@ qt_close(void *handle)
     quicktime_close(h->fh);
     if (h->rows)
 	free(h->rows);
+    if (h->data)
+	free(h->data);
+    free(h);
     return 0;
 }
 
@@ -149,6 +181,11 @@ static const struct qt_video_priv qt_raw = {
 };
 static const struct qt_video_priv qt_yuv2 = {
     codec:     QUICKTIME_YUV2,
+    libencode: 0,
+    yuvsign:   1,
+};
+static const struct qt_video_priv qt_yv12 = {
+    codec:     QUICKTIME_YUV420,
     libencode: 0,
 };
 static const struct qt_video_priv qt_jpeg = {
@@ -169,13 +206,16 @@ static const struct ng_format_list qt_vformats[] = {
 	ext:   "mov",
 	fmtid: VIDEO_RGB24,
 	priv:  &qt_raw,
-#if 0 /* FIXME: looks funny, byteswapped? */
     },{
 	name:  "yuv2",
 	ext:   "mov",
 	fmtid: VIDEO_YUV422,
 	priv:  &qt_yuv2,
-#endif
+    },{
+	name:  "yv12",
+	ext:   "mov",
+	fmtid: VIDEO_YUV420P,
+	priv:  &qt_yv12,
     },{
 	name:  "jpeg",
 	ext:   "mov",

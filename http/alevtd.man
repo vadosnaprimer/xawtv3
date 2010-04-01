@@ -8,6 +8,12 @@ alevtd - webserver for videotext pages
 is http daemon which serves videotext pages as HTML.  Tune in some
 station with a utility like v4lctl or some TV application.  Then
 start it and point your browser to http://localhost:5654/
+.P
+Pages may be requested either in HTML format
+(http://localhost:5654/<page>/ or
+http://localhost:5654/<page>/<subpage>.html) or in ASCII text format
+(http://localhost:5654/<page>/<subpage>.txt).  Subpage "00" can be
+used for pages without subpages.
 .SH OPTIONS
 .TP
 .B -h
@@ -43,7 +49,7 @@ bind to \fBI\fPP-address >ip<.
 .TP
 .B -l log
 \fBl\fPog all requests to the logfile >log< (common log format).
-Using "-" as filename makes webfsd print the access log to stdout,
+Using "-" as filename makes alevtd print the access log to stdout,
 which is only useful together with the -F switch (see below).
 .TP
 .B -L log
@@ -59,8 +65,12 @@ set \fBg\fPid to >group< (after binding to the tcp port).  This
 option is allowed for root only.
 .TP
 .B -F
-don't run as daemon.  webfsd will not fork into background, not detach
+don't run as daemon.  alevtd will not fork into background, not detach
 from terminal and report errors to stderr.
+.TP
+.B -r
+poll tv frequency, clear vtx page cache if a frequency change was
+detected.
 .SH SEE ALSO
 alevt(1), xawtv(1), v4lctl(1)
 .SH AUTHOR

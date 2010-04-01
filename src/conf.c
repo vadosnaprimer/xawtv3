@@ -30,6 +30,7 @@
 #include "frequencies.h"
 #include "wmhooks.h"
 #include "commands.h"
+#include "conf.h"
 
 /*-------------------------------------------------------------------------*/
 
@@ -52,13 +53,12 @@ static String *channel_list;
 
 /*-------------------------------------------------------------------------*/
 
-void conf_station_switched(void);
-
 static void list_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     XawListReturnStruct *lr = call_data;
 
-    pixit();
+    if (channel_switch_hook)
+	channel_switch_hook();
     do_va_cmd(2,"setstation",lr->string);
 }
 
@@ -88,6 +88,7 @@ static void del_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     if(cur_sender == -1)
 	return;
+    XtDestroyWidget(channels[cur_sender]->button);
     del_channel(cur_sender);
     channel_menu();
     cur_sender = -1;
@@ -164,7 +165,8 @@ static void key_eh(Widget widget, XtPointer client_data,
     XtNtop,XawChainTop,     \
     XtNbottom,XawChainTop
 
-void create_confwin(void)
+void
+create_confwin(void)
 {
     Widget form, label, command;
     
@@ -295,12 +297,23 @@ void conf_station_switched(void)
 	    XtVaSetValues(conf_key,XtNlabel,channels[cur_sender]->key, NULL);
 	else 
 	    XtVaSetValues(conf_key,XtNlabel,"", NULL);
+#if 0
+	/* This is needed for Xaw3d
+	   libXaw3d doesn't get the memory management right with
+	   the international ressource set to true.  Keeps crashing
+	   without the strdup() */
+	XtVaSetValues(conf_name,
+		      XtNstring, strdup(channels[cur_sender]->name),
+		      NULL);
+#else
 	XtVaSetValues(conf_name, XtNstring, channels[cur_sender]->name, NULL);
+#endif
 	XawListHighlight(conf_list,cur_sender);
     }
 }
 
-void conf_list_update(void)
+void
+conf_list_update(void)
 {
     int i;
     

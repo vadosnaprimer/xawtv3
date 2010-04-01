@@ -1,19 +1,9 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=$(ROOT)@bindir@
-mandir=$(ROOT)@mandir@
+include ../Make.config
 
-CC=@CC@
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
-
-CFLAGS=-g -Wall @CFLAGS@ -I$(srcdir)/.. -I..
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) -I$(srcdir)/.. -I..
 
 PROGS=@RADIO@
 
@@ -25,13 +15,13 @@ radio: radio.o
 	$(CC) $(CFLAGS) -o $@ radio.o @LIBCURSES@
 
 install: all
-	test -f radio					 	&&\
-		$(INSTALL_DIR) $(bindir)		 	&&\
-		$(INSTALL_PROGRAM) -s radio $(bindir)	 	&&\
-		$(INSTALL_DATA) $(srcdir)/radio.man $(mandir)/man1/radio.1 || true
+	test -f radio				 	&&\
+	  $(INSTALL_DIR) $(bindir)		 	&&\
+	  $(INSTALL_PROGRAM) -s radio $(bindir)	 	&&\
+	  $(INSTALL_DATA) $(srcdir)/radio.man $(mandir)/man1/radio.1 || true
 
 clean:
-	-rm -f *.o core* TAGS
+	-rm -f *.o core* TAGS radio.fmmap
 
 realclean distclean: clean
 	-rm -f $(PROGS) Makefile *~ *.bak

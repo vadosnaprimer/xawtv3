@@ -115,7 +115,7 @@ cache_put(struct cache *ca, struct vt_page *vtp)
 {
     struct cache_page *cp;
     int h = hash(vtp->pgno);
-
+    
     for (cp = $ ca->hash[h].first; cp->node->next; cp = $ cp->node->next)
 	if (cp->page->pgno == vtp->pgno && cp->page->subno == vtp->subno)
 	    break;
@@ -178,7 +178,7 @@ cache_foreach_pg(struct cache *ca, int pgno, int subno, int dir,
     if (vtp = cache_lookup(ca, pgno, subno))
 	subno = vtp->subno;
     else if (subno == ANY_SUB)
-	subno = dir < 0 ? 0 : 99999;
+	subno = dir < 0 ? 0 : 0xffff;
 
     for (;;)
     {

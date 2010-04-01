@@ -1,10 +1,9 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-CC=@CC@
-DEPEND=@DEPEND@
+include ../Make.config
 
-CFLAGS=-O2 -g @VBIFLAGS@ #-Wall 
+CFLAGS=-g @CFLAGS@ @VBIFLAGS@
 
 # from alevt
 OBJS=vbi.o fdset.o misc.o hamm.o lang.o cache.o	\

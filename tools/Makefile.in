@@ -1,41 +1,28 @@
 srcdir=@srcdir@
 VPATH=$(srcdir)
 
-ROOT=
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-bindir=$(ROOT)@bindir@
-mandir=$(ROOT)@mandir@
+include ../Make.config
 
-CC=@CC@
-DEPEND=@DEPEND@
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
+CFLAGS=-g @CFLAGS@ $(WARN_FLAGS) $(LFS_FLAGS) $(X11_FLAGS) \
+	-I$(srcdir)/.. -I..
 
-CFLAGS=-g -Wall -I$(srcdir)/.. -I.. -D_FILE_OFFSET_BITS=64 \
-	@CFLAGS@ @X_CFLAGS@
-XLDLIBS=@X_LIBS@ @LIBS@ -l@XAWLIB@ -lXmu -lXt @X_PRE_LIBS@ -lXext \
-	-lX11 @X_EXTRA_LIBS@
-
-PROGS=dump-mixers record showriff propwatch
+PROGS=dump-mixers record showriff @TOOLS@
 
 ##########################################################################
 
 all build: $(PROGS)
 
 dump-mixers: dump-mixers.o
-	$(CC) $(CFLAGS) -o $@ dump-mixers.o @LIBSOUND@
+	$(CC) $(CFLAGS) -o $@ dump-mixers.o $(SOUND_LIBS)
 
 showriff: showriff.o
 	$(CC) $(CFLAGS) -o $@ showriff.o
 
 record: record.o
-	$(CC) $(CFLAGS) -o $@ record.o @LIBCURSES@ @LIBSOUND@
+	$(CC) $(CFLAGS) -o $@ record.o $(CURSES_LIBS) $(SOUND_LIBS)
 
 propwatch: propwatch.o
-	$(CC) $(CFLAGS) -o $@ propwatch.o $(XLDLIBS)
+	$(CC) $(CFLAGS) -o $@ propwatch.o $(ATHENA_LIBS)
 
 install: all
 	$(INSTALL_DIR) $(bindir)

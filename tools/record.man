@@ -1,0 +1,38 @@
+.TH record 1 "(c) Gerd Knorr"
+.SH NAME
+record - records *.wav files
+.SH SYNOPSIS
+.B record [ options ]
+.SH DESCRIPTION
+.B record
+records *.wav files in CD quality (i.e. 44100 Hz, 16bit, stereo).
+It has a input level meter, which might be useful for sound trouble
+shooting (check if the mixer settings ok for recording from the
+TV card etc.)
+.SH OPTIONS
+.TP
+.B -h
+display help text
+.TP
+.B -c
+console only mode
+.TP
+.B -i dev
+mixer input.  This should be the one where you can
+adjust the record level for your audio source.
+Default is "line".
+.TP
+.B -o file
+basename for the output file(s), a number and the .wav
+extention are added by record.  Default is "new".
+.TP
+.B -d dev
+set audio device.  Default is "/dev/audio".
+.TP
+.B -m dev
+set mixer device.  Default is "/dev/mixer".
+.TP
+.B -r rate
+set sample rate. Default is 44100.
+.SH AUTHOR
+Gerd Knorr <kraxel@bytesex.org>

@@ -9,19 +9,7 @@ mkdev="true"
 mkcfg="true"
 tvnorm=""
 freqtab=""
-doscan="false"
-
-# look around a bit, see if a channel scan
-# has a chance to work.
-pcidev=`lspci -n 2>/dev/null | cut -d" " -f 4`
-for card in $pcidev; do
-	case $card in
-		109e:0350)	doscan="true" ;;	# bt848
-		109e:0351)	doscan="true" ;;	# bt849
-		109e:036e)	doscan="true" ;;	# bt878
-		109e:036f)	doscan="true" ;;	# bt879
-	esac
-done
+doscan=""
 
 # create v4l devices ?
 test -c /dev/.devfsd -o -c /dev/video0 && mkdev="false"
@@ -48,10 +36,6 @@ if test "$mkcfg" = "true"; then
 	tvnorm="$RET"
 	db_get xawtv/freqtab
 	freqtab="$RET"
-fi
-
-if test "$mkcfg" = "true" -a "$doscan" = "true"; then
-	# channel scan?
 	db_get xawtv/channel-scan
 	doscan="$RET"
 fi
@@ -73,6 +57,7 @@ fi
 
 # install new X11 fonts
 (cd /usr/X11R6/lib/X11/fonts/misc; /usr/X11R6/bin/mkfontdir)
-#xset fp rehash 2>/dev/null || true
+
+#########################################################
 #DEBHELPER#
 

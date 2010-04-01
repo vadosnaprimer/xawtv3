@@ -72,7 +72,7 @@ webcam_writer(void *arg)
 	    break;
 #endif
 	case VIDEO_RGB24:
-	    write_jpeg(tmpfilename,web->buf,jpeg_quality,0);
+	    write_jpeg(tmpfilename,web->buf,ng_jpeg_quality,0);
 	    break;
 	default:
 	    fprintf(stderr,"webcam_writer: can't deal with format=%d\n",

@@ -22,7 +22,7 @@
 char *labels[] = SOUND_DEVICE_LABELS;
 char *names[]  = SOUND_DEVICE_NAMES;
 
-int
+static int
 dump_mixer(char *devname)
 {
 #ifdef SOUND_MIXER_INFO

@@ -110,7 +110,7 @@ matrox_scaler_on(int offscreen, int pitch, int width, int height,
     wrio4(BESGLOBCTL, 0);
 }
 
-void
+static void
 matrox_scaler_off(void)
 {
     /* turn off */
@@ -185,7 +185,7 @@ mach64_scaler_on(int offscreen, int pitch, int width, int height,
     wrio4(OVERLAY_SCALE_CNTL,    (1<<31) | (1<<30));
 }
 
-void
+static void
 mach64_scaler_off(void)
 {
     /* off */
@@ -223,7 +223,7 @@ gfx_init(int fd)
     }
     bmmio = mmap(NULL, fb_fix.mmio_len, PROT_READ | PROT_WRITE,
 		MAP_SHARED, fd, fb_fix.smem_len);
-    if (-1 == (int)bmmio) {
+    if ((void*)-1 == bmmio) {
 	perror("mmap");
 	return -1;
     }

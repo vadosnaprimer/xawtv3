@@ -20,8 +20,8 @@
 
 /* -------------------------------------------------------------------- */
 
-void
-tty_raw()
+static void
+tty_raw(void)
 {
     initscr();
     cbreak();
@@ -30,8 +30,8 @@ tty_raw()
     refresh();
 }
 
-void
-tty_restore()
+static void
+tty_restore(void)
 {
     endwin();
 }
@@ -44,12 +44,12 @@ static short  *sound_buffer;
 static int     maxl,maxr;
 static int     secl,secr;
 static struct  timeval tl,tr;
-static char    *audio_dev = "/dev/audio";
+static char    *audio_dev = "/dev/dsp";
 
-int
-sound_open()
+static int
+sound_open(int rate)
 {
-    int frag,afmt,channels,rate,trigger;
+    int frag,afmt,channels,trigger,srate;
     
     if (-1 == (sound_fd = open(audio_dev, O_RDONLY))) {
 	fprintf(stderr,"open %s: %s",audio_dev,strerror(errno));
@@ -83,15 +83,16 @@ sound_open()
     }
 
     /* rate */
-    rate = 44100;
-    if (-1 == ioctl(sound_fd, SNDCTL_DSP_SPEED, &rate)) {
+    srate = rate;
+    if (-1 == ioctl(sound_fd, SNDCTL_DSP_SPEED, &srate)) {
 	perror("ioctl SNDCTL_DSP_SPEED");
 	exit(1);
     }
-    rate += 50;
-    rate -= rate % 100;
-    if (rate != 44100) {
-	fprintf(stderr,"can't set sample rate to 44100 (got %d)\n",rate);
+    /* accept +/- 1% */
+    if (srate < rate *  99 / 100 ||
+	srate > rate * 101 / 100) {
+	fprintf(stderr,"can't set sample rate to %d (got %d)\n",
+		rate,srate);
 	exit(1);
     }
 
@@ -100,6 +101,8 @@ sound_open()
 	perror("ioctl SNDCTL_DSP_GETBLKSIZE");
 	exit(1);
     }
+    if (0 == sound_blksize)
+	sound_blksize = 4096;
     sound_buffer = malloc(sound_blksize);
 
     /* trigger record */
@@ -111,17 +114,19 @@ sound_open()
     return sound_fd;
 }
 
-void
-sound_read()
+static int
+sound_read(void)
 {
     struct  timeval now;
-    int     i;
+    int     i,rc;
     short  *v;
 
     /* read */
-    if (sound_blksize != read(sound_fd,sound_buffer,sound_blksize)) {
-	perror("read /dev/dsp");
-	exit(1);
+    rc = read(sound_fd,sound_buffer,sound_blksize);
+    if (sound_blksize != rc) {
+	fprintf(stderr,"read %s: %s (rc=%d,bs=%d)\n",
+		audio_dev,strerror(errno),rc,sound_blksize);
+	return -1;
     }
 
     /* look for peaks */
@@ -154,6 +159,7 @@ sound_read()
 	secr = maxr;
 	tr   = now;
     }
+    return 0;
 }
 
 /* -------------------------------------------------------------------- */
@@ -166,7 +172,7 @@ static int  dev = -1;
 static int  volume;
 static char *mixer_dev = "/dev/mixer";
 
-int
+static int
 mixer_open(char *filename, char *device)
 {
     int i, devmask;
@@ -200,20 +206,20 @@ mixer_open(char *filename, char *device)
     return (-1 != dev) ? 0 : -1;
 }
 
-void
-mixer_close()
+static void
+mixer_close(void)
 {
     close(mix);
     dev = -1;
 }
 
-int
-mixer_get_volume()
+static int
+mixer_get_volume(void)
 {
     return (-1 == dev) ? -1 : (volume & 0x7f);
 }
 
-int
+static int
 mixer_set_volume(int val)
 {
     if (-1 == dev)
@@ -287,13 +293,12 @@ typedef struct WAVEHDR {
 static WAVEHDR  fileheader;
 static int      wav_size;
 
-void
-wav_init_header()
+static void
+wav_init_header(int rate)
 {
     /* stolen from cdda2wav */
     int nBitsPerSample = 16;
     int channels = 2;
-    int rate = 44100;
 
     unsigned long nBlockAlign = channels * ((nBitsPerSample + 7) / 8);
     unsigned long nAvgBytesPerSec = nBlockAlign * rate;
@@ -315,16 +320,16 @@ wav_init_header()
     fileheader.chkData.dwSize  = cpu_to_le32(0 /* data length */);
 }
 
-void
-wav_start_write(int fd)
+static void
+wav_start_write(int fd,int rate)
 {
-    wav_init_header();
+    wav_init_header(rate);
     lseek(fd,0,SEEK_SET);
     write(fd,&fileheader,sizeof(WAVEHDR));
     wav_size = 0;
 }
 
-int
+static int
 wav_write_audio(int fd, void *data, int len)
 {
     int rc;
@@ -337,7 +342,7 @@ wav_write_audio(int fd, void *data, int len)
 	return -1;
 }
 
-void
+static void
 wav_stop_write(int fd)
 {
     unsigned long temp = wav_size + sizeof(WAVEHDR) - sizeof(CHUNKHDR);
@@ -362,7 +367,7 @@ static char empty[] =
 "--------------------------------------------------"
 "--------------------------------------------------";
 
-void
+static void
 print_bar(int line, char *name, int val1, int val2, int max)
 {
     int total,len;
@@ -379,19 +384,25 @@ print_bar(int line, char *name, int val1, int val2, int max)
 
 /* -------------------------------------------------------------------- */
 
+#define NCURSES 0
+#define CONSOLE 1
+
 char      *progname;
 int       sig,verbose;
 char      *input    = "line";
 char      *filename = "new";
+int       mode = NCURSES;
+int       rate = 44100;
 
-void
+static void
 ctrlc(int signal)
 {
+    fprintf(stderr,"^C catched -- exiting\n");
     sig=1;
 }
 
-void
-usage()
+static void
+usage(void)
 {
     fprintf(stderr,
 	    "%s records sound in CD-Quality (44100/16bit/stereo).\n"
@@ -399,8 +410,9 @@ usage()
 	    "interactive curses application.  You'll need a fast\n"
 	    "terminal, don't try this on a 9600 bps vt100...\n"
 	    "\n"
-	    "%s has five options:\n"
+	    "%s has seven options:\n"
 	    "  -h       this text\n"
+	    "  -c       console only mode\n"
 	    "  -i dev   mixer device [%s].  This should be the one\n"
 	    "           where you can adjust the record level for\n"
 	    "           your audio source.\n"
@@ -408,9 +420,11 @@ usage()
 	    "           extention are added by %s.\n"
 	    "  -d dev   set audio device [%s]\n"
 	    "  -m dev   set mixer device [%s]\n"
+	    "  -r rate  set sample rate  [%d]\n"
 	    "\n",
 	    progname,progname,input,filename,progname,
-	    audio_dev,mixer_dev);
+	    audio_dev,mixer_dev,
+	    rate);
 }
 
 int
@@ -420,13 +434,14 @@ main(int argc, char *argv[])
     int             record,nr,wav=0;
     char            *outfile;
     fd_set          s;
+    int             sec;
 
     progname = strrchr(argv[0],'/');
     progname = progname ? progname+1 : argv[0];
 
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "vhi:o:d:m:")))
+	if (-1 == (c = getopt(argc, argv, "vhci:o:d:m:r:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -444,6 +459,12 @@ main(int argc, char *argv[])
 	case 'm':
 	    mixer_dev = optarg;
 	    break;
+	case 'c':
+	    mode = CONSOLE;
+	    break;
+	case 'r':
+	    rate = atoi(optarg);
+	    break;
 	case 'h':
 	default:
 	    usage();
@@ -452,47 +473,152 @@ main(int argc, char *argv[])
     }
 
     mixer_open(mixer_dev,input);
-    sound_open();
+    sound_open(rate);
     delay = 0;
     auto_adjust = 1;
     record = 0;
     nr = 0;
     outfile = malloc(strlen(filename)+16);
-    
-    tty_raw();
-    atexit(tty_restore);
+
+    if (mode == NCURSES) {
+	tty_raw();
+	atexit(tty_restore);
+    }
 
     signal(SIGINT,ctrlc);
     signal(SIGQUIT,ctrlc);
     signal(SIGTERM,ctrlc);
     signal(SIGHUP,ctrlc);
 
-    mvprintw( 5,0,"record to   %s*.wav",filename);
-    mvprintw( 7,0,"left/right  adjust mixer level for \"%s\"",input);
-    mvprintw( 8,0,"space       starts/stops recording");
-    /* line 9 is printed later */
-    mvprintw(10,0,"            auto-adjust reduces the record level on overruns");
-    mvprintw(11,0,"'Q'         quit");
-    mvprintw(LINES-3,0,"--");
-    mvprintw(LINES-2,0,"(c) 1999 Gerd Knorr <kraxel@goldbach.in-berlin.de>");
-    
-    for (;!sig;) {
-	FD_ZERO(&s);
-	FD_SET(0,&s);
-	FD_SET(sound_fd,&s);
-	if (-1 == select(sound_fd+1,&s,NULL,NULL,NULL)) {
+    if (mode == NCURSES) {
+	mvprintw( 5,0,"record to   %s*.wav",filename);
+	mvprintw( 7,0,"left/right  adjust mixer level for \"%s\"",input);
+	mvprintw( 8,0,"space       starts/stops recording");
+	/* line 9 is printed later */
+	mvprintw(10,0,"            auto-adjust reduces the record level on overruns");
+	mvprintw(11,0,"'Q'         quit");
+	mvprintw(LINES-3,0,"--");
+	mvprintw(LINES-2,0,"(c) 1999-2001 Gerd Knorr <kraxel@bytesex.org>");
+	
+	for (;!sig;) {
+	    FD_ZERO(&s);
+	    FD_SET(0,&s);
+	    FD_SET(sound_fd,&s);
+	    if (-1 == select(sound_fd+1,&s,NULL,NULL,NULL)) {
 		if (EINTR == errno)
-			continue;
+		    continue;
 		perror("select");
 		break;
+	    }
+	    
+	    if (FD_ISSET(sound_fd,&s)) {
+		/* sound */
+		if (-1 == sound_read())
+		    break;
+		if (delay)
+		    delay--;
+		if (auto_adjust && (0 == delay) &&
+		    (maxl >= 32767 || maxr >= 32767)) {
+		    /* auto-adjust */
+		    vol = mixer_get_volume();
+		    vol--;
+		    if (vol < 0)
+			vol = 0;
+		    mixer_set_volume(vol);
+		    delay = 3;
+		}
+		print_bar(0,input,mixer_get_volume(),-1,100);
+		print_bar(1,"left",maxl,secl,32768);
+		print_bar(2,"right",maxr,secr,32768);
+		mvprintw(9,0,"'A'         toggle auto-adjust [%s] ",
+			 auto_adjust ? "on" : "off");
+		if (record) {
+		    sec = wav_size / (rate*4);
+		    mvprintw(3,0,"%s: %3d:%02d (%d MB) ",outfile,
+			     sec/60,sec%60,wav_size/(1024*1024));
+		    wav_write_audio(wav,sound_buffer,sound_blksize);
+		} else {
+		    mvprintw(3,0,"");
+		}
+		refresh();
+	    }
+	    
+	    if (FD_ISSET(0,&s)) {
+		/* tty in */
+		switch (key = getch()) {
+		case 'Q':
+		case 'q':
+		    sig=1;
+		    break;
+		case 'A':
+		case 'a':
+		    auto_adjust = !auto_adjust;
+		    break;
+		case ' ':
+		    if (!filename)
+			break;
+		    if (!record) {
+			/* start */
+			do {
+			    sprintf(outfile,"%s%02d.wav",filename,nr++);
+			    wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT,
+				       0666);
+			} while ((-1 == wav) && (EEXIST == errno));
+			if (-1 == wav) {
+			    perror("open");
+			    exit(1);
+			}
+			wav_start_write(wav,rate);
+			record=1;
+			auto_adjust=0;
+		    } else {
+			/* stop */
+			wav_stop_write(wav);
+			close(wav);
+			record=0;
+			mvprintw(3,0,"                                        ");
+		    }
+		    break;
+		case KEY_RIGHT:
+		    vol = mixer_get_volume();
+		    vol++;
+		    if (vol > 100)
+			vol = 100;
+		    mixer_set_volume(vol);
+		    break;
+		case KEY_LEFT:
+		    vol = mixer_get_volume();
+		    vol--;
+		    if (vol < 0)
+			vol = 0;
+		    mixer_set_volume(vol);
+		    break;
+		}
+	    }
 	}
+    }
 
-	if (FD_ISSET(sound_fd,&s)) {
-	    /* sound */
-	    sound_read();
+    if (mode == CONSOLE) {
+	do {
+	    sprintf(outfile,"%s%02d.wav",filename,nr++);
+	    wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
+	} while ((-1 == wav) && (EEXIST == errno));
+	if (-1 == wav) {
+	    perror("open");
+	    exit(1);
+	}
+	wav_start_write(wav,rate);
+	record=1;
+	auto_adjust=1;
+
+	for (;!sig;) {
+	    if (-1 == sound_read())
+		break;
+#if 0
 	    if (delay)
 		delay--;
-	    if (auto_adjust && (0 == delay) && (maxl >= 32767 || maxr >= 32767)) {
+	    if (auto_adjust && (0 == delay) &&
+		(maxl >= 32767 || maxr >= 32767)) {
 		/* auto-adjust */
 		vol = mixer_get_volume();
 		vol--;
@@ -501,75 +627,19 @@ main(int argc, char *argv[])
 		mixer_set_volume(vol);
 		delay = 3;
 	    }
-	    print_bar(0,input,mixer_get_volume(),-1,100);
-	    print_bar(1,"left",maxl,secl,32768);
-	    print_bar(2,"right",maxr,secr,32768);
-	    mvprintw(9,0,"'A'         toggle auto-adjust [%s] ",auto_adjust ? "on" : "off");
-	    if (record) {
-		int sec = wav_size / (44100*4);
-		mvprintw(3,0,"%s: %3d:%02d (%d MB) ",outfile,sec/60,sec%60,wav_size/(1024*1024));
-		wav_write_audio(wav,sound_buffer,sound_blksize);
-	    } else {
-		mvprintw(3,0,"");
-	    }
-	    refresh();
-	}
-
-	if (FD_ISSET(0,&s)) {
-	    /* tty in */
-	    switch (key = getch()) {
-	    case 'Q':
-	    case 'q':
-		sig=1;
-		break;
-	    case 'A':
-	    case 'a':
-		auto_adjust = !auto_adjust;
-		break;
-	    case ' ':
-		if (!filename)
-		    break;
-		if (!record) {
-		    /* start */
-		    do {
-			sprintf(outfile,"%s%02d.wav",filename,nr++);
-			wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
-		    } while ((-1 == wav) && (EEXIST == errno));
-		    if (-1 == wav) {
-			perror("open");
-			exit(1);
-		    }
-		    wav_start_write(wav);
-		    record=1;
-		    auto_adjust=0;
-		} else {
-		    /* stop */
-		    wav_stop_write(wav);
-		    close(wav);
-		    record=0;
-		    mvprintw(3,0,"                                        ");
-		}
-		break;
-	    case KEY_RIGHT:
-		vol = mixer_get_volume();
-		vol++;
-		if (vol > 100)
-		    vol = 100;
-		mixer_set_volume(vol);
-		break;
-	    case KEY_LEFT:
-		vol = mixer_get_volume();
-		vol--;
-		if (vol < 0)
-		    vol = 0;
-		mixer_set_volume(vol);
-		break;
-	    }
+#endif
+            sec = wav_size / (rate*4);
+            printf("%s: %3d:%02d (%d MB)\r",outfile,sec/60,sec%60,
+		   wav_size/(1024*1024));
+            fflush(stdout);
+            wav_write_audio(wav,sound_buffer,sound_blksize);
 	}
     }
+    
     if (record) {
 	wav_stop_write(wav);
 	close(wav);
     }
+    mixer_close();
     exit(0);
 }

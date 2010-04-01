@@ -358,7 +358,7 @@ avi_open(char *filename, char *dummy,
 {
     const struct avi_video_priv  *pvideo = priv_video;
     struct avi_handle      *h;
-    int i,frame_bytes,depth,streams,rate;
+    int i,frame_bytes,depth,streams,rate,us_frame;
 
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -390,7 +390,7 @@ avi_open(char *filename, char *dummy,
     rate = 0;
     if (h->video.fmtid != VIDEO_NONE) {
 	streams++;
-	rate += pvideo->bytesperpixel * fps;
+	rate += pvideo->bytesperpixel * fps / 1000;
 	h->avi_hdr.avih.width       = AVI_SWAP4(h->video.width);
 	h->avi_hdr.avih.height      = AVI_SWAP4(h->video.height);
     }
@@ -400,7 +400,8 @@ avi_open(char *filename, char *dummy,
 	    ng_afmt_to_bits[h->audio.fmtid] *
 	    h->audio.rate / 8;
     }
-    h->avi_hdr.avih.us_frame    = AVI_SWAP4(1000000/fps);
+    us_frame = (long long)1000000000/fps;
+    h->avi_hdr.avih.us_frame    = AVI_SWAP4(us_frame);
     h->avi_hdr.avih.bps         = AVI_SWAP4(rate);
     h->avi_hdr.avih.streams     = AVI_SWAP4(streams);
     h->hdr_size += write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
@@ -414,7 +415,7 @@ avi_open(char *filename, char *dummy,
 	frame_bytes = pvideo->bytesperpixel * h->video.width * h->video.height;
 	depth = ng_vfmt_to_depth[h->video.fmtid];
 	h->frame_hdr.size                = AVI_SWAP4(frame_bytes);
-	h->avi_hdr_video.strh.scale      = AVI_SWAP4(1000000/fps);
+	h->avi_hdr_video.strh.scale      = AVI_SWAP4(us_frame);
 	h->avi_hdr_video.strh.rate       = AVI_SWAP4(1000000);
 	h->avi_hdr_video.strf.size       = AVI_SWAP4(sizeof(avi_hdr_video.strf));
 	h->avi_hdr_video.strf.width      = AVI_SWAP4(h->video.width);
