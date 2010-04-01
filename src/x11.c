@@ -580,7 +580,7 @@ configure_overlay(void)
 	if (conf) {
 	    overlay_on = 1;
 	    if (f_drv & CAN_OVERLAY)
-		drv->overlay(h_drv,&wfmt,wx,wy,oc,oc_count);
+		drv->overlay(h_drv,&wfmt,wx,wy,oc,oc_count,1);
 	    if (overlay_refresh)
 		DEL_TIMER(overlay_refresh);
 	    overlay_refresh = ADD_TIMER(refresh_timer);
@@ -592,7 +592,7 @@ configure_overlay(void)
 	if (conf && overlay_on) {
 	    overlay_on = 0;
 	    if (f_drv & CAN_OVERLAY)
-		drv->overlay(h_drv,NULL,0,0,NULL,0);
+		drv->overlay(h_drv,NULL,0,0,NULL,0,0);
 	    if (overlay_refresh)
 		DEL_TIMER(overlay_refresh);
 	    overlay_refresh = ADD_TIMER(refresh_timer);
@@ -728,6 +728,7 @@ video_overlay(int state)
 {
     if (state) {
 	conf = 1;
+	overlay_enabled = 1;
 	configure_overlay();
     } else {
 	if (1 == overlay_enabled) {
@@ -736,12 +737,12 @@ video_overlay(int state)
 	    } else {
 		overlay_on = 0;
 		if (f_drv & CAN_OVERLAY)
-		    drv->overlay(h_drv,NULL,0,0,NULL,0);
+		    drv->overlay(h_drv,NULL,0,0,NULL,0,0);
 		overlay_refresh = ADD_TIMER(refresh_timer);
 	    }
 	}
+	overlay_enabled = 0;
     }
-    overlay_enabled = state;
 }
 
 Widget

@@ -61,7 +61,7 @@ static XvImageFormatValues  *fo;
 
 static int
 xv_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-	   struct OVERLAY_CLIP *oc, int count)
+	   struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     if (debug)
 	fprintf(stderr,"Ouch: xv_overlay called\n");
@@ -130,6 +130,7 @@ xv_add_attr(struct xv_handle *h, int id, int type,
 	    return;
 	if (NULL != xvattr[i].atom) {
 	    h->attr[h->nattr].id      = xvattr[i].id;
+	    h->attr[h->nattr].type    = xvattr[i].type;
 	    h->attr[h->nattr].priv    = at;
 	} else {
 	    /* unknown */
@@ -145,8 +146,8 @@ xv_add_attr(struct xv_handle *h, int id, int type,
 	h->attr[h->nattr].defval  = defval;
     if (choices)
 	h->attr[h->nattr].choices = choices;
-    if (id < ATTR_ID_COUNT)
-	h->attr[h->nattr].name    = ng_attr_to_desc[id];
+    if (h->attr[h->nattr].id < ATTR_ID_COUNT)
+	h->attr[h->nattr].name    = ng_attr_to_desc[h->attr[h->nattr].id];
 
     h->nattr++;
 }

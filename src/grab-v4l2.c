@@ -50,7 +50,7 @@ static void    v4l2_write_attr(void *handle, struct ng_attribute*, int val);
 /* overlay */
 static int   v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
 static int   v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-			  struct OVERLAY_CLIP *oc, int count);
+			  struct OVERLAY_CLIP *oc, int count, int aspect);
 
 /* capture video */
 static int v4l2_setformat(void *handle, struct ng_video_fmt *fmt);
@@ -642,7 +642,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	h->attr[h->nattr].choices = choices;
     }
     if (h->attr[h->nattr].id < ATTR_ID_COUNT)
-	h->attr[h->nattr].name = ng_attr_to_desc[id];
+	h->attr[h->nattr].name = ng_attr_to_desc[h->attr[h->nattr].id];
     h->nattr++;
 }
 
@@ -859,7 +859,7 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 
 static int
 v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-	     struct OVERLAY_CLIP *oc, int count)
+	     struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     struct v4l2_handle *h = handle;
     int i,xadjust=0,yadjust=0;
@@ -894,8 +894,9 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->ov_win.height = h->cap.maxheight;
 	h->ov_win.y +=  (fmt->height - h->ov_win.height)/2;
     }
-    grabber_fix_ratio(&h->ov_win.width,&h->ov_win.height,
-		      &h->ov_win.x,&h->ov_win.y);
+    if (aspect)
+	grabber_fix_ratio(&h->ov_win.width,&h->ov_win.height,
+			  &h->ov_win.x,&h->ov_win.y);
 
     /* fixups */
     xadjust = h->ov_win.x - x;

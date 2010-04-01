@@ -84,7 +84,7 @@ static void    bsd_write_attr(void *handle, struct ng_attribute*, int val);
 
 static int   bsd_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
 static int   bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-			 struct OVERLAY_CLIP *oc, int count);
+			 struct OVERLAY_CLIP *oc, int count, int aspect);
 
 /* capture */
 static void catchsignal(int signal);
@@ -554,7 +554,7 @@ static int bsd_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 }
 
 static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-		       struct OVERLAY_CLIP *oc, int count)
+		       struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     struct bsd_handle *h = handle;
     int i,xadjust=0,yadjust=0,win_width,win_height,win_x,win_y;
@@ -580,7 +580,8 @@ static int bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	win_height = 576;
 	win_y +=  (fmt->height - win_height)/2;
     }
-    grabber_fix_ratio(&win_width,&win_height,&win_x,&win_y);
+    if (aspect)
+	grabber_fix_ratio(&win_width,&win_height,&win_x,&win_y);
     xadjust = win_x - x;
     yadjust = win_y - y;
 

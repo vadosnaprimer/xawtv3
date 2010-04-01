@@ -1,3 +1,10 @@
+xawtv (3.34) unstable; urgency=low
+
+  * new release.
+  * rm'ed libXv.so libXxf86dga.so on my system (closes: #85555).
+
+ -- Gerd Knorr <kraxel@debian.org>  Sun, 11 Feb 2001 10:05:25 +0100
+
 xawtv (3.33) unstable; urgency=low
 
   * new release.

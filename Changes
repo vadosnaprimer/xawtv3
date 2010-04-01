@@ -1,4 +1,11 @@
 
+3.33 => 3.34
+============
+
+  * attribute fixes for Xvideo and v4l2.
+  * fbtv bugfixes.
+
+
 3.32 => 3.33
 ============
 

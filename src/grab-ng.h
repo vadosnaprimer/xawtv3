@@ -199,7 +199,7 @@ struct ng_driver {
     /* overlay */
     int   (*setupfb)(void *handle, struct ng_video_fmt *fmt, void *base);
     int   (*overlay)(void *handle, struct ng_video_fmt *fmt, int x, int y,
-		     struct OVERLAY_CLIP *oc, int count);
+		     struct OVERLAY_CLIP *oc, int count, int aspect);
     
     /* capture */
     int   (*setformat)(void *handle, struct ng_video_fmt *fmt);

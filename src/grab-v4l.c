@@ -49,7 +49,7 @@ static void    v4l_write_attr(void *handle, struct ng_attribute*, int val);
 /* overlay */
 static int   v4l_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
 static int   v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-			 struct OVERLAY_CLIP *oc, int count);
+			 struct OVERLAY_CLIP *oc, int count, int aspect);
 
 /* capture video */
 static int v4l_setformat(void *handle, struct ng_video_fmt *fmt);
@@ -832,7 +832,7 @@ v4l_overlay_set(struct v4l_handle *h, int state)
 
 int
 v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
-	    struct OVERLAY_CLIP *oc, int count)
+	    struct OVERLAY_CLIP *oc, int count, int aspect)
 {
     struct v4l_handle *h = handle;
     int i,xadjust=0,yadjust=0;
@@ -866,7 +866,8 @@ v4l_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 	h->win.height = h->capability.maxheight;
 	h->win.y +=  (fmt->height - h->win.height)/2;
     }
-    grabber_fix_ratio(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
+    if (aspect)
+	grabber_fix_ratio(&h->win.width,&h->win.height,&h->win.x,&h->win.y);
 
     /* pass aligned values -- the driver does'nt get it right yet */
     h->win.width  &= ~3;

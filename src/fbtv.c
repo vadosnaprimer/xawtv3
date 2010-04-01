@@ -49,7 +49,7 @@
 static char  *fbdev    = NULL;
 static char  *fontfile = NULL;
 static char  *mode     = NULL;
-static char  *device   = NULL;
+static char  *device   = "/dev/video";
 
 static unsigned short red[256],  green[256],  blue[256];
 static struct fb_cmap cmap  = { 0, 256, red,  green,  blue };
@@ -267,7 +267,7 @@ void do_capture(int from, int to)
 	break;
     case CAPTURE_OVERLAY:
 	if (f_drv & CAN_CAPTURE)
-	    drv->overlay(h_drv,NULL,0,0,NULL,0);
+	    drv->overlay(h_drv,NULL,0,0,NULL,0,0);
 	if (matrox)
 	    gfx_scaler_off();
 	break;
@@ -338,19 +338,19 @@ void do_capture(int from, int to)
 	    /* settings for debugging */
 	    off.width  = 320;
 	    off.height = 240;
-	    starty = fb_var.yres-height;
+	    starty = fb_var.yres-off.height;
 #endif
 	    off.bytesperline = fb_fix.line_length;
 	    if (off.width*2 > off.bytesperline)
 		off.width = off.bytesperline/2;
 	    off.fmtid = VIDEO_YUV422;
-	    drv->overlay(h_drv,&off,0,starty,NULL,0);
+	    drv->overlay(h_drv,&off,0,starty,NULL,0,0);
 	    gfx_scaler_on(starty*off.bytesperline,off.bytesperline,
 			  off.width,off.height,
 			  dx,dx+buf.fmt.width,
 			  dy,dy+buf.fmt.height);
 	} else {
-	    drv->overlay(h_drv,&buf.fmt,dx,dy,NULL,0);
+	    drv->overlay(h_drv,&buf.fmt,dx,dy,NULL,0,1);
 	}
 	break;
     }
@@ -471,7 +471,7 @@ scaler_test(int off)
 int
 main(int argc, char *argv[])
 {
-    int             key,i,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc;
+    int             key,i,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,err;
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
@@ -650,10 +650,13 @@ main(int argc, char *argv[])
 		tv.tv_usec = 0;
 		rc = select(MAX(0,lirc)+1,&set,NULL,NULL,&tv);
 	    }
+	    err = errno;
 	    if (switch_last != fb_switch_state) {
 		console_switch();
 		break;
 	    }
+	    if (-1 == rc  &&  EINTR == err)
+		continue;
 	    if (rc > 0)
 		break;
 	    t2 = time(NULL);
