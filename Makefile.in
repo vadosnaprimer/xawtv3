@@ -1,158 +1,35 @@
-bttvdir=@bttvdir@
 
-srcdir=@srcdir@
-VPATH=@srcdir@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
+SUBDIRS=src man radio font tools #i2c webcam 
 
-bindir=$(exec_prefix)/bin
-mandir=$(prefix)/man
+all dep depend install clean distclean realclean::
+	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done
 
-kdebindir=$(KDEDIR)/bin
-kdelnkdir=$(KDEDIR)/share/applnk/Multimedia
-kradiodir=$(KDEDIR)/share/apps/kradio
-
-CC=@CC@
-CXX=@CXX@
-MOC=$(QTDIR)/bin/moc
-DEPEND=@DEPEND@
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
-INSTALL_DIR=mkdir -p
-
-VERSION=$(shell basename `pwd`)
-VRADIO=$(subst xawtv,kradio,$(VERSION))
-
-CFLAGS=-g -Wall @CFLAGS@ -I. @X_CFLAGS@ -I$(bttvdir) -DVERSION='"$(VERSION)"'
-CXXFLAGS = $(CFLAGS) -I$(QTDIR)/include -I$(KDEDIR)/include 
-LDLIBS=@X_LIBS@ -l@XAWLIB@ -lXt @X_PRE_LIBS@ -lXext -lXmu \
-	-lX11 @X_EXTRA_LIBS@ @LIBS@
-
-PROGS=xawtv v4l-conf set-tv fbtv grab-one dump-mixers radio @KRADIO@
-
-SRCS=	$(srcdir)/main.c\
-	$(srcdir)/toolbox.c\
-	$(srcdir)/mixer.c\
-	$(srcdir)/channel.c\
-	$(srcdir)/x11.c\
-	$(srcdir)/grab-v4l.c
-OBJS= main.o toolbox.o mixer.o channel.o x11.o grab-v4l.o
-
-##########################################################################
-
-.SUFFIXES: .cpp .moc
-
-.cpp.o:
-	$(CXX) -c $(CXXFLAGS) $<
-
-.h.moc:
-	$(MOC) $< -o $@
-
-##########################################################################
-
-all: $(PROGS)
-
-xawtv: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS) @JPEG@
-
-v4l-conf: v4l-conf.c
-	$(CC) $(CFLAGS) -o $@ $< @X_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@ @LIBS@
-
-radio: radio.c
-	$(CC) $(CFLAGS) -o $@ $<
-
-dump-mixers: dump-mixers.c
-	$(CC) $(CFLAGS) -o $@ $<
-
-grab-one: grab-one.c
-	$(CC) $(CFLAGS) -o $@ $<
-
-set-tv: set-tv.o channel.o mixer.o grab-v4l.o
-	$(CC) $(CFLAGS) -o $@ $^
-
-fbtv: fbtv.o channel.o mixer.o grab-v4l.o
-	$(CC) $(CFLAGS) -o $@ $^ @CURSES@ @JPEG@
-
-
-kradio: kradio.moc kradio.o
-	$(CXX) -o $@ kradio.o -L$(QTDIR)/lib -L$(KDEDIR)/lib @X_LIBS@ \
-		-lkdeui -lkdecore -lqt @X_PRE_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@
-
-
-install: all
-	$(INSTALL_PROGRAM) -s xawtv $(bindir)
-	$(INSTALL_PROGRAM) -s set-tv $(bindir)
-	$(INSTALL_PROGRAM) -s -m4711 -o root -g root v4l-conf $(bindir)
-	$(INSTALL_DATA) xawtv.man $(mandir)/man1/xawtv.1
-	$(INSTALL_DATA) Xawtv.ad @x_libraries@/X11/app-defaults/Xawtv
-	make -C font install;
-	if test "@KRADIO@" = "kradio"; then 			\
-		$(INSTALL_PROGRAM) -s kradio $(kdebindir);	\
-		$(INSTALL_DATA) *.kdelnk $(kdelnkdir);		\
-		$(INSTALL_DIR) $(kradiodir)/toolbar;		\
-		$(INSTALL_DATA) *.xpm $(kradiodir)/toolbar;	\
-	fi
-	if test -f fbtv; then					\
-		$(INSTALL_PROGRAM) -s fbtv $(bindir);		\
-	fi
-
-clean:
-	-rm -f *.o *.moc *~ core* *.bak TAGS
-
-distclean: clean
-	-rm -f config.cache config.h config.log config.status Makefile
+distclean realclean::
+	-rm -f *~ config.cache config.h config.log config.status Makefile
 	@echo "default:" > Makefile
 	@echo "	./configure && make dep && make" >> Makefile
-	-strip $(PROGS)
 
-realclean: distclean
-	-rm -f chan.h
-	-rm -f $(PROGS)
 
-depend dep:
-	$(DEPEND) -- $(CFLAGS) -- $(SRCS) $(SRCS2)
+###########################################
+# just for me, some maintaining jobs...
 
-#########################
-# just for me...
+DEST=$(HOME)/www/v4l
+RPM=/home/ftp/rpm
+VERSION=@XAWTV_VERSION@
 
-tags:
-	etags *.[ch]
-
-check:
-	ldd $(PROGS)
-
-tar:
+tar: distclean
 	find . -name snap0*.ppm  -print | xargs -i rm -f
 	find . -name snap0*.jpeg -print | xargs -i rm -f
-	make -C bttv/driver clean
-	make -C font dist
-	cd ..; tar cvzf $(VERSION).tar.gz $(VERSION)
+	make -C vtx distclean
+	cd ..;tar cvzf $(DEST)/xawtv-$(VERSION).tar.gz xawtv-$(VERSION)
+	rm -f $(RPM)/SOURCES/xawtv-*.tar.gz
+	cp $(DEST)/xawtv-$(VERSION).tar.gz $(RPM)/SOURCES
 
-diff:
+diff: distclean 
 	echo $(VERSION)
 	(cd /tmp; tar xvzf `ls -t $(HOME)/2/src/Archives/xawtv-*.tar.gz | head -n 1`)
-	(cd ..; diff -urN /tmp/xawtv-* $(VERSION) | gzip > $(VERSION).diff.gz)
+	(cd ..; diff -urN /tmp/xawtv-* xawtv-$(VERSION) | gzip > $(DEST)/xawtv-$(VERSION).diff.gz)
 	rm -rf /tmp/xawtv-*
 
-kdetar:
-	mkdir /tmp/$(VRADIO)
-	cp kradio.cpp kradio.h *.xpm kradio.kdelnk font/led-fixed.bdf /tmp/$(VRADIO)
-	cp Makefile.kradio /tmp/$(VRADIO)/Makefile
-	touch /tmp/$(VRADIO)/config.h
-	echo "some hints for compiling kradio are in the Makefile" > /tmp/$(VRADIO)/README
-	(cd /tmp; tar cvzf - $(VRADIO)) > ../$(VRADIO).tar.gz
-	rm -rf /tmp/$(VRADIO)
-
-dist: distclean tar kdetar diff 
-
-glibc: realclean
-	CC=i486-pc-linux-gnuglibc2-gcc CXX=i486-pc-linux-gnuglibc2-g++	\
-		./configure
-	make
-
-#-------------------------------------------------------------------------
-# DO NOT DELETE THIS LINE -- make depend depends on it.
-
-
+dist: tar diff
 

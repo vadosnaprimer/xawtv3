@@ -1,0 +1,173 @@
+
+Some hints to get the bttv driver up and running
+================================================
+
+You need configured kernel sources to compile the bttv driver.  The
+driver uses some Makefile magic to compile the modules with your
+kernel's configuration (wrt. module-versions, SMP, ...).  If you
+already have compiled the kernel at least once, you probably don't
+have do worry about this.  If not, go to /usr/src/linux and run
+at least "make config".  Even better, compile your own kernel, you'll
+never become a real hacker else ;-)
+
+Of cource you have to load the modules as very first thing.  There is
+a script called "update" in the bttv/drivers directory.  I use this
+one to load a new version while doing driver hacking.  You can use it
+too, but check the module arguments before.  They work for my setup,
+and probably do *not* for yours.  The module arguments are documented
+below.  The MAKEDEV.v4l script creates the special files (/dev/video,
+...) for the video4linux.
+
+To autoload the modules, stick something like this into
+/etc/modules.conf:
+
+# TV
+alias char-major-81	videodev
+alias char-major-81-0	bttv
+pre-install bttv        modprobe -k msp3400; modprobe -k tuner
+options bttv            radio=1
+options tuner           type=5
+
+Again: this is for _my_ setup, you probably have to adjust the module
+parameters.
+
+
+See also
+========
+
+ * Trouble-Shooting - general tips for xawtv / bttv
+ * Sound-FAQ        - A description how Sound works on bt8xx-based
+                      boards and how one can make a new card work.
+
+
+****************************************************************************
+****************************************************************************
+
+insmod options for the bttv modules
+cut+paste from bttv-0.6.4e/driver/MODULES
+=========================================
+
+
+There are quite lot modules out here...
+
+videodev.o
+	this is the basic video4linux module, all video
+	drivers (incl. bttv) register themself here.
+
+i2c.o
+	the generic i2c module. It does much of the i2c bus
+	management, all other modules (except videodev.o)
+	use this one
+
+	insmod args:
+		scan=1		scan the bus for i2c devices
+		verbose=0	shut up i2c
+		i2c_debug=1	for debugging, it sticks the whole
+				(software) i2c bus traffic to the
+				syslog
+
+bttv.o
+	the bt848 (grabber chip) driver
+
+	insmod args:
+		remap=adr       remap Bt848 memory to adr<<20		
+		vidmem=base	frame buffer address>>20 (of graphic card)
+		triton1=0/1     for Triton1 compatibility
+                                Triton1 is automatically recognized
+                                but this might also help with other chipsets
+		pll=0/1/2	pll settings
+			0: don't use PLL
+			1: 28 MHz crystal installed
+			2: 35 MHz crystal installed
+		radio=0/1	card supports radio
+		card=n		card type
+			0:  Auto-Detect
+			1:  Miro
+			2:  Hauppauge (old bt848 boards)
+			3:  STB
+			4:  Intel
+			5:  Diamond
+			6:  AVerMedia
+			7:  MATRIX Vision MV-Delta
+			8:  FlyVideo
+			9:  TurboTV
+ 			10: Hauppauge (new bt878 boards)
+			11: MIRO PCTV pro
+			12: Terratec/Vobis TV-Boostar
+			13: Newer Hauppauge WinCam (bt878)
+			14: MAXI TV Video PCI2
+			15: Terratec TerraTV+
+			16: Aimslab VHX
+			17: PXC200
+			18: AVermedia98
+			19: FlyVideo98 (newer FlyVideo cards)
+
+	remap, card, radio and pll accept up to four comma-separted arguments
+	(for multiple boards).  The CARD and PLL defines from the Makefile
+	are used as defaults.
+
+msp3400.o
+	The driver for the msp34xx sound processor chips. If you have a
+	stereo card, you probably want to insmod this one.
+
+	insmod args:
+		debug=1/2	print some debug info to the syslog,
+				2 is more verbose.
+		simple=1	Use the "short programming" method (newer
+				msp34xx versions support this).
+		once=1		Don't check the TV-stations Audio mode
+				every few seconds, but only once after
+				channel switches.  This should workaround
+				the problems with disappearing sound.
+		amsound=1	Audio carrier is AM/NICAM at 6.5 Mhz.  This
+				should improve things for french people, the
+				carrier autoscan seems to work with FM only...
+
+tea6300.o
+	The driver for the tea6300 fader chip.  If you have a stereo
+	card and the msp3400.o doesn't work, you might want to try this
+	one.  This chip is seen on most STB TV/FM cards (usually from
+	Gateway OEM sold surplus on auction sites).
+
+	insmod args:
+		debug=1		print some debug info to the syslog.
+
+tda8425.o
+	The driver for the tda8425 fader chip.  This driver used to be
+	part of bttv.c, so if your sound used to work but does not
+	anymore, try loading this module.
+
+	insmod args:
+		debug=1		print some debug info to the syslog.
+
+tda9855.o
+	The driver for the tda9855 audio chip.  Afaik, only the 
+        Diamond DTV2000 has this chip.
+
+	insmod args:
+		debug=1		print some debug info to the syslog.
+
+tuner.o
+	The tuner driver.  You need this unless you want to use only
+	with a camera or external tuner ...
+
+	insmod args:
+		debug=1		print some debug info to the syslog
+		type=n		type of the tuner chip. n as follows:
+			0: Temic PAL tuner
+			1: Philips PAL_I tuner
+			2: Philips NTSC tuner
+			3: Philips SECAM tuner
+			4: no tuner
+			5: Philips PAL tuner
+			6: Temic NTSC tuner
+			7: Temic PAL tuner
+
+i2c_chardev.o
+	provides a character device for i2c bus access.  Works for 2.1.x
+	only, not compiled by default.
+
+
+To load the tuner+msp3400 modules with kerneld/kmod, you should use
+"modprobe -k tuner; modprobe -k msp3400" in pre-install for bttv.
+

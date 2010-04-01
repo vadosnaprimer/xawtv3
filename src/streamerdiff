@@ -1,0 +1,134 @@
+diff -urN xawtv-3.0beta4/src/colorspace.c xawtv-3.0beta4-pp/src/colorspace.c
+--- xawtv-3.0beta4/src/colorspace.c	Fri Apr  2 21:10:33 1999
++++ xawtv-3.0beta4-pp/src/colorspace.c	Mon Jun 28 16:48:35 1999
+@@ -370,3 +370,23 @@
+ 	}
+     }
+ }
++
++void
++packed422_to_planar420(unsigned char *d, unsigned char *s, int p)
++{
++    int i;
++    unsigned char *y,*u;
++
++    i = (p)/2;
++    y = d;
++    u = y + p;
++    
++    while (--i) {
++	*(y++) = *(s++);
++	*(u++) = *(s++);
++	*(y++) = *(s++);
++	s++;
++    }
++}
++
++
+diff -urN xawtv-3.0beta4/src/colorspace.h xawtv-3.0beta4-pp/src/colorspace.h
+--- xawtv-3.0beta4/src/colorspace.h	Fri Apr  2 21:13:42 1999
++++ xawtv-3.0beta4-pp/src/colorspace.h	Mon Jun 28 14:55:33 1999
+@@ -38,3 +38,8 @@
+ 
+ void packed422_to_planar422(unsigned char *d, unsigned char *s, int w, int h);
+ void packed422_to_planar411(unsigned char *d, unsigned char *s, int w, int h);
++void packed422_to_planar420(unsigned char *d, unsigned char *s, int p);
++
++
++
++
+diff -urN xawtv-3.0beta4/src/grab-v4l2.c xawtv-3.0beta4-pp/src/grab-v4l2.c
+--- xawtv-3.0beta4/src/grab-v4l2.c	Wed Jun 16 21:48:38 1999
++++ xawtv-3.0beta4-pp/src/grab-v4l2.c	Mon Jun 28 14:27:42 1999
+@@ -150,7 +150,9 @@
+     V4L2_PIX_FMT_RGB24,   /* RGB24  */
+     0,                    /* RGB32  */
+     0,                    /* LUT 2  */
+-    0                     /* LUT 2  */
++    0,                    /* LUT 2  */
++    V4L2_PIX_FMT_YUYV,     /* YUV422 */
++    0
+ };
+ 
+ /* ---------------------------------------------------------------------- */
+diff -urN xawtv-3.0beta4/src/grab.c xawtv-3.0beta4-pp/src/grab.c
+--- xawtv-3.0beta4/src/grab.c	Sat Apr 10 16:28:36 1999
++++ xawtv-3.0beta4-pp/src/grab.c	Mon Jun 28 16:47:43 1999
+@@ -37,6 +37,8 @@
+     32,              /* RGB32    */
+     16,              /* LUT2     */
+     32,              /* LUT4     */
++    16,		     /* YUV422   */
++    12,		     /* YUV420   */
+ };
+ 
+ unsigned char* format_desc[] = {
+@@ -52,7 +54,10 @@
+     "24 bit TrueColor (BE: rgb)",
+     "32 bit TrueColor (BE: -rgb)",
+     "16 bit TrueColor (lut)",
+-    "32 bit TrueColor (lut)"
++    "32 bit TrueColor (lut)",
++    "16 bit YUV 4:2:2",
++    "12 bit YUV 4:2:0",
++    "12 bit YUV 4:1:1"
+ };
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -89,7 +94,7 @@
+ 
+ static int         grabber_width;
+ static int         grabber_height;
+-static int         grabber_depth;
++static float       grabber_depth;
+ static int         grabber_linelength;
+ static int         grabber_format;
+ static color_conv  grabber_conv;
+@@ -194,6 +199,12 @@
+     { -1,0, NULL }
+ };
+ 
++static struct CONV_LIST yuv420_list[] = {
++    { VIDEO_YUYV, 0, packed422_to_planar420 },
++    { -1,0, NULL }
++};
++
++
+ static struct CONV_LIST *conv_lists[] = {
+     NULL  /* unused      */,
+     NULL  /* 8bit dither */,
+@@ -207,7 +218,9 @@
+     rgb24_list,
+     rgb32_list,
+     lut2_list,
+-    lut4_list
++    lut4_list,
++    NULL,
++    yuv420_list,
+ };
+ 
+ int
+diff -urN xawtv-3.0beta4/src/grab.h xawtv-3.0beta4-pp/src/grab.h
+--- xawtv-3.0beta4/src/grab.h	Mon Jun 14 23:23:59 1999
++++ xawtv-3.0beta4-pp/src/grab.h	Mon Jun 28 16:47:22 1999
+@@ -10,6 +10,8 @@
+ #define VIDEO_RGB32         10  /* -rgb-rgb-rgb (BE)*/
+ #define VIDEO_LUT2          11  /* lookup-table 2 byte depth */
+ #define VIDEO_LUT4          12  /* lookup-table 4 byte depth */
++#define VIDEO_YUYV	    13  /* YUV 4:2:2 */
++#define VIDEO_YUV420	    14  /* YUV 4:2:0 */
+ 
+ #define CAN_AUDIO_VOLUME     1
+ 
+diff -urN xawtv-3.0beta4/src/streamer.c xawtv-3.0beta4-pp/src/streamer.c
+--- xawtv-3.0beta4/src/streamer.c	Sun Jun 27 20:10:27 1999
++++ xawtv-3.0beta4-pp/src/streamer.c	Mon Jun 28 16:41:01 1999
+@@ -61,6 +61,8 @@
+     /* raw data */
+     { "rgb",  VIDEO_RGB24,     3,1,  1,1,1 },
+     { "gray", VIDEO_GRAY,      1,1,  1,1,1 },
++    { "420",  VIDEO_YUV420,    3,2,  1,1,1 },
++    { "422",  VIDEO_YUYV,    2,1,  1,1,1 },
+ #if 0
+     { "411",  VIDEO_YUV422,    3,2,  POST_UNPACK411, 1,1,1 },
+     { "422",  VIDEO_YUV422,    2,1,  POST_UNPACK422, 1,1,1 },

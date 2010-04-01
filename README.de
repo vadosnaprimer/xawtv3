@@ -3,11 +3,11 @@ small is beautiful
 ==================
 
 Also das hier ist ein _einfaches_ Xaw-basiertes Fernseh-Programm für
-die vom bttv-Treiber unterstützten bt848-Karten. Sender konfigurieren
-oder gar automatisch suchen is nich, ist alles per Hand in's config-file
-reinzuhacken. Maus kann auch erst mal ein Stück weg gelegt werden; bunte
-Buttons zum draufklicken gibt es auch nicht. Ich mag keinen überflüssigen
-Schnickschnack auf'm Bildschirm :-)
+die vom bttv-Treiber unterstützten bt848-Karten.  Inzwischen etwas
+user-freundlicher als die früheren Versionen.  Trotzdem sollte man
+sich unbedingt die man-page anschauen, da stehen (unter anderem) die
+Tastatur-shortcuts drin.  Und ohne Tastatur kann man nicht mal einen
+Sender einstellen ...
 
 copy policy ist GNU GPL.
 
@@ -18,6 +18,7 @@ compilieren, installieren & benutzen
 Weil ich zu faul bin, alles in zwei Sprachen zu updaten, gibts fortan
 nur noch ein englisches README + englische man-page.
 
-Sorry.
+Sorry folks.
 
   Gerd
+

@@ -1,24 +1,32 @@
 dnl ---------------------------------------------------------------------
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(main.c)
+
+AC_INIT(xawtv.spec.in)
 AC_CONFIG_HEADER(config.h)
+
+
+dnl ---------------------------------------------------------------------
+dnl Options
+
+AC_ARG_ENABLE(jpeg,
+  [  --enable-jpeg           jpeg support (for snapshots)])
+AC_ARG_ENABLE(xfree-ext,
+  [  --enable-xfree-ext      use XFree extentions (DGA,VidMode,DPMS)])
+AC_ARG_ENABLE(xvideo,
+  [  --enable-xvideo         use the Xvideo extention])
+AC_ARG_ENABLE(lirc,
+  [  --enable-lirc           lirc support])
+
 
 dnl ---------------------------------------------------------------------
 dnl Checks for programs.
+
 AC_PROG_CC
 AC_PROG_CPP
 
-if test "$KDEDIR" != "" -a -d "$KDEDIR"; then
-   KRADIO=kradio
-   # for kradio we need c++
-   AC_PROG_CXX
-else
-   KRADIO=""
-fi
-AC_SUBST(KRADIO)
-
 AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
+
 
 dnl ---------------------------------------------------------------------
 dnl X11 checks
@@ -39,51 +47,47 @@ AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB,
 AC_SUBST(XAWLIB)
 
 AC_SUBST(JPEG)
-AC_CHECK_LIB(jpeg, jpeg_start_compress,AC_DEFINE(HAVE_LIBJPEG) JPEG="-ljpeg",JPEG="",)
-
-AC_SUBST(CURSES)
-AC_CHECK_LIB(ncurses, initscr,CURSES="-lncurses",CURSES="",)
-if test "$CURSES" = ""; then
-	AC_CHECK_LIB(curses, initscr,CURSES="-lcurses",CURSES="",)
+JPEG=""
+if test "$enable_jpeg" != "no"; then
+    AC_CHECK_LIB(jpeg, jpeg_start_compress,AC_DEFINE(HAVE_LIBJPEG) JPEG="-ljpeg",,)
+else
+    echo "*** jpeg disabled"
 fi
 
-AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
+AC_SUBST(LIRC)
+LIRC=""
+if test "$enable_lirc" != "no"; then
+    AC_CHECK_LIB(lirc_client, lirc_init,
+	AC_DEFINE(HAVE_LIBLIRC_CLIENT) LIRC="-llirc_client",,)
+else
+    echo "*** lirc disabled"
+fi
+
+if test "$enable_xfree_ext" != "no"; then
+    AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
-AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
+    AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+    AC_CHECK_LIB(Xdpms, DPMSQueryExtension,,, 
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+else
+    echo "*** XFree extentions disabled"
+fi
+
+if test "$enable_xvideo" != "no"; then
+    AC_CHECK_LIB(Xv, XvQueryExtension,,,
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+else
+    echo "*** Xvideo extention disabled"
+fi
+
 AC_CHECK_LIB(Xext, XShmAttach,AC_DEFINE(HAVE_MITSHM),,
 	$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS)
 
-dnl ---------------------------------------------------------------------
-dnl video dev checks
 
-kernel_v4l=0
-bttv=0
-
-AC_ARG_WITH(bttv,
-	[  --with-bttv=/path       give the path of the bttv package],
-	[ bttvdir="$withval"; bttv=1 ], bttvdir="`pwd`/bttv/driver")
-
-if test "$bttv" != 1; then
-	AC_EGREP_HEADER(video_mmap, linux/videodev.h,
-	    AC_DEFINE(USE_KERNEL_VIDEODEV) kernel_v4l=1,)
-fi
-
-echo
-if test "$kernel_v4l" = "1"; then
-	echo "*** using kernel's video4linux driver"
-	# dummy
-	bttvdir=.
-else
-	AC_SUBST(bttvdir)
-	if test -f "$bttvdir/bttv.h"; then
-		echo "*** using bttv driver in $bttvdir"
-	else
-		echo "oops, no driver in $bttvdir"
-		exit 1
-	fi
-fi
-echo
+XAWTV_VERSION="`pwd | sed -e 's/.*xawtv-\([[a-z0-9.]]\+\).*/\1/'`"
+AC_SUBST(XAWTV_VERSION)
 
 dnl ---------------------------------------------------------------------
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile src/Makefile tools/Makefile radio/Makefile 
+	man/Makefile i2c/Makefile font/Makefile webcam/Makefile xawtv.spec)

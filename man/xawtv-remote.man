@@ -1,0 +1,119 @@
+.TH xawtv-remote 1 "(c) 1997-99 Gerd Knorr"
+.SH NAME
+xxx
+.SH SYNOPSIS
+.B xawtv-remote [ options ] command
+.br
+.B v4lctl [ options ] command
+.SH DESCRIPTION
+.B xawtv-remote
+and
+.B v4lctl
+can be used to control a video4linux driven TV card.
+.B xawtv-remote
+passes the command to a already running xawtv instance using X11
+properties.
+.B v4lctl
+sets the parameters directly.
+.SH OPTIONS
+.B xawtv-remote
+knows the following options:
+.TP
+.B -h
+print a short help text
+.TP
+.B -d dpy
+Set the X11 display
+.TP
+.B -i id
+Set the Window ID.
+.P
+.B v4lctl
+understands these options:
+.TP
+.B -h
+print a short help text
+.TP
+.B -c device
+Set video4linux device.
+.TP
+.B -v n
+Set debug level to \fBn\fP, where n = [0..2]
+.SH COMMANDS
+Both tools basically use the same set of commands.  Some of them are
+useful for xawtv-remote only (fullscreen for example).
+.TP
+.B setstation [ <name> | <nr> | next | prev | back ]
+Set the TV station.  This selects on of the TV stations which are
+configured in the .xawtv config file.  The argument can be the station
+name or a number (the first one listed in the config file is 0, ...).
+next/prev jumps to the next/previous station in the list, back to the
+previously selected one.
+.TP
+.B setchannel [ <name> | next | prev ]
+Tune in some channel.
+.TP
+.B setfreqtab <table>
+Set the frequency table.  See the menu in xawtv for a list of valid
+choices.
+.TP
+.B setnorm <norm>
+Set the TV norm (NTSC/PAL/SECAM).
+.TP
+.B setinput [ <input> | next ]
+Set the video input (Television/Composite1/...)
+.TP
+.B capture [ on | off | overlay | grabdisplay ]
+Set capture mode.
+.TP
+.B volume <n>
+.TP
+.B color <n>
+.TP
+.B hue <n>
+.TP
+.B bright <n>
+.TP
+.B contrast <n>
+Set the parameter to the specified value.  Range for all values is 0
+<= n <= 65535.  <n> can be either absolute (like "32768") or relative
+(marked by a sign, like "+1000" or "-512").  "inc" and "dec" are
+accepted too and increase/decrease the parameter by one percent.
+"volume" additionally accepts "mute".
+.TP
+.B snap [ jpeg | ppm ] [ full | win | widthxheight ] <filename>
+Capture one image.
+.TP
+.B fullscreen
+Toggle fullscreen mode.
+.TP
+.B msg text
+Display text on the on-screen display.
+.TP
+.B quit
+quit xawtv
+.TP
+.B keypad n
+enter digit 'n'.  That's the two-digit channel selection, entering two
+digits within 5 seconds switches to the selected station.  Useful for
+lirc.
+.SH SEE ALSO
+xawtv(1), fbtv(1)
+.SH AUTHOR
+Gerd Knorr <kraxel@goldbach.in-berlin.de>
+.SH COPYRIGHT
+Copyright (C) 1997-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+.P
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+.P
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+.P
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.

@@ -1,0 +1,19 @@
+--- main.c~	Sun Jan  9 10:27:43 2000
++++ main.c	Wed Jan 12 19:22:15 2000
+@@ -2551,6 +2551,7 @@
+ 
+     cur_capture = 0;
+     do_va_cmd(2,"capture","overlay");
++    set_property(0,NULL,NULL);
+     if (optind+1 == argc) {
+ 	do_va_cmd(2,"setstation",argv[optind]);
+     } else {
+@@ -2559,8 +2560,6 @@
+ 		do_va_cmd(2,"setstation","0");
+ 	    else
+ 		set_defaults();
+-	} else {
+-	    set_property(0,NULL,NULL);
+ 	}
+     }
+ 

@@ -1,0 +1,12 @@
+
+Some people report xawtv segfaults with glibc 2.1
+(got success reports too).  I don't know what the
+reason for this problem is.  From the stack traces
+I've seen so far, I suspect it is a glibc bug or
+some incompatibility between glibc and the X11 libs.
+
+I've got one report that upgrading the X11 libs from
+3.3.2 to 3.3.3 fixed the problem.
+
+  Gerd
+

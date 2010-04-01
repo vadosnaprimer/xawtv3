@@ -1,0 +1,38 @@
+srcdir=@srcdir@
+VPATH=$(srcdir)
+
+ROOT=
+prefix=$(ROOT)@prefix@
+bindir=$(prefix)/bin
+mandir=$(prefix)/man
+
+CC=@CC@
+INSTALL=@INSTALL@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=mkdir -p
+
+CFLAGS=-g -Wall @CFLAGS@ -I$(srcdir)/.. -I..
+
+PROGS=radio
+
+##########################################################################
+
+all: $(PROGS)
+
+radio: radio.o
+	$(CC) $(CFLAGS) -o $@ $< -lncurses
+
+install: all
+	$(INSTALL_DIR) $(bindir)
+	$(INSTALL_PROGRAM) -s radio $(bindir)
+	$(INSTALL_DATA) $(srcdir)/radio.man $(mandir)/man1/radio.1
+
+clean:
+	-rm -f *.o *~ core* *.bak TAGS
+
+realclean distclean: clean
+	-rm -f $(PROGS) Makefile
+
+dep depend:
+

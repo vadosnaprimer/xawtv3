@@ -1,0 +1,57 @@
+srcdir=@srcdir@
+VPATH=$(srcdir)
+
+ROOT=
+prefix=$(ROOT)/usr/X11R6
+FONTDIR=$(prefix)/lib/X11/fonts/misc
+PCF=led-latin1.pcf led-latin2.pcf led-koi8.pcf
+
+all: $(PCF)
+	mkfontdir
+
+install: all
+	mkdir -p $(R)$(FONTDIR)
+	for file in $(PCF); do \
+		install -m 644 $$file $(R)$(FONTDIR); \
+	done
+	if test "$(ROOT)" = ""; then		\
+		(cd $(FONTDIR); mkfontdir);	\
+		xset fp rehash;			\
+		true;				\
+	fi
+
+%.pcf: %.bdf
+	bdftopcf -o $@ $<
+
+dep:
+
+clean:
+	rm -f $(PCF)
+
+distclean: clean
+	rm -f Makefile *~
+
+###########################################################################
+# don't use these, unless you know what you are doing...
+
+SERVER=tcp/goldbach:7100
+
+bdf:
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-1" > led-latin1.bdf
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-iso8859-2" > led-latin2.bdf
+	perl ./bigfont.pl -s $(SERVER) -fn \
+	  "-misc-fixed-medium-r-semicondensed--13-*-koi8-r" > led-koi8.bdf
+
+#	perl ./bigfont.pl -s $(SERVER) -fn "6x10"  > led-6x10.bdf
+#	perl ./bigfont.pl -s $(SERVER) -fn \
+#		"-adobe-helvetica-medium-r-normal--10-*" > led-helv-10.bdf
+#	perl ./bigfont.pl -s $(SERVER) -fn \
+#		"-adobe-helvetica-medium-r-normal--12-*" > led-helv-12.bdf
+
+realclean: clean
+	rm -f *~ *.bdf fonts.dir
+
+dist: realclean bdf
+

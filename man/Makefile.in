@@ -1,0 +1,27 @@
+srcdir=@srcdir@
+
+ROOT=
+prefix=$(ROOT)@prefix@
+mandir=$(prefix)/man
+
+INSTALL=@INSTALL@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=mkdir -p
+
+all:
+
+install: all
+	$(INSTALL_DIR) $(mandir)/man1
+	for page in $(srcdir)/*.man; do					\
+		dest=`basename $$page .man`;				\
+		$(INSTALL_DATA) $$page $(mandir)/man1/$$dest.1;		\
+	done
+
+clean:
+	-rm -f *.o *.moc *~ core* *.bak TAGS
+
+distclean realclean: clean
+	-rm -f Makefile
+
+dep depend:
+

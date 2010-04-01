@@ -6,23 +6,70 @@ This is a _simple_ xaw-based TV Program which uses the bttv driver or
 video4linux (included in 2.1.x).  Copy Policy is GNU GPL.
 
 
+before sending me email...
+==========================
+
+If you are upgrading from 2.x to 3.x, read the UPDATE_TO_v3.0
+file.  There are a few incompatible changes you have to take care
+of.
+
+READ THE F*** MANUAL FIRST (this README file, Trouble-Shooting file,
+xawtv man page, bttv driver documentation, the Sound-FAQ)
+
+If you have problems after upgrading, please check the ChangeLog for
+hints first.  Looking into the ChangeLog is a good idea in general,
+becauce it is updated for every release, the other files are updated
+less freqently...
+
+For problem/bug reports:
+
+ * emails with images attached will to to /dev/null.
+ * emails with the word "nagra" or "premiere" will go to /dev/null.
+ * emails with questions answered in the documentation will go to
+   /dev/null.
+ * emails which don't have any useful informations (like "xawtv
+   does'nt work, please help me") will go to /dev/null.
+
+"useful informations" includes at least:
+ - xawtv version
+ - kernel version
+ - driver version
+ - which grabber board
+ - which TV norms are used in your country.
+ - if xawtv prints errors, include these too.
+ - don't forget a description of your problem :-)
+
+If you are using bttv as driver:
+ - the insmod arguments for the modules
+ - the kernel messages printed by bttv while loading.
+
+If you are _really_sure_ some information is'nt important for your
+problem, you can skip it.  But if in doubt, better include it...
+
+
+For patches/changes:
+ * Please add a comment what is changed and and why you changed it.
+ * Please send unified diffs ("diff -u") against the latest version.
+ * Please don't reformat my source code.
+
+
 compile & install
 =================
 
-There is modified bttv-0.5.8 in the bttv subdirectory.  Only the
-driver itself is included.  If you use the bttv for the first time, I
-recommend to get the whole bttv package from Ralph's page (see below)
-and check out the documentation. Some (very limited) informations can
-be found in the bttv/MODULES file.
+A simple
 
-$ ./configure --with-bttv=/path/to/bttv/driver && make
+	$ make
 
-should compile xawtv, radio, maybe kradio and v4l-conf.  If you omit
-the --with-bttv option, the driver in the bttv directory will be used.
+should compile xawtv, v4l-conf, maybe kradio and a few other
+utilities.  You can install the programs (as root) with:
 
-You can install xawtv, v4l-conf and kradio (as root) with:
+	# make install
 
-# make install
+If you want build RPMs:  No problem, just run
+
+	$ rpm -ta xawtv-3.xx.tar.gz
+
+and install them the usual way with "rpm -i".
 
 
 usage
@@ -31,16 +78,10 @@ usage
 bttv
 ----
 
-Of cource you have to load the modules as very first thing.  There is
-a script called "update" in the bttv/drivers directory.  I use this
-one to load a new version while doing driver hacking.  You can use it
-too, but check the module arguments before.  They work for my setup,
-and probably do *not* for yours.  The module arguments are documented
-in bttv/driver/MODULES. 
-
-If you have some problems to make the driver work, check out the
-Trouble-Shooting file.  Don't expect to get a answer for questions
-which are covered there.
+bttv is'nt bundled with xawtv any more.  You can get my current bttv
+code as separate tar file from http://www.in-berlin.de/User/kraxel/v4l/
+Number scheme is Ralph's version it is based on plus a small letter
+(i.e. bttv-0.6.3e for example).
 
 
 v4l-conf
@@ -49,121 +90,141 @@ v4l-conf
 v4l-conf is a small tool which tells video4linux about the current
 video mode (size and color depth).  This requires root priviliges,
 becauce it is easy to crash the box by passing bogous values there.
-It requires the X-Server up and running.  It is a temporary hack, this
-problem probably will be solved in a better way later on (Alan plans
-to write a X-Server extention).  Try "v4l-conf -h" for a short
-description.
+It requires the X-Server with DGA support up and running or a
+framebuffer device.  It is a temporary hack, this problem will be
+solved in a better way with a X11 extention.  The XFree86 snapshots
+(3.9.x) already have some working code.
 
-It is installed suid-root now, and xawtv runs it at startup.  Should
-work out-of-the-box without extra configuration.
+Try "v4l-conf -h" for a short description.  It is installed suid-root,
+and xawtv runs it at startup.  Should work out-of-the-box without
+extra configuration.  Normally you should'nt need to worry about it,
+but for debugging it is handy do run it from the shell and check the
+output.
 
 
 xawtv
 -----
 
-There is a man page now, check it out.
+There is a man page now, read it.  Don't expect you can use xawtv
+without reading the documentation at least once.  You are lost if you
+don't know the keyboard shortcuts,  xawtv is'nt a mouse-only program.
 
-xawtv will not work without the app-defaults.  You'll get a error
-message about a zero-sized shell widget if the app-defaults are
-not correctly installed.
-
-If you want to try xawtv without installing it, type...
+xawtv will not work without the app-defaults.  If you want to try
+xawtv without installing it, use this...
 
 	$ XUSERFILESEARCHPATH=./%N.ad
 	$ export XUSERFILESEARCHPATH
 	$ ./xawtv
 
 ...to make sure xawtv finds the application defaults (the Xawtv.ad
-file).
+file).  If v4l-conf is'nt installed too, you have to run it once
+(as root) before starting xawtv.
+
+
+xawtv-remote
+------------
+
+remote control for xawtv.  Takes commands for xawtv as command line
+arguments.  Check 'xawtv-remote -h' for details.
+
+ObSecurity:  This uses X Properties, everyone who is allowed to connect
+to your X11 Display can control xawtv.
+
+There is a GUI (Qt) version at:
+http://www.ben2.ucla.edu/~wtho/xawtv-qremote/xawtv-qremote-0.01.tar.gz
 
 
 fbtv
 ----
 
-TV program for the linux console.  Runs on top of a graphic framebuffer,
-tested with vesafb (check vger CVS) so far.  Shares config file
-($HOME/.xawtv) and (most) keyboard shortcuts with xawtv.  Read the source
-code for details.
+TV program for the linux console.  Runs on top of a framebuffer
+device, tested with vesafb (2.1.109+) so far.  Check out man-page and
+source code for details.
 
 
-set-tv
+v4lctl
 ------
 
-Simple command line tuner.  Reads like xawtv the config file $HOME/.xawtv.
-Expects a channel name on the command line.  Assuming you have a station
-named [ZDF] in your $HOME/.xawtv file, "set-tv zdf" will tune in the
-channel defined there.  That way you can tune in a station to grab
-teletext (or whatever) without starting up X11.
-
-It prints some useless messages about video resolution due to the fact that
-it shares alot of code with xawtv, maybe I fix this later.
+This tool allows to control a v4l device from the command line.  Check
+the man-page for details.
 
 
-grab-one
+streamer
 --------
 
-Command line tool for grabbing single pictures (full-size, PPM or raw).
-Try "grab-one -h" for a description.
+Command line tool for streaming capture (single frames work too).
+Try the '-h' switch for a description.
 
 
-dump-mixers
------------
+radio
+-----
 
-Just does what the name suggests:  It simply dumps the current mixer
-settings to stdout.  I used it to debug the msp3400 module, maybe
-someone finds this useful...
+You have to load the driver using "insmod bttv radio=1" for radio
+support.  The MAKEDEV script should create the required /dev/radio*
+devices.
 
+radio is a console application (curses).  up/down tune, 'q' quits,
+the function keys recall the programmed stations.  radio reads the
+kradio config file.  You can't configure anything with radio, you'll
+have to use kradio or vi for this.  The config file format is
+documented in the man page.
 
-vic
----
-
-The grabber-bttv-0.5.6.cc file is a grabber driver for vic, works with
-plain bttv-0.5.6.  Up to 12 fps.
-
-There is newer version, grabber-video4linux.cc.  This one runs with newer
-bttv versions (0.5.7/8) and the current kernel code.
-
-Both versions are tested only with PAL.  The "large" picture size probably
-doest'nt work with NTSC.  
-
-If you plan to compile vic:  It is'nt trivial, you should have some
-basic knowledge about C and writing/editing Makefiles. 
-
-
-radio & kradio
---------------
-
-radio support is still very experimental. If you want to play with it:
-* You need a special file for it (/dev/bttv-fm, char dev, major 81,
-  minor 64).
-* "insmod bttv radio=1"
-
-radio is a quite simple command line radio application.  It just
-promps for a (FM) frequency.
-
-kradio is a more comfortable KDE application.  There is a font in the
-font subdirectory, it is required for kradio (for a cool LED-Style
-display :-).  Make sure the KDEDIR and QTDIR environment variables are
-set correctly.
+kradio (my KDE radio app) is'nt included any more, it is available as
+separate tarball now.
 
 
 videotext / teletext
 --------------------
 
-Ralph has written a software decoder for teletext.  You can donwload
+There is a new videotext application for bttv: alevt.  Your friendly
+sunsite mirror has it.
+
+Ralph has written a software decoder for teletext.  You can download
 it from his web-page.  There is a program called videoteXt which can
 be used to view the teletext pages.  A link to this package is on
 Ralphs page too.
+
+In the vtx subdirectory is a simple vtx2ascii converter, build quick&diry
+out of the videoteXt sources.  Can output ascii (with and without
+ansi-colors) and html.  A perl-cgi is included too.
+
+
+webcam
+------
+
+This is a webcam tool.  Captures a image, annotates with a text +
+current time and uploads it to the webserver using ftp in an endless
+loop.  Needs the ftp utility.  Should survive dropped ftp-connections
+(webserver reboot) without problems.
+
+It is'nt compiled by default, you can compile it with "make webcam".
+All config options are compile time options, check out the #defines in
+webcam.c.  For normal operation, webcam is simply started without
+arguments (and it should work until someone kills it).  If the number
+of arguments is non-zero, webcam prints the complete communication
+with the ftp utility to stderr (for debugging purpurses).
+
+
+perl
+----
+
+Hint for all perl users/hackers:  There is a Video::Capture::V4l module
+available at CPAN.  It can do capture, vbi decoding, and it comes with a
+nifty tool to do a channel scan (decodes the station ID from vbi).
 
 
 resources
 =========
 
-http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv		- xawtv       [me]
-http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv driver [Ralph]
-http://roadrunner.swansea.uk.linux.org/v4l.shtml	- video4linux [Alan]
+http://www.in-berlin.de/User/kraxel/xawtv.html		- xawtv	[me]
+http://user.exit.de/froese/				- alevt	[Edgar]
+http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html	- bttv	[Ralph]
+http://www.ee.up.ac.za/~justin/v4l2/			- bttv2 [Justin]
+http://roadrunner.swansea.uk.linux.org/v4l.shtml	- v4l	[Alan]
+http://millennium.diads.com/bdirks/v4l2.htm		- v4l2	[Bill]
+http://www.tk.uni-linz.ac.at/~simon/private/i2c/	- i2c	[Simon]
 http://www-nrg.ee.lbl.gov/vic/				- vic
-http://www.kde.org					- KDE
+http://FreeTV.Notrix.de
 
 
 Have fun!
@@ -171,4 +232,4 @@ Have fun!
   Gerd
 
 --
-Gerd Knorr <kraxel@cs.tu-berlin.de>
+Gerd Knorr <kraxel@goldbach.in-berlin.de>

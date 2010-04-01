@@ -1,0 +1,285 @@
+.TH xawtv 1 "(c) 1997-99 Gerd Knorr"
+.SH NAME
+xawtv - a X11 program for watching TV
+.SH SYNOPSIS
+.B xawtv [ options ] [ station name ]
+.SH DESCRIPTION
+.B xawtv
+is a simple program for watching TV with your linux box. It uses the
+Athena widgets.
+.B xawtv
+supports the bttv driver, v4l (video4linux, included in 2.2.x) and the
+Xvideo extention.
+.P
+.B xawtv
+reads the config file $HOME/.xawtv at startup.  This file holds the
+available TV stations and a few settings like TV norm.  You have to
+create the config file yourself, see below for details.
+.SH OPTIONS
+.TP
+\fB-h\fP, \fB-help\fP
+Print a short desctiption of all command line options.
+.TP
+\fB-f\fP, \fB-fullscreen\fP
+startup in fullscreen mode.
+.TP
+\fB-m\fP, \fB-nomouse\fP
+startup with mouse pointer turned off.
+.TP
+\fB-n\fP, \fB-noconf\fP
+don't read the config file ($HOME/.xawtv).
+.TP
+\fB-o\fP, \fB-outfile\fP base
+set basestring for the snapshot output files.  The filename will be
+"base-timestamp-nr.ext".
+.TP
+\fB-c\fP, \fB-device\fP device
+set video4linux device (default is /dev/video).
+.TP
+\fB-v\fP, \fB-debug\fP level
+Be verbose,
+.B level
+may be 0 (default), 1 or 2.  It exists just for debugging and
+trouble-shooting.
+.TP
+\fB-remote\fP
+X11 display is remote.  This basically disables overlay mode, you
+might need this if xawtv failes to autodetect a remote X11 display.
+.TP
+\fB-b\fP, \fB-bpp\fP n
+force xawtv into
+.B n
+bpp color depth.  Works for switching between 15/16 and 24/32 bpp.
+This gets just passed throuth to v4l-conf(1).
+.TP
+\fB-shift\fP n
+Shift the video display by
+.B n
+bytes.  Try this if your video display is'nt within the xawtv window.
+This gets passed throuth to v4l-conf(1) too.
+.TP
+\fB-fb\fP
+Use the framebuffer device to determine the video framebuffer address
+(instead of the DGA extention).  Yet another pass throuthb argument.
+.TP
+\fB-noxv\fP
+disable the usage of the Xvideo extention.
+.TP
+\fB-novm\fP
+disable the usage of the VidMode extention.  If you have trouble with
+fullscreen mode, try this one.
+.TP
+\fB-nodga\fP
+disable the usage of the DGA extention.
+.SH GETTING STARTED
+Just start up xawtv, this will work without a config file too.  Then
+check out the options (right mouse button) and adjust the settings
+(TV norm, Video source, freqency table).  With the cursor keys you
+can control the tuner and look for TV Stations.
+.P
+If you've found one, start up your favorite text editor and stick it
+into the $HOME/.xawtv config file.  Or you can check out the new
+channel editor.  Hotkey 'E' will start it.
+.B Warning:
+Writing the config file with the channel editor will kill all the
+comments you might have added to your config file.
+.SS Mouse functions
+The left mouse button will popup a menu with all TV stations found in
+the config file. The middle button switches to the next station. The
+right button brings up a window with alot of options and control
+functions.
+.SS Keyboard Shortcuts
+.nf
+V            \fBV\fPideo (Capture) on/off
+A            \fBA\fPudio on/off
+M            \fBM\fPouse pointer on/off
+F            \fBF\fPullscreen on/off
+G            \fBG\fPrab picture (full size, ppm)
+J            Grab picture (full size, \fBj\fPpeg)
+Ctrl+G       \fBG\fPrab picture (window size, ppm)
+Ctrl+J       Grab picture (window size, \fBj\fPpeg)
+O            Popup \fBO\fPptions Window
+C            Popup \fBC\fPhannels Window
+E            Popup Channel \fBE\fPditor
+R            Popup AVI \fBR\fPecording Window
+Z            Channel Hopper (\fBz\fPapping, tune in every station
+             a few seconds)
+Ctrl+Z       Fast Channel Hopping (grab the images for the Channel
+             Window)
+
+up/down      tune up/down one channel
+left/right   fine tuning
+pgup/pgdown  station up/down
+space        next station (same as pgup)
+backspace    previously tuned station
+Ctrl+up      scan for next station
+
+ESC,Q        \fBQ\fPuit
+
++/-          Volume up/down
+Enter        mute
+.fi
+.SS config file
+You can stick the channels into a config file ($HOME/.xawtv). Looks like this:
+
+.nf
+[ORB]
+channel = 27
+.fi
+
+The branches hold some string (TV station ID), the lines below are the
+settings for that channel.  The station ID "defaults" is a special
+case, this one sets the defaults for all channels.  Usually the
+channel line is enouth for one station, all other settings can go
+to the "[defaults]" section.
+
+Here is the detailed description of all options:
+.TP
+.B fine = n
+finetuning (what left+right keys do), default: 0
+.TP
+.B norm = pal | ntsc | secam
+which TV norm, default is pal
+.TP
+.B key = keysym
+Hotkey for the channel. All X11 keysyms allowed here. You can prefix
+a keysym with Modifier+, i.e. ^F is "Ctrl+F".
+.TP
+.B capture = off | overlay | grabdisplay
+capture mode: off, overlay (default, TV card => video, 0% cpu) or
+grabdisplay (TV card => main memory => X-Server => video, frame rate
+depends on load and picture size).
+.TP
+.B source = Television | Composite1 | Composite2 | SVHS
+input source.  The valid choices depend on the hardware driver, the
+values above are just examples.
+.TP
+.B color = n
+.TP
+.B bright = n
+.TP
+.B hue = n
+.TP
+.B contrast = n
+Valid range is 0-65535, default is 32768
+.P
+A few global settings go to the "[global]" section:
+.TP
+.B fullscreen = width x height
+specify which video mode should be used for full-screen.  Works with
+XFree only, and of cource you need a valid modeline for this mode in
+your XF86Config file.
+.TP
+.B wm-off-by = [+-]x[+-]y
+Some WM's handle static gravity not correct (I know mwm and
+kwm).  This is somewhat boring with fullscreen mode.  With this
+options you can correct this with a displacement for moving
+windows.  For example, wm-off-by = -4-24 does the trick for kwm (the
+KDE window manager).
+.TP
+.B freqtab = 
+select a channel-to-freqency mapping.  Options window->Frequency table
+brings up a menu with all valid entries (and allows table-switching at
+runtime). 
+.TP
+.B pixsize = width x height
+size of the channel pixmaps (within Channels window).  0x0 disables this
+feature.
+.TP
+.B pixcols = n
+number of columns the channel window should use.  Defaults to 1.
+.TP
+.B mixer = ctl | device:ctl
+This allows to control volume using the sound card mixer.  ctl is the
+mixer control, i.e. "vol" for the master volume. "line1" is a good
+candidate for the TV card.  device is the mixer device (defaults to
+/dev/mixer in unspecified).  Volume-control works with the keypad: +
+is up, - is down, Enter is mute.
+.TP
+.B jpeg-quality = n
+set the quality for jpeg images.  As usual the valid range for n is [0
+.. 100] with 75 as default.
+.TP
+.B mjpeg-quality = n
+set the quality for mjpeg AVI movies.  Default is 75.
+.TP
+.B keypad-ntsc = on | off
+Configure keypad mode.  Default is off.  When set to on, numbers typed
+on the keypad are interpreted as channel numbers (this is like NTSC TV
+sets work).  Otherwise they are interpreted as programmed station,
+i.e. 1 is the first station from $HOME/.xawtv, ...
+.TP
+.B osd = on | off
+Enable/disable the onscreen display in fullscreen mode.  Default is
+on.
+.P
+You can start other programs from within xawtv.  This is configured
+with entries in the "[launch]" section:
+.TP
+.B label = key, command line
+The specified hotkey will run the configured program.  Calling the
+Action "Launch(label)" works too.  If you want to play with the Xt
+translation tables, feel free to do so.  But don't complain if you
+broke something while doing so...
+.SS config file example
+My config file looks like this:
+.P
+.nf
+# this is a comment
+# empty lines are ignored too
+
+[global]
+freqtab = pal-europe
+#mixer   = line
+fullscreen = 768x576
+
+# for /etc/XF86Config
+# Modeline  "pal"  50.00  768 832 856 1000  576 590 595 630  -hsync -vsync
+
+[launch]
+AleVT = Ctrl+A, alevt
+
+[defaults]
+source  = television
+norm    = pal
+
+[ZDF]
+channel=33
+key=F1
+
+[ORB]
+channel = 27
+key = F2
+
+# more stations follow here
+
+[Camera]
+source = Composite1
+key = K
+.fi
+.SH BUGS
+If xawtv dumps core, you can fix this with "ulimit -c 0".
+.SH SEE ALSO
+fbtv(1), v4l-conf(1)
+.br
+http://www.in-berlin.de/User/kraxel/xawtv.html (homepage)
+.SH AUTHOR
+Gerd Knorr <kraxel@goldbach.in-berlin.de>
+.SH COPYRIGHT
+Copyright (C) 1997-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+.SH MISC
+You are the 4711th visitor of this page.

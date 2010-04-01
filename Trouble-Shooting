@@ -5,40 +5,60 @@ Here are a few hints if you have trouble to make bttv & xawtv work:
 general
 =======
 
-* Check the PROBLEMS file in Ralph's bttv Documentation
+* I STRONGLY recommend to build the driver as module, if you are using
+  the driver version included in the linux kernel.  All the insmod
+  options only available if you build the driver as module.  You'll
+  need them to configure the driver if autodetection does'nt work.
 
-* There are a few known incompatibilities, see below.
+* Just in case you don't know: With the "dmesg" command you can
+  display the (last 4k of) kernel/module messages.
+
+* Check if your board is recognized correctly. The bttv driver
+  should print a line like this one:
+
+	bttv0: model: BT848(Hauppauge old)
+
+  If your card is'nt recognized correctly, you have to specify
+  the board type as insmod argument (card=x, see bttv/driver/MODULES
+  for a list).
+
+* If your board is'nt listed there, you can check if it is compatible
+  with another one which is already in the list (trial-and-error for
+  all valid card numbers...).
 
 * The insmod options for the modules are documented in the
   MODULES file.  Use the "verbose=" and "debug=" args to make
   the modules more verbose.
 
-* Just in case you don't know: With the "dmesg" command you can
-  display the (last 4k of) kernel/module messages.
+
+* Check the PROBLEMS file in Ralph's bttv Documentation
+
+* There are a few known incompatibilities, see below.
 
 * Try a newer version of the X-Server (if available).
 
 * If you upgrade xawtv and something does'nt work any more, please
   check the Changes file before sending bug reports...
 
-* There are some X-Servers with a buggy XF86VidMode extention around.
-  xawtv has a "-x" switch do disable the usage of the XFree extentions,
-  this should fix the hangs on startup.
+* Seems the XF86VidMode extention is rarely used and not very well
+  tested with some X-Servers.  If you have strange effects while
+  switching fullscreen on and/or off, try to disable the VidMode
+  usage with the "-novm" switch.  If xawtv hangs on startup (while
+  asking the Server for available resolutions), using "-novm" should
+  help too.
 
 
 video
 =====
 
-* Make sure capture is turned on (xtvscreen starts up with capture
-  off)
+* Make sure capture is turned on (xtvscreen starts up with capture off)
 
 * Black screen, no picture at all:  Bad, probably the video frame buffer
   address is wrong.
-  The bttv module has a vidmem=0x??? argument, so you can pass the
-  correct one.  xawtv should print it (if the X-Server supports DGA),
-  you can check the X-Server startup messages and /proc/pci too.
-  Note: The vidmem= arg will be shiftet by 20 bits, you need the first
-  three (hex-)digits of the frame buffer address only!!!
+  Setting the address is done by the v4l-conf module based on the
+  information from the DGA-Extention of the X-Server.  If your
+  X-Server doesn't support DGA, you'll have to configure the driver
+  manually with the "v4l-conf -a address".
 
 * Black screen after some time of normal operation: try to reload the
   bttv module.
@@ -49,6 +69,10 @@ video
   the Grabber card, so the interaction between Grabber and Graphics
   board already works fine.
 
+* grabber board seems not to sync correctly: try to change the PLL
+  settings.  You can load bttv with the insmod argument pll=[0,1,2].
+  See bttv/driver/MODULES for details.
+
 * noisy, sort-of-white screen:  There is no TV Station tuned in.
   Possible reasons:
    - There is really no station present on that channel...
@@ -58,26 +82,32 @@ video
      details.
    - Wrong channel map (the channel-to-freqency mapping is
      different in different countries)
-   - some trouble with the i2c bus, see below
+   - some trouble with the i2c bus, i/o error messages in the syslog.
+     If this is a Hauppauge board, check the kernel messages to see
+     if it was correctly identified as Hauppauge.  If not, try 
+     "insmod bttv card=2"
 
-* Trouble with TrueColor mode:  It's impossible to find what color depth
-  the X-Server uses internally, you might have to use the -b switch to
-  tell if it runs 24 or 32 bpp.  Both xawtv and v4l-conf have this switch.
+* Trouble with TrueColor mode (image spread across the screen): It's
+  impossible to find what color depth the X-Server uses internally,
+  you might have to use the -b switch to tell if it runs 24 or 32 bpp.
+  Both xawtv and v4l-conf have this switch.
+
+* Picture is fine, but it some pixels off the window (matrox board,
+  eh?).  This is a design bug in the DGA extention.  A workaround
+  is the -shift=xxx option.  Play with different values for xxx
+  until it fits, 1024 is a good start.
 
 
 sound
 =====
 
+* With old Hauppauge boards (bt848-based) it might be needed to load
+  the bttv module with "card=2".  Try this if your board is'nt
+  correctly autodetected as Hauppauge.
+
 * it might be nessesary to initialize the sound card with a
-  "insmod sound" to get sound at all.
-
-* With stereo cards you need the msp3400 module.
-
-  There is some trouble with the MIRO cards:  They can do both
-  mono (without msp3400 chip) & stereo (using msp3400), but nobody
-  knows how to kick them into stereo mode.
-  Result: it works even without msp3400, but loading the msp3400
-  does'nt give stereo sound...
+  "insmod sound" to get sound at all.  Double-check the mixer
+  settings.
 
 * For radio support (WinTV/Radio) you have to do "insmod radio=1"
 
@@ -86,7 +116,8 @@ if it still does'nt work...  --  hardware problems/conflicts
 ============================================================
 
 * As far I know, the bttv driver can't do IRQ sharing, make sure it
-  has its own interrupt.
+  has its own interrupt.  Try to play with the BIOS settings, or swap
+  PCI boards if nothing else works...
 
 * There are reports that the tuner works only if the *graphic board*
   has its own IRQ.  Don't ask me why...
@@ -104,17 +135,6 @@ if it still does'nt work...  --  hardware problems/conflicts
 
 Known problems / incompatibilities
 ==================================
-
-o	There are some problems with the i2c bus sometimes (you'll get
-        i2c i/o error messages in the syslog).  I got all sorts of
-	strange reports about this problem.  Seems at least some boards
-	(my one is fine) don't work reliably if they get hot or something
-	like that...
-
-	One (but maybe not the only) reason for these i2c bus problems
-	are memory conflicts.  Playing around with the remap insmod
-	option might help.
-
 
 [Alan on linux-kernel]
 
@@ -141,5 +161,4 @@ More hints/suggestions/corrections/updates are welcome,
 
 
 --
-Gerd Knorr <kraxel@cs.tu-berlin.de>
-
+Gerd Knorr <kraxel@goldbach.in-berlin.de>

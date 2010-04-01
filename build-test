@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# signal when done
+function beep { echo -en "\007"; }
+trap beep EXIT
+
+
+##########################################################################
+# xawtv
+
+# cleanup first
+make distclean
+
+# make sure autoconf stuff is up-to-date
+autoconf							|| exit 1
+autoheader							|| exit 1
+
+# normal
+./configure && make						|| exit 1
+make distclean
+
+# no jpeg
+./configure --disable-jpeg && make				|| exit 1
+make distclean
+
+# no lirc
+./configure --disable-lirc && make				|| exit 1
+make distclean
+
+# no xfree extentions
+./configure --disable-xfree-ext && make				|| exit 1
+make distclean
+
+# no xvideo extention
+./configure --disable-xvideo && make				|| exit 1
+make distclean
+
+# library link order
+./configure && make CC="gcc -static"				|| exit 1
+make distclean
+
+# 2.0.x
+kernel=`echo /usr/src/kernel/2.0.*`
+./configure && make CC="gcc -I$kernel/include"			|| exit 1
+make distclean
+
+# egcs
+#CC=egcs ./configure && make 					|| exit 1
+#make distclean
+
+
+##########################################################################
+# done
+
+echo
+echo "*** cool, compile test passed ***"
+echo
+exit 0

@@ -1,0 +1,25 @@
+.TH set-tv 1 "(c) 1997,98 Gerd Knorr"
+.SH NAME
+set-tv - tune in some TV station
+.SH SYNOPSIS
+.B set-tv [ options ] station name
+.SH DESCRIPTION
+.B set-tv
+is a command line tool which can tune in some TV station.  It takes
+the name of some TV station as argument.  It reads the configuration
+from the xawtv config file ($HOME/.xawtv), every station listed there
+can be used.
+.SH OPTIONS
+.B -v level
+Be verbose,
+.B level
+may be 0 (default), 1 or 2.  It exists just for debugging.
+.TP
+.B -c device
+video4linux device (default is /dev/video).
+.SH SEE ALSO
+xawtv(1)
+.SH AUTHOR
+Gerd Knorr <kraxel@goldbach.in-berlin.de>
+.SH COPYRIGHT
+Copyright (C) 1997,98 Gerd Knorr <kraxel@goldbach.in-berlin.de>

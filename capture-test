@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# test capture...
+#
+STREAMER=src/streamer
+PLAYBACK="xanim +f +Sr +Ze -Zr"
+DEST=/media/test
+#DEST=/usr/data/test
+
+################################################################
+# init
+
+test -d $DEST || mkdir $DEST
+
+function run () {
+	 echo "*** $* ***"
+	 $*
+	 sleep 1
+}
+
+
+################################################################
+# still images
+
+# ppm
+run $STREAMER -o $DEST/image.ppm
+run $STREAMER -o $DEST/image.pgm
+
+# jpeg
+run $STREAMER -o $DEST/image.jpeg
+
+
+################################################################
+# movies
+
+# multiple images
+run $STREAMER -r2 -t5 -o $DEST/movie000.jpeg
+
+# avi
+for file in test15 test24 mjpeg; do rm -f $DEST/$file.avi; done
+run $STREAMER -am -r10 -t255 -f avi15 -o $DEST/test15.avi
+run $STREAMER -as -r10 -t255 -f avi24 -o $DEST/test24.avi
+run $STREAMER -am -r10 -t255 -f mjpeg -o $DEST/mjpeg.avi
+
+
+################################################################
+# raw data
+
+for format in rgb gray 422 422p 420p; do
+    run $STREAMER -d -f $format -o $DEST/$format.raw 2>&1 | grep ^grab:
+done
+
+################################################################
+# check
+
+xv $DEST/*.p[pg]m $DEST/*.jpeg
+$PLAYBACK $DEST/test15.avi
+$PLAYBACK $DEST/test24.avi
+$PLAYBACK $DEST/mjpeg.avi
+
+display -size 320x240 gray:$DEST/gray.raw
+display -size 320x240 rgb:$DEST/rgb.raw
+display -size 640x240 gray:$DEST/422.raw
+display -size 320x480 gray:$DEST/422p.raw
+display -size 320x360 gray:$DEST/420p.raw

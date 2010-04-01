@@ -3,14 +3,20 @@
 /* Define if the X Window System is missing or not being used.  */
 #undef X_DISPLAY_MISSING
 
-/* use kernel include (videodev.h) */
-#undef USE_KERNEL_VIDEODEV
-
 /* MIT shared memory extention */
 #undef HAVE_MITSHM
 
 /* jpeg lib */
 #undef HAVE_LIBJPEG
+
+/* lirc lib */
+#undef HAVE_LIBLIRC_CLIENT
+
+/* Define if you have the Xdpms library (-lXdpms).  */
+#undef HAVE_LIBXDPMS
+
+/* Define if you have the Xv library (-lXv).  */
+#undef HAVE_LIBXV
 
 /* Define if you have the Xxf86dga library (-lXxf86dga).  */
 #undef HAVE_LIBXXF86DGA

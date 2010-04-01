@@ -1,0 +1,29 @@
+***************
+*** 370,372 ****
+  	}
+      }
+  }
+--- 370,392 ----
+  	}
+      }
+  }
++ 
++ void
++ packed422_to_planar420(unsigned char *d, unsigned char *s, int p)
++ {
++     int i;
++     unsigned char *y,*u;
++ 
++     i = (p)/2;
++     y = d;
++     u = y + p;
++     
++     while (--i) {
++ 	*(y++) = *(s++);
++ 	*(u++) = *(s++);
++ 	*(y++) = *(s++);
++ 	s++;
++     }
++ }
++ 
++ 
