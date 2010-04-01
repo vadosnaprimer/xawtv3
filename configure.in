@@ -6,6 +6,8 @@ AC_CONFIG_HEADER(config.h)
 dnl ---------------------------------------------------------------------
 dnl Checks for programs.
 AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXX
 AC_PROG_INSTALL
 AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 
@@ -27,33 +29,31 @@ AC_CHECK_LIB(Xaw3d, Xaw3dComputeTopShadowRGB,
   $X_LIBS $X_PRE_LIBS -lXext -lXmu -lXt -lX11)
 AC_SUBST(XAWLIB)
 
-AC_CHECK_LIB(Xxf86dga, XF86DGAQueryVersion, have_dga=yes, have_dga=no,
-  $X_LIBS $X_PRE_LIBS -lXext -lX11)
-if test "$have_dga" = "no"; then
-  AC_MSG_ERROR(this package requires the xfree dga extention, sorry)
-fi
+AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
+	$X_LIBS $X_PRE_LIBS -lXext -lX11)
 
-dnl MIT shm
-AC_ARG_WITH(mitshm,
-  [  --with-mitshm           enable/disable MIT shared memory],
-  ac_mitshm="$withval",ac_mitshm="")
+AC_CHECK_LIB(jpeg, jpeg_start_compress,,,)
 
-if test "$ac_mitshm" != "no"; then
-  AC_CHECK_LIB(Xext, XShmAttach,
-	  [ MIT_SHMEM="-lXext"; AC_DEFINE(HAVE_MITSHM) ],,
-	  $X_LIBS $X_PRE_LIBS -lXt -lX11 $X_EXTRA_LIBS)
-fi
+dnl ---------------------------------------------------------------------
+dnl video dev checks
 
 AC_ARG_WITH(bttv,
   [  --with-bttv=/path       give the path of the bttv package],
-  bttvdir="$withval", bttvdir="../bttv")
+  bttvdir="$withval", bttvdir="bttv")
 AC_SUBST(bttvdir)
 
-if test ! -f "$bttvdir/bttv.h"; then
-  echo "bttv.h not found in $bttvdir, try --with-bttv=/path"
-  exit 1
+echo -n "checking for bttv... "
+if test -f "$bttvdir/bttv.h"; then
+  echo "in $bttvdir"
+dnl  AC_DEFINE(HAVE_BTTV)
+else
+  echo "no (you might want to try --with-path=/path_to_bttv)"
 fi
 
+dnl ---------------------------------------------------------------------
+dnl KDE (kradio)
+if test "$KDEDIR" != ""; then KRADIO=kradio; else KRADIO=""; fi
+AC_SUBST(KRADIO)
 
 dnl ---------------------------------------------------------------------
 AC_OUTPUT(Makefile)

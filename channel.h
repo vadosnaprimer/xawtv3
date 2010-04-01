@@ -20,7 +20,10 @@ extern struct CHANNEL  **channels;
 extern int             count;
 extern int             have_mixer;
 
-extern int    cur_sender, cur_channel, cur_fine, cur_norm;
+extern int    cur_sender, cur_channel, cur_fine, cur_norm, cur_input;
+
+extern int            chan_tab;
+extern struct STRTAB  chan_names[];
 
 int freq2chan(int f);
 int cf2freq(int chan, int fine);
@@ -30,16 +33,9 @@ void read_config();
 
 /* ----------------------------------------------------------------------- */
 
-struct STRTAB {
-    int  nr;
-    char *str;
-};
-
 extern struct STRTAB booltab[];
 extern struct STRTAB normtab[];
 extern struct STRTAB srctab[];
 
 int str_to_int(char *str, struct STRTAB *tab);
-void VolumeAction(Widget widget, XEvent *event,
-		  String *params, Cardinal *num_params);
 

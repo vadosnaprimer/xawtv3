@@ -1,0 +1,13 @@
+# KDE Config File
+[KDE Desktop Entry]
+Comment=TV in a window
+SwallowExec=
+BinaryPattern=
+Name=xawTV
+MimeType=
+Exec=xawtv
+Icon=exec.xpm
+TerminalOptions=
+Path=
+Type=Application
+Terminal=0

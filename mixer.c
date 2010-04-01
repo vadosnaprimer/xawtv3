@@ -38,6 +38,13 @@ mixer_open(char *filename, char *device)
 		muted = 0;
 	    }
     }
+    if (-1 == dev) {
+	fprintf(stderr,"mixer: hav'nt found device '%s'\nmixer: available: ",device);
+	for (i = 0; i < SOUND_MIXER_NRDEVICES; i++)
+	    if ((1<<i) & devmask)
+		fprintf(stderr," '%s'",names[i]);
+	fprintf(stderr,"\n");
+    }
     return (-1 != dev) ? 0 : -1;
 }
 

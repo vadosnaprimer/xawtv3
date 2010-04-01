@@ -1,54 +1,120 @@
 
-Xawtv.title:		Fernseher
-Xawtv.widthInc:		40
-Xawtv.heightInc:	30
-Xawtv.minWidth:		80
-Xawtv.minHeight:	60
-Xawtv.maxWidth:		800
-Xawtv.maxHeight:	600
+! ----------------------------------------------------------------------------
+! general settings
 
-Xawtv.tv.translations:	#override				\n\
-	<Btn1Up>:	Channel()				\n\
-	<Btn3Up>:	Menu()					\n\
-	<Key>Q:		CloseMain()				\n\
-	<Key>Escape:	CloseMain()				\n\
-	<Key>KP_Add:	Volume(inc)				\n\
-	<Key>KP_Subtract: Volume(dec)				\n\
-	<Key>KP_Enter:	Volume(mute)				\n\
-	<Key>T:		Volume(mute)				\n\
-	<Key>M:		Pointer()				\n\
-	<Key>0:		SetRes(audio,int,0)			\n\
-	<Key>1:		SetRes(audio,int,1)			\n\
-	<Key>2:		SetRes(audio,int,2)			\n\
-	<Key>3:		SetRes(audio,int,3)			\n\
-	<Key>4:		SetRes(audio,int,4)			\n\
-	<Key>P:		Tune(pal)				\n\
-	<Key>N:		Tune(ntsc)				\n\
-	<Key>S:		Tune(secam)				\n\
-	<Key>Up:	Tune(next)				\n\
-	<Key>Down:	Tune(prev)				\n\
-	<Key>Right:	Tune(fine_up)				\n\
-	<Key>Left:	Tune(fine_down)				\n\
-	<Key>F5:	SetRes(bright,int,-5)			\n\
-	<Key>F6:	SetRes(bright,int,+5)			\n\
-	<Key>F7:	SetRes(hue,int,-5)			\n\
-	<Key>F8:	SetRes(hue,int,+5)			\n\
-	<Key>F9:	SetRes(contrast,int,-5)			\n\
-	<Key>F10:	SetRes(contrast,int,+5)			\n\
-	<Key>F11:	SetRes(col,int,-5)			\n\
-	<Key>F12:	SetRes(col,int,+5)			\n\
-	<Key>B:		SetRes(capture,bool,toggle)
+Xawtv*beNiceToColormap:			false
+Xawtv*shadowWidth:			1
+Xawtv*highlightThickness:		1
 
-Xawtv*cap.label:	B: Bild ein/aus
-Xawtv*mute.label:	T: Ton ein/aus
-Xawtv*auto.label:	0: Sound: auto
-Xawtv*mono.label:	1: Sound: mono
-Xawtv*stereo.label:	2: Sound: stereo
-Xawtv*bilang1.label:	3: Sound: Sprache 1
-Xawtv*bilang2.label:	4: Sound: Sprache 2
-Xawtv*quit.label:	Q: Quit
+Xawtv*foreground:			black
+Xawtv*background:			lightgray
+Xawtv*font:				7x13bold
+Xawtv*justify:				left
 
-Xawtv*beNiceToColormap:	false
-Xawtv*menu*background:	lightgray
-Xawtv*menu.translations: #override \n\
+Xawtv*cap.label:		Video on/off                V
+Xawtv*mute.label:		Audio (un)mute              A
+Xawtv*ptr.label:		Mouse Pointer on/off        M
+Xawtv*fs.label:			Full Screen on/off          F
+Xawtv*grabppm.label:		Grab Image (ppm)            G
+Xawtv*grabjpeg.label:		Grab Image (jpeg)           J
+
+Xawtv*norm.label:		TV norm            >
+Xawtv*input.label:		Video source       >
+Xawtv*freq.label:		Frequency table    >
+Xawtv*audio.label:		Audio              >
+Xawtv*quit.label:		Quit                        Q
+
+Xawtv*auto.label:		autodetect
+Xawtv*mono.label:		mono
+Xawtv*stereo.label:		stereo
+Xawtv*lang1.label:		Language 1
+Xawtv*lang2.label:		Language 2
+
+Xawtv*menu.translations:	#override \n\
 	<Motion>:	highlight()
+
+! ----------------------------------------------------------------------------
+! TV Window
+
+xawtv.tv.width:			384
+xawtv.tv.height:		288
+xawtv.winGravity:		Static
+xawtv.translations:		#override			\n\
+	<Message>WM_PROTOCOLS:	CloseMain()
+
+xawtv.tv.background:		black
+xawtv.tv.translations:		#override			\n\
+	<Key>0:			SetRes(audio,0)			\n\
+	<Key>1:			SetRes(audio,1)			\n\
+	<Key>2:			SetRes(audio,2)			\n\
+	<Key>3:			SetRes(audio,3)			\n\
+	<Key>4:			SetRes(audio,4)			\n\
+	<Key>F5:		SetRes(bright,-512)		\n\
+	<Key>F6:		SetRes(bright,+512)		\n\
+	<Key>F7:		SetRes(hue,-512)		\n\
+	<Key>F8:		SetRes(hue,+512)		\n\
+	<Key>F9:		SetRes(contrast,-512)		\n\
+	<Key>F10:		SetRes(contrast,+512)		\n\
+	<Key>F11:		SetRes(color,-512)		\n\
+	<Key>F12:		SetRes(color,+512)		\n\
+	<Btn1Up>:		Channel()			\n\
+	<Btn2Up>:		SetChannel(next)		\n\
+	Ctrl<Btn3Up>:		Menu()				\n\
+	<Btn3Up>:		Options()			\n\
+	<Key>Escape:		CloseMain()			\n\
+								\
+	<Key>Q:			CloseMain()			\n\
+	<Key>KP_Add:		Volume(inc)			\n\
+	<Key>KP_Subtract:	Volume(dec)			\n\
+	<Key>KP_Enter:		Volume(mute)			\n\
+	<Key>A:			Volume(mute)			\n\
+	<Key>M:			Pointer()			\n\
+	<Key>F:			FullScreen()			\n\
+	<Key>G:			Snap(ppm)			\n\
+	<Key>J:			Snap(jpeg)			\n\
+	<Key>Up:		Tune(next)			\n\
+	<Key>Down:		Tune(prev)			\n\
+	<Key>Right:		Tune(fine_up)			\n\
+	<Key>Left:		Tune(fine_down)			\n\
+	<Key>Page_Up:		SetChannel(next)		\n\
+	<Key>Page_Down:		SetChannel(prev)		\n\
+	<Key>V:			SetRes(capture,toggle)
+
+
+! ----------------------------------------------------------------------------
+! Options window
+
+Options.Paned.internalBorderWidth:	0
+Options*Scrollbar*orientation:		horizontal
+Options*Scrollbar*length:		120
+Options*Scrollbar*minimumThumb:		3
+
+Options.translations:		#override			\n\
+	<Message>WM_PROTOCOLS:	Options()
+
+Options*bright.l.label:		Bright
+Options*hue.l.label:		Hue
+Options*contrast.l.label:	Contrast
+Options*color.l.label:		Color
+Options*volume.l.label:		Volume
+
+Options.paned.translations:	#override\n\
+	<Key>Escape:		Options()			\n\
+								\
+	<Key>Q:			CloseMain()			\n\
+	<Key>KP_Add:		Volume(inc)			\n\
+	<Key>KP_Subtract:	Volume(dec)			\n\
+	<Key>KP_Enter:		Volume(mute)			\n\
+	<Key>A:			Volume(mute)			\n\
+	<Key>M:			Pointer()			\n\
+	<Key>F:			FullScreen()			\n\
+	<Key>G:			Snap(ppm)			\n\
+	<Key>J:			Snap(jpeg)			\n\
+	<Key>Up:		Tune(next)			\n\
+	<Key>Down:		Tune(prev)			\n\
+	<Key>Right:		Tune(fine_up)			\n\
+	<Key>Left:		Tune(fine_down)			\n\
+	<Key>Page_Up:		SetChannel(next)		\n\
+	<Key>Page_Down:		SetChannel(prev)		\n\
+	<Key>V:			SetRes(capture,toggle)
+

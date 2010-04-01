@@ -1,3 +1,2 @@
-
-/* MIT Shared Memory Extention */
-#undef HAVE_MITSHM
+/* bttv driver */
+#undef HAVE_BTTV

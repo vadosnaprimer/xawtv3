@@ -1,52 +1,123 @@
 bttvdir=@bttvdir@
 
 srcdir=@srcdir@
-VPATH=@srcdir@:$(bttvdir)/XTV
+VPATH=@srcdir@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 
 bindir=$(exec_prefix)/bin
+sbindir=$(exec_prefix)/sbin
 mandir=$(prefix)/man
 
+kdebindir=$(KDEDIR)/bin
+kdelnkdir=$(KDEDIR)/share/applnk/Multimedia
+kradiodir=$(KDEDIR)/share/apps/kradio
+
 CC=@CC@
+CXX=@CXX@
+MOC=$(QTDIR)/bin/moc
 DEPEND=@DEPEND@
 INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=mkdir -p
 
-CFLAGS=-g -Wall @CFLAGS@ -I. @X_CFLAGS@ -I$(bttvdir) -I$(bttvdir)/XTV
+CFLAGS=-g -Wall @CFLAGS@ -I. @X_CFLAGS@ -I$(bttvdir)
+CXXFLAGS = $(CFLAGS) -I$(QTDIR)/include -I$(KDEDIR)/include 
 LDLIBS=@X_LIBS@ -l@XAWLIB@ -lXt @X_PRE_LIBS@ -lXext -lXmu \
-	-lXxf86dga -lX11 @X_EXTRA_LIBS@ @LIBS@
+	-lX11 @X_EXTRA_LIBS@ @LIBS@
 
-PROGS=xawtv 
+PROGS=xawtv v4l-conf radio set-tv @KRADIO@
 
+CHAN_SRCS= $(shell echo Channelmaps/*.chan)
 SRCS=	$(srcdir)/main.c\
 	$(srcdir)/toolbox.c\
 	$(srcdir)/mixer.c\
 	$(srcdir)/channel.c\
-	$(bttvdir)/XTV/TVscreen.c\
-	$(bttvdir)/XTV/visual.c
-OBJS= main.o toolbox.o mixer.o channel.o TVscreen.o visual.o
+	$(srcdir)/x11.c\
+	$(srcdir)/grab-bttv.c\
+	$(srcdir)/grab-v4l.c
+OBJS= main.o toolbox.o mixer.o channel.o x11.o\
+	grab-bttv.o grab-v4l.o
+
+##########################################################################
+
+.SUFFIXES: .cpp .moc
+
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $<
+
+.h.moc:
+	$(MOC) $< -o $@
+
+##########################################################################
 
 all: $(PROGS)
 
 xawtv: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
+v4l-conf: v4l-conf.c
+	$(CC) $(CFLAGS) -o $@ $< -lXext -lX11 @X_EXTRA_LIBS@ @LIBS@
+
+radio: radio.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+set-tv: set-tv.o channel.o mixer.o grab-bttv.o grab-v4l.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+
+kradio: kradio.moc kradio.o
+	$(CXX) -o $@ kradio.o -L$(QTDIR)/lib -L$(KDEDIR)/lib @X_LIBS@ \
+		-lkdeui -lkdecore -lqt @X_PRE_LIBS@ -lXext -lX11 @X_EXTRA_LIBS@
+
+
 install: xawtv
 	$(INSTALL_PROGRAM) -s xawtv $(bindir)
+	$(INSTALL_PROGRAM) -s set-tv $(bindir)
+	$(INSTALL_PROGRAM) -s v4l-conf $(sbindir)
+	$(INSTALL_DATA) xawtv.man $(mandir)/man1/xawtv.1
 	$(INSTALL_DATA) Xawtv.ad @x_libraries@/X11/app-defaults/Xawtv
+	if test -x kradio; then 				\
+		$(INSTALL_PROGRAM) -s kradio $(kdebindir);	\
+		$(INSTALL_DATA) *.kdelnk $(kdelnkdir);		\
+		$(INSTALL_DIR) $(kradiodir)/toolbar;		\
+		$(INSTALL_DATA) *.xpm $(kradiodir)/toolbar;	\
+	fi
+
+chan.h: $(CHAN_SRCS)
+	perl chan2c.pl $(CHAN_SRCS) > $@
 
 clean:
-	-rm -f $(OBJS) $(OBJS2) *~ core* *.bak
+	-rm -f *.o *.moc *~ core* *.bak TAGS
 
-distclean realclean: clean
-	-rm -f $(PROGS) config.cache config.h config.log config.status Makefile
+distclean: clean
+	-rm -f config.cache config.h config.log config.status Makefile
 	@echo "default:" > Makefile
-	@echo "	@echo 'try ./configure --with-bttv=path-to-package && make'" >> Makefile
+	@echo "	@echo 'try ./configure && make dep && make'" >> Makefile
+	-strip $(PROGS)
 
-depend dep:
+realclean: distclean
+	-rm -f chan.h
+	-rm -f $(PROGS)
+
+depend dep: chan.h
 	$(DEPEND) -- $(CFLAGS) -- $(SRCS) $(SRCS2)
+
+#########################
+# just for me...
+
+tags:
+	etags *.[ch]
+
+check:
+	ldd $(PROGS)
+
+dist: distclean
+	rm -f snap0*.ppm
+	make -C bttv clean
+	make -C font dist
+	dir=`pwd`; rel=`basename $$dir`; cd ..; tar cvzf $$rel.tar.gz $$rel
 
 #-------------------------------------------------------------------------
 # DO NOT DELETE THIS LINE -- make depend depends on it.

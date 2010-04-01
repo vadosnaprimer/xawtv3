@@ -1,0 +1,186 @@
+.TH xawtv 1 "(c) 1997 Gerd Knorr"
+.SH NAME
+xawtv - a X11 program for watching TV
+.SH SYNOPSIS
+.B xawtv [ options ]
+.SH DESCRIPTION
+.B xawtv
+is a simple program for watching TV with your linux box. It uses the
+Athena widgets.
+.B xawtv
+supports the bttv driver and v4l (video4linux, included in 2.1.x).
+
+.B xawtv
+reads the config file $HOME/.xawtv at startup.  This file holds the
+available TV stations and a few settings like TV norm.  You have to
+create the config file yourself, see below for details.
+.SH OPTIONS
+.TP
+.B -b depth
+force xawtv into
+.B depth
+bits color depth.  Might be needed for 24/32 bits.
+.TP
+.B -c n
+startup with station
+.B n
+tuned in (0 is the first one from $HOME/.xawtv,
+1 the second, ...)
+.TP
+.B -f
+startup in fullscreen mode.
+.TP
+.B -m
+startup with mouse pointer turned off.
+.TP
+.B -n
+don't read the config file ($HOME/.xawtv).
+.TP
+.B -o filename
+set output filename for ppm grabbing (default is snap000.ppm)
+.TP
+.B -j filename
+set output filename for jpeg grabbing (default is snap000.jpeg)
+.TP
+.B -v level
+Be verbose,
+.B level
+may be 0 (default), 1 or 2.  It exists just for debugging.
+.SH GETTING STARTED
+Just start up xawtv, this will work without a config file too.  Then
+check out the options (right mouse button) and adjust the settings
+(TV norm, Video source, freqency table).  With the cursor keys you
+can control the tuner and look for TV Stations.  If you've found one,
+start up your favorite editor and stick it into the $HOME/.xawtv
+config file.
+.SS Mouse functions
+The left mouse button will popup a menu with all TV stations found in
+the config file. The middle button switches to the next station. The
+right button brings up a window with alot of options and control
+functions.
+.SS Keyboard Shortcuts
+.nf
+V            Video (Capture) on/off
+A            Audio on/off
+M            Mouse pointer on/off
+F            Fullscreen on/off
+G            Grab picture (ppm)
+J            Grab picture (jpeg)
+
+up+down      tune up/down one channel
+left+right   fine tuning
+pgup/pgdown  station up/down
+
+ESC,Q        Exit
+
+F5/F6        Bright up/down
+F7/F8        Hue
+F9/F10       Contrast
+F11/F12      Color
+.fi
+.SS config file
+You can stick the channels into a config file ($HOME/.xawtv). Looks like this:
+
+.nf
+[ORB]
+channel = 27
+.fi
+
+The branches hold some string (TV station ID), the lines below are the
+settings for that channel. Usually the channel line is enouth.
+
+There are a few other options.  They are allowed both for a station
+(and will be used for that station) and before the first station (will
+be used as default for all stations). The later is useful for common
+settings like the TV norm. See also the example below.
+
+Here is the detailed description of the options:
+.TP
+.B fine = n
+finetuning (what left+right keys do), default: 0
+.TP
+.B norm = pal | ntsc | secam
+which TV norm, default is pal
+.TP
+.B key = keysym
+Hotkey for the channel. All X11 keysyms allowed here. You can prefix
+a keysym with Modifier+, i.e. ^F is "Ctrl+F".
+.TP
+.B capture = yes | no
+capture on/off
+.TP
+.B source = Television | Composite1 | Composite1 | SVHS
+input source
+.TP
+.B color = n
+.TP
+.B bright = n
+.TP
+.B hue = n
+.TP
+.B contrast = n
+Valid range is 0-65535, default is 32768
+.P
+There are two global options allowed before the first station only:
+.TP
+.B freqtab = europe | usa
+select a channel-to-freqency mapping
+.TP
+.B mixer = device
+This allows to control volume using the sound card mixer. device is
+*not* /dev/mixer, but the name of the sound source (line1 for me, just
+take one of the mixer programs floating around and try which is the tv
+card...).
+
+Volume-control works with the keypad: + is up, - is down, Enter is
+mute.
+.SS config file example
+My config file looks like this:
+.P
+.nf
+source  = television
+norm    = pal
+freqtab = europe
+#mixer   = synth
+
+[ZDF]
+channel=33
+key=F1
+
+[ORB]
+channel = 27
+key = F2
+
+# more stations follow here
+
+[Camera]
+source = Composite1
+key = K
+.fi
+.SH BUGS
+Whats this?
+.SH SEE ALSO
+http://www.cs.tu-berlin.de/~kraxel/linux/#xawtv (xawtv homepage)
+
+http://www.thp.uni-koeln.de/~rjkm/linux/bttv.html (bttv driver
+homepage)
+.SH AUTHOR
+Gerd Knorr <kraxel@cs.tu-berlin.de>
+.SH COPYRIGHT
+Copyright (C) 1997,98 Gerd Knorr <kraxel@cs.tu-berlin.de>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+.SH MISC
+You are the 105th visitor of this page.

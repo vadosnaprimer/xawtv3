@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# kill old ones...
+rm -f /dev/bttv*
+
+
+# video
+mknod /dev/bttv0	c 81 0
+mknod /dev/bttv1	c 81 1
+mknod /dev/bttv2	c 81 2
+mknod /dev/bttv3	c 81 3
+
+# videotext
+mknod /dev/bttv-vbi0	c 81 32
+mknod /dev/bttv-vbi1	c 81 33
+
+# radio
+mknod /dev/bttv-fm0	c 81 64
+mknod /dev/bttv-fm1	c 81 65
+
+
+# add some links...
+ln /dev/bttv0		/dev/bttv
+ln /dev/bttv-vbi0	/dev/bttv-vbi
+ln /dev/bttv-fm0	/dev/bttv-fm
+
+chmod 666 /dev/bttv*
+ls -Flag /dev/bttv*

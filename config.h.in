@@ -3,5 +3,8 @@
 /* Define if the X Window System is missing or not being used.  */
 #undef X_DISPLAY_MISSING
 
-/* MIT Shared Memory Extention */
-#undef HAVE_MITSHM
+/* Define if you have the Xxf86dga library (-lXxf86dga).  */
+#undef HAVE_LIBXXF86DGA
+
+/* Define if you have the jpeg library (-ljpeg).  */
+#undef HAVE_LIBJPEG

@@ -1,2 +1,2 @@
 default:
-	@echo 'try ./configure --with-bttv=path-to-package && make'
+	@echo 'try ./configure && make dep && make'

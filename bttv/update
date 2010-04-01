@@ -1,0 +1,26 @@
+#!/bin/sh
+
+function xrmmod () {
+	grep -qe "^$1" /proc/modules || return
+	echo rmmod $1
+	sudo /sbin/rmmod $1 || exit 1
+}
+
+function xinsmod () {
+	echo insmod $*
+	sudo /sbin/insmod $* || exit 1
+}
+
+sync; sleep 1; sync
+
+xrmmod msp3400
+xrmmod tuner
+xrmmod bttv
+xrmmod i2c
+xrmmod videodev
+
+xinsmod videodev
+xinsmod i2c		verbose=1 scan=1 i2c_debug=0
+xinsmod tuner		debug=0 type=5 
+xinsmod msp3400		debug=0
+xinsmod bttv		radio=1

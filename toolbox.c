@@ -19,6 +19,7 @@
 #include <X11/Xaw/Viewport.h>
 
 #include "config.h"
+#include "grab.h"
 #include "toolbox.h"
 
 extern Display *dpy;
@@ -93,13 +94,13 @@ add_menu_sep(Widget menu,char *name)
 /* ---------------------------------------------------------------------- */
 /* right-mouse popupmenu                                                  */
 
-static int sel=0;
+static int sel=-1;
 
 void
 popdown_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
-    if (sel == 0)
-	sel = -1;
+    if (-1 == sel)
+	sel = -2;
     XUngrabPointer(dpy,CurrentTime);
     XtDestroyWidget(widget);
 }
@@ -111,7 +112,7 @@ select_menu_CB(Widget widget, XtPointer client_data, XtPointer calldata)
 }
 
 int
-popup_menu(Widget parent,struct MENU *entries)
+popup_menu(Widget parent,char *title, struct STRTAB *entries)
 {
     Widget        menu,line;
     int           x,y,rx,ry,mask;
@@ -119,19 +120,23 @@ popup_menu(Widget parent,struct MENU *entries)
     XtAppContext  context;
     int           i;
 
-    sel = 0;
-    menu = XtVaCreatePopupShell("menu",simpleMenuWidgetClass,parent,NULL);
+    sel = -1;
+    if (!title)
+	menu = XtVaCreatePopupShell("menu",simpleMenuWidgetClass,parent,NULL);
+    else {
+	menu = XtVaCreatePopupShell("menu",simpleMenuWidgetClass,parent,
+				    XtNlabel,title,NULL);
+	add_menu_sep(menu,"sep");
+    }
 
-    for (i = 0; entries[i].name != NULL; i++) {
-	if (strlen(entries[i].name) == 0) {
+    for (i = 0; entries[i].str != NULL; i++) {
+	if (strlen(entries[i].str) == 0) {
 	    add_menu_sep(menu,"sep");
 	} else {
-	    line = add_menu_entry(menu, entries[i].name,
+	    line = add_menu_entry(menu, entries[i].str,
 				  select_menu_CB,
-				  (XtPointer)(entries[i].val));
-	    if (NULL != entries[i].title)
-		XtVaSetValues(line,XtNlabel,entries[i].title,NULL);
-	    if (entries[i].disabled)
+				  (XtPointer)(entries[i].nr));
+	    if (entries[i].nr == -1)
 		XtVaSetValues(line,XtNsensitive,False,NULL);
 	}
     }
@@ -155,9 +160,11 @@ popup_menu(Widget parent,struct MENU *entries)
     XDefineCursor(dpy,XtWindow(menu),menu_ptr);
 
     context = XtWidgetToApplicationContext (menu);
-    while (sel == 0 || XtAppPending(context)) {
+    while (sel == -1 || XtAppPending(context)) {
 	XtAppProcessEvent (context, XtIMAll);
     }
+    if (sel == -2)
+	sel = -1;    
     return sel;
 }
 
