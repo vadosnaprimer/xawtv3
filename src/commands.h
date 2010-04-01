@@ -26,6 +26,7 @@ extern void (*movie_hook)(int argc, char **argv);
 extern int debug;
 extern int do_overlay;
 extern char *snapbase;
+extern int have_shmem;
 extern struct ng_video_fmt x11_fmt;
 extern int cur_attrs[256];
 

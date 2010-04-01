@@ -280,7 +280,7 @@ files_open(char *filesname, char *audioname,
 {
     struct files_handle *h;
 
-    if (NULL == filesname)
+    if (video->fmtid != VIDEO_NONE && NULL == filesname)
 	return NULL;
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -289,7 +289,8 @@ files_open(char *filesname, char *audioname,
     memset(h,0,sizeof(*h));
     h->video         = *video;
     h->audio         = *audio;
-    strcpy(h->file,filesname);
+    if (filesname)
+	strcpy(h->file,filesname);
 
     if (h->audio.fmtid != AUDIO_NONE) {
 	h->wav_fd = open(audioname, O_CREAT | O_RDWR | O_TRUNC, 0666);
@@ -404,17 +405,19 @@ raw_open(char *videoname, char *audioname,
     }
 
     /* video */
-    if (NULL != videoname) {
-	h->fd = open(videoname, O_CREAT | O_RDWR | O_TRUNC, 0666);
-	if (-1 == h->fd) {
-	    fprintf(stderr,"open %s: %s\n",videoname,strerror(errno));
-	    if (h->wav_fd)
-		close(h->wav_fd);
-	    free(h);
-	    return NULL;
+    if (h->video.fmtid != VIDEO_NONE) {
+	if (NULL != videoname) {
+	    h->fd = open(videoname, O_CREAT | O_RDWR | O_TRUNC, 0666);
+	    if (-1 == h->fd) {
+		fprintf(stderr,"open %s: %s\n",videoname,strerror(errno));
+		if (h->wav_fd)
+		    close(h->wav_fd);
+		free(h);
+		return NULL;
+	    }
+	} else {
+	    h->fd = 1; /* use stdout */
 	}
-    } else {
-	h->fd = 1; /* use stdout */
     }
 
     return h;
@@ -449,7 +452,7 @@ raw_close(void *handle)
 	wav_stop_write(h->wav_fd,&h->wav_header,h->wav_size);
 	close(h->wav_fd);
     }
-    if (1 != h->fd)
+    if (h->video.fmtid != VIDEO_NONE && 1 != h->fd)
 	close(h->fd);
     free(h);
     return 0;

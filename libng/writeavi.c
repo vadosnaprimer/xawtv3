@@ -358,7 +358,7 @@ avi_open(char *filename, char *dummy,
 {
     const struct avi_video_priv  *pvideo = priv_video;
     struct avi_handle      *h;
-    int i,frame_bytes,depth;
+    int i,frame_bytes,depth,streams,rate;
 
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
@@ -379,11 +379,6 @@ avi_open(char *filename, char *dummy,
     h->vec           = malloc(sizeof(struct iovec) * video->height);
 
     strcpy(h->file,filename);
-    for (i = 0; i < 4; i++) {
-	h->avi_hdr_video.strh.handler[i]     = pvideo->handler[i];
-	h->avi_hdr_video.strf.compression[i] = pvideo->compress[i];
-    }
-    
     if (-1 == (h->fd = open(h->file,O_CREAT | O_RDWR | O_TRUNC, 0666))) {
 	fprintf(stderr,"open %s: %s\n",h->file,strerror(errno));
 	free(h);
@@ -391,30 +386,44 @@ avi_open(char *filename, char *dummy,
     }
 
     /* general */
+    streams = 0;
+    rate = 0;
+    if (h->video.fmtid != VIDEO_NONE) {
+	streams++;
+	rate += pvideo->bytesperpixel * fps;
+	h->avi_hdr.avih.width       = AVI_SWAP4(h->video.width);
+	h->avi_hdr.avih.height      = AVI_SWAP4(h->video.height);
+    }
+    if (h->audio.fmtid != AUDIO_NONE) {
+	streams++;
+	rate += ng_afmt_to_channels[h->audio.fmtid] *
+	    ng_afmt_to_bits[h->audio.fmtid] *
+	    h->audio.rate / 8;
+    }
     h->avi_hdr.avih.us_frame    = AVI_SWAP4(1000000/fps);
-    h->avi_hdr.avih.bps         =
-	AVI_SWAP4(pvideo->bytesperpixel * fps +
-		  ng_afmt_to_channels[h->audio.fmtid] *
-		  ng_afmt_to_bits[h->audio.fmtid] *
-		  h->audio.rate / 8);
-    h->avi_hdr.avih.streams     = AVI_SWAP4(h->audio.fmtid != AUDIO_NONE ? 2 : 1);
-    h->avi_hdr.avih.width       = AVI_SWAP4(h->video.width);
-    h->avi_hdr.avih.height      = AVI_SWAP4(h->video.height);
+    h->avi_hdr.avih.bps         = AVI_SWAP4(rate);
+    h->avi_hdr.avih.streams     = AVI_SWAP4(streams);
     h->hdr_size += write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
 
     /* video */
-    frame_bytes = pvideo->bytesperpixel * h->video.width * h->video.height;
-    depth = ng_vfmt_to_depth[h->video.fmtid];
-    h->frame_hdr.size                = AVI_SWAP4(frame_bytes);
-    h->avi_hdr_video.strh.scale      = AVI_SWAP4(1000000/fps);
-    h->avi_hdr_video.strh.rate       = AVI_SWAP4(1000000);
-    h->avi_hdr_video.strf.size       = AVI_SWAP4(sizeof(avi_hdr_video.strf));
-    h->avi_hdr_video.strf.width      = AVI_SWAP4(h->video.width);
-    h->avi_hdr_video.strf.height     = AVI_SWAP4(h->video.height);
-    h->avi_hdr_video.strf.planes     = AVI_SWAP2(1);
-    h->avi_hdr_video.strf.bit_cnt    = AVI_SWAP2(depth ? depth : 24);
-    h->avi_hdr_video.strf.image_size = AVI_SWAP4(frame_bytes);
-    h->hdr_size += write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
+    if (h->video.fmtid != VIDEO_NONE) {
+	for (i = 0; i < 4; i++) {
+	    h->avi_hdr_video.strh.handler[i]     = pvideo->handler[i];
+	    h->avi_hdr_video.strf.compression[i] = pvideo->compress[i];
+	}
+	frame_bytes = pvideo->bytesperpixel * h->video.width * h->video.height;
+	depth = ng_vfmt_to_depth[h->video.fmtid];
+	h->frame_hdr.size                = AVI_SWAP4(frame_bytes);
+	h->avi_hdr_video.strh.scale      = AVI_SWAP4(1000000/fps);
+	h->avi_hdr_video.strh.rate       = AVI_SWAP4(1000000);
+	h->avi_hdr_video.strf.size       = AVI_SWAP4(sizeof(avi_hdr_video.strf));
+	h->avi_hdr_video.strf.width      = AVI_SWAP4(h->video.width);
+	h->avi_hdr_video.strf.height     = AVI_SWAP4(h->video.height);
+	h->avi_hdr_video.strf.planes     = AVI_SWAP2(1);
+	h->avi_hdr_video.strf.bit_cnt    = AVI_SWAP2(depth ? depth : 24);
+	h->avi_hdr_video.strf.image_size = AVI_SWAP4(frame_bytes);
+	h->hdr_size += write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
+    }
 
     /* audio */
     if (h->audio.fmtid != AUDIO_NONE) {
@@ -446,7 +455,8 @@ avi_open(char *filename, char *dummy,
 	h->hdr_size += write(h->fd,&h->avi_hdr_audio,
 			     sizeof(struct AVI_HDR_AUDIO));
     }
-    h->hdr_size += write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
+    if (h->video.fmtid != VIDEO_NONE)
+	h->hdr_size += write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
 
     /* data */
     if (-1 == write(h->fd,&h->avi_data,sizeof(struct AVI_DATA))) {
@@ -542,18 +552,21 @@ avi_close(void *handle)
     struct avi_handle *h = handle;
 
     /* write frame index */
-    if (!h->bigfile) {
-	avi_writeindex(h);
-    } else {
-	avi_bigfile(h,1);
-	h->idx_size = 0;
+    if (h->video.fmtid != VIDEO_NONE) {
+	if (!h->bigfile) {
+	    avi_writeindex(h);
+	} else {
+	    avi_bigfile(h,1);
+	    h->idx_size = 0;
+	}
     }
     
     /* fill in some statistic values ... */
     h->avi_hdr.riff_size         = AVI_SWAP4(h->hdr_size+h->data_size+h->idx_size);
     h->avi_hdr.hdrl_size         = AVI_SWAP4(h->hdr_size - 4*5);
     h->avi_hdr.avih.frames       = AVI_SWAP4(h->frames);
-    h->avi_hdr_video.strh.length = AVI_SWAP4(h->frames);
+    if (h->video.fmtid != VIDEO_NONE)
+	h->avi_hdr_video.strh.length = AVI_SWAP4(h->frames);
     if (h->audio.fmtid != AUDIO_NONE)
 	h->avi_hdr_audio.strh.length =
 	    AVI_SWAP4(h->audio_size/h->avi_hdr_audio.strh.scale);
@@ -562,11 +575,14 @@ avi_close(void *handle)
     /* ... and write header again */
     lseek(h->fd,0,SEEK_SET);
     write(h->fd,&h->avi_hdr,sizeof(struct AVI_HDR));
-    write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
+    if (h->video.fmtid != VIDEO_NONE)
+	write(h->fd,&h->avi_hdr_video,sizeof(struct AVI_HDR_VIDEO));
     if (h->audio.fmtid != AUDIO_NONE)
 	write(h->fd,&h->avi_hdr_audio,sizeof(struct AVI_HDR_AUDIO));
-    h->avi_hdr_odml.total_frames = h->frames_total;
-    write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
+    if (h->video.fmtid != VIDEO_NONE) {
+	h->avi_hdr_odml.total_frames = h->frames_total;
+	write(h->fd,&h->avi_hdr_odml,sizeof(struct AVI_HDR_ODML));
+    }
     write(h->fd,&h->avi_data,sizeof(struct AVI_DATA));
 
     close(h->fd);
@@ -618,12 +634,15 @@ static const struct ng_format_list avi_vformats[] = {
 static const struct ng_format_list avi_aformats[] = {
     {
 	name:  "mono8",
+	ext:   "avi",
 	fmtid: AUDIO_U8_MONO,
     },{
 	name:  "mono16",
+	ext:   "avi",
 	fmtid: AUDIO_S16_LE_MONO,
     },{
 	name:  "stereo",
+	ext:   "avi",
 	fmtid: AUDIO_S16_LE_STEREO,
     },{
 	/* EOF */

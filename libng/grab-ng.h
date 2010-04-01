@@ -40,6 +40,14 @@ extern char ng_v4l_conf[256];
 #define AUDIO_S16_BE_MONO    5
 #define AUDIO_S16_BE_STEREO  6
 #define AUDIO_FMT_COUNT      7
+#if BYTE_ORDER == BIG_ENDIAN
+# define AUDIO_S16_NATIVE_MONO   AUDIO_S16_BE_MONO
+# define AUDIO_S16_NATIVE_STEREO AUDIO_S16_BE_STEREO
+#endif
+#if BYTE_ORDER == LITTLE_ENDIAN
+# define AUDIO_S16_NATIVE_MONO   AUDIO_S16_LE_MONO
+# define AUDIO_S16_NATIVE_STEREO AUDIO_S16_LE_STEREO
+#endif
 
 #define ATTR_TYPE_INTEGER    1   /*  range 0 - 65535  */
 #define ATTR_TYPE_CHOICE     2   /*  multiple choice  */
@@ -97,7 +105,8 @@ struct ng_video_buf {
     int                  size;
     char                 *data;
 
-    /* FIXME: time (struct timeval?) */
+    /* frame timestamp */
+    long long            ts;
 
     /*
      * the lock is for the reference counter.
@@ -133,7 +142,7 @@ struct ng_audio_buf {
     int                  size;
     char                 *data;
 
-    /* FIXME: time */
+    long long            ts;
 };
 
 
@@ -225,7 +234,6 @@ struct ng_driver {
 
 
 /* --------------------------------------------------------------------- */
-/* TODO: color space conversion / compression                            */
 /* maybe add filters for on-the-fly image processing later               */
 
 struct ng_video_conv {
@@ -240,6 +248,7 @@ struct ng_video_conv {
     void                  *priv;
 };
 
+
 /* --------------------------------------------------------------------- */
 
 extern const struct ng_driver *ng_drivers[];
@@ -251,7 +260,7 @@ struct ng_video_conv* ng_conv_find(int out, int *i);
 const struct ng_driver*
 ng_grabber_open(char *device, struct ng_video_fmt *screen,
 		void *base, void **handle);
-int ng_grabber_swrate(struct timeval *start, int fps, int count);
+long long ng_get_timestamp(void);
 
 /* --------------------------------------------------------------------- */
 
@@ -274,4 +283,3 @@ void  ng_conv_nop_fini(void *handle);
 	init:           ng_packed_init,		\
 	frame:          ng_packed_frame,       	\
 	fini:           ng_conv_nop_fini
-

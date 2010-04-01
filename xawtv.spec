@@ -8,7 +8,7 @@
 
 Summary: Video4Linux Stream Capture Viewer
 Name: xawtv
-Version: 3.40
+Version: 3.41
 Release: 1
 Source0: xawtv_%{version}.tar.gz
 Group: X11/Applications

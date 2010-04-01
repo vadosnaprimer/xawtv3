@@ -59,7 +59,7 @@ const char* ng_vfmt_to_desc[] = {
     "32 bit TrueColor (BE: -rgb)",
     "16 bit TrueColor (lut)",
     "32 bit TrueColor (lut)",
-    "16 bit YUV 4:2:2",
+    "16 bit YUV 4:2:2 (packed)",
     "16 bit YUV 4:2:2 (planar)",
     "12 bit YUV 4:2:0 (planar)",
     "MJPEG (AVI)",
@@ -350,29 +350,18 @@ ng_grabber_open(char *device, struct ng_video_fmt *screen, void *base,
     return ng_drivers[i];
 }
 
-int
-ng_grabber_swrate(struct timeval *start, int fps, int count)
+long long
+ng_get_timestamp()
 {
-    struct timeval now;
-    int msecs,frames;
-    static int lasterr;
+    struct timeval tv;
+    long long ts;
 
-    if (-1 == fps)
-	return 1;
-
-    gettimeofday(&now,NULL);
-    msecs  = now.tv_usec/1000 - start->tv_usec/1000;
-    msecs += now.tv_sec*1000  - start->tv_sec*1000;
-    frames = msecs * fps / 1000;
-    if (ng_debug > 1)
-	fprintf(stderr,"rate: msecs=%d fps=%d -> frames=%d  |"
-		"  count=%d  ret=%d\n",
-		msecs,fps,frames,count,frames-count+1);
-    if (frames-count > 3  &&  frames-count != lasterr) {
-	lasterr = frames-count;
-	fprintf(stderr,"rate control: video lags %d frames behind\n",lasterr);
-    }
-    return frames-count+1;
+    gettimeofday(&tv,NULL);
+    ts  = tv.tv_sec;
+    ts *= 1000000;
+    ts += tv.tv_usec;
+    ts *= 1000;
+    return ts;
 }
 
 /* --------------------------------------------------------------------- */

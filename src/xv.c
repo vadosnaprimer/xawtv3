@@ -305,29 +305,82 @@ static struct ng_attribute* xv_attrs(void *handle)
 
 /* ********************************************************************* */
 
+extern int             have_shmem;
+static int             x11_error = 0;
+static int
+x11_error_dev_null(Display * dpy, XErrorEvent * event)
+{
+    x11_error++;
+    if (debug > 1)
+	fprintf(stderr," x11-error\n");
+    return 0;
+}
+
 XvImage*
 xv_create_ximage(Display *dpy, int width, int height, void **shm)
 {
     XvImage         *xvimage = NULL;
-    XShmSegmentInfo *shminfo = malloc(sizeof(XShmSegmentInfo));
+    unsigned char   *ximage_data;
+#ifdef HAVE_MITSHM
+    XShmSegmentInfo *shminfo;
+    void            *old_handler;
+#endif
 
     if (debug)
 	fprintf(stderr,"xv: xv_create_ximage\n");
 
-    memset(shminfo, 0, sizeof(XShmSegmentInfo));
-    xvimage = XvShmCreateImage(dpy, im_port, im_format, 0,
-			       width, height, shminfo);
-    shminfo->shmid    = shmget(IPC_PRIVATE, xvimage->data_size,
-			       IPC_CREAT | 0777);
-    shminfo->shmaddr  = (char *) shmat(shminfo->shmid, 0, 0);
-    shminfo->readOnly = False;
-    xvimage->data = shminfo->shmaddr;
+    if (have_shmem) {
+	x11_error = 0;
+	old_handler = XSetErrorHandler(x11_error_dev_null);
+	shminfo = malloc(sizeof(XShmSegmentInfo));
+	memset(shminfo, 0, sizeof(XShmSegmentInfo));
+	xvimage = XvShmCreateImage(dpy, im_port, im_format, 0,
+				   width, height, shminfo);
+	if (xvimage) {
+	    shminfo->shmid = shmget(IPC_PRIVATE, xvimage->data_size,
+				    IPC_CREAT | 0777);
+	    if (-1 == shminfo->shmid) {
+		have_shmem = 0;
+		XFree(xvimage);
+		xvimage = NULL;
+		free(shminfo);
+		shminfo = *shm = NULL;
+		goto no_sysvipc;
+	    }
+	    shminfo->shmaddr  = (char *) shmat(shminfo->shmid, 0, 0);
+	    shminfo->readOnly = False;
+	    xvimage->data = shminfo->shmaddr;
+	    XShmAttach(dpy, shminfo);
+	    XSync(dpy, False);
+	    shmctl(shminfo->shmid, IPC_RMID, 0);
+	    if (x11_error) {
+		have_shmem = 0;
+		XFree(xvimage);
+		xvimage = NULL;
+		shmdt(shminfo->shmaddr);
+		free(shminfo);
+		shminfo = *shm = NULL;
+		goto no_sysvipc;
+	    }
+	} else {
+	    have_shmem = 0;
+	    free(shminfo);
+	    shminfo = *shm = NULL;
+	    goto no_sysvipc;
+	}
+    	XSetErrorHandler(old_handler);
+	*shm = shminfo;
+	return xvimage;
+    }
 
-    XShmAttach(dpy, shminfo);
-    XSync(dpy, False);
-    shmctl(shminfo->shmid, IPC_RMID, 0);
-
-    *shm = shminfo;
+ no_sysvipc:
+    *shm = NULL;
+    if (NULL == (ximage_data = malloc(width * height * 2))) {
+	fprintf(stderr,"out of memory\n");
+	return NULL;
+    }
+    xvimage = XvCreateImage(dpy, im_port, im_format, ximage_data,
+			    width, height);
     return xvimage;
 }
 
@@ -354,7 +407,10 @@ void xv_init(int xvideo, int hwscale, int port)
     struct STRTAB *inputs = NULL;
     char *h;
     int i, vi_port = -1, vi_adaptor = -1;
-    
+
+    if (!xvideo && !hwscale)
+	return;
+
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
 	if (debug)
 	    fprintf(stderr,"Xv: Server has no Xvideo extention support\n");

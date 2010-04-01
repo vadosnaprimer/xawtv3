@@ -24,8 +24,6 @@
 #endif
 #include <pthread.h>
 
-#include <X11/Intrinsic.h>
-
 #include "grab-ng.h"
 
 #ifndef __linux__
@@ -90,8 +88,8 @@ struct v4l2_handle {
     struct ng_attribute         *attr;
 
     /* capture */
-    int                            fps,frames;
-    struct timeval                 start;
+    int                            fps,first;
+    long long                      start;
     struct v4l2_format             fmt_v4l2;
     struct ng_video_fmt            fmt_me;
     struct v4l2_requestbuffers     reqbufs;
@@ -1132,8 +1130,8 @@ v4l2_startvideo(void *handle, int fps, int buffers)
     if (0 != h->fps)
 	fprintf(stderr,"v4l2_startvideo: oops: fps!=0\n");
     h->fps = fps;
-    h->frames = 0;
-    gettimeofday(&h->start,NULL);
+    h->first = 1;
+    h->start = 0;
 
     if (h->cap.flags & V4L2_FLAG_STREAMING)
 	v4l2_start_streaming(h,buffers);
@@ -1161,34 +1159,31 @@ v4l2_nextframe(void *handle)
     struct ng_video_buf *buf = NULL;
     int size,frame = 0;
 
-    for (;;) {
-	if (h->cap.flags & V4L2_FLAG_STREAMING) {
-	    v4l2_queue_all(h);
-	    frame = v4l2_waiton(h);
-	    if (-1 == frame)
-		return NULL;
-	    h->buf_me[frame].refcount++;
-	    buf = &h->buf_me[frame];
-	} else {
-	    size = h->fmt_me.bytesperline * h->fmt_me.height;
-	    buf = ng_malloc_video_buf(&h->fmt_me,size);
-	    if (size != read(h->fd,buf->data,size)) {
-		ng_release_video_buf(buf);
-		return NULL;
-	    }
-	}
-
-	/* rate control -- FIXME: use timecode instead */
-	if (ng_grabber_swrate(&h->start,h->fps,h->frames) > 0)
-	    break;
-	
-	if (h->cap.flags & V4L2_FLAG_STREAMING) {
-	    h->buf_me[frame].refcount--;
-	} else {
+    if (h->cap.flags & V4L2_FLAG_STREAMING) {
+	v4l2_queue_all(h);
+	frame = v4l2_waiton(h);
+	if (-1 == frame)
+	    return NULL;
+	h->buf_me[frame].refcount++;
+	buf = &h->buf_me[frame];
+	buf->ts = h->buf_v4l2[frame].timestamp;
+    } else {
+	size = h->fmt_me.bytesperline * h->fmt_me.height;
+	buf = ng_malloc_video_buf(&h->fmt_me,size);
+	if (size != read(h->fd,buf->data,size)) {
 	    ng_release_video_buf(buf);
+	    return NULL;
 	}
+	buf->ts = ng_get_timestamp();
     }
-    h->frames++;
+
+    if (h->first) {
+	h->first = 0;
+	h->start = buf->ts;
+	if (ng_debug)
+	    fprintf(stderr,"v4l2: start ts=%lld\n",h->start);
+    }
+    buf->ts -= h->start;
     return buf;
 }
 

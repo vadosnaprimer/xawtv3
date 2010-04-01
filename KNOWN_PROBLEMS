@@ -1,4 +1,11 @@
 
+bttv + ATI Rage128 + DRI seem not to play nicely together (hard freeze).
+Don't know why.  Happens with the ATI only, other gfx cards work fine.
+Suspect it's either a hardware problem or a bug somewhere in DRI (either
+kernel or xfree86).  The only workaround I know of is to turn off DRI.
+
+-- 
+
 For some people xawtv failes with
 	Error: Couldn't find per display information
 

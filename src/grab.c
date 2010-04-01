@@ -133,14 +133,16 @@ ng_grabber_copy(struct ng_video_buf *dest,
 }
 
 struct ng_video_buf*
-ng_grabber_capture(struct ng_video_buf *dest, int single)
+ng_grabber_getimage(int single)
 {
-    struct ng_video_buf *buf;
-    
     if (-1 == gfmt.fmtid)
 	return NULL;
+    return single ? drv->getimage(h_drv) : drv->nextframe(h_drv);
+}
 
-    buf = single ? drv->getimage(h_drv) : drv->nextframe(h_drv);
+struct ng_video_buf*
+ng_grabber_convert(struct ng_video_buf *dest, struct ng_video_buf *buf)
+{
     if (NULL == buf)
 	return NULL;
 
@@ -155,6 +157,7 @@ ng_grabber_capture(struct ng_video_buf *dest, int single)
 	} else {
 	    ng_grabber_copy(dest,buf);
 	}
+	dest->ts = buf->ts;
 	ng_release_video_buf(buf);
 	buf = dest;
     }
@@ -164,4 +167,13 @@ ng_grabber_capture(struct ng_video_buf *dest, int single)
 	webcam = NULL;
     }
     return buf;
+}
+
+struct ng_video_buf*
+ng_grabber_capture(struct ng_video_buf *dest, int single)
+{
+    struct ng_video_buf *buf;
+
+    buf = ng_grabber_getimage(single);
+    return ng_grabber_convert(dest,buf);
 }

@@ -57,8 +57,8 @@ struct bsd_handle {
     int                     ov_enabled,ov_on;
 
     /* capture */
-    int                     fps,frames;
-    struct timeval          start;
+    int                     fps;
+    long long               start;
     struct ng_video_fmt     fmt;
     struct meteor_video     nofb;
     struct meteor_geomet    capgeo;
@@ -719,8 +719,7 @@ static int bsd_startvideo(void *handle, int fps, int buffers)
 
     set_overlay(h,0);
     h->fps = fps;
-    h->frames = 0;
-    gettimeofday(&h->start,NULL);
+    h->start = ng_get_timestamp();
     set_capture(h,1);
     xioctl(h->fd, METEORSSIGNAL, &signal_on);
     xioctl(h->fd, METEORCAPTUR, &start);
@@ -742,25 +741,21 @@ static struct ng_video_buf* bsd_nextframe(void *handle)
 {
     struct bsd_handle *h = handle;
     struct ng_video_buf *buf;
-    int size,rc;
+    int size;
     sigset_t sa_mask;
 
     size = h->fmt.bytesperline * h->fmt.height;
     buf = ng_malloc_video_buf(&h->fmt,size);
 
- next_frame:
     alarm(1);
     sigfillset(&sa_mask);
     sigdelset(&sa_mask,SIGUSR1);
     sigdelset(&sa_mask,SIGALRM);
     sigsuspend(&sa_mask);
     alarm(0);
-    rc = ng_grabber_swrate(&h->start,h->fps,h->frames);
-    if (rc <= 0)
-	goto next_frame;
 
     memcpy(buf->data,h->map,size);
-    h->frames++;
+    buf->ts = ng_get_timestamp() - h->start;
     return buf;
 }
 

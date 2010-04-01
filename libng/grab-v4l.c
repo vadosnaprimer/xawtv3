@@ -159,9 +159,8 @@ struct v4l_handle {
     /* capture */
     int                      use_read;
     struct ng_video_fmt      fmt;
-    struct timeval           start;
+    long long                start;
     int                      fps;
-    int                      frames;
     
     /* capture via read() */
     struct ng_video_fmt      rd_fmt;
@@ -428,7 +427,6 @@ v4l_open(char *device)
     inputs[i].nr  = -1;
     inputs[i].str = NULL;
     v4l_add_attr(h,ATTR_ID_INPUT,ATTR_TYPE_CHOICE,0,inputs);
-    h->input = -1;
     
     /* audios */
     if (ng_debug)
@@ -616,14 +614,10 @@ static int v4l_read_attr(void *handle, struct ng_attribute *attr)
 
     switch (attr->id) {
     case ATTR_ID_INPUT:
-	return h->input;
+	return -1;
     case ATTR_ID_NORM:
-	if (-1 != h->input) {
-	    xioctl(h->fd, VIDIOCGCHAN, &h->channels[h->input]);
-	    return h->channels[h->input].norm;
-	} else {
-	    return -1;
-	}
+	xioctl(h->fd, VIDIOCGCHAN, &h->channels[h->input]);
+	return h->channels[h->input].norm;
     case ATTR_ID_MUTE:
 	xioctl(h->fd, VIDIOCGAUDIO, &h->audio);
 	return h->audio.flags & VIDEO_AUDIO_MUTE;
@@ -1141,9 +1135,8 @@ v4l_startvideo(void *handle, int fps, int buffers)
 	    h->nbuf = buffers;
 	mm_queue_all(h);
     }
-    gettimeofday(&h->start,NULL);
+    h->start = ng_get_timestamp();
     h->fps = fps;
-    h->frames = 0;
     return 0;
 }
 
@@ -1166,7 +1159,7 @@ v4l_nextframe(void *handle)
 {
     struct v4l_handle *h = handle;
     struct ng_video_buf* buf = NULL;
-    int rc, frame = 0;
+    int frame = 0;
 
     if (ng_debug > 1)
 	fprintf(stderr,"v4l: getimage\n");
@@ -1176,7 +1169,6 @@ v4l_nextframe(void *handle)
 	return NULL;
     }
 
- next_frame:
     if (h->use_read) {
 	if (buf)
 	    ng_release_video_buf(buf);
@@ -1185,23 +1177,15 @@ v4l_nextframe(void *handle)
 	v4l_overlay_set(h,h->ov_enabled);
 	if (NULL == buf)
 	    return NULL;
+	buf->ts = ng_get_timestamp() - h->start;
+	return buf;
     } else {
 	mm_queue_all(h);
 	frame = mm_waiton(h);
 	if (-1 == frame)
 	    return NULL;
-    }
-
-    /* rate control */
-    rc = ng_grabber_swrate(&h->start,h->fps,h->frames);
-    if (rc <= 0)
-	goto next_frame;
-
-    h->frames++;
-    if (h->use_read) {
-	return buf;
-    } else {
 	h->buf_me[frame].refcount++;
+	h->buf_me[frame].ts = ng_get_timestamp() - h->start;
 	return h->buf_me+frame;
     }
 }

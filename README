@@ -1,4 +1,8 @@
 
+IMPORTANT:  Don't send me mails with images attached unless I ask you
+to do so.  Mails with images attached will go to /dev/null unseen.
+
+
 small is beautiful
 ==================
 
@@ -14,17 +18,16 @@ file.  There are a few incompatible changes you have to take care
 of.
 
 READ THE F*** MANUAL FIRST (this README file, Trouble-Shooting file,
-xawtv man page, bttv driver documentation, the Sound-FAQ)
+KNOWN_PROBLEMS file, xawtv man page, documentation for the driver
+you are using).
 
 If you have problems after upgrading, please check the ChangeLog for
 hints first.  Looking into the ChangeLog is a good idea in general,
 becauce it is updated for every release, the other files are updated
-less freqently...
+less freqently and might be a bit outdated.
 
 For problem/bug reports:
 
- * emails with images attached will to to /dev/null.
- * emails with the word "nagra" or "premiere" will go to /dev/null.
  * emails with questions answered in the documentation will go to
    /dev/null.
  * emails which don't have any useful informations (like "xawtv
@@ -33,10 +36,11 @@ For problem/bug reports:
 "useful informations" includes at least:
  - xawtv version
  - kernel version
- - driver version
- - which grabber board
+ - which driver (+ version if you know)
+ - which hardware (althrouth I'll probably can help with bttv
+   driver problems only).
  - which TV norms are used in your country.
- - if xawtv prints errors, include these too.
+ - if xawtv prints errors, include these too (cut+paste)
  - don't forget a description of your problem :-)
 
 If you are using bttv as driver:
@@ -51,6 +55,9 @@ For patches/changes:
  * Please add a comment what is changed and and why you changed it.
  * Please send unified diffs ("diff -u") against the latest version.
  * Please don't reformat my source code.
+ * Complete patches have better chances to go in.  Quick+dirty hacks
+   which need cleanups and lack documentation updates are less likely
+   to go in simply because I need more time to deal with them.
 
 
 compile & install
@@ -222,4 +229,4 @@ Have fun!
   Gerd
 
 --
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>

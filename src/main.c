@@ -588,6 +588,7 @@ static void       *grab_ximage_shm;
 static GC          grab_gc;
 static int         win_width, win_height;
 static int         grabdisplay_suspended;
+static int         use_hw_scale;
 
 #ifdef HAVE_LIBXV
 static XvImage     *xv_image = NULL;
@@ -635,7 +636,7 @@ grabdisplay_idle(XtPointer data)
 	goto oops;
 
 #ifdef HAVE_LIBXV
-    if (have_xv_scale) {
+    if (use_hw_scale) {
 	if (NULL == xv_image)
 	    goto oops;
 	buf.fmt  = xv_fmt;
@@ -645,14 +646,13 @@ grabdisplay_idle(XtPointer data)
 		goto oops;
 	} else {
 	    errors = 0;
-	    XvShmPutImage(dpy, im_port, XtWindow(tv), grab_gc, xv_image,
-			  0, 0,  xv_fmt.width, xv_fmt.height,
-			  0, 0,  win_width, win_height,
-			  False);
+	    XVPUTIMAGE(dpy, im_port, XtWindow(tv), grab_gc, xv_image,
+		       0, 0,  xv_fmt.width, xv_fmt.height,
+		       0, 0,  win_width, win_height);
 	}
-	
-    } else {
+    }
 #endif
+    if (!use_hw_scale) {
 	if (!grab_ximage)
 	    goto oops;
 	buf.fmt  = x11_fmt;
@@ -667,9 +667,7 @@ grabdisplay_idle(XtPointer data)
 		      (win_height - x11_fmt.height) >> 1,
 		      x11_fmt.width, x11_fmt.height);
 	}
-#ifdef HAVE_LIBXV
     }
-#endif
 
     if (debug) {
 	gettimeofday(&t,&tz);
@@ -703,10 +701,10 @@ static void
 grabdisplay_restart(void)
 {
 #ifdef HAVE_LIBXV
-    if (have_xv_scale)
+    if (use_hw_scale)
 	ng_grabber_setparams(&xv_fmt,0);
-    else
 #endif
+    if (!use_hw_scale)
 	ng_grabber_setparams(&x11_fmt,0);
     
     if (cur_capture != CAPTURE_OFF)
@@ -750,26 +748,25 @@ grabdisplay_setsize(int width, int height)
 	tv_pix = 0;
     }
 
+    use_hw_scale = 0;
 #ifdef HAVE_LIBXV
     if (xv_image) {
 	xv_destroy_ximage(dpy,xv_image,xv_shm);
 	xv_image = NULL;
     }
     if (have_xv_scale) {
-#if 0
-	/* FIXME: no hard coded max size, better ask the X-Server */
-	xv_fmt.width  = (width  > 320) ? 320 : width;
-	xv_fmt.height = (height > 240) ? 240 : height;
-#else
 	xv_fmt.width  = width;
 	xv_fmt.height = height;
-#endif
 	xv_fmt.fmtid = VIDEO_YUV422;
 	xv_fmt.bytesperline = 0;
-	ng_grabber_setparams(&xv_fmt,0);
-	xv_image = xv_create_ximage(dpy, xv_fmt.width, xv_fmt.height, &xv_shm);
-    } else {
+	if (0 == ng_grabber_setparams(&xv_fmt,0)) {
+	    xv_image = xv_create_ximage(dpy, xv_fmt.width, xv_fmt.height,
+					&xv_shm);
+	    use_hw_scale = 1;
+	}
+    }
 #endif
+    if (0 == use_hw_scale) {
 	ng_grabber_setparams(&x11_fmt,1);
 	grab_ximage = x11_create_ximage(dpy,&vinfo,
 					x11_fmt.width,x11_fmt.height,
@@ -778,9 +775,7 @@ grabdisplay_setsize(int width, int height)
 	    fprintf(stderr,"oops: out of memory\n");
 	    exit(1);
 	}
-#ifdef HAVE_LIBXV
     }
-#endif
     if (cur_capture == CAPTURE_GRABDISPLAY)
 	drv->startvideo(h_drv,-1,2);
 }
@@ -2461,20 +2456,23 @@ usage(void)
 	    "\n"
 	    "usage: xawtv [ options ] [ station ]\n"
 	    "options:\n"
-	    "  -v, -debug n      debug level n, n = [0..2]\n"
-	    "      -remote       assume remote display\n"
-	    "  -n  -noconf       don't read the config file\n"
-	    "  -m  -nomouse      startup with mouse pointer disabled\n"
-	    "  -f  -fullscreen   startup in fullscreen mode\n"
-	    "      -dga/-nodga   enable/disable DGA extention\n"
-	    "      -vm/-novm     enable/disable VidMode extention\n"
-	    "      -xv/-noxv     enable/disable Xvideo extention\n"
-	    "  -b  -bpp n        color depth of the display is n (n=24,32)\n"
-	    "  -o  -outfile file filename base for snapshots\n"
-	    "  -c  -device file  use <file> as video4linux device\n"
-	    "      -shift x      shift display by x bytes\n"
-	    "      -fb           let fb (not X) set up v4l device\n"
-	    "  -h  -help         print this text\n"
+	    "  -v, -debug n        debug level n, n = [0..2]\n"
+	    "      -remote         assume remote display\n"
+	    "  -n  -noconf         don't read the config file\n"
+	    "  -m  -nomouse        startup with mouse pointer disabled\n"
+	    "  -f  -fullscreen     startup in fullscreen mode\n"
+	    "      -dga/-nodga     enable/disable DGA extention\n"
+	    "      -vm/-novm       enable/disable VidMode extention\n"
+	    "      -xv/-noxv       enable/disable Xvideo extention (for video overlay)\n"
+	    "      -scale/-noscale enable/disable Xvideo extention (for image scaling)\n"
+	    "                      you might need that if your hardware does support\n"
+	    "                      neither hardware overlay nor yuv capture\n"
+	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
+	    "  -o  -outfile file   filename base for snapshots\n"
+	    "  -c  -device file    use <file> as video4linux device\n"
+	    "      -shift x        shift display by x bytes\n"
+	    "      -fb             let fb (not X) set up v4l device\n"
+	    "  -h  -help           print this text\n"
 	    "station:\n"
 	    "  this is one of the stations listed in $HOME/.xawtv\n"
 	    "\n"

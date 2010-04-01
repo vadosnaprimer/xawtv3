@@ -52,6 +52,7 @@ void (*movie_hook)(int argc, char **argv);
 int debug;
 int do_overlay;
 char *snapbase = "snap";
+int have_shmem;
 
 struct ng_video_fmt x11_fmt;
 int cur_attrs[256];

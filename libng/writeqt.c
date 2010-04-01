@@ -52,7 +52,8 @@ qt_open(char *filename, char *dummy,
     memset(h,0,sizeof(*h));
     h->video      = *video;
     h->audio      = *audio;
-    h->lib_video  = pvideo->libencode;
+    if (h->video.fmtid != VIDEO_NONE)
+	h->lib_video  = pvideo->libencode;
     if (h->audio.fmtid != AUDIO_NONE)
 	h->lib_audio  = paudio->libencode;
 
@@ -72,18 +73,18 @@ qt_open(char *filename, char *dummy,
 			    (char*)paudio->codec);
 	h->audio_sample = ng_afmt_to_channels[h->audio.fmtid] *
 	    ng_afmt_to_bits[h->audio.fmtid] / 8;
+	if (h->lib_audio && !quicktime_supported_audio(h->fh, 0)) {
+	    fprintf(stderr,"libquicktime: audio codec not supported\n");
+	    goto fail;
+	}
     }
-
-    quicktime_set_video(h->fh,1,h->video.width,h->video.height,fps,
-			(char*)pvideo->codec);
-    if (h->lib_video && !quicktime_supported_video(h->fh, 0)) {
-	fprintf(stderr,"libquicktime: video codec not supported\n");
-	goto fail;
-    }
-    if (h->lib_video && h->audio.fmtid != AUDIO_NONE &&
-	!quicktime_supported_audio(h->fh, 0)) {
-	fprintf(stderr,"libquicktime: audio codec not supported\n");
-	goto fail;
+    if (h->video.fmtid != VIDEO_NONE) {
+	quicktime_set_video(h->fh,1,h->video.width,h->video.height,fps,
+			    (char*)pvideo->codec);
+	if (h->lib_video && !quicktime_supported_video(h->fh, 0)) {
+	    fprintf(stderr,"libquicktime: video codec not supported\n");
+	    goto fail;
+	}
     }
     quicktime_set_info(h->fh, "Dumme Bemerkungen gibt's hier umsonst.");
     return h;
@@ -133,10 +134,10 @@ int
 qt_close(void *handle)
 {
     struct qt_handle *h = handle;
-#if 0
-    free (qt_row_pointers);
-#endif
-    return quicktime_close(h->fh);
+
+    quicktime_close(h->fh);
+    if (h->rows)
+	free(h->rows);
     return 0;
 }
 
@@ -212,14 +213,17 @@ static const struct qt_audio_priv qt_stereo = {
 static const struct ng_format_list qt_aformats[] = {
     {
 	name:  "mono8",
+	ext:   "mov",
 	fmtid: AUDIO_U8_MONO,
 	priv:  &qt_mono8,
     },{
         name:  "mono16",
+	ext:   "mov",
 	fmtid: AUDIO_S16_BE_MONO,
 	priv:  &qt_mono16,
     },{
         name:  "stereo",
+	ext:   "mov",
 	fmtid: AUDIO_S16_BE_STEREO,
 	priv:  &qt_stereo,
     },{

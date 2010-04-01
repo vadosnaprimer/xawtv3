@@ -42,7 +42,6 @@ extern Colormap          colormap;
 
 extern int               have_dga;
 extern int               have_vm;
-extern int               have_shmem;
 
 #ifdef HAVE_LIBXXF86VM
 extern int               vm_count;

@@ -297,15 +297,25 @@ source = Composite1
 key = K
 .fi
 .SH BUGS
-If xawtv dumps core, you can fix this with "ulimit -c 0".
+The mono/stereo display is \fBnot\fP reliable due to v4l API
+restrictions.  The API can not report back the current audio
+mode, but a list of the currently available modes.  xawtv just
+does a guess based on that, assuming the driver uses the best
+available mode.  Depending on your hardware this might not
+be true.
+.P
+If in doubt whenever stereo \fBreally\fP works, please tune
+in MTV and listen, don't trust what xawtv says.
+.P
+.B Bug reports with images attached go to /dev/null unseen.
 .SH SEE ALSO
 fbtv(1), v4l-conf(1)
 .br
-http://www.in-berlin.de/User/kraxel/xawtv.html (homepage)
+http://www.strusel007.de/kraxel/xawtv/ (homepage)
 .SH AUTHOR
-Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Gerd Knorr <kraxel@bytesex.org>
 .SH COPYRIGHT
-Copyright (C) 1997-99 Gerd Knorr <kraxel@goldbach.in-berlin.de>
+Copyright (C) 1997-99 Gerd Knorr <kraxel@bytesex.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

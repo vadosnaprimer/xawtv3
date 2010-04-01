@@ -56,7 +56,6 @@ Colormap          colormap;
 
 int               have_dga = 0;
 int               have_vm = 0;
-int               have_shmem = 0;
 
 #ifdef HAVE_LIBXXF86VM
 int               vm_count;

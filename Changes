@@ -1,4 +1,27 @@
 
+3.40 => 3.41
+============
+
+  * changed xawtv's internal time representation.
+  * rewrote rate control again.  xawtv can puts frames twice into
+    the queue now, recording @ 25fps without frame drops is no
+    problem any more.
+  * made video stream recording optional.  streamer can record
+    video only, video/audio and audio only (xawtv GUI not updated
+    yet).  This implies that for avi and quicktime streams specifing
+    a video format isn't optional any more.  If no video format is
+    given, streamer will not pick one for you, but will record audio
+    only.
+  * reorganized sound recording code a bit, added byteswapping support.
+  * MIT SHM failures with XvImages are catched now (=> hw scaling on
+    a remote display should work -- untested)
+  * gracefully fallback to "normal" rgb ximages if hw scaling with 
+    Xvideo failes because the v4l driver can't capture packed yuv.
+  * 0.05 MHz steps for the radio app (Nils Kassube <kassube@gmx.net>).
+  * fixed one more segfault.
+  * updated README.recording
+
+
 3.39 => 3.40 [the segfault bugfix release]
 ==========================================
 

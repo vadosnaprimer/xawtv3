@@ -100,8 +100,8 @@ void print_freq(float freq)
 {
     int x,y,i;
     char text[10]; 
-    sprintf(text,"%5.1f",freq);
-    for (i = 0, x = 12; i < 5; i++, x+=4) {
+    sprintf(text,"%6.2f",freq);
+    for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
 	    for (y = 0; y < 3; y++)
 		mvwprintw(wfreq,y+1,x,"%s",digit[y][text[i]-'0']);
@@ -167,7 +167,7 @@ make_label(int ifreq)
 
     if (NULL != (l = find_label(ifreq)))
 	return l;
-    sprintf(text,"%5.1f MHz",(float)ifreq/1000000);
+    sprintf(text,"%6.2f MHz",(float)ifreq/1000000);
     return text;
 }
 
@@ -183,8 +183,8 @@ main(int argc, char *argv[])
     
     if (argc > 1 && 1 == sscanf(argv[1],"%f",&ffreq)) {
 	ifreq = (int)(ffreq * 1000000);
-	ifreq += 50000;
-	ifreq -= ifreq % 100000;
+        ifreq += 25000;
+        ifreq -= ifreq % 50000;
     }
 
     if (-1 == (fd = open(DEVICE, O_RDONLY))) {
@@ -300,11 +300,15 @@ main(int argc, char *argv[])
 	    ifreq = newfreq * 1000000;
 	    break;
 	case KEY_UP:
-	    ifreq += 100000;
+            ifreq += 50000;
+            if (ifreq > 108000000)
+              ifreq = 87500000;
 	    mvwprintw(wcommand, 1, 2, "Increment frequency");
 	    break;
 	case KEY_DOWN:
-	    ifreq -= 100000;
+            ifreq -= 50000;
+            if (ifreq < 87500000)
+              ifreq = 108000000;
 	    mvwprintw(wcommand, 1, 2, "Decrease frequency");
 	    break;
 	case KEY_F(1):

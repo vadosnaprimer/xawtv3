@@ -214,7 +214,7 @@ x11_init(Display *dpy, XVisualInfo *vinfo)
     return format;
 }
 
-int
+static int
 x11_error_dev_null(Display * dpy, XErrorEvent * event)
 {
     x11_error++;

@@ -1,11 +1,10 @@
 #ifndef _SOUND_H_
 #define _SOUND_H_
 
-int   sound_open(struct ng_audio_fmt *fmt);
-int   sound_bufsize(void);
-void  sound_startrec(void);
-void  sound_read(char *buffer);
-void  sound_close(void);
+void* oss_open(char *device, struct ng_audio_fmt *fmt);
+void oss_startrec(void *handle);
+struct ng_audio_buf* oss_read(void *handle, long long stopby);
+void oss_close(void *handle);
 
 int  mixer_open(char *filename, char *device);
 void mixer_close(void);

@@ -57,7 +57,7 @@ static struct ng_audio_fmt        audio = {
 static void *movie_state;
 
 static int  absframes = 1;
-static int  fd = -1, quiet = 0, fps = 10;
+static int  quiet = 0, fps = 10;
 
 static int  signaled = 0, wait_seconds = 0;
 
@@ -163,45 +163,65 @@ void
 find_formats(void)
 {
     const struct ng_writer *wr = NULL;
-    char *ext = NULL;
+    char *mext = NULL;
+    char *aext = NULL;
     int w,v=-1,a=-1;
 
     if (moviename) {
-	ext = strrchr(moviename,'.');
-	if (ext)
-	    ext++;
+	mext = strrchr(moviename,'.');
+	if (mext)
+	    mext++;
+    }
+    if (audioname) {
+	aext = strrchr(audioname,'.');
+	if (aext)
+	    aext++;
     }
     for (w = 0; NULL != ng_writers[w]; w++) {
 	wr = ng_writers[w];
-	for (v = 0; NULL != wr->video[v].name; v++) {
-	    if (ext && 0 != strcasecmp(wr->video[v].ext,ext))
+	if ((!wr->combined && mext) || NULL != vfmt_name) {
+	    if (NULL == wr->video)
 		continue;
-	    if (vfmt_name && 0 != strcasecmp(wr->video[v].name,vfmt_name))
-		continue;
-	    if (!afmt_name)
+	    for (v = 0; NULL != wr->video[v].name; v++) {
+		if (mext && 0 != strcasecmp(wr->video[v].ext,mext))
+		    continue;
+		if (vfmt_name && 0 != strcasecmp(wr->video[v].name,vfmt_name))
+		    continue;
 		break;
-	    if (wr->audio && NULL != afmt_name) {
-		for (a = 0; NULL != wr->audio[a].name; a++) {
-		    if (0 != strcasecmp(wr->audio[a].name,afmt_name))
-			continue;
-		    break;
-		}
-		if (NULL != wr->audio[a].name)
-		    break;
 	    }
+	    if (NULL == wr->video[v].name)
+		continue;
 	}
-	if (NULL != wr->video[v].name)
-	    break;
+	if ((!wr->combined && aext) || NULL != afmt_name) {
+	    if (NULL == wr->audio)
+		continue;
+	    for (a = 0; NULL != wr->audio[a].name; a++) {
+		if (!wr->combined &&
+		    aext && 0 != strcasecmp(wr->audio[a].ext,aext))
+		    continue;
+		if (wr->combined &&
+		    mext && 0 != strcasecmp(wr->audio[a].ext,mext))
+		    continue;
+		if (afmt_name && 0 != strcasecmp(wr->audio[a].name,afmt_name))
+		    continue;
+		break;
+	    }
+	    if (NULL == wr->audio[a].name)
+		continue;
+	}
+	break;
     }
-    if (NULL != wr->video[v].name) {
-	writer      = wr;
-	video.fmtid = wr->video[v].fmtid;
-	video_priv  = wr->video[v].priv;
+    if (NULL != ng_writers[w]) {
+	writer = wr;
+	if (-1 != v) {
+	    video.fmtid = wr->video[v].fmtid;
+	    video_priv  = wr->video[v].priv;
+	}
 	if (-1 != a) {
 	    audio.fmtid = wr->audio[a].fmtid;
 	    audio_priv  = wr->audio[a].priv;
 	}
-    }	
+    }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -219,7 +239,7 @@ ctrlc(int signal)
 int
 main(int argc, char **argv)
 {
-    int  c,count=0,queued=0;
+    int  c,queued=0;
 
     /* parse options */
     for (;;) {
@@ -300,8 +320,12 @@ main(int argc, char **argv)
     find_formats();
 
     /* sanity checks */
-    if (video.fmtid == VIDEO_NONE) {
-	fprintf(stderr,"no video (and/or audio) format found\n");
+    if (video.fmtid == VIDEO_NONE && audio.fmtid == AUDIO_NONE) {
+	fprintf(stderr,"neither audio nor video format specified/found\n");
+	exit(1);
+    }
+    if (NULL == writer) {
+	fprintf(stderr,"no output driver found\n");
 	exit(1);
     }
     if (audio.fmtid != AUDIO_NONE && !writer->combined && NULL == audioname) {
@@ -310,30 +334,32 @@ main(int argc, char **argv)
     }
 
     /* open */
-    if (!quiet)
+    if (writer && !quiet)
 	fprintf(stderr,"%s / video: %s / audio: %s\n",writer->name,
 		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
 
-    drv = ng_grabber_open(v4l_device,NULL,0,&h_drv);
-    if (NULL == drv) {
-	fprintf(stderr,"no grabber device available\n");
-	exit(1);
-    }
-    f_drv = drv->capabilities(h_drv);
-    a_drv = drv->list_attrs(h_drv);
-    if (!(f_drv & CAN_CAPTURE)) {
-	fprintf(stderr,"%s: capture not supported\n",drv->name);
-	exit(1);
-    }
-    audio_on();
-    audio_init();
+    if (video.fmtid != VIDEO_NONE) {
+	drv = ng_grabber_open(v4l_device,NULL,0,&h_drv);
+	if (NULL == drv) {
+	    fprintf(stderr,"no grabber device available\n");
+	    exit(1);
+	}
+	f_drv = drv->capabilities(h_drv);
+	a_drv = drv->list_attrs(h_drv);
+	if (!(f_drv & CAN_CAPTURE)) {
+	    fprintf(stderr,"%s: capture not supported\n",drv->name);
+	    exit(1);
+	}
+	audio_on();
+	audio_init();
 
-    /* modify settings */
-    if (input != NULL)
-	do_va_cmd(2,"setinput",input);
-    if (tvnorm != NULL)
-	do_va_cmd(2,"setnorm",tvnorm);
-
+	/* modify settings */
+	if (input != NULL)
+	    do_va_cmd(2,"setinput",input);
+	if (tvnorm != NULL)
+	    do_va_cmd(2,"setnorm",tvnorm);
+    }
+	
     /* init movie writer */
     movie_state = movie_writer_init
 	(moviename, audioname, writer,
@@ -341,29 +367,38 @@ main(int argc, char **argv)
 	 &audio, audio_priv, bufcount);
     if (NULL == movie_state) {
 	fprintf(stderr,"movie writer initialisation failed\n");
-	audio_off();
-	drv->close(h_drv);
+	if (video.fmtid != VIDEO_NONE) {
+	    audio_off();
+	    drv->close(h_drv);
+	}
 	exit(1);
     }
-
-    /* wait for some cameras to wake up and adjust light and all that */
-    sleep(wait_seconds);
 
     /* catch ^C */
     signal(SIGINT,ctrlc);
 
+    /* wait for some cameras to wake up and adjust light and all that */
+    if (wait_seconds)
+	sleep(wait_seconds);
+
     /* main loop */
     movie_writer_start(movie_state);
-    for (;queued < absframes && !signaled; count++) {
-	/* video */
-	movie_grab_put_video(movie_state);
-	queued++;
+    for (;queued < absframes && !signaled;) {
+	if (video.fmtid != VIDEO_NONE) {
+	    /* video */
+	    queued = movie_grab_put_video(movie_state);
+	} else {
+	    /* quick+dirty: use #frames as #seconds */
+	    sleep(1);
+	    queued++;
+	}
     }
     movie_writer_stop(movie_state);
 
     /* done */
-    audio_off();
-    drv->close(h_drv);
-    close(fd);
+    if (video.fmtid != VIDEO_NONE) {
+	audio_off();
+	drv->close(h_drv);
+    }
     return 0;
 }
