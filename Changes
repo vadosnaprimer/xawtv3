@@ -1,3 +1,16 @@
+2.12 => 2.13
+============
+
+  * Fixed Makefile bugs.
+  * switched to the new device files:  s|/dev/bttv|/dev/video|
+    MAKEDEV in bttv/driver is updated
+  * Tried to catch that VidMode problem by version check:
+    #define XXX_VERSION (from xf86vmstr.h) against server's QueryVersion
+    results.  If this still does'nt work: remember, there is the '-x'
+    switch to workaround this...
+  * Fast channel scan (Ctrl-Z)
+
+
 2.11 => 2.12
 ============
 

@@ -71,6 +71,7 @@ static struct video_channel     *channels;
 static struct video_audio       *audios;
 static struct video_tuner       tuner;
 static struct video_picture     pict;
+static int                      cur_input;
 
 /* overlay */
 static struct video_window      ov_win;
@@ -118,8 +119,8 @@ grab_open(char *filename, int sw, int sh,
     if (-1 != fd)
 	goto err;
     
-    if (-1 == (fd = open(filename ? filename : "/dev/bttv",O_RDWR))) {
-	perror("open /dev/bttv");
+    if (-1 == (fd = open(filename ? filename : "/dev/video",O_RDWR))) {
+	perror("open /dev/video");
 	goto err;
     }
 
@@ -580,6 +581,7 @@ static int
 grab_input(int input, int norm)
 {
     if (-1 != input) {
+	cur_input = input;
 	if (debug)
 	    fprintf(stderr,"v4l: input: %d\n",input);
 	if (-1 == ioctl(fd, VIDIOCSCHAN, &input))
@@ -625,6 +627,7 @@ grab_audio(int mute, int volume, int *mode)
     if (volume != -1)
 	audios[0].volume = volume;
 
+    audios[0].audio = cur_input;
     audios[0].mode = mode ? *mode : 0;
     if (-1 == ioctl(fd,VIDIOCSAUDIO,&audios[0]))
 	perror("ioctl VIDIOCSAUDIO");

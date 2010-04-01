@@ -84,7 +84,7 @@ install: all
 	$(INSTALL_PROGRAM) -s -m4711 -o root -g root v4l-conf $(bindir)
 	$(INSTALL_DATA) xawtv.man $(mandir)/man1/xawtv.1
 	$(INSTALL_DATA) Xawtv.ad @x_libraries@/X11/app-defaults/Xawtv
-	if test -x kradio; then 				\
+	if test "@KRADIO@" = "kradio"; then 			\
 		$(INSTALL_PROGRAM) -s kradio $(kdebindir);	\
 		$(INSTALL_DATA) *.kdelnk $(kdelnkdir);		\
 		$(INSTALL_DIR) $(kradiodir)/toolbar;		\
@@ -92,7 +92,7 @@ install: all
 		make -C font install;				\
 	fi
 	if test -f fbtv; then					\
-		$(INSTALL_PROGRAM) -s fbtv $(bindir)		\
+		$(INSTALL_PROGRAM) -s fbtv $(bindir);		\
 	fi
 
 clean:

@@ -52,8 +52,8 @@ static struct video_audio hw_audio;
 
 static int hw_init()
 {
-    if (-1 == (hw_fd = open("/dev/bttv-fm",O_RDONLY))) {
-	perror("open /dev/bttv-fm");
+    if (-1 == (hw_fd = open("/dev/radio",O_RDONLY))) {
+	perror("open /dev/radio");
 	exit(1);
     }
     return hw_fd;

@@ -16,6 +16,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/Xmd.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Xlib.h>
@@ -28,9 +29,11 @@
 #include <X11/Xaw/Box.h>
 #ifdef HAVE_LIBXXF86DGA
 # include <X11/extensions/xf86dga.h>
+# include <X11/extensions/xf86dgastr.h>
 #endif
 #ifdef HAVE_LIBXXF86VM
 # include <X11/extensions/xf86vmode.h>
+# include <X11/extensions/xf86vmstr.h>
 #endif
 
 #ifdef HAVE_LIBJPEG
@@ -45,7 +48,8 @@
 #include "toolbox.h"
 
 #define TITLE_TIME          6000
-#define ZAP_TIME            5000
+#define ZAP_TIME            8000
+#define CAP_TIME              20
 #define WIDTH_INC             64
 #define HEIGHT_INC            48
 #define LABEL_WIDTH         "16"
@@ -71,9 +75,11 @@ int               pix_width=128,pix_height=96;
 int               bpp = 0;
 char              *ppmfile;
 char              *jpegfile;
+int               zap_start,zap_fast;
 
 char              modename[64];
 char              *progname;
+int               xfree_ext = 1;
 int               have_dga = 0;
 int               have_vm = 0;
 #ifdef HAVE_LIBXXF86VM
@@ -184,7 +190,7 @@ CloseMainAction(Widget widget, XEvent *event,
 		String *params, Cardinal *num_params)
 {
     static Dimension x,y,w,h;
-    char *argv[20];
+    char *argv[32];
     int   argc = 0;
 
     if (event->type == ClientMessage) {
@@ -232,6 +238,8 @@ CloseMainAction(Widget widget, XEvent *event,
 	    }
 	    
 	    /* options */
+	    if (!xfree_ext)
+		argv[argc++] = strdup("-x");
 	    if (!pointer_on)
 		argv[argc++] = strdup("-m");
 	    if (bpp) {
@@ -459,21 +467,12 @@ pixit()
 {
     Pixmap pix;
     char *data;
-    struct tm *tm;
-    time_t t;
 
     if (0 == pix_width || 0 == pix_height)
 	return;
 
     if (cur_sender != -1 && grabbers[grabber]->grab_scr) {
-#if 0
-	time(&t);
-	tm = localtime(&t);
-	strftime(title,128,"%H:%M  ",tm);
-	strcat(title,channels[cur_sender]->name);
-#else
 	strcpy(title,channels[cur_sender]->name);
-#endif
 	data = malloc(pix_width*pix_height*4);
 	if (NULL != grabbers[grabber]->grab_scr(data,pix_width,pix_height,1) &&
 	    0 != (pix = x11_create_pixmap(channels[cur_sender]->button,data,
@@ -520,7 +519,7 @@ set_channel(struct CHANNEL *channel)
 	XtRemoveTimeOut(audio_timer);
 	audio_timer = 0;
     }
-    audio_timer = XtAppAddTimeOut(app_context, 8000, watch_audio, NULL);
+    audio_timer = XtAppAddTimeOut(app_context, 10000, watch_audio, NULL);
 }
 
 void
@@ -932,10 +931,12 @@ zap_timeout(XtPointer client_data, XtIntervalId *id)
     pixit();
     cur_sender = (cur_sender+1)%count;
     set_channel(channels[cur_sender]);
-    sprintf(title, "Hop: %s", channels[cur_sender]->name);
-    XtVaSetValues(app_shell,XtNtitle,title,NULL);
-    zap_timer = XtAppAddTimeOut
-	(app_context, ZAP_TIME, zap_timeout,NULL);
+    if (cur_sender != zap_start) {
+	sprintf(title, "Hop: %s", channels[cur_sender]->name);
+	XtVaSetValues(app_shell,XtNtitle,title,NULL);
+	zap_timer = XtAppAddTimeOut
+	    (app_context, zap_fast ? CAP_TIME : ZAP_TIME, zap_timeout,NULL);
+    }
 }
 
 void
@@ -948,9 +949,15 @@ ZapAction(Widget widget, XEvent *event,
 	strcpy(title,"channel hopping off");
 	set_timer_title();
     } else {
+	zap_start = (cur_sender == -1) ? 0 : cur_sender;
+	zap_fast = 0;
+	if (*num_params > 0) {
+	    if (0 == strcasecmp(params[0],"fast"))
+		zap_fast = 1;
+	}
 	if (count)
 	    zap_timer = XtAppAddTimeOut
-		(app_context, 100, zap_timeout,NULL);
+		(app_context, CAP_TIME, zap_timeout,NULL);
     }
 }
 
@@ -1374,27 +1381,34 @@ xfree_init()
 	XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
 	if (flags & XF86DGADirectPresent) {
 	    XF86DGAQueryVersion(dpy,&ma,&mi);
-	    have_dga = 1;
-	    fprintf(stderr,"X-Server supports DGA extention (version %d.%d)\n",
-		    ma,mi);
+	    fprintf(stderr,"DGA: server=%d.%d, include=%d.%d\n",
+		    ma,mi,XF86DGA_MAJOR_VERSION,XF86DGA_MINOR_VERSION);
+	    if ((ma != XF86DGA_MAJOR_VERSION) || (mi != XF86DGA_MINOR_VERSION))
+		fprintf(stderr,"DGA: version mismatch -- disabled\n");
+	    else
+		have_dga = 1;
 	}
     }
 #endif
 #ifdef HAVE_LIBXXF86VM
     if (XF86VidModeQueryExtension(dpy,&foo,&bar)) {
 	XF86VidModeQueryVersion(dpy,&ma,&mi);
-	fprintf(stderr,"X-Server supports VidMode extention (version %d.%d)\n",
-		ma,mi);
-	have_vm = 1;
-	fprintf(stderr,"  available video mode(s):");
-	XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
-				   &vm_count,&vm_modelines);
-	for (i = 0; i < vm_count; i++) {
-	    fprintf(stderr," %dx%d",
-		    vm_modelines[i]->hdisplay,
-		    vm_modelines[i]->vdisplay);
+	fprintf(stderr,"VidMode: server=%d.%d, include=%d.%d\n",
+		ma,mi,XF86VIDMODE_MAJOR_VERSION,XF86VIDMODE_MINOR_VERSION);
+	if ((ma != XF86VIDMODE_MAJOR_VERSION) || (mi != XF86VIDMODE_MINOR_VERSION))
+	    fprintf(stderr,"VidMode: version mismatch -- disabled\n");
+	else {
+	    have_vm = 1;
+	    fprintf(stderr,"  available video mode(s):");
+	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
+				       &vm_count,&vm_modelines);
+	    for (i = 0; i < vm_count; i++) {
+		fprintf(stderr," %dx%d",
+			vm_modelines[i]->hdisplay,
+			vm_modelines[i]->vdisplay);
+	    }	    
+	    fprintf(stderr,"\n");
 	}
-	fprintf(stderr,"\n");
     }
 #endif
 }
@@ -1432,7 +1446,7 @@ grabber_init()
 
 int main(int argc, char *argv[])
 {
-    int  c,noconf,fullscreen,nomouse,xfree_ext;
+    int  c,noconf,fullscreen,nomouse;
     char v4l_conf[32] = "v4l-conf -q";
 
     progname = strdup(argv[0]);

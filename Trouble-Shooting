@@ -111,6 +111,10 @@ o	There are some problems with the i2c bus sometimes (you'll get
 	(my one is fine) don't work reliably if they get hot or something
 	like that...
 
+	One (but maybe not the only) reason for these i2c bus problems
+	are memory conflicts.  Playing around with the remap insmod
+	option might help.
+
 
 [Alan on linux-kernel]
 

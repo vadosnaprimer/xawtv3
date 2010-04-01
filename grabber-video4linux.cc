@@ -36,7 +36,7 @@ extern "C" {
 #include "module.h"
 
 /* here you can tune the device names */
-static const char *devlist[] = { "/dev/bttv0", "/dev/bttv1", NULL };
+static const char *devlist[] = { "/dev/video0", "/dev/video1", NULL };
 
 #define DEBUG(x)
 //#define DEBUG(x) (x)

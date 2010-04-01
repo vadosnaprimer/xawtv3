@@ -22,7 +22,7 @@
 # include "videodev.h"
 #endif
 
-#define DEVICE "/dev/bttv-fm"              /* major=81, minor=64 */
+#define DEVICE "/dev/radio"              /* major=81, minor=64 */
 
 int
 radio_setfreq(int fd, float freq)

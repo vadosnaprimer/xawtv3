@@ -6,6 +6,7 @@ function makedev () {
 		echo "/dev/$1$dev: char 81 $[ $2 + $dev ]"
 		rm -f /dev/$1$dev
 		mknod /dev/$1$dev c 81 $[ $2 + $dev ]
+		chmod 666 /dev/$1$dev
 	done
 
 	# symlink for default device

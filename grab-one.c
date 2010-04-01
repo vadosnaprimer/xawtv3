@@ -21,7 +21,7 @@
 # include "videodev.h"
 #endif
 
-#define DEVNAME "/dev/bttv"
+#define DEVNAME "/dev/video"
 
 #ifndef BT848_COLOR_FMT_RGB32
 # define BT848_COLOR_FMT_RGB32       0x00

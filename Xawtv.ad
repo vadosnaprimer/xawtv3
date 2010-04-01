@@ -58,6 +58,7 @@ xawtv.tv.translations:		#override			\n\
 	<Key>A:			Volume(mute)			\n\
 	<Key>M:			Pointer()			\n\
 	<Key>F:			FullScreen()			\n\
+	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
 	Ctrl<Key>G:		Snap(ppm,win)			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
@@ -115,6 +116,7 @@ Options.paned.translations:	#override\n\
 	<Key>A:			Volume(mute)			\n\
 	<Key>M:			Pointer()			\n\
 	<Key>F:			FullScreen()			\n\
+	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
 	Ctrl<Key>G:		Snap(ppm,win)			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\
@@ -150,6 +152,7 @@ Channels.viewport.translations:	#override\n\
 	<Key>A:			Volume(mute)			\n\
 	<Key>M:			Pointer()			\n\
 	<Key>F:			FullScreen()			\n\
+	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
 	Ctrl<Key>G:		Snap(ppm,win)			\n\
 	Ctrl<Key>J:		Snap(jpeg,win)			\n\

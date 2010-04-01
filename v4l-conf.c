@@ -23,12 +23,10 @@
 # include <X11/extensions/xf86dga.h>
 #endif
 
-#define DEVICE "/dev/bttv"
-
 int    verbose = 1;
 int    bpp     = 0;
 char  *display = ":0.0";
-char  *device  = "/dev/bttv";
+char  *device  = "/dev/video";
 char  *fbdev   = "/dev/fb0";
 
 struct fb_fix_screeninfo   fix;
@@ -140,7 +138,7 @@ main(int argc, char *argv[])
     }
 
     /* open & check v4l device */
-    if (-1 == (fd = open(DEVICE,O_RDWR))) {
+    if (-1 == (fd = open(device,O_RDWR))) {
 	fprintf(stderr,"can't open %s: %s\n",device,strerror(errno));
 	exit(1);
     }
