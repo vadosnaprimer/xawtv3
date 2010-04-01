@@ -71,6 +71,7 @@ void audio_off(void);
 void set_defaults(void);
 
 void add_attrs(struct ng_attribute *new);
+void init_overlay(void);
 
 int do_va_cmd(int argc, ...);
 int do_command(int argc, char **argv);

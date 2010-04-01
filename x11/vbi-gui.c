@@ -17,6 +17,7 @@
 #include <langinfo.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
@@ -43,7 +44,9 @@
 #include "vbi-x11.h"
 #include "vbi-gui.h"
 
-static int tt_debug = 0;
+#include "channel.h"
+
+static int tt_debug = 1;
 static int tt_windows = 0;
 
 struct vbi_selection {
@@ -273,10 +276,8 @@ vbi_destroy_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct vbi_window *vw = clientdata;
     
-    vbi_event_handler_remove(vw->vbi->dec,vbi_newdata);
-    XFreeFont(XtDisplay(widget),vw->font1);
-    if (vw->font2)
-	XFreeFont(XtDisplay(widget),vw->font2);
+    vbi_event_handler_unregister(vw->vbi->dec,vbi_newdata,vw);
+    vbi_render_free_font(widget,vw);
     XFreeGC(XtDisplay(widget),vw->gc);
     free(vw);
     tt_windows--;
@@ -301,6 +302,16 @@ vbi_new_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 			       XtDisplay(widget),NULL);
     vbi_create_widgets(shell,vw->vbi);
     XtRealizeWidget(shell);
+}
+
+static void
+vbi_font_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
+{
+    struct vbi_window *vw = clientdata;
+    char *name = XtName(widget);
+    vbi_render_set_font(widget, vw, name);
+    XtVaSetValues(vw->tt, XmNwidth,vw->w*41, XmNheight,vw->h*25, NULL);
+    XClearWindow(XtDisplay(vw->tt),XtWindow(vw->tt));
 }
 
 static void
@@ -343,19 +354,30 @@ vbi_findpage(struct vbi_page *pg, int px, int py)
 	    i = 0;
 	newpage = pg->nav_link[i].pgno;
     } else if (px <= 40 && py <= 23) {
-	/* look for a 3-digit string ... */
-	x = px; newpage = 0;
-	while (pg->text[py*41+x].unicode >= '0' &&
-	       pg->text[py*41+x].unicode <= '9' &&
-	       x > 0) {
-	    x--;
-	}
-	x++;
-	while (pg->text[py*41+x].unicode >= '0' &&
-	       pg->text[py*41+x].unicode <= '9' &&
-	       x < 40) {
-	    newpage = newpage*16 + pg->text[py*41+x].unicode - '0';
+	if (pg->text[py*41+px].unicode >= '0' &&
+	    pg->text[py*41+px].unicode <= '9') {
+	    /* look for a 3-digit string ... */
+	    x = px; newpage = 0;
+	    while (pg->text[py*41+x].unicode >= '0' &&
+		   pg->text[py*41+x].unicode <= '9' &&
+		   x > 0) {
+		x--;
+	    }
 	    x++;
+	    while (pg->text[py*41+x].unicode >= '0' &&
+		   pg->text[py*41+x].unicode <= '9' &&
+		   x < 40) {
+		newpage = newpage*16 + pg->text[py*41+x].unicode - '0';
+		x++;
+	    }
+
+	} else if (pg->text[py*41+px].unicode == '>') {
+	    /* next page */
+	    newpage = vbi_calc_page(pg->pgno,+1);
+
+	} else if (pg->text[py*41+px].unicode == '<') {
+	    /* prev page */
+	    newpage = vbi_calc_page(pg->pgno,-1);
 	}
     }
     
@@ -869,12 +891,156 @@ selection_dnd_start(struct vbi_window *vw, XEvent *event)
 
 /* --------------------------------------------------------------------- */
 
+static void vbi_station_cb(Widget widget, XtPointer client, XtPointer call)
+{
+    struct vbi_state *vbi = client;
+    char *name = XtName(widget);
+    int i;
+
+    for (i = 0; i < count; i++)
+	if (0 == strcmp(channels[i]->name,name))
+	    break;
+    if (i == count)
+	return;
+#if 0
+    fprintf(stderr,"tune: %.3f MHz [channel %s, station %s]\n",
+	    channels[i]->freq / 16.0,
+	    channels[i]->cname,
+	    channels[i]->name);
+#endif
+
+#ifdef linux
+#include "videodev.h"
+    if (-1 == ioctl(vbi->fd,VIDIOCSFREQ,&channels[i]->freq))
+	perror("ioctl VIDIOCSFREQ");
+#endif
+    /* FIXME: should add some BSD code once libzvbi is ported ... */
+}
+
+static void vbi_station_menu(Widget menubar, struct vbi_state *vbi)
+{
+    struct {
+	char *name;
+	Widget menu;
+    } *sub = NULL;
+    int subs = 0;
+
+    Widget m,menu,push;
+    XmString label;
+    int i,j;
+
+    if (0 == count)
+	return;
+
+    menu = XmCreatePulldownMenu(menubar,"stationM",NULL,0);
+    XtVaCreateManagedWidget("station",xmCascadeButtonWidgetClass,menubar,
+			    XmNsubMenuId,menu,NULL);
+
+    for (i = 0; i < count; i++) {
+#if 0
+	if (channels[i]->key) {
+	    if (2 == sscanf(channels[i]->key,
+			    "%15[A-Za-z0-9_]+%31[A-Za-z0-9_]",
+			    ctrl,key)) {
+		sprintf(accel,"%s<Key>%s",ctrl,key);
+	    } else {
+		sprintf(accel,"<Key>%s",channels[i]->key);
+	    }
+	} else {
+	    accel[0] = 0;
+	}
+#endif
+
+	m = menu;
+	if (0 != strcmp(channels[i]->group,"main")) {
+	    for (j = 0; j < subs; j++)
+		if (0 == strcmp(channels[i]->group,sub[j].name))
+		    break;
+	    if (j == subs) {
+		subs++;
+		sub = realloc(sub, subs * sizeof(*sub));
+		sub[j].name = channels[i]->group;
+		sub[j].menu = XmCreatePulldownMenu(menu,
+						   channels[i]->group,
+						   NULL,0);
+		XtVaCreateManagedWidget(channels[i]->group,
+					xmCascadeButtonWidgetClass, menu,
+					XmNsubMenuId, sub[j].menu,
+					NULL);
+	    }
+	    m = sub[j].menu;
+	}
+
+	label = XmStringGenerate(channels[i]->name, NULL, XmMULTIBYTE_TEXT, NULL);
+	push = XtVaCreateManagedWidget(channels[i]->name,
+				       xmPushButtonWidgetClass,m,
+				       XmNlabelString,label,
+				       NULL);
+	XtAddCallback(push,XmNactivateCallback,vbi_station_cb,vbi);
+	XmStringFree(label);
+    }
+}
+
+static int fntcmp(const void *a, const void *b)
+{
+    char const * const *aa = a;
+    char const * const *bb = b;
+
+    return strcmp(*aa,*bb);
+}
+
+static void vbi_xft_font_menu(Widget menu, struct vbi_window *vw)
+{
+#ifdef HAVE_XFT
+    FcPattern   *pattern;
+    FcObjectSet *oset;
+    FcFontSet   *fset;
+    Widget      push;
+    XmString    label;
+    char        **fonts, *h;
+    int         i;
+    
+    pattern = FcNameParse(":style=Regular:spacing=100:slant=0:weight=100");
+    oset = FcObjectSetBuild(FC_FAMILY, FC_STYLE, FC_SPACING, FC_SLANT,
+			    FC_WEIGHT, NULL);
+    fset = FcFontList(NULL, pattern, oset);
+    FcPatternDestroy(pattern);
+    if (fset) {
+	XtVaCreateManagedWidget("sep",xmSeparatorWidgetClass,menu,NULL);
+	fonts = malloc(sizeof(char*) * fset->nfont);
+	for (i = 0; i < fset->nfont; i++)
+	    fonts[i] = FcNameUnparse (fset->fonts[i]);
+	qsort(fonts,fset->nfont,sizeof(char*),fntcmp);
+
+	for (i = 0; i < fset->nfont; i++) {
+	    push = XtVaCreateManagedWidget(fonts[i],xmPushButtonWidgetClass,menu,NULL);
+	    h = strchr(fonts[i],':');
+	    if (h)
+		*h = 0;
+	    label = XmStringGenerate(fonts[i], NULL, XmMULTIBYTE_TEXT, NULL);
+	    XtVaSetValues(push, XmNlabelString, label, NULL);
+	    XmStringFree(label);
+	    
+	    XtAddCallback(push, XmNactivateCallback, vbi_font_cb, vw);
+	}
+
+	for (i = 0; i < fset->nfont; i++)
+	    free(fonts[i]);
+	free(fonts);
+    }
+#endif
+}
+
+/* --------------------------------------------------------------------- */
+
 void vbi_create_widgets(Widget shell, struct vbi_state *vbi)
 {
     Widget form,menubar,tool,menu,push,tt;
     struct vbi_window *vw;
+    int i;
 
     /* form container */
+    XtVaSetValues(shell, XmNallowShellResize, True, NULL);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, shell,
 				   NULL);
 
@@ -894,7 +1060,7 @@ void vbi_create_widgets(Widget shell, struct vbi_state *vbi)
     XtAddCallback(tt,XmNexposeCallback,vbi_expose_cb,vw);
     XtAddCallback(tt,XmNdestroyCallback,vbi_destroy_cb,vw);
     XtAddCallback(tt,XmNconvertCallback,selection_convert_cb,vw);
-    vbi_event_handler_add(vw->vbi->dec,~0,vbi_newdata,vw);
+    vbi_event_handler_register(vw->vbi->dec,~0,vbi_newdata,vw);
 
     /* menu -- file */
     menu = XmCreatePulldownMenu(menubar,"fileM",NULL,0);
@@ -931,6 +1097,20 @@ void vbi_create_widgets(Widget shell, struct vbi_state *vbi)
     vw->subbtn  = XtVaCreateManagedWidget("subpage",xmCascadeButtonWidgetClass,
 					  menubar,
 					  XmNsubMenuId,vw->submenu,NULL);
+
+    /* menu -- stations */
+    vbi_station_menu(menubar,vbi);
+
+    /* menu -- fonts */
+    menu = XmCreatePulldownMenu(menubar,"fontM",NULL,0);
+    XtVaCreateManagedWidget("font",xmCascadeButtonWidgetClass,menubar,
+			    XmNsubMenuId,menu,NULL);
+    for (i = 0; vbi_fonts[i].label != NULL; i++) {
+	push = XtVaCreateManagedWidget(vbi_fonts[i].label,
+				       xmPushButtonWidgetClass,menu,NULL);
+	XtAddCallback(push,XmNactivateCallback,vbi_font_cb,vw);
+    }
+    vbi_xft_font_menu(menu,vw);
 
     /* toolbar */
     push = XtVaCreateManagedWidget("100",xmPushButtonWidgetClass,tool,NULL);

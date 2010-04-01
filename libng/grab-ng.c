@@ -197,6 +197,8 @@ ng_malloc_audio_buf(struct ng_audio_fmt *fmt, int size)
 struct ng_attribute*
 ng_attr_byid(struct ng_attribute *attrs, int id)
 {
+    if (NULL == attrs)
+	return NULL;
     for (;;) {
 	if (NULL == attrs->name)
 	    return NULL;
@@ -209,6 +211,8 @@ ng_attr_byid(struct ng_attribute *attrs, int id)
 struct ng_attribute*
 ng_attr_byname(struct ng_attribute *attrs, char *name)
 {
+    if (NULL == attrs)
+	return NULL;
     for (;;) {
 	if (NULL == attrs->name)
 	    return NULL;

@@ -127,6 +127,8 @@ control*menubar*s_333.labelString:	Seite 333
 control*menubar*s_333.mnemonic:		3
 control*menubar*s_777.labelString:	Seite 777
 control*menubar*s_777.mnemonic:		7
+control*menubar*s_801.labelString:	Seite 801
+control*menubar*s_801.mnemonic:		0
 control*menubar*s_888.labelString:	Seite 888
 control*menubar*s_888.mnemonic:		8
 

@@ -14,6 +14,7 @@ make distclean
 # make sure autoconf stuff is up-to-date
 autoconf							|| exit 1
 autoheader							|| exit 1
+rm -rf autom4te.cache
 
 set -x
 
@@ -22,7 +23,7 @@ set -x
 make distclean
 
 # parallel builds
-./configure && make -j						|| exit 1
+./configure && nice make -j					|| exit 1
 make distclean
 
 # no lirc
@@ -57,6 +58,10 @@ make distclean
 ./configure --disable-gl && make				|| exit 1
 make distclean
 
+# no xft
+./configure --disable-xft && make				|| exit 1
+make distclean
+
 # no X11
 ./configure --without-x && make					|| exit 1
 make distclean
@@ -64,21 +69,6 @@ make distclean
 # library link order
 #CFLAGS="-static" ./configure && make 				|| exit 1
 #make distclean
-
-# 2.2.x kernel headers
-kernel=`ls -d /work/kernel/2.2.* | head -1`
-./configure && make CC="gcc -I$kernel/include"			|| exit 1
-make distclean
-
-# 2.4.x kernel headers
-kernel=`ls -d /work/kernel/2.4.* | head -1`
-./configure && make CC="gcc -I$kernel/include"			|| exit 1
-make distclean
-
-# 2.5.x kernel headers
-kernel=`ls -d /work/kernel/2.5.* | head -1`
-./configure && make CC="gcc -I$kernel/include"			|| exit 1
-make distclean
 
 set +x
 

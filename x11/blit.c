@@ -522,8 +522,10 @@ static int gl_init(Widget widget)
     XVisualInfo *visinfo;
     GLXContext ctx;
 
+    if (debug)
+	fprintf(stderr,"blit: gl: init\n");
     visinfo = glXChooseVisual(XtDisplay(widget),
-			      DefaultScreen(XtDisplay(widget)),
+			      XScreenNumberOfScreen(XtScreen(widget)),
 			      gl_attrib);
     if (!visinfo) {
 	if (debug)
@@ -658,6 +660,7 @@ struct blit_state {
     enum blit_status          status;
     Widget                    widget;
     Dimension                 win_width, win_height;
+    int                       wx,wy,ww,wh;
     GC                        gc;
     XVisualInfo               *vinfo;
     struct ng_video_fmt       fmt;
@@ -750,6 +753,13 @@ void blit_resize(struct blit_state *st, Dimension width, Dimension height)
 	fprintf(stderr,"blit: resize %dx%d\n",width,height);
     st->win_width  = width;
     st->win_height = height;
+
+    st->wx = 0;
+    st->wy = 0;
+    st->ww = st->win_width;
+    st->wh = st->win_height;
+    ng_ratio_fixup(&st->ww, &st->wh, &st->wx, &st->wy);
+
     blit_fini_frame(st);
 }
 
@@ -913,7 +923,7 @@ void blit_putframe(struct blit_state *st, struct ng_video_buf *buf)
 	xv_blit(XtDisplay(st->widget), XtWindow(st->widget),
 		st->gc, st->xvimage,
 		0, 0,  st->buf.fmt.width, st->buf.fmt.height,
-		0, 0,  st->win_width, st->win_height);
+		st->wx, st->wy, st->ww, st->wh);
 	break;
 #endif
 	

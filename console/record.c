@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <curses.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <sys/ioctl.h>
@@ -40,8 +41,9 @@ tty_restore(void)
 /* -------------------------------------------------------------------- */
 
 static int           sound_fd;
+static int           sound_rcount;
 static unsigned int  sound_blksize;
-static short         *sound_buffer;
+static int16_t       *sound_buffer;
 static int           maxl,maxr;
 static int           secl,secr;
 static int           *histl,*histr,histn,histi;
@@ -128,7 +130,7 @@ sound_read(void)
 {
     unsigned int have;
     int     i,rc;
-    short  *v;
+    int16_t *v;
 
     /* read */
     for (have = 0;have < sound_blksize;) {
@@ -174,6 +176,7 @@ sound_read(void)
 	if (secr < histr[i])
 	    secr = histr[i];
     }
+    sound_rcount++;
     return 0;
 }
 
@@ -253,10 +256,10 @@ mixer_set_volume(int val)
 
 /* Copyright (C) by Heiko Eissfeldt */
 
-typedef unsigned char  BYTE;
-typedef unsigned short WORD;
-typedef unsigned long  DWORD;
-typedef unsigned long  FOURCC;	/* a four character code */
+typedef uint8_t   BYTE;
+typedef uint16_t  WORD;
+typedef uint32_t  DWORD;
+typedef uint32_t  FOURCC;	/* a four character code */
 
 /* flags for 'wFormatTag' field of WAVEFORMAT */
 #define WAVE_FORMAT_PCM 1
@@ -389,6 +392,10 @@ static char blank[] =
 "                                                  "
 "                                                  "
 "                                                  ";
+
+static char alive[] = "-\\|/";
+//static char alive[] = ".oOo";
+#define ALIVE(count)  alive[count % (sizeof(alive)/sizeof(alive[0])-1)]
 
 static void
 print_bar(int line, char *name, int val1, int val2, int max)
@@ -697,7 +704,7 @@ main(int argc, char *argv[])
 		    mvprintw(3,0,"%s: %3d:%02d (%s) ",outfile,
 			     sec/60,sec%60,str_mb(wav_size));
 		} else {
-		    mvprintw(3,0,"");
+		    mvprintw(3,0,"%c",ALIVE(sound_rcount));
 		}
 	    }
 	    
@@ -778,7 +785,8 @@ main(int argc, char *argv[])
 		}
 	    }
 	    if (!record) {
-		printf("waiting for signal [%d/%d]...  \r",maxl,maxr);
+		printf("waiting for signal %c [%d/%d]...  \r",
+		       ALIVE(sound_rcount), maxl,maxr);
 		fflush(stdout);
 		continue;
 	    }

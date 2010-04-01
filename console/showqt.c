@@ -17,22 +17,22 @@
 #endif
 
 #if BYTE_ORDER == LITTLE_ENDIAN
-# define SWAP2(x) (((x>>8) & 0x00ff) |\
-                   ((x<<8) & 0xff00))
+# define SWAP2(x) ((((uint16_t)x>>8)  & (uint16_t)0x00ff) |\
+                   (((uint16_t)x<<8)  & (uint16_t)0xff00))
 
-# define SWAP4(x) (((x>>24) & 0x000000ff) |\
-                   ((x>>8)  & 0x0000ff00) |\
-                   ((x<<8)  & 0x00ff0000) |\
-                   ((x<<24) & 0xff000000))
+# define SWAP4(x) ((((uint32_t)x>>24) & (uint32_t)0x000000ff) |\
+                   (((uint32_t)x>>8)  & (uint32_t)0x0000ff00) |\
+                   (((uint32_t)x<<8)  & (uint32_t)0x00ff0000) |\
+                   (((uint32_t)x<<24) & (uint32_t)0xff000000))
 
-# define SWAP8(x) (((x>>56) & 0x00000000000000ff) |\
-                   ((x>>40) & 0x000000000000ff00) |\
-                   ((x>>24) & 0x0000000000ff0000) |\
-                   ((x>> 8) & 0x00000000ff000000) |\
-                   ((x<< 8) & 0x000000ff00000000) |\
-                   ((x<<24) & 0x0000ff0000000000) |\
-                   ((x<<40) & 0x00ff000000000000) |\
-                   ((x<<56) & 0xff00000000000000))
+# define SWAP8(x) ((((uint64_t)x>>56) & (uint64_t)0x00000000000000ff) |\
+                   (((uint64_t)x>>40) & (uint64_t)0x000000000000ff00) |\
+                   (((uint64_t)x>>24) & (uint64_t)0x0000000000ff0000) |\
+                   (((uint64_t)x>> 8) & (uint64_t)0x00000000ff000000) |\
+                   (((uint64_t)x<< 8) & (uint64_t)0x000000ff00000000) |\
+                   (((uint64_t)x<<24) & (uint64_t)0x0000ff0000000000) |\
+                   (((uint64_t)x<<40) & (uint64_t)0x00ff000000000000) |\
+                   (((uint64_t)x<<56) & (uint64_t)0xff00000000000000))
 #else
 # define SWAP2(a) (a)
 # define SWAP4(a) (a)

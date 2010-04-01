@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
 {
 	char dummy[256];
 	char *device = "/dev/video0";
-	int tab = 1;
+	int tab = 1, ok = 0;
 	int fd;
 
 	if (argc > 1)
@@ -280,13 +280,20 @@ int main(int argc, char *argv[])
 	};
 
 	if (-1 != ioctl(fd,VIDIOC_QUERYCAP,dummy)) {
-		printf("### v4l2 device info [%s] ###\n",device);
+		printf("\n### v4l2 device info [%s] ###\n",device);
 		dump_v4l2(fd,tab);
-	} else if (-1 != ioctl(fd,VIDIOCGCAP,dummy)) {
-		printf("### video4linux device info [%s] ###\n",device);
+		ok = 1;
+	}
+
+	if (-1 != ioctl(fd,VIDIOCGCAP,dummy)) {
+		printf("\n### video4linux device info [%s] ###\n",device);
 		dump_v4l(fd,tab);
-	} else {
+		ok = 1;
+	}
+
+	if (!ok) {
 		fprintf(stderr,"%s: not an video4linux device\n",device);
+		exit(1);
 	}
 	return 0;
 }

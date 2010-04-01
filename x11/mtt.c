@@ -41,6 +41,11 @@
 #include "vbi-gui.h"
 #include "vbi-tty.h"
 
+#include "grab-ng.h"
+#include "channel.h"
+#include "frequencies.h"
+#include "commands.h"
+
 /* --------------------------------------------------------------------- */
 
 XtAppContext  app_context;
@@ -200,14 +205,6 @@ main(int argc, char **argv)
     memcpy(av,argv,sizeof(char*)*(argc+1));
 
     XtSetLanguageProc(NULL,NULL,NULL);
-#if 0
-    app_shell = XtVaAppInitialize(&app_context, "mtt",
-				  opt_desc, opt_count,
-				  &argc, argv,
-				  fallback_ressources,
-				  NULL);
-    dpy = XtDisplay(app_shell);
-#else
     XtToolkitInitialize();
     app_context = XtCreateApplicationContext();
     XtAppSetFallbackResources(app_context,fallback_ressources);
@@ -219,7 +216,6 @@ main(int argc, char **argv)
 	main_tty(ac,av);
     app_shell = XtVaAppCreateShell(NULL,"mtt",
 				   applicationShellWidgetClass,dpy,NULL);
-#endif
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
     x11_icons_init(dpy,0);
@@ -233,6 +229,12 @@ main(int argc, char **argv)
     }
     if (args.tty)
 	main_tty(ac,av);
+
+    freq_init();
+    read_config(NULL, &argc, argv);
+    parse_config();
+    do_va_cmd(2,"setfreqtab",(-1 != chantab)
+	      ? chanlist_names[chantab].str : "europe-west");
 
     vbi = vbi_open(args.device,args.debug,args.sim);
     if (NULL == vbi)

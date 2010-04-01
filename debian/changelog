@@ -1,3 +1,11 @@
+xawtv (3.87) unstable; urgency=low
+
+  * new release.
+  * postinst fixes (closes: #179319,#188652).
+  * rebuild with new, fixed libquicktime-dev (closes: #186332).
+
+ -- Gerd Knorr <kraxel@debian.org>  Tue, 15 Apr 2003 12:39:21 +0200
+
 xawtv (3.86) unstable; urgency=low
 
   * new release (closes: #175886, #171884, #178691, #171354)

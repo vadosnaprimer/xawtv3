@@ -51,6 +51,12 @@
 /* Define to 1 if you have the `Xinerama' library (-lXinerama). */
 #undef HAVE_LIBXINERAMA
 
+/* Define to 1 if you have the `Xrandr' library (-lXrandr). */
+#undef HAVE_LIBXRANDR
+
+/* Define to 1 if you have the `Xrender' library (-lXrender). */
+#undef HAVE_LIBXRENDER
+
 /* Define to 1 if you have the `Xv' library (-lXv). */
 #undef HAVE_LIBXV
 
@@ -104,6 +110,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* "have xft" */
+#undef HAVE_XFT
 
 /* "have xmu" */
 #undef HAVE_XMU

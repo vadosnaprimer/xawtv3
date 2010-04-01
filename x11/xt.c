@@ -1,7 +1,7 @@
 /*
  * common X11 stuff (mostly libXt level) moved here from main.c
  *
- *   (c) 1997-2002 Gerd Knorr <kraxel@bytesex.org>
+ *   (c) 1997-2003 Gerd Knorr <kraxel@bytesex.org>
  *
  */
 
@@ -37,31 +37,7 @@
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/cursorfont.h>
-# include <X11/extensions/XShm.h>
-#ifdef HAVE_LIBXXF86DGA
-# include <X11/extensions/xf86dga.h>
-# include <X11/extensions/xf86dgastr.h>
-#endif
-#ifdef HAVE_LIBXXF86VM
-# include <X11/extensions/xf86vmode.h>
-# include <X11/extensions/xf86vmstr.h>
-#endif
-#ifdef HAVE_LIBXINERAMA
-# include <X11/extensions/Xinerama.h>
-#endif
-#ifdef HAVE_LIBXV
-# include <X11/extensions/Xv.h>
-# include <X11/extensions/Xvlib.h>
-#endif
-#ifdef HAVE_LIBXDPMS
-# include <X11/extensions/dpms.h>
-/* XFree 3.3.x has'nt prototypes for this ... */
-Bool   DPMSQueryExtension(Display*, int*, int*);
-Bool   DPMSCapable(Display*);
-Status DPMSInfo(Display*, CARD16*, BOOL*);
-Status DPMSEnable(Display*);
-Status DPMSDisable(Display*);
-#endif
+#include <X11/extensions/XShm.h>
 
 #include "grab-ng.h"
 #include "commands.h"
@@ -96,8 +72,9 @@ int               stay_on_top = 0;
 XVisualInfo       vinfo;
 Colormap          colormap;
 
-int               have_dga = 0;
-int               have_vm = 0;
+int               have_dga   = 0;
+int               have_vm    = 0;
+int               have_randr = 0;
 int               fs = 0;
 
 void              *movie_state;
@@ -107,16 +84,18 @@ XtIntervalId      zap_timer,scan_timer;
 
 #ifdef HAVE_LIBXXF86VM
 int               vm_count;
-static int        vm_switched;
 XF86VidModeModeInfo **vm_modelines;
 XF86VidModeModeLine vm_line;
 int                 vm_dot;
-XF86VidModeModeInfo *vm_current;
-XF86VidModeModeInfo *vm_fullscreen;
 #endif
 #ifdef HAVE_LIBXINERAMA
 XineramaScreenInfo *xinerama;
 int                nxinerama;
+#endif
+#ifdef HAVE_LIBXRANDR
+XRRScreenSize      *randr;
+int                nrandr;
+int                randr_evbase;
 #endif
 
 static Widget on_label;
@@ -250,6 +229,11 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,dga),
 	XtRString, "1"
     },{
+	"randr",
+	XtCBoolean, XtRBoolean, sizeof(int),
+	XtOffset(struct ARGS*,randr),
+	XtRString, "1"
+    },{
 	"help",
 	XtCBoolean, XtRBoolean, sizeof(int),
 	XtOffset(struct ARGS*,help),
@@ -306,6 +290,8 @@ XrmOptionDescRec opt_desc[] = {
     { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
     { "-dga",        "dga",         XrmoptionNoArg,  "1" },
     { "-nodga",      "dga",         XrmoptionNoArg,  "0" },
+    { "-randr",      "randr",       XrmoptionNoArg,  "1" },
+    { "-norandr",    "randr",       XrmoptionNoArg,  "0" },
     
     { "-h",          "help",        XrmoptionNoArg,  "1" },
     { "-help",       "help",        XrmoptionNoArg,  "1" },
@@ -808,63 +794,119 @@ set_vidmode(XF86VidModeModeInfo *mode)
 		mode->vtotal,
 		mode->flags);
     XF86VidModeSwitchToMode(dpy,XDefaultScreen(dpy),mode);
+    XSync(dpy,False);
+}
+
+static void
+do_vidmode_modeswitch(int fs_state, int *vp_width, int *vp_height)
+{
+    static int                  vm_switched;
+    static XF86VidModeModeInfo  *vm_current;
+    static XF86VidModeModeInfo  *vm_fullscreen;
+    int i;
+    
+    if (fs_state) {
+	/* enter fullscreen mode */
+	XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
+	XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
+				   &vm_count,&vm_modelines);
+	vm_fullscreen = NULL;
+	for (i = 0; i < vm_count; i++) {
+	    if (fs_width  == vm_modelines[i]->hdisplay &&
+		fs_height == vm_modelines[i]->vdisplay)
+		vm_fullscreen = vm_modelines[i];
+	    if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
+		vm_line.vdisplay == vm_modelines[i]->vdisplay)
+		vm_current = vm_modelines[i];
+	}
+	if (debug) {
+	    fprintf(stderr,"vm: current=%dx%d",
+		    vm_current->hdisplay,vm_current->vdisplay);
+	    if (vm_fullscreen)
+		fprintf(stderr,"fullscreen=%dx%d",
+			vm_fullscreen->hdisplay,vm_fullscreen->vdisplay);
+	    fprintf(stderr,"\n");
+	}
+	if (vm_current && vm_fullscreen &&
+	    vm_fullscreen->hdisplay != vm_current->hdisplay &&
+	    vm_fullscreen->vdisplay != vm_current->vdisplay) {
+	    set_vidmode(vm_fullscreen);
+	    vm_switched = 1;
+	    *vp_width   = vm_fullscreen->hdisplay;
+	    *vp_height  = vm_fullscreen->vdisplay;
+	} else {
+	    vm_switched = 0;
+	    *vp_width   = vm_current->hdisplay;
+	    *vp_height  = vm_current->vdisplay;
+	}
+    } else {
+	/* leave fullscreen mode */
+	if (vm_switched) {
+	    set_vidmode(vm_current);
+	    vm_switched = 0;
+	}
+    }
+}
+#endif
+
+#ifdef HAVE_LIBXRANDR
+static void
+do_randr_modeswitch(int fs_state, int *vp_width, int *vp_height)
+{
+    static SizeID normal;
+    Window root = RootWindow(dpy, DefaultScreen(dpy));
+    XRRScreenConfiguration *sc;
+    Rotation rotation;
+    SizeID current, new, i;
+    
+    sc = XRRGetScreenInfo(dpy, root);
+    current = XRRConfigCurrentConfiguration(sc, &rotation);
+    new = current;
+    if (fs_state) {
+	/* enter fullscreen mode */
+	normal = current;
+	new = current;
+	for (i = 0; i < nrandr; i++) {
+	    if (randr[i].width  == fs_width &&
+		randr[i].height == fs_height) {
+		new = i;
+		break;
+	    }
+	}
+    } else {
+	/* leave fullscreen mode */
+	new = normal;
+    }
+
+    if (new != current) {
+	/* switch mode */
+	if (debug)
+	    fprintf(stderr, "randr: switch to %dx%d\n",
+		    randr[new].width, randr[new].height);
+	XRRSetScreenConfig(dpy, sc, root, new, rotation, CurrentTime);
+    }
+    XRRFreeScreenConfigInfo(sc);
+
+    /* FIXME: change swidth / sheight instead */
+    *vp_width  = randr[new].width;
+    *vp_height = randr[new].height;
 }
 #endif
 
 static void
 do_modeswitch(int fs_state, int *vp_width, int *vp_height)
 {
-    if (fs_state) {
-	/* enter fullscreen mode */
-	*vp_width  = swidth;
-	*vp_height = sheight;
+    *vp_width  = swidth;
+    *vp_height = sheight;
 
-#ifdef HAVE_LIBXXF86VM
-	if (have_vm) {
-	    int i;
-	    XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
-	    XF86VidModeGetAllModeLines(dpy,XDefaultScreen(dpy),
-				       &vm_count,&vm_modelines);
-	    vm_fullscreen = NULL;
-	    for (i = 0; i < vm_count; i++) {
-		if (fs_width  == vm_modelines[i]->hdisplay &&
-		    fs_height == vm_modelines[i]->vdisplay)
-		    vm_fullscreen = vm_modelines[i];
-		if (vm_line.hdisplay == vm_modelines[i]->hdisplay &&
-		    vm_line.vdisplay == vm_modelines[i]->vdisplay)
-		    vm_current = vm_modelines[i];
-	    }
-	    if (debug) {
-		fprintf(stderr,"vm: current=%dx%d",
-			vm_current->hdisplay,vm_current->vdisplay);
-		if (vm_fullscreen)
-		    fprintf(stderr,"fullscreen=%dx%d",
-			    vm_fullscreen->hdisplay,vm_fullscreen->vdisplay);
-		fprintf(stderr,"\n");
-	    }
-	    if (vm_current && vm_fullscreen &&
-		vm_fullscreen->hdisplay != vm_current->hdisplay &&
-		vm_fullscreen->vdisplay != vm_current->vdisplay) {
-		set_vidmode(vm_fullscreen);
-		vm_switched = 1;
-		*vp_width   = vm_fullscreen->hdisplay;
-		*vp_height  = vm_fullscreen->vdisplay;
-	    } else {
-		vm_switched = 0;
-		*vp_width   = vm_current->hdisplay;
-		*vp_height  = vm_current->vdisplay;
-	    }
-	}
+#ifdef HAVE_LIBXRANDR
+    if (have_randr)
+	do_randr_modeswitch(fs_state,vp_width,vp_height);
 #endif
-    } else {
-	/* leave fullscreen mode */
 #ifdef HAVE_LIBXXF86VM
-	if (have_vm && vm_switched) {
-	    set_vidmode(vm_current);
-	    vm_switched = 0;
-	}
+    if (!have_randr  &&  have_vm)
+	do_vidmode_modeswitch(fs_state,vp_width,vp_height);
 #endif
-    }
 }
 
 /*----------------------------------------------------------------------*/
@@ -931,7 +973,7 @@ do_fullscreen(void)
 	fs = !fs;
 	if (debug)
 	    fprintf(stderr,"fullscreen %s via netwm\n", fs ? "on" : "off");
-	
+
 	do_modeswitch(fs,&vp_width,&vp_height);
 	XSync(dpy,False);
 	wm_fullscreen(dpy,XtWindow(app_shell),fs);
@@ -986,7 +1028,9 @@ do_fullscreen(void)
 	    warp_pointer = 1;
 	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
 			 0, 0, 0, 0, vp_width/2, vp_height/2);
+#ifdef HAVE_LIBXXF86VM
 	    XF86VidModeSetViewPort(dpy,XDefaultScreen(dpy),0,0);
+#endif
 	}
 	XtVaGetValues(app_shell,
 		      XtNx,          &x,
@@ -1149,6 +1193,7 @@ void tv_expose_event(Widget widget, XtPointer client_data,
 		    event->xexpose.count);
 	if (0 == event->xexpose.count && CAPTURE_OVERLAY == cur_capture) {
 	    if (f_drv & NEEDS_CHROMAKEY) {
+		Dimension win_width, win_height;
 		if (debug)
 		    fprintf(stderr,"expose: chromakey [%dx%d]\n",
 			    cur_tv_width, cur_tv_height);
@@ -1163,9 +1208,11 @@ void tv_expose_event(Widget widget, XtPointer client_data,
 				   &values);
 		}
 		/* draw background for chroma keying */
+		XtVaGetValues(widget, XtNwidth, &win_width,
+			      XtNheight, &win_height, NULL);
 		XFillRectangle(dpy,XtWindow(widget),gc,
-			       0 /* (win_width  - x11_fmt.width)  >> 1 */,
-			       0 /* (win_height - x11_fmt.height) >> 1 */,
+			       (win_width  - cur_tv_width)  >> 1,
+			       (win_height - cur_tv_height) >> 1,
 			       cur_tv_width, cur_tv_height);
 	    }
 	    if (have_xv) {
@@ -1200,7 +1247,7 @@ FilterAction(Widget widget, XEvent *event,
 /*----------------------------------------------------------------------*/
 
 void
-xfree_dga_init()
+xfree_dga_init(Display *dpy)
 {
 #ifdef HAVE_LIBXXF86DGA
     int  flags,foo,bar,ma,mi;
@@ -1223,9 +1270,9 @@ xfree_dga_init()
 }
 
 void
-xfree_vm_init()
+xfree_vm_init(Display *dpy)
 {
-#ifdef HAVE_LIBXXF86DGA
+#ifdef HAVE_LIBXXF86VM
     int  foo,bar,i,ma,mi;
 
     if (!do_overlay)
@@ -1254,7 +1301,32 @@ xfree_vm_init()
 }
 
 void
-xfree_xinerama_init(void)
+xfree_randr_init(Display *dpy)
+{
+#ifdef HAVE_LIBXRANDR
+    int bar,i;
+    
+    if (args.randr) {
+	if (XRRQueryExtension(dpy,&randr_evbase,&bar)) {
+	    randr = XRRSizes(dpy,DefaultScreen(dpy),&nrandr);
+	    if (nrandr > 0) {
+		have_randr = 1;
+		if (debug) {
+		    fprintf(stderr,"xrandr:");
+		    for (i = 0; i < nrandr; i++) {
+			fprintf(stderr, " %dx%d",
+				randr[i].width, randr[i].height);
+		    }
+		    fprintf(stderr,"\n");
+		}
+	    }
+	}
+    }
+#endif
+}
+
+void
+xfree_xinerama_init(Display *dpy)
 {
 #ifdef HAVE_LIBXINERAMA
     int foo,bar,i;
@@ -1421,7 +1493,7 @@ x11_check_remote()
     return;
 }
 
-void x11_misc_init()
+void x11_misc_init(Display *dpy)
 {
     fcntl(ConnectionNumber(dpy),F_SETFD,FD_CLOEXEC);
 }
@@ -1490,8 +1562,15 @@ usage(void)
 	    "  -n  -noconf         don't read the config file\n"
 	    "  -m  -nomouse        startup with mouse pointer disabled\n"
 	    "  -f  -fullscreen     startup in fullscreen mode\n"
+#ifdef HAVE_LIBXXF86DGA
 	    "      -(no)dga        enable/disable DGA extention\n"
+#endif
+#ifdef HAVE_LIBXXF86VM
 	    "      -(no)vm         enable/disable VidMode extention\n"
+#endif
+#ifdef HAVE_LIBXRANDR
+	    "      -(no)randr      enable/disable Xrandr extention\n"
+#endif
 #ifdef HAVE_LIBXV
 	    "      -(no)xv         enable/disable Xvideo extention altogether\n"
 	    "      -(no)xv-video   enable/disable Xvideo extention (for video only,\n"
@@ -2032,5 +2111,58 @@ int xt_handle_pending(Display *dpy)
 	XtDispatchEvent(&event);
     if (debug)
 	fprintf(stderr,"xt: handle_pending:  ... done\n");
+    return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int xt_vm_randr_input_init(Display *dpy)
+{
+    /* vidmode / randr */
+    if (debug)
+	fprintf(stderr,"xt: checking for randr extention ...\n");
+    xfree_randr_init(dpy);
+    if (fs_width && fs_height && !args.vidmode && !have_randr) {
+	if (debug)
+	    fprintf(stderr,"fullscreen mode configured (%dx%d), "
+		    "VidMode extention enabled\n",fs_width,fs_height);
+	args.vidmode = 1;
+    }
+    if (debug)
+	fprintf(stderr,"xt: checking for vidmode extention ...\n");
+    xfree_vm_init(dpy);
+    
+    /* input */
+    if (debug)
+	fprintf(stderr,"xt: checking for lirc ...\n");
+    xt_lirc_init();
+    if (debug)
+	fprintf(stderr,"xt: checking for joystick ...\n");
+    xt_joystick_init();
+    if (debug)
+	fprintf(stderr,"xt: checking for midi ...\n");
+    xt_midi_init(midi);
+    if (debug)
+	fprintf(stderr,"xt: adding kbd hooks ...\n");
+    xt_kbd_init(tv);
+
+    return 0;
+}
+
+int xt_main_loop()
+{
+    XEvent event;
+    
+    if (debug)
+	fprintf(stderr,"xt: enter main event loop... \n");
+    signal(SIGHUP,SIG_IGN); /* don't really need a tty ... */
+
+    for (;;) {
+	if (XtAppGetExitFlag(app_context))
+	    break;
+	XtAppNextEvent(app_context, &event);
+	if (True == XtDispatchEvent(&event))
+	    continue;
+    }
     return 0;
 }

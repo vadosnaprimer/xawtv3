@@ -2,9 +2,7 @@
     channel for Bt848 frame grabber driver
 
     Copyright (C) 1996,97 Marcus Metzler (mocm@thp.uni-koeln.de)
-
-    many changes by Gerd Knorr <kraxel@goldbach.in-berlin.de>
-        [ hmm, think by now nearly nothing left from the original code ... ]
+              (c) 1998-2003 Gerd Knorr <kraxel@bytesex.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -693,7 +691,7 @@ save_config()
 	if (channels[i]->key != NULL)
 	    fprintf(fp,"key = %s\n",channels[i]->key);
 	if (0 != strcmp(channels[i]->group,defaults.group))
-	    fprintf(fp,"group = %s\n",defaults.group);
+	    fprintf(fp,"group = %s\n",channels[i]->group);
 	if (channels[i]->midi != 0)
 	    fprintf(fp,"midi = %d\n",channels[i]->midi);
 	if (channels[i]->capture != cur_capture)

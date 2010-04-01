@@ -6,8 +6,15 @@ mtt.deleteResponse:			DO_NOTHING
 *renderTable:
 *renderTable.fontType: FONT_IS_FONTSET
 *renderTable.fontName: \
-	-*-helvetica-medium-r-normal--*-120-*-*-*-*, \
-	-*-*-*-r-normal--*-120-*-*-*-*
+  -adobe-helvetica-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
+ -cronyx-helvetica-medium-r-normal-*-14-*-*-*-p-*-koi8-r, \
+         -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
+       -gnu-unifont-medium-r-normal--16-*-*-*-p-*-*-*, \
+     -efont-biwidth-medium-r-normal--16-*-*-*-*-*-*-*, \
+              -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
+              -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
+                        -*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
+                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 ! arrange widgets
 mtt.form.*.leftAttachment:		ATTACH_FORM
@@ -29,6 +36,10 @@ mtt*bar.go.labelString:			Go to
 mtt*bar.go.mnemonic:			G
 mtt*bar.subpage.labelString:		Subpage
 mtt*bar.subpage.mnemonic:		S
+mtt*bar.station.labelString:		Stations
+mtt*bar.station.mnemonic:		t
+mtt*bar.font.labelString:		Fonts
+mtt*bar.font.mnemonic:			o
 
 ! toolbar
 mtt*tool.orientation:			HORIZONTAL

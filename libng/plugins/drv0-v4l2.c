@@ -98,6 +98,9 @@ struct v4l2_handle {
     struct v4l2_framebuffer        ov_fb;
     struct v4l2_format             ov_win;
     struct v4l2_clip               ov_clips[256];
+#if 0
+    enum v4l2_field                ov_fields;
+#endif
     int                            ov_error;
     int                            ov_enabled;
     int                            ov_on;
@@ -344,6 +347,8 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
     } else {
 	/* for norms + inputs */
 	h->attr[h->nattr].id      = id;
+	if (-1 == h->attr[h->nattr].id)
+	    h->attr[h->nattr].id  = private_ids++;
 	h->attr[h->nattr].defval  = 0;
 	h->attr[h->nattr].type    = ATTR_TYPE_CHOICE;
 	h->attr[h->nattr].choices = choices;
@@ -363,7 +368,9 @@ static int v4l2_read_attr(struct ng_attribute *attr)
     const struct v4l2_queryctrl *ctl = attr->priv;
     struct v4l2_control c;
     struct v4l2_tuner tuner;
+    v4l2_std_id std;
     int value = 0;
+    int i;
 
     if (NULL != ctl) {
 	c.id = ctl->id;
@@ -371,7 +378,11 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 	value = c.value;
 	
     } else if (attr->id == ATTR_ID_NORM) {
-	value = -1; /* FIXME */
+	value = -1;
+	xioctl(h->fd,VIDIOC_G_STD,&std,0);
+	for (i = 0; i < h->nstds; i++)
+	    if (std & h->std[i].id)
+		value = i;
 	
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_G_INPUT,&value,0);
@@ -760,6 +771,25 @@ v4l2_waiton(struct v4l2_handle *h)
 	return -1;
     h->waiton++;
     h->buf_v4l2[buf.index] = buf;
+
+#if 0
+    if (1) {
+	/* for driver debugging */
+	static const char *fn[] = {
+		"any", "none", "top", "bottom",
+		"interlaced", "tb", "bt", "alternate",
+	};
+	static struct timeval last;
+	signed long  diff;
+
+	diff  = (buf.timestamp.tv_sec - last.tv_sec) * 1000000;
+	diff += buf.timestamp.tv_usec - last.tv_usec;
+	fprintf(stderr,"\tdiff %6.1f ms  buf %d  field %d [%s]\n",
+		diff/1000.0, buf.index, buf.field, fn[buf.field%8]);
+	last = buf.timestamp;
+    }
+#endif
+
     return buf.index;
 }
 
@@ -832,6 +862,8 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     for (i = 0; i < h->reqbufs.count; i++) {
 	if (0 != h->buf_me[i].refcount)
 	    ng_waiton_video_buf(&h->buf_me[i]);
+	if (ng_debug)
+	    print_bufinfo(&h->buf_v4l2[i]);
 	if (-1 == munmap(h->buf_me[i].data,h->buf_me[i].size))
 	    perror("munmap");
     }
@@ -861,6 +893,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     h->fmt_v4l2.fmt.pix.width        = fmt->width;
     h->fmt_v4l2.fmt.pix.height       = fmt->height;
     h->fmt_v4l2.fmt.pix.field        = V4L2_FIELD_ANY;
+    //h->fmt_v4l2.fmt.pix.field        = V4L2_FIELD_ALTERNATE;
     if (fmt->bytesperline != fmt->width * ng_vfmt_to_depth[fmt->fmtid]/8)
 	h->fmt_v4l2.fmt.pix.bytesperline = fmt->bytesperline;
     else

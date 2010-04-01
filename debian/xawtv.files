@@ -4,6 +4,7 @@
 /usr/bin/rootv
 /usr/bin/ntsc-cc
 /usr/bin/subtitles
+/usr/bin/v4l-info
 /usr/share/man/man1/v4lctl.1
 /usr/share/man/*/man1/v4lctl.1
 /usr/share/man/man1/xawtv.1
@@ -15,6 +16,7 @@
 /usr/share/man/man1/ntsc-cc.1
 /usr/share/man/man1/subtitles.1
 /usr/share/man/*/man1/subtitles.1
+/usr/share/man/man1/v4l-info.1
 /usr/share/man/man5/xawtvrc.5
 /usr/share/man/*/man5/xawtvrc.5
 /etc/X11/app-defaults/Xawtv

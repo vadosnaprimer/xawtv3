@@ -12,7 +12,7 @@ build all install: $(arch)/Makefile
 clean distclean:
 	-test -d "$(arch)" && rm -rf "$(arch)"
 
-tarball rpm checkit release port snapshot snap:
+tarball rpm dsc debs pbuild release snapshot snap:
 	./configure
 	$(MAKE) $@
 

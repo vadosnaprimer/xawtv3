@@ -1,3 +1,32 @@
+#include <X11/Xlib.h>
+#include <X11/Xmd.h>
+#ifdef HAVE_LIBXXF86DGA
+# include <X11/extensions/xf86dga.h>
+# include <X11/extensions/xf86dgastr.h>
+#endif
+#ifdef HAVE_LIBXXF86VM
+# include <X11/extensions/xf86vmode.h>
+# include <X11/extensions/xf86vmstr.h>
+#endif
+#ifdef HAVE_LIBXINERAMA
+# include <X11/extensions/Xinerama.h>
+#endif
+#ifdef HAVE_LIBXV
+# include <X11/extensions/Xv.h>
+# include <X11/extensions/Xvlib.h>
+#endif
+#ifdef HAVE_LIBXRANDR
+# include <X11/extensions/Xrandr.h>
+#endif
+#ifdef HAVE_LIBXDPMS
+# include <X11/extensions/dpms.h>
+/* XFree 3.3.x has'nt prototypes for this ... */
+Bool   DPMSQueryExtension(Display*, int*, int*);
+Bool   DPMSCapable(Display*);
+Status DPMSInfo(Display*, CARD16*, BOOL*);
+Status DPMSEnable(Display*);
+Status DPMSDisable(Display*);
+#endif
 
 struct ARGS {
     /* char */
@@ -28,6 +57,7 @@ struct ARGS {
     int  gl;
     int  vidmode;
     int  dga;
+    int  randr;
     int  help;
     int  hwscan;
 };
@@ -52,6 +82,7 @@ extern Colormap          colormap;
 
 extern int               have_dga;
 extern int               have_vm;
+extern int               have_randr;
 extern int               fs;
 
 extern void              *movie_state;
@@ -66,6 +97,10 @@ extern XF86VidModeModeInfo **vm_modelines;
 #ifdef HAVE_LIBXINERAMA
 extern XineramaScreenInfo *xinerama;
 extern int                nxinerama;
+#endif
+#ifdef HAVE_LIBXRANDR
+extern XRRScreenSize      *randr;
+extern int                nrandr;
 #endif
 
 extern char v4l_conf[128];
@@ -135,10 +170,12 @@ void set_property(int freq, char *channel, char *name);
 
 /*----------------------------------------------------------------------*/
 
-void x11_misc_init(void);
-void xfree_dga_init(void);
-void xfree_xinerama_init(void);
-void xfree_vm_init(void);
+void x11_misc_init(Display *dpy);
+void xfree_dga_init(Display *dpy);
+void xfree_xinerama_init(Display *dpy);
+void xfree_vm_init(Display *dpy);
+void xfree_randr_init(Display *dpy);
+
 void grabber_init(void);
 void grabber_scan(void);
 void x11_check_remote(void);
@@ -183,3 +220,5 @@ extern Pixmap bm_no;
 /*----------------------------------------------------------------------*/
 
 int xt_handle_pending(Display *dpy);
+int xt_vm_randr_input_init(Display *dpy);
+int xt_main_loop(void);

@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <sys/types.h>
 
 #if BYTE_ORDER == BIG_ENDIAN
@@ -42,10 +43,10 @@
 # define fseeko fseek
 #endif
 
-typedef unsigned long DWORD;
-typedef unsigned short WORD;
+typedef uint32_t DWORD;
+typedef uint16_t WORD;
 typedef DWORD FOURCC;             /* Type of FOUR Character Codes */
-typedef unsigned char boolean;
+typedef uint8_t boolean;
 #define TRUE  1
 #define FALSE 0
 #define BUFSIZE 4096
@@ -203,13 +204,13 @@ static void dump_vals(FILE *f, int count, struct VAL *names)
 	case INT32:
 	    fread(&val32,4,1,f);
 	    val32 = SWAP4(val32);
-	    printf("\t%-12s = %ld\n",names[i].name,val32);
+	    printf("\t%-12s = %d\n",names[i].name,val32);
 	    break;
 	case CCODE:
 	    fread(&val32,4,1,f);
 	    val32 = SWAP4(val32);
 	    if (val32) {
-		printf("\t%-12s = %c%c%c%c (0x%lx)\n",names[i].name,
+		printf("\t%-12s = %c%c%c%c (0x%x)\n",names[i].name,
 		       (int)( val32        & 0xff),
 		       (int)((val32 >>  8) & 0xff),
 		       (int)((val32 >> 16) & 0xff),
@@ -222,7 +223,7 @@ static void dump_vals(FILE *f, int count, struct VAL *names)
 	case FLAGS:
 	    fread(&val32,4,1,f);
 	    val32 = SWAP4(val32);
-	    printf("\t%-12s = 0x%lx\n",names[i].name,val32);
+	    printf("\t%-12s = 0x%x\n",names[i].name,val32);
 	    if (names[i].flags) {
 		for (j = 0; names[i].flags[j].bit != 0; j++)
 		    if (names[i].flags[j].bit & val32)
@@ -406,7 +407,7 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
     datapos=filepos+sizeof(FOURCC)+sizeof(DWORD); /* here is the data */
 
     /* print out header: */
-    printf("(0x%s) %*c  ID:<%s>   Size: 0x%08lx\n",
+    printf("(0x%s) %*c  ID:<%s>   Size: 0x%08x\n",
 	   off_t_to_char(filepos,16,8),(RekDepth+1)*4,' ',tagstr,*chunksize);
 
     if (datapos + ((*chunksize+1)&~1) > filesize) {      /* too long? */

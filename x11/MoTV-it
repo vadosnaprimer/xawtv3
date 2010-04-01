@@ -130,6 +130,8 @@ control*menubar*s_333.labelString:	pagina 333
 control*menubar*s_333.mnemonic:		3
 control*menubar*s_777.labelString:	pagina 777
 control*menubar*s_777.mnemonic:		7
+control*menubar*s_801.labelString:	pagina 801
+control*menubar*s_801.mnemonic:		0
 control*menubar*s_888.labelString:	pagina 888
 control*menubar*s_888.mnemonic:		8
 

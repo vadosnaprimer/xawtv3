@@ -1,9 +1,9 @@
 Source: xawtv
 Section: graphics
 Priority: extra
-Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), liblircclient-dev, debhelper (>= 2.0), xutils, xbase-clients, aalib1-dev, libasound2-dev, libzvbi-dev (>= 0.2.1), libquicktime-dev, libxaw7-dev
+Build-Depends: libjpeg-dev, libncurses5-dev, xlibs-dev (>= 4.0.1), liblircclient-dev, debhelper (>= 4.0), xutils, xbase-clients, aalib1-dev, libasound2-dev, libzvbi-dev (>= 0.2.1), libquicktime-dev, libxaw7-dev, xlibmesa-gl-dev, libxft2-dev
 Maintainer: Gerd Knorr <kraxel@debian.org>
-Standards-Version: 3.5.7.1
+Standards-Version: 3.5.9
 
 Package: xawtv
 Section: x11
@@ -109,7 +109,7 @@ Package: webcam
 Section: net
 Architecture: any
 Depends: ${shlibs:Depends}, xawtv-plugins (=${Source-Version})
-Reommends: ftp, ssh
+Recommends: ftp, ssh
 Description: capture and upload images
  webcam captures images from a video4linux device like
  bttv, annotates them and and uploads them to a webserver

@@ -42,19 +42,7 @@
 #include <Xm/SelectioB.h>
 #include <Xm/TransferP.h>
 #include <Xm/DragIcon.h>
-
 #include <X11/extensions/XShm.h>
-#ifdef HAVE_LIBXXF86VM
-# include <X11/extensions/xf86vmode.h>
-# include <X11/extensions/xf86vmstr.h>
-#endif
-#ifdef HAVE_LIBXINERAMA
-# include <X11/extensions/Xinerama.h>
-#endif
-#ifdef HAVE_LIBXV
-# include <X11/extensions/Xv.h>
-# include <X11/extensions/Xvlib.h>
-#endif
 
 #include "grab-ng.h"
 #include "channel.h"
@@ -63,8 +51,8 @@
 #include "capture.h"
 #include "wmhooks.h"
 #include "atoms.h"
-#include "xt.h"
 #include "x11.h"
+#include "xt.h"
 #include "xv.h"
 #include "man.h"
 #include "RegEdit.h"
@@ -1406,6 +1394,8 @@ create_control(void)
     XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,333)");
     push = XtVaCreateManagedWidget("s_777",xmPushButtonWidgetClass,smenu,NULL);
     XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,777)");
+    push = XtVaCreateManagedWidget("s_801",xmPushButtonWidgetClass,smenu,NULL);
+    XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,801)");
     push = XtVaCreateManagedWidget("s_888",xmPushButtonWidgetClass,smenu,NULL);
     XtAddCallback(push,XmNactivateCallback,action_cb,"Vtx(start,888)");
 #endif
@@ -2342,7 +2332,7 @@ pref_menu(Widget option, Widget menu, int enable)
 	XtVaCreateManagedWidget("none",xmPushButtonWidgetClass,menu,NULL);
 }
 
-#ifdef HAVE_LIBXXF86VM
+#if defined(HAVE_LIBXXF86VM) || defined(HAVE_LIBXRANDR)
 
 static void
 pref_fs(void)
@@ -2353,11 +2343,13 @@ pref_fs(void)
 
     on = XmToggleButtonGetState(pref_fs_toggle);
     if (on) {
-	if (0 == args.vidmode) {
+#if defined(HAVE_LIBXXF86VM)
+	if (0 == have_randr  &&  0 == args.vidmode) {
 	    args.vidmode = 1;
-	    xfree_vm_init();
+	    xfree_vm_init(dpy);
 	}
-	if (0 == have_vm) {
+#endif
+	if (0 == have_randr  &&  0 == have_vm) {
 	    on = 0;
 	    XtVaSetValues(pref_fs_toggle,XtNsensitive,0,NULL);
 	}
@@ -2366,17 +2358,34 @@ pref_fs(void)
     XmToggleButtonSetState(pref_fs_toggle,on,False);
     if (on) {
 	pref_menu(pref_fs_option,pref_fs_menu,1);
-	for (i = 0; i < vm_count; i++) {
-	    sprintf(s,"%d x %d",
-		    vm_modelines[i]->hdisplay,
-		    vm_modelines[i]->vdisplay);
-	    push = XtVaCreateManagedWidget(s,xmPushButtonWidgetClass,
-					   pref_fs_menu,NULL);
-	    if (vm_modelines[i]->hdisplay == fs_width &&
-		vm_modelines[i]->vdisplay == fs_height) {
-		XtVaSetValues(pref_fs_menu,XmNmenuHistory,push,NULL);
+#if defined(HAVE_LIBXRANDR)
+	if (have_randr) {
+	    for (i = 0; i < nrandr; i++) {
+		sprintf(s,"%d x %d",randr[i].width,randr[i].height);
+		push = XtVaCreateManagedWidget(s,xmPushButtonWidgetClass,
+					       pref_fs_menu,NULL);
+		if (randr[i].width  == fs_width &&
+		    randr[i].height == fs_height) {
+		    XtVaSetValues(pref_fs_menu,XmNmenuHistory,push,NULL);
+		}
 	    }
 	}
+#endif
+#if defined(HAVE_LIBXXF86VM)
+	if (!have_randr) {
+	    for (i = 0; i < vm_count; i++) {
+		sprintf(s,"%d x %d",
+			vm_modelines[i]->hdisplay,
+			vm_modelines[i]->vdisplay);
+		push = XtVaCreateManagedWidget(s,xmPushButtonWidgetClass,
+					       pref_fs_menu,NULL);
+		if (vm_modelines[i]->hdisplay == fs_width &&
+		    vm_modelines[i]->vdisplay == fs_height) {
+		    XtVaSetValues(pref_fs_menu,XmNmenuHistory,push,NULL);
+		}
+	    }
+	}
+#endif
     } else {
 	pref_menu(pref_fs_option,pref_fs_menu,0);
     }
@@ -2403,7 +2412,7 @@ pref_mix2(void)
     if (w) {
 	name = XtName(w);
 	if (!list_empty(&ng_mix_drivers) && 0 != strcmp(name,"none")) {
-	    mix = list_entry(&ng_mix_drivers.next,struct ng_mix_driver,list);
+	    mix = list_entry(ng_mix_drivers.next,struct ng_mix_driver,list);
 	    info = mix->channels(name);
 	}
     }
@@ -3279,14 +3288,14 @@ main(int argc, char *argv[])
     /* x11 stuff */
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
-    x11_misc_init();
+    x11_misc_init(dpy);
     XmAddWMProtocolCallback(app_shell,WM_DELETE_WINDOW,ExitCB,NULL);
     if (debug)
 	fprintf(stderr,"main: dga extention...\n");
-    xfree_dga_init();
+    xfree_dga_init(dpy);
     if (debug)
 	fprintf(stderr,"main: xinerama extention...\n");
-    xfree_xinerama_init();
+    xfree_xinerama_init(dpy);
 #ifdef HAVE_LIBXV
     if (debug)
 	fprintf(stderr,"main: xvideo extention [video]...\n");
@@ -3374,31 +3383,9 @@ main(int argc, char *argv[])
     create_scale();
     create_attr_widgets();
     INIT_LIST_HEAD(&ipc_selections);
-    
-    if (fs_width && fs_height && !args.vidmode) {
-	if (debug)
-	    fprintf(stderr,"fullscreen mode configured (%dx%d), "
-		    "VidMode extention enabled\n",fs_width,fs_height);
-	args.vidmode = 1;
-    }
-    if (debug)
-	fprintf(stderr,"main: checking for vidmode extention ...\n");
-    xfree_vm_init();
-    
-    /* lirc / midi / joystick remote control */
-    if (debug)
-	fprintf(stderr,"main: checking for lirc ...\n");
-    xt_lirc_init();
-    if (debug)
-	fprintf(stderr,"main: checking for joystick ...\n");
-    xt_joystick_init();
-    if (debug)
-	fprintf(stderr,"main: checking for midi ...\n");
-    xt_midi_init(midi);
-    if (debug)
-	fprintf(stderr,"main: adding kbd hooks ...\n");
-    xt_kbd_init(tv);
 
+    xt_vm_randr_input_init(dpy);
+    
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
     XtRealizeWidget(app_shell);
@@ -3435,10 +3422,8 @@ main(int argc, char *argv[])
     channel_menu();
 
     xt_handle_pending(dpy);
-    do_va_cmd(2,"setfreqtab",(-1 != chantab)
-	      ? chanlist_names[chantab].str : "europe-west");
-    cur_capture = 0;
-    do_va_cmd(2,"capture","overlay");
+    init_overlay();
+
     set_property(0,NULL,NULL);
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
@@ -3473,9 +3458,6 @@ main(int argc, char *argv[])
 	XtAppAddWorkProc(app_context,MyResize,NULL);
     }
 
-    if (debug)
-	fprintf(stderr,"main: enter main event loop... \n");
-    signal(SIGHUP,SIG_IGN); /* don't really need a tty ... */
-    XtAppMainLoop(app_context);
+    xt_main_loop();
     return 0;
 }

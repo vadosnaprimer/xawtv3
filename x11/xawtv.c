@@ -43,21 +43,6 @@
 #include <X11/Xaw/Dialog.h>
 #include <X11/Xaw/AsciiText.h>
 #include <X11/extensions/XShm.h>
-#ifdef HAVE_LIBXXF86DGA
-# include <X11/extensions/xf86dga.h>
-# include <X11/extensions/xf86dgastr.h>
-#endif
-#ifdef HAVE_LIBXXF86VM
-# include <X11/extensions/xf86vmode.h>
-# include <X11/extensions/xf86vmstr.h>
-#endif
-#ifdef HAVE_LIBXINERAMA
-# include <X11/extensions/Xinerama.h>
-#endif
-#ifdef HAVE_LIBXV
-# include <X11/extensions/Xv.h>
-# include <X11/extensions/Xvlib.h>
-#endif
 
 #include "grab-ng.h"
 #include "writefile.h"
@@ -1272,7 +1257,7 @@ static void
 exec_record(Widget widget, XtPointer client_data, XtPointer calldata)
 {
     if (!(f_drv & CAN_CAPTURE)) {
-	fprintf(stderr,"grabbing: not supported\n");
+	fprintf(stderr,"grabbing: not supported [try -noxv switch?]\n");
 	return;
     }
 
@@ -1634,13 +1619,13 @@ main(int argc, char *argv[])
     /* x11 stuff */
     XtAppAddActions(app_context,actionTable,
 		    sizeof(actionTable)/sizeof(XtActionsRec));
-    x11_misc_init();
+    x11_misc_init(dpy);
     if (debug)
 	fprintf(stderr,"main: dga extention...\n");
-    xfree_dga_init();
+    xfree_dga_init(dpy);
     if (debug)
 	fprintf(stderr,"main: xinerama extention...\n");
-    xfree_xinerama_init();
+    xfree_xinerama_init(dpy);
 #ifdef HAVE_LIBXV
     if (debug)
 	fprintf(stderr,"main: xvideo extention [video]...\n");
@@ -1724,30 +1709,8 @@ main(int argc, char *argv[])
     init_movie_menus();
     create_attr_widgets();
     
-    if (fs_width && fs_height && !args.vidmode) {
-	if (debug)
-	    fprintf(stderr,"fullscreen mode configured (%dx%d), "
-		    "VidMode extention enabled\n",fs_width,fs_height);
-	args.vidmode = 1;
-    }
-    if (debug)
-	fprintf(stderr,"main: checking for vidmode extention ...\n");
-    xfree_vm_init();
-
-    /* lirc / midi / joystick remote control */
-    if (debug)
-	fprintf(stderr,"main: checking for lirc ...\n");
-    xt_lirc_init();
-    if (debug)
-	fprintf(stderr,"main: checking for joystick ...\n");
-    xt_joystick_init();
-    if (debug)
-	fprintf(stderr,"main: checking for midi ...\n");
-    xt_midi_init(midi);
-    if (debug)
-	fprintf(stderr,"main: adding kbd hooks ...\n");
-    xt_kbd_init(tv);
-
+    xt_vm_randr_input_init(dpy);
+    
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
     XtRealizeWidget(app_shell);
@@ -1787,10 +1750,8 @@ main(int argc, char *argv[])
     channel_menu();
 
     xt_handle_pending(dpy);
-    do_va_cmd(2,"setfreqtab",(-1 != chantab)
-	      ? chanlist_names[chantab].str : "europe-west");
-    cur_capture = 0;
-    do_va_cmd(2,"capture","overlay");
+    init_overlay();
+
     set_property(0,NULL,NULL);
     if (optind+1 == argc) {
 	do_va_cmd(2,"setstation",argv[optind]);
@@ -1833,11 +1794,6 @@ main(int argc, char *argv[])
     if (!have_config)
 	XtCallActionProc(tv,"Help",NULL,NULL,0);
 
-    if (debug)
-	fprintf(stderr,"main: enter main event loop... \n");
-    signal(SIGHUP,SIG_IGN); /* don't really need a tty ... */
-    XtAppMainLoop(app_context);
-
-    /* keep compiler happy */
+    xt_main_loop();
     return 0;
 }

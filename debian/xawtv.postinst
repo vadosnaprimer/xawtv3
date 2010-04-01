@@ -12,7 +12,7 @@ freqtab=""
 doscan=""
 
 # create v4l devices ?
-test -c /dev/.devfsd -o -c /dev/video0 && mkdev="false"
+test -c /dev/.devfsd -o -c /dev/video0 -o -c /dev/v4l/video0 && mkdev="false"
 if test "$mkdev" = "true"; then
 	db_get xawtv/makedev
 	mkdev="$RET"
@@ -55,9 +55,5 @@ if test "$mkcfg" = "true"; then
 	$cmd
 fi
 
-# install new X11 fonts
-(cd /usr/X11R6/lib/X11/fonts/misc; /usr/X11R6/bin/mkfontdir)
-
 #########################################################
 #DEBHELPER#
-

@@ -62,6 +62,7 @@ void freq_init(void)
 	fprintf(stderr,"%s:%d: syntax error\n",
 		DATADIR "/Index.map",nr);
     }
+    fclose(fp);
 
     chanlist_names = malloc((i+1) * sizeof(struct STRTAB));
     for (j = 0; j < i; j++) {
@@ -125,6 +126,7 @@ static int freq_readlist(struct CHANLIST **list, int n, char *name)
 	/* Huh ? */
 	fprintf(stderr,"%s:%d: syntax error\n", filename, nr);
     }
+    fclose(fp);
     return n;
 }
 

@@ -133,6 +133,9 @@ cfg_parse_file(char *filename)
 	    if (NULL == e) {
 		fprintf(stderr,"%s:%d: error: no section\n",filename,nr);
 	    } else {
+		char *c = value + strlen(value)-1;
+		while (c > value  &&  (*c == ' ' || *c == '\t'))
+		    *(c--) = 0;
 		cfg_set_entry(e,tag,value);
 	    }
 	} else {
@@ -140,6 +143,7 @@ cfg_parse_file(char *filename)
 	    fprintf(stderr,"%s:%d: syntax error\n",filename,nr);
 	}
     }
+    fclose(fp);
     return 0;
 }
 

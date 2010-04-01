@@ -198,6 +198,26 @@ void add_attrs(struct ng_attribute *new)
 #endif
 }
 
+void init_overlay(void)
+{
+    do_va_cmd(2,"setfreqtab",(-1 != chantab)
+	      ? chanlist_names[chantab].str : "europe-west");
+
+    cur_capture = -1;
+    switch (defaults.capture) {
+    case CAPTURE_ON:
+    case CAPTURE_OVERLAY:
+	do_va_cmd(2,"capture","overlay");
+	break;
+    case CAPTURE_GRABDISPLAY:
+	do_va_cmd(2,"capture","grabdisplay");
+	break;
+    default:
+	do_va_cmd(2,"capture","off");
+	break;
+    }
+}
+
 /* ----------------------------------------------------------------------- */
 
 int
@@ -282,7 +302,7 @@ split_cmdline(char *line, int *count)
 static void
 set_capture(int capture, int tmp_switch)
 {
-    static int last_on = 0;
+    static int last_on = CAPTURE_OVERLAY;
 
     if (set_capture_hook) {
 	if (capture == CAPTURE_ON)
@@ -439,7 +459,7 @@ static int update_int(struct ng_attribute *attr, int old, char *new)
 /* ----------------------------------------------------------------------- */
 
 void
-attr_init()
+attr_init(void)
 {
     struct ng_attribute *attr;
     int val;
@@ -468,7 +488,7 @@ attr_init()
 }
 
 void
-audio_init()
+audio_init(void)
 {
     struct ng_attribute *attr;
 
@@ -481,7 +501,7 @@ audio_init()
 }
 
 void
-audio_on()
+audio_on(void)
 {
     struct ng_attribute *attr,*list;
 
@@ -492,7 +512,7 @@ audio_on()
 }
 
 void
-audio_off()
+audio_off(void)
 {
     struct ng_attribute *attr,*list;
 
@@ -503,7 +523,7 @@ audio_off()
 }
 
 void
-set_defaults()
+set_defaults(void)
 {
     struct ng_attribute *attr;
 

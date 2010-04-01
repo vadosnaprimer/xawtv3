@@ -1,4 +1,13 @@
 
+3.86 => 3.87
+============
+
+ * fixed "default = grabdisplay" not working.
+ * added Xrandr support.
+ * lots of mtt (motif teletext viewer) tweaks.
+ * 64bit fixes for record + showriff
+
+
 3.85 => 3.86
 ============
 

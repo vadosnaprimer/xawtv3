@@ -208,8 +208,10 @@ video_gd_start(void)
 	fprintf(stderr,"gd: start [%d]\n",h->best.fmtid);
     if (0 == h->best.fmtid)
 	return;
-    ng_grabber_setformat(&h->best,0);
+    if (0 != ng_grabber_setformat(&h->best,0))
+	return;
     drv->startvideo(h_drv,-1,2);
+//    drv->startvideo(h_drv,-1,4);
     h->work_id = XtAppAddWorkProc(app_context, video_gd_idle, h);
 }
 
@@ -333,7 +335,7 @@ static XtWorkProcId          conf_id;
 
 /* ------------------------------------------------------------------------ */
 
-static char *events[] = {
+char *event_names[] = {
     "0", "1",
     "KeyPress",
     "KeyRelease",
@@ -369,6 +371,7 @@ static char *events[] = {
     "ClientMessage",
     "MappingNotify"
 };
+const int nevent_names = sizeof(event_names)/sizeof(event_names[0]);
 
 /* ------------------------------------------------------------------------ */
 
@@ -602,7 +605,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	default:
 	    if (debug > 1)
 		fprintf(stderr,"video: shell: %s\n",
-			events[event->type]);
+			event_names[event->type]);
 	}
 	return;
 
@@ -653,7 +656,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	    if (event->xvisibility.window != XtWindow(video)) {
 		if (debug > 1)
 		    fprintf(stderr,"video: root: %s%s\n",
-			    events[event->type],did_refresh?" (ignored)":"");
+			    event_names[event->type],did_refresh?" (ignored)":"");
 		if (!did_refresh)
 		    configure_overlay();
 	    }
@@ -661,7 +664,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 	default:
 	    if (debug > 1)
 		fprintf(stderr,"video: tv(+root): %s\n",
-			events[event->type]);
+			event_names[event->type]);
 	    break;
 	}	
     }

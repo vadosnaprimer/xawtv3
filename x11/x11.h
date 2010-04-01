@@ -1,4 +1,6 @@
 extern unsigned int  swidth,sheight;
+extern char *event_names[];
+extern const int nevent_names;
 
 void x11_label_pixmap(Display *dpy, Colormap colormap, Pixmap pixmap,
 		      int height, char *label);

@@ -29,15 +29,15 @@ VERSION		:= @VERSION@
 # for CFLAGS
 WARN_FLAGS	:= -Wall -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith
 LFS_FLAGS	:= -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
-X11_FLAGS	:= @X_CFLAGS@ -I/usr/X11R6/include/X11/fonts
+X11_FLAGS	:= @X_CFLAGS@ @XFT_FLAGS@ -I/usr/X11R6/include/X11/fonts
 LIB_FLAGS	:= -I. -I./vbistuff -I./x11 \
 		   -I$(srcdir)/jwz -I$(srcdir)/common -I$(srcdir)/console \
 		   -I$(srcdir)/x11 -I$(srcdir)/structs \
 		   -I$(srcdir)/libng -Llibng
 
 # various libraries
-ATHENA_LIBS	:= @X_LIBS@ @LIBS@ @ATHENA@
-MOTIF_LIBS	:= @X_LIBS@ @LIBS@ -lXm -lXmu -lXt @X_PRE_LIBS@ \
+ATHENA_LIBS	:= @X_LIBS@ @XFT_LIBS@ @LIBS@ @ATHENA@
+MOTIF_LIBS	:= @X_LIBS@ @XFT_LIBS@ @LIBS@ -lXm -lXmu -lXt @X_PRE_LIBS@ \
 		   -lXp -lXpm -lXext -lX11 @X_EXTRA_LIBS@
 THREAD_LIBS	:= @LIBPTHREAD@
 CURSES_LIBS	:= @LIBCURSES@
@@ -157,15 +157,28 @@ include $(srcdir)/x11/Subdir.mk
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-checkit: distclean
-	dpkg-buildpackage -tc -us -uc -rfakeroot
-	lintian ../xawtv_*.changes
+PRESULT := /work/pbuilder/result
 
-release: distclean
-	dpkg-buildpackage -tc -rfakeroot
+PACKAGE := xawtv
+DEBARCH := $(shell uname -m | sed	\
+		-e 's/i.86/i386/'	\
+		-e 's/ppc/powerpc/')
+DEBVER   = $(shell dpkg-parsechangelog | sed -n 's/^Version: \(.*:\|\)//p')
+DSC     := $(PACKAGE)_$(VERSION).dsc
+CHANGES := $(PACKAGE)_$(VERSION)_$(DEBARCH).changes
 
-port:
-	dpkg-buildpackage -b -tc -rfakeroot
+
+dsc source ../$(DSC): clean
+	test "$(VERSION)" = "$(DEBVER)"
+	dpkg-buildpackage -S -us -uc -rfakeroot
+
+debs pbuild $(PRESULT)/$(CHANGES): ../$(DSC)
+	sudo /usr/sbin/pbuilder build ../$(DSC)
+	lintian -i $(PRESULT)/$(CHANGES)
+
+release: $(PRESULT)/$(CHANGES)
+	debsign $(PRESULT)/$(CHANGES)
+
 
 tarball: distclean
 	(cd ..; tar cvzf xawtv_$(VERSION).tar.gz \
@@ -177,4 +190,5 @@ rpm: tarball
 snapshot snap: distclean
 	(cd ..; tar cvzf $(HOME)/snapshot/xawtv-`date +%Y%m%d`.tar.gz \
 		xawtv-$(VERSION))
+	$(MAKE) -C $(HOME)/snapshot
 

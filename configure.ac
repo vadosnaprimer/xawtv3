@@ -30,6 +30,8 @@ AC_ARG_ENABLE(dv,
   [  --enable-dv             enable dvlib support])
 AC_ARG_ENABLE(mmx,
   [  --enable-mmx            enable mmx support])
+AC_ARG_ENABLE(xft,
+  [  --enable-xft            enable xft support])
 
 
 dnl ---------------------------------------------------------------------
@@ -131,6 +133,19 @@ if test "$no_x" != "yes"; then
   FOUND_X11="yes"
   ATHENA="-lXaw -lXmu -lXt $X_PRE_LIBS -lXpm -lXext -lX11 $X_EXTRA_LIBS"
   FSLIB="-lFS"
+  XFT_FLAGS=""
+  XFT_LIBS=""
+  if test "$enable_xft" != "no"; then
+    AC_MSG_CHECKING(for Xft)
+    if test -x "`which pkg-config 2>/dev/null`" && pkg-config xft; then
+      XFT_FLAGS="`pkg-config --cflags xft`"
+      XFT_LIBS="`pkg-config --libs xft`"
+      AC_DEFINE(HAVE_XFT,1,"have xft")
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+    fi
+  fi
 else
   ATHENA=""
   FSLIB=""
@@ -146,6 +161,8 @@ AC_SUBST(FSLIB)
 AC_SUBST(SUBS)
 AC_SUBST(TOOLS)
 AC_SUBST(LDLIBS)
+AC_SUBST(XFT_FLAGS)
+AC_SUBST(XFT_LIBS)
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then
@@ -230,6 +247,10 @@ if test "$enable_xfree_ext" != "no"; then
 	    $X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
     fi
     AC_CHECK_LIB(Xinerama, XineramaQueryExtension,,,
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+    AC_CHECK_LIB(Xrender, XRenderQueryExtension,,,
+	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
+    AC_CHECK_LIB(Xrandr, XRRConfigCurrentConfiguration,,,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
 else
     echo "*** XFree extentions disabled"
