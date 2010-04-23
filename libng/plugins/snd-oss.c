@@ -441,7 +441,7 @@ oss_bufread(int fd,char *buffer,int blocksize)
     for (;;) {
 	rc = read(fd,buffer+count,blocksize-count);
 	if (rc < 0) {
-	    if (EINTR == errno)
+	    if ((EINTR == errno) || (EAGAIN == errno))
 		continue;
 	    perror("oss: read");
 	    exit(1);
