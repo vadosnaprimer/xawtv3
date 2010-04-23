@@ -21,8 +21,6 @@
 #include <linux/vt.h>
 #include <linux/fb.h>
 
-#include <asm/page.h>
-
 #include "fbtools.h"
 
 /* -------------------------------------------------------------------- */
@@ -424,7 +422,7 @@ fb_init(char *device, char *mode, int vt)
 	goto err;
     }
 #endif
-    fb_mem_offset = (unsigned long)(fb_fix.smem_start) & (~PAGE_MASK);
+    fb_mem_offset = (unsigned long)(fb_fix.smem_start) & (getpagesize()-1);
     fb_mem = mmap(NULL,fb_fix.smem_len+fb_mem_offset,
 		  PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
     if (-1L == (long)fb_mem) {

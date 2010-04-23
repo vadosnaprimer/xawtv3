@@ -9,7 +9,6 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-#include <asm/page.h> /* PAGE_SIZE */
 #include <linux/fb.h>
 
 #include "byteswap.h"
@@ -226,7 +225,7 @@ gfx_init(int fd)
 	return -1;
     }
     off = (unsigned long)fb_fix.mmio_start -
-	((unsigned long)fb_fix.mmio_start & ~(PAGE_SIZE-1));
+	((unsigned long)fb_fix.mmio_start & ~(getpagesize()-1));
     bmmio += off;
     mmio = (uint32_t*)bmmio;
     return 0;
