@@ -6,17 +6,20 @@ prefix = /usr/local
 arch := $(shell echo "arch-`uname -m`-`uname -s`" | tr "A-Z" "a-z")
 
 # targets
-build all install: $(arch)/Makefile
+build all install: $(arch)/Makefile configure
 	$(MAKE) -C $(arch) $@
 
 clean distclean:
 	-test -d "$(arch)" && rm -rf "$(arch)"
 
-tarball rpm dsc debs pbuild release snapshot snap:
+configure:
+	autoconf
+
+tarball rpm dsc debs pbuild release snapshot snap: configure
 	./configure
 	$(MAKE) $@
 
-$(arch)/Makefile:
+$(arch)/Makefile: configure
 	mkdir -p $(arch)
 	(cd $(arch); ../configure	\
 		--prefix=$(prefix)	)
