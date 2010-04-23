@@ -572,7 +572,7 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
 	    continue;
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
-	if (NULL != (*handle = drv->open(device)))
+	if (NULL != (*handle = (drv->open)(device)))
 	    break;
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: failed: %s\n",drv->name);
@@ -603,7 +603,7 @@ ng_dsp_open(char *device, struct ng_audio_fmt *fmt, int record, void **handle)
 	    continue;
 	if (ng_debug)
 	    fprintf(stderr,"dsp-open: trying: %s... \n", drv->name);
-	if (NULL != (*handle = drv->open(device,fmt,record)))
+	if (NULL != (*handle = (drv->open)(device,fmt,record)))
 	    break;
 	if (ng_debug)
 	    fprintf(stderr,"dsp-open: failed: %s\n", drv->name);
@@ -628,7 +628,7 @@ ng_mix_init(char *device, char *channel)
         drv = list_entry(item, struct ng_mix_driver, list);
 	if (ng_debug)
 	    fprintf(stderr,"mix-init: trying: %s... \n", drv->name);
-	if (NULL != (handle = drv->open(device))) {
+	if (NULL != (handle = (drv->open)(device))) {
 	    if (NULL != (attrs = drv->volctl(handle,channel)))
 		break;
 	    drv->close(handle);

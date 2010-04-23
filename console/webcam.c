@@ -813,7 +813,7 @@ main(int argc, char *argv[])
     tmpdir = (NULL != getenv("TMPDIR")) ? getenv("TMPDIR") : "/tmp";
     list_for_each(item,&connections) {
 	s = list_entry(item, struct xfer_state, list);
-	s->ops->open(s);
+	(s->ops->open)(s);
     }
 
     /* print config */
