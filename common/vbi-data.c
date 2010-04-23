@@ -48,6 +48,18 @@ vbi_open(char *dev, int debug, int sim)
     if (NULL == vbi->dec)
 	goto oops;
 
+    /*
+     * Give the user possibility to change default zvbi region (16, West-Europe)
+     * Sometimes the region value just not reported in the stream etc...
+     */
+    if (1) {
+	char *env = getenv("ALEVTD_REGION");
+	unsigned int region;
+
+	if (env && (region = strtoul(env,NULL,0)) != 0)
+	    vbi_teletext_set_default_region(vbi->dec,region);
+    }
+
     if (vbi->sim) {
 	vbi->par = init_sim(625,services);
         /* simulation for select */
