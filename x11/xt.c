@@ -1247,18 +1247,21 @@ FilterAction(Widget widget, XEvent *event,
 }
 
 /*----------------------------------------------------------------------*/
+#ifdef HAVE_LIBXXF86DGA
+static int xfree_dga_error_base;
+#endif
 
 void
 xfree_dga_init(Display *dpy)
 {
 #ifdef HAVE_LIBXXF86DGA
-    int  flags,foo,bar,ma,mi;
+    int  flags,foo,ma,mi;
 
     if (!do_overlay)
 	return;
     
     if (args.dga) {
-	if (XF86DGAQueryExtension(dpy,&foo,&bar)) {
+	if (XF86DGAQueryExtension(dpy,&foo,&xfree_dga_error_base)) {
 	    XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
 	    if (flags & XF86DGADirectPresent) {
 		XF86DGAQueryVersion(dpy,&ma,&mi);
@@ -1348,6 +1351,19 @@ xfree_xinerama_init(Display *dpy)
 #endif
 }
 
+#ifdef HAVE_LIBXXF86DGA
+static int (*orig_xfree_error_handler)(Display *, XErrorEvent *);
+
+static int xfree_dga_error_handler(Display *d, XErrorEvent *e)
+{
+  if (e->error_code == (xfree_dga_error_base + XF86DGANoDirectVideoMode)) {
+    have_dga = 0;
+    return 0;
+  }
+  return orig_xfree_error_handler(d, e);
+}
+#endif
+
 void
 grabber_init()
 {
@@ -1358,8 +1374,11 @@ grabber_init()
 #ifdef HAVE_LIBXXF86DGA
     if (have_dga) {
 	int bar,fred;
+        orig_xfree_error_handler = XSetErrorHandler(xfree_dga_error_handler);
     	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,
 			  &screen.bytesperline,&bar,&fred);
+        XSync(dpy, 0);
+        XSetErrorHandler(orig_xfree_error_handler);
     }
 #endif
     if (!do_overlay) {

@@ -592,7 +592,7 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 	return -1;
     
     /* double-check settings */
-    if (NULL != base && h->ov_fb.base != base) {
+    if ((NULL != base && h->ov_fb.base != base) || h->ov_fb.base == NULL) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer base address mismatch\n");
 	fprintf(stderr,"v4l2: me=%p v4l=%p\n",base,h->ov_fb.base);
 	h->ov_error = 1;

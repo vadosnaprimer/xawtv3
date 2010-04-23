@@ -221,6 +221,21 @@ displayinfo_x11(Display *dpy, struct DISPLAYINFO *d)
     }
 }
 
+#ifdef HAVE_LIBXXF86DGA
+static int dga_error = 0;
+static int dga_error_base;
+static int (*orig_xfree_error_handler)(Display *, XErrorEvent *);
+
+static int dga_error_handler(Display *d, XErrorEvent *e)
+{
+  if (e->error_code == (dga_error_base + XF86DGANoDirectVideoMode)) {
+    dga_error = 1;
+    return 0;
+  }
+  return orig_xfree_error_handler(d, e);
+}
+#endif
+
 static void
 displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 {
@@ -228,7 +243,7 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
     int                      width,bar,foo,major,minor,flags=0;
     void                     *base = NULL;
 
-    if (!XF86DGAQueryExtension(dpy,&foo,&bar)) {
+    if (!XF86DGAQueryExtension(dpy,&foo,&dga_error_base)) {
 	fprintf(stderr,"WARNING: Your X-Server has no DGA support.\n");
 	return;
     }
@@ -240,7 +255,14 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 	fprintf(stderr,"WARNING: No DGA support available for this display.\n");
 	return;
     }
+    orig_xfree_error_handler = XSetErrorHandler(dga_error_handler);
     XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,&width,&foo,&bar);
+    XSync(dpy, 0);
+    XSetErrorHandler(orig_xfree_error_handler);
+    if (dga_error) {
+	fprintf(stderr,"WARNING: No DGA direct video mode for this display.\n");
+	return;
+    }
     d->bpl  = width * d->bpp/8;
     d->base = base;
 #else
