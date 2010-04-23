@@ -38,7 +38,7 @@ struct ng_device_config ng_dev = {
 			    * /dev/video as symbolic link to the
 			    * default video device ... </rant> */
     radio:  "/dev/radio",
-    vbi:    "/dev/vbi",
+    vbi:    "/dev/vbi0",
     dsp:    "/dev/dsp",
     mixer:  "/dev/mixer",
     video_scan:   {
