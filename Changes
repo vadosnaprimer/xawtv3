@@ -2,7 +2,7 @@
 3.96
 ====
  * misc minor fixes collected at Fedora 12.
- * Fix requement of /dev/vbi instead of /dev/vbi0 on scantv.
+ * Fix requirement of /dev/vbi instead of /dev/vbi0 on scantv.
  * Fix compilation with Xorg and remove the --x_libraries parameter from
    the configure script (as, on Xorg, X11 libraries are at /usr/lib).
  * Now, providing that all build dependencies are satisfied, just typing
