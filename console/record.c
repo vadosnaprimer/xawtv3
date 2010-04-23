@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <locale.h>
 #include <curses.h>
 #include <signal.h>
 #include <inttypes.h>
@@ -573,6 +574,8 @@ main(int argc, char *argv[])
     auto_adjust   = 1;
     record = 0;
     nr = 0;
+
+    setlocale(LC_ALL,"");
 
     /* parse options */
     for (;;) {

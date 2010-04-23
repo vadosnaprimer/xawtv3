@@ -23,6 +23,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
 #include <curses.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
@@ -397,6 +398,8 @@ main(int argc, char *argv[])
     int    stset = 0, c;
     int    quit=0, scan=0, arg_mute=0;
     struct video_tuner tuner;
+
+    setlocale(LC_ALL,"");
 
     /* parse args */
     for (;;) {

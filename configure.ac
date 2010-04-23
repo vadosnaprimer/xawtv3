@@ -110,7 +110,10 @@ if test "$LIBPTHREAD" = ""; then
   AC_CHECK_LIB(c_r,pthread_create,LIBPTHREAD="-lc_r")
 fi
 AC_CHECK_LIB(ossaudio,main,LIBOSS="-lossaudio")
-AC_CHECK_LIB(ncurses,initscr,LIBCURSES="-lncurses")
+AC_CHECK_LIB(ncursesw,initscr,LIBCURSES="-lncursesw")
+if test "$LIBCURSES" = ""; then
+  AC_CHECK_LIB(ncurses,initscr,LIBCURSES="-lncurses")
+fi
 if test "$LIBCURSES" = ""; then
   AC_CHECK_LIB(curses,initscr,LIBCURSES="-lcurses")
 fi
@@ -119,6 +122,9 @@ if test "$LIBCURSES" = ""; then
   echo "Note: to compile stuff just the library packages are not enougth,"
   echo "      you need also the *-devel packages."
   exit 1
+fi
+if test "$LIBCURSES" = "-lncursesw"; then
+  CFLAGS="$CFLAGS -I/usr/include/ncursesw"
 fi
 AC_SUBST(LIBPTHREAD)
 AC_SUBST(LIBOSS)
