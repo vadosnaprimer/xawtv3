@@ -136,14 +136,14 @@ fullscreen mode).
 .TP
 .B vtx line1 line2 [ ... ]
 Display subtitles.  It pops up a small window at the bottom of the screen.
-It is supported to be used as interface for displaying subtitles (often on
-videotext page 150 in europe, thats why the name) by external programs.
+It is intended to be used as an interface for displaying subtitles (often on
+videotext page 150 in Europe, that's why the name) by external programs.
 .br
 Every command line argument is one line, zero lines removes the window.
 You can colorize the text with the control sequence "ESC foreground
 background".  foreground/background has the range 0-7 (ansi term colors).
 Example: "\\03347 hello world " is blue on white.  "\\033" must be a real
-escape character, the string does'nt work.  With the bash you'll get it
+escape character, the string doesn't work.  With the bash you'll get it
 with ^V ESC.  vtx does also understand the ANSI tty escape sequences for
 color.
 .TP
