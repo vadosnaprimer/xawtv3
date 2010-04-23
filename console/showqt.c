@@ -25,14 +25,14 @@
                    (((uint32_t)x<<8)  & (uint32_t)0x00ff0000) |\
                    (((uint32_t)x<<24) & (uint32_t)0xff000000))
 
-# define SWAP8(x) ((((uint64_t)x>>56) & (uint64_t)0x00000000000000ff) |\
-                   (((uint64_t)x>>40) & (uint64_t)0x000000000000ff00) |\
-                   (((uint64_t)x>>24) & (uint64_t)0x0000000000ff0000) |\
-                   (((uint64_t)x>> 8) & (uint64_t)0x00000000ff000000) |\
-                   (((uint64_t)x<< 8) & (uint64_t)0x000000ff00000000) |\
-                   (((uint64_t)x<<24) & (uint64_t)0x0000ff0000000000) |\
-                   (((uint64_t)x<<40) & (uint64_t)0x00ff000000000000) |\
-                   (((uint64_t)x<<56) & (uint64_t)0xff00000000000000))
+# define SWAP8(x) ((((uint64_t)x>>56) & (uint64_t)0x00000000000000ffULL) |\
+                   (((uint64_t)x>>40) & (uint64_t)0x000000000000ff00ULL) |\
+                   (((uint64_t)x>>24) & (uint64_t)0x0000000000ff0000ULL) |\
+                   (((uint64_t)x>> 8) & (uint64_t)0x00000000ff000000ULL) |\
+                   (((uint64_t)x<< 8) & (uint64_t)0x000000ff00000000ULL) |\
+                   (((uint64_t)x<<24) & (uint64_t)0x0000ff0000000000ULL) |\
+                   (((uint64_t)x<<40) & (uint64_t)0x00ff000000000000ULL) |\
+                   (((uint64_t)x<<56) & (uint64_t)0xff00000000000000ULL))
 #else
 # define SWAP2(a) (a)
 # define SWAP4(a) (a)

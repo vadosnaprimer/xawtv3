@@ -527,12 +527,12 @@ movie_writer_stop(struct movie_handle *h)
 
     if (h->vfmt.fmtid != VIDEO_NONE && h->afmt.fmtid != AUDIO_NONE) {
 	for (frames = 0; frames < 16; frames++) {
-	    stopby = (uint64_t)(h->frames + frames) * (uint64_t)1000000000000 / h->fps;
+	    stopby = (uint64_t)(h->frames + frames) * (uint64_t)1000000000000ULL / h->fps;
 	    if (stopby > h->ats)
 		break;
 	}
 	frames++;
-	h->stopby = (uint64_t)(h->frames + frames) * (uint64_t)1000000000000 / h->fps;
+	h->stopby = (uint64_t)(h->frames + frames) * (uint64_t)1000000000000ULL / h->fps;
 	while (frames) {
 	    movie_grab_put_video(h,NULL);
 	    frames--;
@@ -594,11 +594,11 @@ movie_print_timestamps(struct movie_handle *h)
 	    (h->rdrift > 0) ? '+' : '-',
 	    (int)((abs(h->rdrift) / 1000000000)),
 	    (int)((abs(h->rdrift) % 1000000000) / 10000000),
-	    (int)(h->rdrift * h->fps / (uint64_t)1000000000000),
+	    (int)(h->rdrift * h->fps / (uint64_t)1000000000000ULL),
 	    (h->vdrift > 0) ? '+' : '-',
 	    (int)((abs(h->vdrift) / 1000000000)),
 	    (int)((abs(h->vdrift) % 1000000000) / 10000000),
-	    (int)(h->vdrift * h->fps / (uint64_t)1000000000000));
+	    (int)(h->vdrift * h->fps / (uint64_t)1000000000000ULL));
     rec_status(line);
 }
 
@@ -623,7 +623,7 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
 #endif
 
     /* rate control */
-    expected = (buf->info.ts - h->vdrift) * h->fps / (uint64_t)1000000000000;
+    expected = (buf->info.ts - h->vdrift) * h->fps / (uint64_t)1000000000000ULL;
     if (expected < h->frames-1) {
 	if (debug > 1)
 	    fprintf(stderr,"rate: ignoring frame [%d %d]\n",

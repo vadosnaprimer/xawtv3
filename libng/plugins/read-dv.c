@@ -125,7 +125,7 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
 		"dv: height=%d width=%d frame_size=%ld\n",
 		h->dec->quality, h->dec->system, h->dec->std,
 		h->dec->sampling, h->dec->num_dif_seqs, h->dec->height,
-		h->dec->width, h->dec->frame_size);
+		h->dec->width, (long) h->dec->frame_size);
 	fprintf(stderr, "dv: audio: %d Hz, %d bits, %d channels,"
 		" emphasis %s\n",
 		h->dec->audio->frequency,
