@@ -116,6 +116,7 @@ usage(FILE *out, char *prog, char *outfile)
 	    "options:\n"
 	    "   -h           print this text\n"
 	    "   -o outfile   set output file.        [%s]\n"
+	    "   -i input     set input.\n"
 	    "   -n norm      set tv norm.\n"
 	    "   -f table     set frequency table.\n"
 	    "   -c device    set video device file.  [%s]\n"
@@ -137,6 +138,7 @@ main(int argc, char **argv)
     unsigned int f,f1,f2,fc;
     char *name,dummy[32];
     char *tvnorm  = NULL;
+    char *tvinput  = NULL;
     char *freqtab = NULL;
     char *outfile = NULL;
     FILE *conf = stdout;
@@ -144,7 +146,7 @@ main(int argc, char **argv)
     /* parse options */
     ng_init();
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hsadn:f:o:c:C:")))
+	if (-1 == (c = getopt(argc, argv, "hsadi:n:f:o:c:C:")))
 	    break;
 	switch (c) {
 	case 'd':
@@ -155,6 +157,9 @@ main(int argc, char **argv)
 	    break;
 	case 'a':
 	    fullscan=1;
+	    break;
+	case 'i':
+	    tvinput = optarg;
 	    break;
 	case 'n':
 	    tvnorm = optarg;
@@ -203,12 +208,15 @@ main(int argc, char **argv)
     attr = ng_attr_byid(attrs,ATTR_ID_NORM);
     i = menu("please select your TV norm",attr->choices,tvnorm);
     j = menu("please select a frequency table",chanlist_names,freqtab);
+    if (tvinput == NULL) {
+       tvinput = "Television";
+    }
 
     fprintf(conf,"[global]\n");
     fprintf(conf,"freqtab = %s\n",chanlist_names[j].str);
     fprintf(conf,"\n");
     fprintf(conf,"[defaults]\n");
-    fprintf(conf,"input = Television\n");
+    fprintf(conf,"input = %s\n", tvinput);
     fprintf(conf,"norm = %s\n",ng_attr_getstr(attr,i));
     fprintf(conf,"\n");
     fflush(conf);
@@ -220,7 +228,7 @@ main(int argc, char **argv)
 	exit(0);
     }
     set_defaults();
-    do_va_cmd(2,"setinput","television");
+    do_va_cmd(2,"setinput",tvinput);
     do_va_cmd(2,"setnorm",ng_attr_getstr(attr,i));
     do_va_cmd(2,"setfreqtab",chanlist_names[j].str);
 
