@@ -161,7 +161,6 @@ AC_SUBST(X_PRE_LIBS)
 AC_SUBST(X_EXTRA_LIBS)
 AC_SUBST(X_LIBS)
 AC_SUBST(x_includes)
-AC_SUBST(x_libraries)
 AC_SUBST(ATHENA)
 AC_SUBST(FSLIB)
 AC_SUBST(SUBS)
@@ -293,7 +292,7 @@ AC_SUBST(VERSION)
 
 dnl ---------------------------------------------------------------------
 AC_MSG_CHECKING(for X11 config directory)
-x11conf=/usr/X11R6/lib/X11
+x11conf=/usr/lib/X11
 if test -d /etc/X11; then
 	x11conf=/etc/X11
 fi
@@ -301,7 +300,7 @@ AC_MSG_RESULT($x11conf)
 AC_SUBST(x11conf)
 
 AC_MSG_CHECKING(for X11 app-defaults directory)
-resdir=/usr/X11R6/lib/X11
+resdir=/usr/lib/X11
 if test -d /etc/X11/app-defaults; then
 	resdir=/etc/X11
 fi
