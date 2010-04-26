@@ -43,7 +43,9 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 	int16_t  s16;
 	uint8_t  u8;
 	int8_t   s8;
-	int al = sizeof(long)-1; /* struct + union + 64bit alignment */
+	struct al64_t { char c; uint64_t t; } al64_t;
+	int al = sizeof(long)-1; /* struct + union */
+	int al64 = (unsigned long)&al64_t.t - (unsigned long)&al64_t.c - 1; /* 64 bit alignement */
 	void *p;
 	unsigned int i,j,first;
 
@@ -149,7 +151,7 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 			ptr += 4;
 			break;
 		case BITS64:
-			ptr = (void*)(((intptr_t)ptr + al) & ~al);
+			ptr = (void*)(((intptr_t)ptr + al64) & ~al64);
 			u64 = *((uint64_t*)ptr);
 			first = 1;
 			fprintf(fp,"0x%" PRIx64 " [",u64);
@@ -166,13 +168,13 @@ int print_struct(FILE *fp, struct struct_desc *desc, void *data,
 			break;
 
 		case UINT64:
-			ptr = (void*)(((intptr_t)ptr + al) & ~al);
+			ptr = (void*)(((intptr_t)ptr + al64) & ~al64);
 			u64 = *((uint64_t*)ptr);
 			fprintf(fp,"%" PRIu64,u64);
 			ptr += 8;
 			break;
 		case SINT64:
-			ptr = (void*)(((intptr_t)ptr + al) & ~al);
+			ptr = (void*)(((intptr_t)ptr + al64) & ~al64);
 			s64 = *((int64_t*)ptr);
 			fprintf(fp,"%" PRId64,s64);
 			ptr += 8;
