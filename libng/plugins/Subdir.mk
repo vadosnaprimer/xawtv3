@@ -22,7 +22,6 @@ ifeq ($(FOUND_OS),linux)
 TARGETS-plugins += \
 	libng/plugins/drv0-v4l2.so \
 	libng/plugins/drv0-v4l2-old.so \
-	libng/plugins/drv1-v4l.so \
 	libng/plugins/snd-oss.so
 endif
 ifeq ($(FOUND_OS),bsd)
@@ -71,11 +70,6 @@ libng/plugins/write-qt.so:   libng/plugins/write-qt.o
 libng/plugins/drv0-v4l2.so: \
 	libng/plugins/drv0-v4l2.o \
 	libng/plugins/struct-v4l2.o \
-	libng/plugins/struct-dump.o
-
-libng/plugins/drv1-v4l.so: \
-	libng/plugins/drv1-v4l.o \
-	libng/plugins/struct-v4l.o \
 	libng/plugins/struct-dump.o
 
 libng/plugins/struct-dump.o: structs/struct-dump.c
