@@ -911,10 +911,19 @@ static void vbi_station_cb(Widget widget, XtPointer client, XtPointer call)
 #endif
 
 #ifdef linux
-#include "videodev.h"
-    if (-1 == ioctl(vbi->fd,VIDIOCSFREQ,&channels[i]->freq))
-	perror("ioctl VIDIOCSFREQ");
+#include <linux/types.h>
+#include "videodev2.h"
+    {
+	struct v4l2_frequency frequency;
+
+	memset (&frequency, 0, sizeof(frequency));
+	frequency.type = V4L2_TUNER_RADIO;
+	frequency.frequency = channels[i]->freq;
+	if (-1 == ioctl(vbi->fd, VIDIOC_S_FREQUENCY, &frequency))
+	    perror("ioctl VIDIOCSFREQ");
+    }
 #endif
+
     /* FIXME: should add some BSD code once libzvbi is ported ... */
 }
 
