@@ -22,8 +22,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#ifdef __linux__
-# include "videodev.h"
+#if 0 /* def __linux__ */
+#include <linux/types.h>
+# include "videodev2.h"
 #endif
 
 #include "httpd.h"
