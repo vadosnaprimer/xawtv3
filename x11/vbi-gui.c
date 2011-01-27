@@ -44,6 +44,7 @@
 #include "vbi-x11.h"
 #include "vbi-gui.h"
 
+#include "grab-ng.h"
 #include "channel.h"
 
 static int tt_debug = 1;
