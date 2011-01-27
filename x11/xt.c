@@ -25,7 +25,8 @@
 
 #if defined(__linux__)
 # include <sys/ioctl.h>
-# include "videodev.h"
+#include <linux/types.h>
+# include "videodev2.h"
 #endif
 
 #include "config.h"
@@ -1911,12 +1912,14 @@ int
 x11_vbi_tuned(void)
 {
 #if defined(__linux__)
-    struct video_tuner tuner;
+    struct v4l2_tuner tuner;
 
     if (NULL == x11_vbi)
 	return drv->is_tuned(h_drv);
-    memset(&tuner,0,sizeof(tuner));
-    if (-1 != ioctl(x11_vbi->fd,VIDIOCGTUNER,&tuner))
+
+    memset (&tuner, 0, sizeof(tuner));
+
+    if (-1 != ioctl(x11_vbi->fd, VIDIOC_G_TUNER, &tuner))
 	return tuner.signal ? 1 : 0;
 #endif
     return drv->is_tuned(h_drv);
