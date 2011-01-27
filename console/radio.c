@@ -28,7 +28,9 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 
-#include "videodev.h"
+#include <linux/types.h>
+
+#include "videodev2.h"
 
 #define FREQ_MIN    87500000
 #define FREQ_MAX   108000000
@@ -49,76 +51,84 @@ static int
 radio_setfreq(int fd, float freq)
 {
     int ifreq = (freq + .5/freqfact) * freqfact;
-    return ioctl(fd, VIDIOCSFREQ, &ifreq);
+    struct v4l2_frequency frequency;
+
+    memset (&frequency, 0, sizeof(frequency));
+    frequency.type = V4L2_TUNER_RADIO;
+    frequency.frequency = ifreq;
+    return ioctl(fd, VIDIOC_S_FREQUENCY, &frequency);
 }
 
 static int radio_getfreq(int fd, float *freq)
 {
     int ioctl_status;
     int ifreq;
-    ioctl_status = ioctl(fd,VIDIOCGFREQ, &ifreq);
+    struct v4l2_frequency frequency;
+
+    memset (&frequency, 0, sizeof(frequency));
+
+    ioctl_status = ioctl(fd, VIDIOC_G_FREQUENCY, &frequency);
     if (ioctl_status == -1)
         return ioctl_status;
+
+    ifreq = frequency.frequency;
     *freq = (float) ifreq / freqfact;
     return 0;
 }
 
 static void
-radio_unmute(int fd)
+radio_mute(int fd, int mute)
 {
-    struct video_audio vid_aud;
+    struct v4l2_control ctrl;
 
-    if (ioctl(fd, VIDIOCGAUDIO, &vid_aud))
-	perror("VIDIOCGAUDIO");
-    if (vid_aud.volume == 0)
-	vid_aud.volume = 65535;
-    vid_aud.flags &= ~VIDEO_AUDIO_MUTE;
-    if (ioctl(fd, VIDIOCSAUDIO, &vid_aud))
-	perror("VIDIOCSAUDIO");
-}
+    memset (&ctrl, 0, sizeof(ctrl));
+    ctrl.id = V4L2_CID_AUDIO_MUTE;
+    ctrl.value = mute;
 
-static void
-radio_mute(int fd)
-{
-    struct video_audio vid_aud;
-
-    if (ioctl(fd, VIDIOCGAUDIO, &vid_aud))
-	perror("VIDIOCGAUDIO");
-    vid_aud.flags |= VIDEO_AUDIO_MUTE;
-    if (ioctl(fd, VIDIOCSAUDIO, &vid_aud))
-	perror("VIDIOCSAUDIO");
+    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl));
+	perror("VIDIOC_S_CTRL");
 }
 
 static void
 radio_getstereo(int fd)
 {
-    struct video_audio va;
-    va.mode=-1;
+    struct v4l2_tuner tuner;
 
     if (!ncurses)
 	return;
+
+    memset (&tuner, 0, sizeof(tuner));
     
-    if (ioctl (fd, VIDIOCGAUDIO, &va) < 0)
+    if (ioctl (fd, VIDIOC_G_TUNER, tuner)) {
 	mvwprintw(wfreq,2,1,"     ");
-    mvwprintw(wfreq,2,1,"%s", va.mode == VIDEO_SOUND_STEREO ?
+	perror("VIDIOC_G_TUNER");
+	return;
+    }
+
+    mvwprintw(wfreq,2,1,"%s", (tuner.rxsubchans & V4L2_TUNER_SUB_STEREO)?
 	      "STEREO":" MONO ");
 }
 
 static int
 radio_getsignal(int fd)
 {
-    struct video_tuner vt;
-    int i,signal;
+    struct v4l2_tuner tuner;
+    int signal, i;
 
-    memset(&vt,0,sizeof(vt));
-    ioctl (fd, VIDIOCGTUNER, &vt);
-    signal=vt.signal>>13;
+    memset (&tuner, 0, sizeof(tuner));
+    
+    if (ioctl (fd, VIDIOC_G_TUNER, tuner)) {
+	perror("VIDIOC_G_TUNER");
+	return 0;
+    }
+
+    signal = (tuner.signal)>>13;
 
     if (!ncurses)
 	return signal;
 
-    for(i=0;i<8;i++)
-        mvwprintw(wfreq,3,i+1,"%s", signal>i ? "*":" ");
+    for(i = 0; i < 8; i++)
+        mvwprintw(wfreq, 3, i+1, "%s", signal>i ? "*" : " ");
     return signal;
 }
 
@@ -397,7 +407,7 @@ main(int argc, char *argv[])
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
     int    quit=0, scan=0, arg_mute=0;
-    struct video_tuner tuner;
+    struct v4l2_tuner tuner;
 
     setlocale(LC_ALL,"");
 
@@ -452,8 +462,8 @@ main(int argc, char *argv[])
     }
 
     memset(&tuner,0,sizeof(tuner));
-    if (0 == ioctl(fd, VIDIOCGTUNER, &tuner) &&
-	(tuner.flags & VIDEO_TUNER_LOW))
+    if (0 == ioctl(fd, VIDIOC_G_TUNER, &tuner) &&
+	(tuner.capability & V4L2_TUNER_CAP_LOW))
 	freqfact = 16000;
 
     /* non-interactive stuff */
@@ -468,11 +478,11 @@ main(int argc, char *argv[])
 	ffreq = (float)ifreq / 1000000;
 	fprintf(stderr,"tuned %.2f MHz\n",ffreq);
 	radio_setfreq(fd,ffreq);
-	radio_unmute(fd);
+	radio_mute(fd, 0);
     }
     if (arg_mute) {
 	fprintf(stderr,"muted radio\n");
-	radio_mute(fd);
+	radio_mute(fd, 1);
     }
     if (quit)
 	exit(0);
@@ -548,7 +558,7 @@ main(int argc, char *argv[])
 	ifreq = ffreq * 1000000;
     }
     
-    radio_unmute(fd);
+    radio_mute(fd, 0);
     for (done = 0; done == 0;) {
 	if (ifreq != lastfreq) {
 	    lastfreq = ifreq;
@@ -673,7 +683,7 @@ main(int argc, char *argv[])
 	}
     }
     if (mute)
-	radio_mute(fd);
+	radio_mute(fd, 1);
     close(fd);
 
     bkgd(0);
