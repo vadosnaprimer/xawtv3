@@ -1,3 +1,10 @@
+3.99.rc1
+========
+* Fixed radio backport to V4L2
+* es,fr manpages are now in UTF-8
+* Auto-detect Xorg default place for apps
+* Remove the old obsolete V4L2 driver
+
 3.98
 ====
 * Re-added v4l-info/v4l-conf, just removing V4L1 bits
