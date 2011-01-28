@@ -7,6 +7,7 @@ TARGETS-console := \
 	console/showqt \
 	console/streamer \
 	console/webcam
+TARGETS-v4l-conf :=
 
 ifeq ($(FOUND_ZVBI),yes)
 TARGETS-console += \
@@ -19,7 +20,10 @@ endif
 ifeq ($(FOUND_OS),linux)
 TARGETS-console += \
 	console/radio \
-	console/fbtv
+	console/fbtv \
+	console/v4l-info
+TARGETS-v4l-conf += \
+	console/v4l-conf
 endif
 
 # objects for targets
@@ -54,11 +58,17 @@ console/webcam: \
 	common/parseconfig.o \
 	libng/libng.a
 
+console/v4l-info: \
+	console/v4l-info.o \
+	structs/struct-dump.o \
+	structs/struct-v4l2.o
+
 console/dump-mixers: console/dump-mixers.o
 console/showriff: console/showriff.o
 console/showqt: console/showqt.o
 console/radio: console/radio.o
 console/record: console/record.o
+console/v4l-conf: console/v4l-conf.o
 
 # libraries to link
 console/fbtv     : LDLIBS  += \
@@ -70,6 +80,7 @@ console/streamer : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm
 console/webcam   : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm
 console/radio    : LDLIBS  += $(CURSES_LIBS)
 console/record   : LDLIBS  += $(CURSES_LIBS)
+console/v4l-conf : LDLIBS  += $(ATHENA_LIBS)
 
 # linker flags
 console/fbtv     : LDFLAGS := $(DLFLAGS)
@@ -79,13 +90,13 @@ console/streamer : LDFLAGS := $(DLFLAGS)
 console/webcam   : LDFLAGS := $(DLFLAGS)
 
 # global targets
-all:: $(TARGETS-console)
+all:: $(TARGETS-console) $(TARGETS-v4l-conf)
 
 install::
 	$(INSTALL_PROGRAM) $(TARGETS-console) $(bindir)
 ifeq ($(FOUND_OS),linux)
-	$(INSTALL_PROGRAM) $(SUID_ROOT) $(bindir)
+	$(INSTALL_PROGRAM) $(SUID_ROOT) $(TARGETS-v4l-conf) $(bindir)
 endif
 
-distclean::
-	rm -f $(TARGETS-console)
+clean distclean::
+	rm -f $(TARGETS-console) $(TARGETS-v4l-conf)

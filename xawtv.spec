@@ -5,7 +5,7 @@ Version:      3.97
 Release:      0
 License:      GPL
 Summary:      v4l applications
-Source:       http://bytesex.org/xawtv/%{name}_%{version}.tar.gz
+Source:       http://linuxtv.org/downloads/xawtv/%{name}-%{version}.tar.bz2
 Buildroot:    /var/tmp/root.%{name}-%{version}
 
 %description
