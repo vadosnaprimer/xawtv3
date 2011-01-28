@@ -21,7 +21,6 @@ endif
 ifeq ($(FOUND_OS),linux)
 TARGETS-plugins += \
 	libng/plugins/drv0-v4l2.so \
-	libng/plugins/drv0-v4l2-old.so \
 	libng/plugins/snd-oss.so
 endif
 ifeq ($(FOUND_OS),bsd)
@@ -54,7 +53,6 @@ clean::
 
 libng/plugins/conv-mjpeg.so: libng/plugins/conv-mjpeg.o
 libng/plugins/drv0-bsd.so:   libng/plugins/drv0-bsd.o
-libng/plugins/drv0-v4l2-old.so: libng/plugins/drv0-v4l2-old.o
 libng/plugins/flt-debug.so:  libng/plugins/flt-debug.o
 libng/plugins/flt-disor.so:  libng/plugins/flt-disor.o
 libng/plugins/flt-gamma.so:  libng/plugins/flt-gamma.o
