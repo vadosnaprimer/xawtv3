@@ -1,4 +1,3 @@
-XAWTV_VERSION = 3.97
 
 # passed to configure
 prefix = /usr/local
@@ -24,11 +23,3 @@ $(arch)/Makefile: configure
 	mkdir -p $(arch)
 	(cd $(arch); ../configure	\
 		--prefix=$(prefix)	)
-
-tag:
-	@git tag -a -m "Tag as xawtv-$(XAWTV_VERSION)" xawtv-$(XAWTV_VERSION)
-	@echo "Tagged as xawtv-$(XAWTV_VERSION)"
-
-archive:
-	@git archive --format=tar --prefix=xawtv-$(XAWTV_VERSION)/ xawtv-$(XAWTV_VERSION) > xawtv-$(XAWTV_VERSION).tar
-	@bzip2 -f xawtv-$(XAWTV_VERSION).tar

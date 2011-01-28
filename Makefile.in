@@ -157,7 +157,11 @@ include $(srcdir)/x11/Subdir.mk
 #########################################################
 # just for me, some maintaining jobs.  Don't use them
 
-tarball: distclean
-	(cd ..; tar cvzf xawtv-$(VERSION).tar.gz \
-		xawtv-$(VERSION))
+tag:
+	@git tag -a -m "Tag as xawtv-@VERSION@" xawtv-@VERSION@
+	@echo "Tagged as xawtv-@VERSION@"
+
+archive:
+	@git archive --format=tar --prefix=xawtv-@VERSION@/ xawtv-@VERSION@ > xawtv-@VERSION@.tar
+	@bzip2 -f xawtv-@VERSION@.tar
 

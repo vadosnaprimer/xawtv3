@@ -287,7 +287,7 @@ else
     echo "*** OpenGL disabled"
 fi
 
-VERSION="`(cd $srcdir; pwd) | sed -e 's/.*-//'`"
+VERSION="`head -1 Changes`"
 AC_SUBST(VERSION)
 
 dnl ---------------------------------------------------------------------
