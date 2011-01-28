@@ -1,3 +1,8 @@
+3.97
+====
+* Fixed a compilation error
+* Ported a few applications to V4L2
+* Removed V4L1 support
 
 3.96
 ====
