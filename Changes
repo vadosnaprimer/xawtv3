@@ -1,3 +1,8 @@
+3.98
+====
+* Re-added v4l-info/v4l-conf, just removing V4L1 bits
+* Some fixes, backported from Fedora tree
+
 3.97
 ====
 * Fixed a compilation error
