@@ -1,185 +1,185 @@
 .TH xawtv 1 "(c) 1997-2002 Gerd Knorr"
 .SH NOM
-xawtv - un programme X11 pour regarder la télévision
+xawtv - un programme X11 pour regarder la tÃ©lÃ©vision
 .SH SYNOPSIS
 .B xawtv [ options ] [ nom de la station ]
 .SH DESCRIPTION
 .B xawtv
-est une application X11 permettant de regarder la télévision avec votre
-machine unix. Elle utilise les contrôles Athena.
+est une application X11 permettant de regarder la tÃ©lÃ©vision avec votre
+machine unix. Elle utilise les contrÃ´les Athena.
 .SH OPTIONS
-Toutes les options de la ligne de commande correspondent à une ressource,
+Toutes les options de la ligne de commande correspondent Ã  une ressource,
 vous pouvez donc les mettre aussi dans votre fichier .Xdefaults.
 .TP
 \fB-h\fP, \fB-help\fP
 Affiche une courte description de toutes les options de la ligne de commande.
 .TP
 \fB-hwscan\fP
-Affiche une liste des périphériques disponibles.
+Affiche une liste des pÃ©riphÃ©riques disponibles.
 .TP
 \fB-f\fP, \fB-fullscreen\fP
-Démarre en mode plein écran.
+DÃ©marre en mode plein Ã©cran.
 .br
-Ressource: xawtv.fullscreen (booléen).
+Ressource: xawtv.fullscreen (boolÃ©en).
 .TP
 \fB-n\fP, \fB-noconf\fP
 ne lit pas le fichier de configuration ($HOME/.xawtv).
 .br
-Ressource: xawtv.readconfig (booléen).
+Ressource: xawtv.readconfig (boolÃ©en).
 .TP
 \fB-o\fP, \fB-outfile\fP base
-définit le nom de base pour les fichiers de capture d'écran.
-Le nom du fichier sera du type "base-date-numéro.ext".
+dÃ©finit le nom de base pour les fichiers de capture d'Ã©cran.
+Le nom du fichier sera du type "base-date-numÃ©ro.ext".
 .br
-Ressource: xawtv.basename (chaîne).
+Ressource: xawtv.basename (chaÃ®ne).
 .TP
-\fB-c\fP, \fB-périphérique\fP périphérique
-définit le périphérique video4linux (par défaut /dev/video0).
-Cette option désactive aussi Xvideo.
+\fB-c\fP, \fB-pÃ©riphÃ©rique\fP pÃ©riphÃ©rique
+dÃ©finit le pÃ©riphÃ©rique video4linux (par dÃ©faut /dev/video0).
+Cette option dÃ©sactive aussi Xvideo.
 .br
-Ressource: xawtv.périphérique (chaîne).
+Ressource: xawtv.pÃ©riphÃ©rique (chaÃ®ne).
 .TP
-\fB-C\fP, \fB-dspdev\fP périphérique
-définit le périphérique audio (par défaut /dev/dsp).
+\fB-C\fP, \fB-dspdev\fP pÃ©riphÃ©rique
+dÃ©finit le pÃ©riphÃ©rique audio (par dÃ©faut /dev/dsp).
 .br
-Ressource: xawtv.dspdev (chaîne).
+Ressource: xawtv.dspdev (chaÃ®ne).
 .TP
-\fB-vbidev\fP périphérique
-définit le périphérique vbi (par défaut /dev/vbi).
+\fB-vbidev\fP pÃ©riphÃ©rique
+dÃ©finit le pÃ©riphÃ©rique vbi (par dÃ©faut /dev/vbi).
 .br
-Ressource: xawtv.vbidev (chaîne).
+Ressource: xawtv.vbidev (chaÃ®ne).
 .TP
 \fB-c\fP, \fB-xvport\fP nombre
-définit le port Xvideo (par défaut le premier utilisable si Xvideo est
+dÃ©finit le port Xvideo (par dÃ©faut le premier utilisable si Xvideo est
 disponible). Cette option active aussi Xvideo.
 .br
 Ressource: xawtv.xvport (int).
 .TP
-\fB-joydev\fP périphérique
-périphérique manette de jeu à utiliser pour contrôler xawtv.
+\fB-joydev\fP pÃ©riphÃ©rique
+pÃ©riphÃ©rique manette de jeu Ã  utiliser pour contrÃ´ler xawtv.
 .br
-Ressource: xawtv.joydev (chaîne).
+Ressource: xawtv.joydev (chaÃ®ne).
 .TP
 \fB-v\fP, \fB-debug\fP niveau
 Etre plus explicite, le
 .B niveau
-peut être 0 (par défaut), 1 ou 2. Cela n'existe que pour le débogage ou
-pour l'analyse de problèmes.
+peut Ãªtre 0 (par dÃ©faut), 1 ou 2. Cela n'existe que pour le dÃ©bogage ou
+pour l'analyse de problÃ¨mes.
 .br
 Ressource: xawtv.debug (int).
 .TP
 \fB-remote\fP
-L'affichage X11 est distant. Ceci désactive en fait le mode overlay,
-vous pouvez en avoir besoin si xawtv n'arrive pas à détecter automatiquement
+L'affichage X11 est distant. Ceci dÃ©sactive en fait le mode overlay,
+vous pouvez en avoir besoin si xawtv n'arrive pas Ã  dÃ©tecter automatiquement
 un affichage X11 distant.
 .br
-Ressource: xawtv.remote (booléen).
+Ressource: xawtv.remote (boolÃ©en).
 .TP
 \fB-b\fP, \fB-bpp\fP n
-force xawtv à basculer dans la profondeur de couleur
+force xawtv Ã  basculer dans la profondeur de couleur
 .B n.
 Permet de basculer entre 15/16 et 24/32 bpp.
-Ce paramètre est seulement renvoyé à v4l-conf(1).
+Ce paramÃ¨tre est seulement renvoyÃ© Ã  v4l-conf(1).
 .br
 Ressource: xawtv.bpp (int).
 .TP
 \fB-shift\fP n
-Décale l'affichage video de
+DÃ©cale l'affichage video de
 .B n
-octets. Essayez ceci si l'image video n'est pas dans la fenêtre de xawtv,
-quelques cartes matrox anciennes sont affectées de ce problème.
-Ce paramètre aussi est seulement renvoyé à v4l-conf(1).
+octets. Essayez ceci si l'image video n'est pas dans la fenÃªtre de xawtv,
+quelques cartes matrox anciennes sont affectÃ©es de ce problÃ¨me.
+Ce paramÃ¨tre aussi est seulement renvoyÃ© Ã  v4l-conf(1).
 .br
 Ressource: xawtv.shift (int).
 .TP
 \fB-fb\fP
-Utilise le périphérique framebuffer pour déterminer l'adresse du framebuffer
-(plutôt que l'extension DGA). Encore un argument renvoyé.
+Utilise le pÃ©riphÃ©rique framebuffer pour dÃ©terminer l'adresse du framebuffer
+(plutÃ´t que l'extension DGA). Encore un argument renvoyÃ©.
 .br
-Ressource: xawtv.fbdev (booléen).
+Ressource: xawtv.fbdev (boolÃ©en).
 .TP
 \fB-xv/-noxv \fP
-Active/Désactive l'utilisation de l'extension Xvideo globalement,
-cad. que -noxv équivaut aux options -noxv-video et -noxv-image combinées.
+Active/DÃ©sactive l'utilisation de l'extension Xvideo globalement,
+cad. que -noxv Ã©quivaut aux options -noxv-video et -noxv-image combinÃ©es.
 (voir ci-dessous).
 .br
-Ressource: xawtv.xv (booléen).
+Ressource: xawtv.xv (boolÃ©en).
 .TP
 \fB-xv-video/-noxv-video \fP
-Active/Désactive l'utilisation de l'extension Xvideo pour l'overlay
-(ex. XvPutVideo).  Le mode overlay utilise ceci. Est activé par défault.
+Active/DÃ©sactive l'utilisation de l'extension Xvideo pour l'overlay
+(ex. XvPutVideo).  Le mode overlay utilise ceci. Est activÃ© par dÃ©fault.
 .br
-Ressource: xawtv.xvVideo (booléen).
+Ressource: xawtv.xvVideo (boolÃ©en).
 .TP
 \fB-xv-image/-noxv-image \fP
-Active/Désactive l'utilisation de l'extension Xvideo pour la mise à
-l'échelle de l'image (ex. XvPutImage). Le mode grabdisplay utilise ceci.
-Est activé par défault.
+Active/DÃ©sactive l'utilisation de l'extension Xvideo pour la mise Ã 
+l'Ã©chelle de l'image (ex. XvPutImage). Le mode grabdisplay utilise ceci.
+Est activÃ© par dÃ©fault.
 .br
-Ressource: xawtv.xvImage (booléen).
+Ressource: xawtv.xvImage (boolÃ©en).
 .TP
 \fB-vm/-novm\fP
-Active/Désactive l'utilisation de l'extension VidMode, est désactivé par
-défaut. S'il y a un mode plein écran défini dans le fichier de configuration,
-l'extension VidMode est activée automatiquement.
+Active/DÃ©sactive l'utilisation de l'extension VidMode, est dÃ©sactivÃ© par
+dÃ©faut. S'il y a un mode plein Ã©cran dÃ©fini dans le fichier de configuration,
+l'extension VidMode est activÃ©e automatiquement.
 .br
-Ressource: xawtv.vidmode (booléen).
+Ressource: xawtv.vidmode (boolÃ©en).
 .TP
 \fB-dga/-nodga\fP
-Active/Désactive l'utilisation de l'extension DGA, activée par défaut.
+Active/DÃ©sactive l'utilisation de l'extension DGA, activÃ©e par dÃ©faut.
 .br
-Ressource: xawtv.dga (booléen).
+Ressource: xawtv.dga (boolÃ©en).
 .TP
 \fB-parallel\fP n
-utilise n instances (threads) de compression (par défaut~: un).
+utilise n instances (threads) de compression (par dÃ©faut~: un).
 .br
 Ressource: xawtv.parallel (int).
 .P
 L'options habituelles de l'environnement comme \fB-geometry\fP
-sont aussi supportées.
-.SH MATÉRIEL SUPPORTÉ / INTERFACES
+sont aussi supportÃ©es.
+.SH MATÃ‰RIEL SUPPORTÃ‰ / INTERFACES
 .TP
 .B v4l
 video4linux - \fBla\fP API linux de capture video.
 .TP
 .B v4l2
-video4linux deux - une nouvelle interface de capture video améliorée
+video4linux deux - une nouvelle interface de capture video amÃ©liorÃ©e
 au niveau des bogues de conceptionde V4l.
 .TP
 .B bktr
 Pilote pour FreeBSD / OpenBSD des cartes d'acquisition bt848/878.
 .TP
 .B Xvideo
-Extention X11 pour les périphériques video. Notez que l'extention Xvideo
+Extention X11 pour les pÃ©riphÃ©riques video. Notez que l'extention Xvideo
 ne supporte que le mode overlay, vous ne pouvez pas enregistrer des images
-ou des videos quand l'extension est utilisée. Dans un autre sens c'est le
-seul moyen d'obtenir une mise à l'échelle de la video (ex. plein écran
-sans bordures en 1024x768) si à la fois le matériel et le pilote de xfree86
-le permettent. Lire README.xfree4 pour plus de détails et de conseils sur
-comment régler Xvideo.
-.SH PREMIÈRE UTILISATION
-Démarrez seulement xawtv. Vérifiez alors les réglages dans le menu des
-options (bouton droit de la souris) et ajustez les réglages (norme TV,
-source video, table de fréquences). Avec les touches flèches vous pouvez
-contrôler le syntoniseur et rechercher des émetteurs TV. Les autres
-touches très utiles sont listées ci-dessous.
+ou des videos quand l'extension est utilisÃ©e. Dans un autre sens c'est le
+seul moyen d'obtenir une mise Ã  l'Ã©chelle de la video (ex. plein Ã©cran
+sans bordures en 1024x768) si Ã  la fois le matÃ©riel et le pilote de xfree86
+le permettent. Lire README.xfree4 pour plus de dÃ©tails et de conseils sur
+comment rÃ©gler Xvideo.
+.SH PREMIÃˆRE UTILISATION
+DÃ©marrez seulement xawtv. VÃ©rifiez alors les rÃ©glages dans le menu des
+options (bouton droit de la souris) et ajustez les rÃ©glages (norme TV,
+source video, table de frÃ©quences). Avec les touches flÃ¨ches vous pouvez
+contrÃ´ler le syntoniseur et rechercher des Ã©metteurs TV. Les autres
+touches trÃ¨s utiles sont listÃ©es ci-dessous.
 .P
-La touche 'E' affiche l'éditeur des chaînes où vous pouvez créer/changer
-vos pré-sélections pour les émetteurs TV. N'oubliez pas de cliquer sur
-"save" pour écrire un fichier de configuration. Vous pouvez aussi
-créer/changer un fichier de configuration avec n'importe quel éditeur de
+La touche 'E' affiche l'Ã©diteur des chaÃ®nes oÃ¹ vous pouvez crÃ©er/changer
+vos prÃ©-sÃ©lections pour les Ã©metteurs TV. N'oubliez pas de cliquer sur
+"save" pour Ã©crire un fichier de configuration. Vous pouvez aussi
+crÃ©er/changer un fichier de configuration avec n'importe quel Ã©diteur de
 texte, lisez xawtvrc(5) pour une description de la syntaxe du fichier de
-configuration. Il y a certaines options que ne peuvent être changées qu'en
-éditant le fichier de configuration.
+configuration. Il y a certaines options que ne peuvent Ãªtre changÃ©es qu'en
+Ã©ditant le fichier de configuration.
 .P
 Vous pouvez aussi essayer scantv. c'est un outil en ligne de commande qui
-recherche les émetteurs et écrit un fichier de configuration de xawtv avec
-toutes les chaînes qu'il a trouvé.
+recherche les Ã©metteurs et Ã©crit un fichier de configuration de xawtv avec
+toutes les chaÃ®nes qu'il a trouvÃ©.
 .SS Utilisation de la souris
-Le bouton gauche de la souris fait apparaître un menu avec toutes les
-chaînes trouvées dans el fichier de configuration. Le bouton du milieu
-passe à la chaîne suivante. Le bouton droit fait apparaître un menu avec
-beaucoup de réglages et de contrôles.
+Le bouton gauche de la souris fait apparaÃ®tre un menu avec toutes les
+chaÃ®nes trouvÃ©es dans el fichier de configuration. Le bouton du milieu
+passe Ã  la chaÃ®ne suivante. Le bouton droit fait apparaÃ®tre un menu avec
+beaucoup de rÃ©glages et de contrÃ´les.
 .SS Raccourcis clavier
 .nf
 V             \fIV\fPideo (Capture) active/inactive
@@ -187,45 +187,45 @@ A             \fIA\fPudio Son actif/inactif
 F             Plein Ecran actif/inactif
 G             Sauver image (Taille Maximum, ppm)
 J             Sauver image (Taille Maximum, \fIj\fPpeg)
-Ctrl+G        Sauver image (Taille de la fenêtre, ppm)
-Ctrl+J        Sauver image (Taille de la fenêtre, \fIj\fPpeg)
+Ctrl+G        Sauver image (Taille de la fenÃªtre, ppm)
+Ctrl+J        Sauver image (Taille de la fenÃªtre, \fIj\fPpeg)
 O             Affiche le menu d'\fIO\fPptions
-C             Affiche le menu des \fIC\fPhaînes
-E             Affiche l'\fIé\fPditeur des chaînes
-R             Affiche la fenêtre d'en\fIr\fPegistrement AVI
-Z             \fIZ\fPappette (\fIz\fPappe, cad. change de chaîne
-              après quelques secondes).
-Ctrl+Z        Zappette rapide (prend des images de chaque chaîne
-              pour les vignettes de la fenêtre des chaînes.
+C             Affiche le menu des \fIC\fPhaÃ®nes
+E             Affiche l'\fIÃ©\fPditeur des chaÃ®nes
+R             Affiche la fenÃªtre d'en\fIr\fPegistrement AVI
+Z             \fIZ\fPappette (\fIz\fPappe, cad. change de chaÃ®ne
+              aprÃ¨s quelques secondes).
+Ctrl+Z        Zappette rapide (prend des images de chaque chaÃ®ne
+              pour les vignettes de la fenÃªtre des chaÃ®nes.
 
-haut/bas      syntonise la fréquence suivante/précédente
-gauche/droite syntonisation affinée
-pgup/pgdown   chaîne suivante/précédente dans le fichier de configuration
-espace        chaîne suivante (comme pgup)
-backspace     chaîne précédente
-Ctrl+haut     cherche l'émetteur suivant
-F5-F12        réglage luminosité/hue/contraste/couleur
+haut/bas      syntonise la frÃ©quence suivante/prÃ©cÃ©dente
+gauche/droite syntonisation affinÃ©e
+pgup/pgdown   chaÃ®ne suivante/prÃ©cÃ©dente dans le fichier de configuration
+espace        chaÃ®ne suivante (comme pgup)
+backspace     chaÃ®ne prÃ©cÃ©dente
+Ctrl+haut     cherche l'Ã©metteur suivant
+F5-F12        rÃ©glage luminositÃ©/hue/contraste/couleur
 
 ESC,Q        \fIQ\fPuitte
 
-+/-          Augmenter diminuer le volume sonore (pavé numérique)
-Entrée       Silence (pavé numérique)
++/-          Augmenter diminuer le volume sonore (pavÃ© numÃ©rique)
+EntrÃ©e       Silence (pavÃ© numÃ©rique)
 .fi
 .SH BOGUES
-.B Les rapports de bogues avec une image attachée vont dans /dev/null
-sans être regardés.
+.B Les rapports de bogues avec une image attachÃ©e vont dans /dev/null
+sans Ãªtre regardÃ©s.
 .P
-xawtv a besoin d'un pilote correctement configuré. Si vous ne pouvez pas
-syntoniser des émetteurs alors que les réglages dans la fenêtre des options
-sont corrects c'est certainement un problème de pilote.
+xawtv a besoin d'un pilote correctement configurÃ©. Si vous ne pouvez pas
+syntoniser des Ã©metteurs alors que les rÃ©glages dans la fenÃªtre des options
+sont corrects c'est certainement un problÃ¨me de pilote.
 .P
 L'affichage mono/stereo n'est \fBpas\fP fiable de par les limitations de
 l'API v4l. L'API ne peut pas renvoyer le mode audio en cours, seulement
 une liste des modes disponibles. Xawtv essaye seulement de deviner, partant
 du principe que le pilote utilise le meilleur mode disponible. Suivant
-votre matériel ceci peut être faux. Si vous n'êtes pas sûr du fait que la
-stereo fonctionne \fBréèllement\fP, veuillez syntoniser une chaîne musicale
-et écoutez, ne faites pas confiance à ce que xawtv dit.
+votre matÃ©riel ceci peut Ãªtre faux. Si vous n'Ãªtes pas sÃ»r du fait que la
+stereo fonctionne \fBrÃ©Ã¨llement\fP, veuillez syntoniser une chaÃ®ne musicale
+et Ã©coutez, ne faites pas confiance Ã  ce que xawtv dit.
 .SH VOIR AUSSI
 xawtvrc(5), fbtv(1), v4l-conf(1), scantv(1)
 .br
@@ -233,27 +233,27 @@ http://bytesex.org/xawtv/ (homepage)
 .SH AUTEUR
 Gerd Knorr <kraxel@bytesex.org>
 .SH TRADUCTION
-José Jorge <jose.jorge@oreka.com>
+JosÃ© Jorge <jose.jorge@oreka.com>
 .SH COPYRIGHT
 Copyright (C) 1997-2002 Gerd Knorr <kraxel@bytesex.org>
 
-Permission est donnée à tout individu ou institution d'utiliser, copier,
-ou redistribuer ce logiciel dès lors que tous les fichiers d'origine
-sont inclus, que ce n'est pas vendu pour des bénéfices, et que cette
+Permission est donnÃ©e Ã  tout individu ou institution d'utiliser, copier,
+ou redistribuer ce logiciel dÃ¨s lors que tous les fichiers d'origine
+sont inclus, que ce n'est pas vendu pour des bÃ©nÃ©fices, et que cette
 notice sur le copyright est incluse.
 
 Ce programme est un logiciel libre; vous pouvez le redistribuer et/ou
-le modifier sous les termes de la licence GNU GPL telle que publiée
-par la Free Software Foundation; soit la version 2, soit (à votre convenance)
-toute version ultérieure.
+le modifier sous les termes de la licence GNU GPL telle que publiÃ©e
+par la Free Software Foundation; soit la version 2, soit (Ã  votre convenance)
+toute version ultÃ©rieure.
 
-Ce programme est distribué dans l'espoir qu'il soit utile, mais
-SANS AUCUNE GARANTIE; même sans la garantie implicite de UTILISABILITE
+Ce programme est distribuÃ© dans l'espoir qu'il soit utile, mais
+SANS AUCUNE GARANTIE; mÃªme sans la garantie implicite de UTILISABILITE
 ou d'ADAPTATION A UN USAGE PRECIS. Lisez la licence GNU GPL pour plus
-de détails.
+de dÃ©tails.
 
-Vous devriez avoir reçu une copie de la licence GNU GPL avec ce programme;
-si ce n'est pas le cas, écrivez à Free Software
+Vous devriez avoir reÃ§u une copie de la licence GNU GPL avec ce programme;
+si ce n'est pas le cas, Ã©crivez Ã  Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 .SH DIVERS
-Vous êtes le 4711ème visiteur de cette page.
+Vous Ãªtes le 4711Ã¨me visiteur de cette page.

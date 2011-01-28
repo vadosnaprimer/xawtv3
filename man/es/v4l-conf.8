@@ -3,47 +3,47 @@
 v4l-conf -  configura un driver video4linux
 .SH SINOPSIS
 .B v4l-conf [ opciones ]
-.SH DESCRIPCI”N
+.SH DESCRIPCI√ìN
 .B v4l-conf
-es una pequeÒa herramienta auxiliar.  Trata de averiguar el modo del
-video y la direcciÛn base del framebuffer de la tarjeta gr·fica
-y configura un driver video4linux como el bttv.  
+es una peque√±a herramienta auxiliar.  Trata de averiguar el modo del
+video y la direcci√≥n base del framebuffer de la tarjeta gr√°fica
+y configura un driver video4linux como el bttv.
 Esto es necesario para drivers que pueden enviar el video por DMA
-a travÈs de PCI directamente a la memoria de video.
+a trav√©s de PCI directamente a la memoria de video.
 .P
 Normalmente no es necesario usar v4l-conf manualmente, xawtv(1) y
-fbtv(1) lo ejecutan autom·ticamente al inicio.  Puede ser ˙til en 
-caso de problemas en la ejecuciÛn de esos programas.
+fbtv(1) lo ejecutan autom√°ticamente al inicio.  Puede ser √∫til en
+caso de problemas en la ejecuci√≥n de esos programas.
 Se debe instalar
 .B v4l-conf
 como suid-root.
 .P
 .B v4l-conf
-tiene tres maneras para obtener la informaciÛn:
+tiene tres maneras para obtener la informaci√≥n:
 .TP 3
  *
-Pregunta al servidor X usando la extensiÛn DGA de XF86.  Esto es lo
-que hace por defecto si la variable de entorno DISPLAY est· establecida.
+Pregunta al servidor X usando la extensi√≥n DGA de XF86.  Esto es lo
+que hace por defecto si la variable de entorno DISPLAY est√° establecida.
 .TP 3
- * 
+ *
 Pregunta al driver framebuffer. Esto es lo que hace por defecto si DISPLAY
-no est· establecida.
+no est√° establecida.
 .TP 3
  *
-Pregunta al driver de la consola.  Se usa sÛlamente en mklinux.
+Pregunta al driver de la consola.  Se usa s√≥lamente en mklinux.
 .SH OPCIONES
 .TP 4
 \fB-h\fP
-Muestra una breve descripciÛn de todas las opciones.
+Muestra una breve descripci√≥n de todas las opciones.
 .TP 4
 \fB-q\fP
 Estar callado.
 .TP 4
 \fB-d\fP dpy
-Usa el display X11 \fBdpy\fP para obtener los par·metros.
+Usa el display X11 \fBdpy\fP para obtener los par√°metros.
 .TP 4
 \fB-f\fP
-Usa el driver framebuffer para obtener los par·metros.
+Usa el driver framebuffer para obtener los par√°metros.
 .TP 4
 \fB-c\fP dispositivo
 Establece el dispositivo de video4linux.
@@ -59,17 +59,17 @@ Desplaza la imagen de video
 bytes.
 .TP 4
 \fB-a\fP adr
-Establece la direcciÛn del framebuffer a \fBadr\fP.  El valor
-hay que especificarlo en hexadecimal.  SÛlo se le permite esta
-opciÛn a root.  No se puede sobreescribir el valor detectado
-autom·ticamente, esta opciÛn sÛlo es v·lida si la autodetecciÛn no
-funciona debido a que el servidor X no tiene soporte DGA. 
-Puede poner esto en el fichero /etc/conf.modules, como "post-install bttv ..." 
+Establece la direcci√≥n del framebuffer a \fBadr\fP.  El valor
+hay que especificarlo en hexadecimal.  S√≥lo se le permite esta
+opci√≥n a root.  No se puede sobreescribir el valor detectado
+autom√°ticamente, esta opci√≥n s√≥lo es v√°lida si la autodetecci√≥n no
+funciona debido a que el servidor X no tiene soporte DGA.
+Puede poner esto en el fichero /etc/conf.modules, como "post-install bttv ..."
 por ejemplo.
 .SH BUGS
 Espero no haber dejado ninguna fisura de seguridad. Si encuentra alguna
-envÌeme una nota.  Prefiero correos que incluyan parches :-)
-.SH VEA TAMBI…N
+env√≠eme una nota.  Prefiero correos que incluyan parches :-)
+.SH VEA TAMBI√âN
 xawtv(1), fbtv(1)
 .SH AUTOR
 Gerd Knorr <kraxel@goldbach.in-berlin.de>
@@ -89,5 +89,5 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-.SH TRADUCCI”N
-P·gina traducida al espaÒol por Ricardo Villalba <rvm@escomposlinux.org>
+.SH TRADUCCI√ìN
+P√°gina traducida al espa√±ol por Ricardo Villalba <rvm@escomposlinux.org>

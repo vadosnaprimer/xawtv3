@@ -5,16 +5,16 @@ xawtv-remote, v4lctl -- control de dispositivos video4linux
 .B xawtv-remote [ opciones ] comando
 .br
 .B v4lctl [ opciones ] comando
-.SH DESCRIPCI”N
+.SH DESCRIPCI√ìN
 .B xawtv-remote
 y
 .B v4lctl
-se pueden usar para controlar una tarjeta de televisiÛn bajo video4linux.
+se pueden usar para controlar una tarjeta de televisi√≥n bajo video4linux.
 .B xawtv-remote
-le pasa el comando a una instancia en ejecuciÛn de xawtv o motv por
+le pasa el comando a una instancia en ejecuci√≥n de xawtv o motv por
 medio de propiedades X11.
 .B v4lctl
-establece los par·metros directamente.
+establece los par√°metros directamente.
 .SH OPCIONES
 .B xawtv-remote
 conoce las siguientes opciones:
@@ -40,24 +40,24 @@ Establece el dispositivo video4linux.
 .B -v n
 Establece el nivel \fBn\fP de mensajes de salida, donde n = [0..2]
 .SH COMANDOS
-Las dos herramientas usan b·sicamente el mismo juego de comandos. 
-Algunos son sÛlamente ˙tiles para el xawtv-remote (pantalla completa,
+Las dos herramientas usan b√°sicamente el mismo juego de comandos.
+Algunos son s√≥lamente √∫tiles para el xawtv-remote (pantalla completa,
 por ejemplo).
 .TP
 .B setstation [ <nombre> | <nr> | next | prev | back ]
-Establece el canal de TV.  La selecciÛn se realiza con las cadenas
-configuradas en el fichero de configuraciÛn .xawtv.  El argumento puede
-ser el nombre de la cadena o un n˙mero (el primero listado en el 
-fichero de configuraciÛn es el 0, ...).
-next/prev salta a la cadena siguiente o previa de la lista de cadenas, 
+Establece el canal de TV.  La selecci√≥n se realiza con las cadenas
+configuradas en el fichero de configuraci√≥n .xawtv.  El argumento puede
+ser el nombre de la cadena o un n√∫mero (el primero listado en el
+fichero de configuraci√≥n es el 0, ...).
+next/prev salta a la cadena siguiente o previa de la lista de cadenas,
 y back a la seleccionada previamente.
 .TP
 .B setchannel [ <nombre> | next | prev ]
 Sintoniza un canal.
 .TP
 .B setfreqtab <tabla>
-Establece la tabla de frecuencias. En el men˙ del xawtv hay una lista
-de las opciones v·lidas.
+Establece la tabla de frecuencias. En el men√∫ del xawtv hay una lista
+de las opciones v√°lidas.
 .TP
 .B setnorm <norma>
 Establece la norma de TV (NTSC/PAL/SECAM).
@@ -77,39 +77,39 @@ Establece el modo de captura.
 .B bright <arg>
 .TP
 .B contrast <arg>
-Establece el par·metro al valor especificado.  <arg> debe ser algo
-de lo siguiente: Un valor en tanto por ciento ("70%" por ejemplo).  
-Valores absolutos ("32768"), el rango v·lido es especÌfico del hardware.
-Los valores relativos se pueden especificar precediendo el n˙mero
+Establece el par√°metro al valor especificado.  <arg> debe ser algo
+de lo siguiente: Un valor en tanto por ciento ("70%" por ejemplo).
+Valores absolutos ("32768"), el rango v√°lido es espec√≠fico del hardware.
+Los valores relativos se pueden especificar precediendo el n√∫mero
 con "+=" o "-=" ("+=10%" o "-=2000").
-TambiÈn se aceptan las palabras "inc" y "dec" que incrementar·n y
-disminuir·n el valor en pequeÒos pasos.
+Tambi√©n se aceptan las palabras "inc" y "dec" que incrementar√°n y
+disminuir√°n el valor en peque√±os pasos.
 .TP
 .B setattr <nombre> <valor>
-El valor de alg˙n atributo (color, contraste, ...) tambiÈn se
+El valor de alg√∫n atributo (color, contraste, ...) tambi√©n se
 puede especificar de esta manera.
 .TP
 .B show [ <nombre> ]
-Muestra el valor actual de alg˙n atributo.
+Muestra el valor actual de alg√∫n atributo.
 .TP
 .B list
-Lista todos los atributos v·lidos con todas sus propiedades (valor por
+Lista todos los atributos v√°lidos con todas sus propiedades (valor por
 defecto, rango, ...)
 .TP
 .B snap [ jpeg | ppm ] [ full | win | widthxheight ] <fichero>
 Captura una imagen.
 .TP
 .B webcam <fichero>
-Captura una imagen.  B·sicamente hace lo mismo que "snap jpeg win
-<fichero>".  TambiÈn funciona cuando la grabaciÛn avi est· activa.  
+Captura una imagen.  B√°sicamente hace lo mismo que "snap jpeg win
+<fichero>".  Tambi√©n funciona cuando la grabaci√≥n avi est√° activa.
 Escribe en un fichero temporal y lo renombra cuando ha realizado
-la acciÛn, por lo tanto no habr· nunca un fichero inv·lido.
+la acci√≥n, por lo tanto no habr√° nunca un fichero inv√°lido.
 .TP
 .B movie driver [ files | raw | avi | qt ]
 .TP
 .B movie video [ ppm | pgm | jpeg | rgb | gray | 422 | 422p | rgb15 | rgb24 | mjpeg | jpeg | raw | mjpa | png ]
 .TP
-.B movie fps <im·genes por segundo>
+.B movie fps <im√°genes por segundo>
 .TP
 .B movie audio [ mono8 | mono16 | stereo ]
 .TP
@@ -122,7 +122,7 @@ la acciÛn, por lo tanto no habr· nunca un fichero inv·lido.
 .B movie start
 .TP
 .B movie stop
-controla la grabaciÛn de pelÌculas del xawtv.
+controla la grabaci√≥n de pel√≠culas del xawtv.
 .TP
 .B fullscreen
 Selecciona el modo a pantalla completa.
@@ -131,34 +131,34 @@ Selecciona el modo a pantalla completa.
 Muestra la hora (lo mismo que hace la tecla 'D' en xawtv).
 .TP
 .B msg texto
-Muestra el texto en el display on-screen (tÌtulo de la ventana / 
+Muestra el texto en el display on-screen (t√≠tulo de la ventana /
 esquina superior izquierda a pantalla completa).
 .TP
 .B vtx linea1 linea2 [ ... ]
-Muestra subtÌtulos.  Saca una pequeÒa ventana en la parte inferior de
+Muestra subt√≠tulos.  Saca una peque√±a ventana en la parte inferior de
 la pantalla.
-Est· pensado para actuar como interfaz para mostrar subtÌtulos (con
-frecuencia en la p·gina 150 del teletexto en europa, de ahÌ el
-nombre) de programas externos. Nota: en espaÒa se suele usar la
-p·gina 888 para los subtÌtulos.
+Est√° pensado para actuar como interfaz para mostrar subt√≠tulos (con
+frecuencia en la p√°gina 150 del teletexto en europa, de ah√≠ el
+nombre) de programas externos. Nota: en espa√±a se suele usar la
+p√°gina 888 para los subt√≠tulos.
 .br
-Cada lÌnea de comandos del argumento es una lÌnea, cero lÌneas 
+Cada l√≠nea de comandos del argumento es una l√≠nea, cero l√≠neas
 quita la ventana.
 Se puede dar color al texto con la secuencia de control "ESC tinta
 fondo".  Tanto tinta como fondo tienen un rango de 0 a 7 (colores ansi term).
-Ejemplo: "\\03347 hola mundo" est· en az˙l sobre fondo blanco.  
-"\\033" debe ser un car·cter de escape real, no vale con una cadena. 
-Con bash lo puedes obtener con ^V ESC.  vtx tambiÈn entiende 
+Ejemplo: "\\03347 hola mundo" est√° en az√∫l sobre fondo blanco.
+"\\033" debe ser un car√°cter de escape real, no vale con una cadena.
+Con bash lo puedes obtener con ^V ESC.  vtx tambi√©n entiende
 secuencias de escape ANSI tty para el color.
 .TP
 .B quit
 cierra el xawtv
 .TP
 .B keypad n
-entra el dÌgito 'n'.  Eso es la selecciÛn de canales mediante dos dÌgitos, 
-entrando dos dÌgitos en 5 segundos cambia a la cadena seleccionada. 
-⁄til para el lirc.
-.SH VEA TAMBI…N
+entra el d√≠gito 'n'.  Eso es la selecci√≥n de canales mediante dos d√≠gitos,
+entrando dos d√≠gitos en 5 segundos cambia a la cadena seleccionada.
+√ötil para el lirc.
+.SH VEA TAMBI√âN
 xawtv(1), motv(1), xawtvrc(5)
 .SH AUTOR
 Gerd Knorr <kraxel@bytesex.org>
@@ -178,5 +178,5 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-.SH TRADUCCI”N
-P·gina traducida al espaÒol por Ricardo Villalba <rvm@escomposlinux.org>
+.SH TRADUCCI√ìN
+P√°gina traducida al espa√±ol por Ricardo Villalba <rvm@escomposlinux.org>

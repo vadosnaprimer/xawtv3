@@ -1,24 +1,24 @@
 .TH xawtvrc 5
 .SH NOMBRE
-xawtvrc -- fichero de configuraciÛn de programas de TV
+xawtvrc -- fichero de configuraci√≥n de programas de TV
 .SH SINOPSIS
 /etc/X11/xawtvrc
 .br
 $HOME/.xawtv
-.SH DESCRIPCI”N
+.SH DESCRIPCI√ìN
 .B xawtvrc
-es el fichero de configuraciÛn que originalmente usaba sÛlamente el xawtv
-(de ahÌ el nombre xawtvrc).  Ahora hay otros programas y utilidades de TV
-que lo leen tambiÈn para obtener informaciÛn de configuraciÛn.
+es el fichero de configuraci√≥n que originalmente usaba s√≥lamente el xawtv
+(de ah√≠ el nombre xawtvrc).  Ahora hay otros programas y utilidades de TV
+que lo leen tambi√©n para obtener informaci√≥n de configuraci√≥n.
 .P
 Estos programas usan tanto un fichero global (/etc/X11/xawtvrc) como
 uno personal ($HOME/.xawtv). Las opciones establecidas en el fichero
-personal tendr·n preferencias sobre las globales.
+personal tendr√°n preferencias sobre las globales.
 .SS Programas
-Los siguientes programas usan estos ficheros de configuraciÛn:
+Los siguientes programas usan estos ficheros de configuraci√≥n:
 .TP
 .B xawtv
-El programa de TV cl·sico de X11.
+El programa de TV cl√°sico de X11.
 .TP
 .B motv
 Un mejorado GUI, basado en motif del xawtv ...
@@ -27,43 +27,43 @@ Un mejorado GUI, basado en motif del xawtv ...
 El programa para ver la tele en linux para la consola con framebuffer.
 .TP
 .B ttv
-AplicaciÛn basada en aalib para ver la tele en cualquier terminal.
+Aplicaci√≥n basada en aalib para ver la tele en cualquier terminal.
 .TP
 .B v4lctl
-Herramienta de lÌnea de comandos para controlar dispositivos video4linux.
-.SS Crear el fichero de configuraciÛn
+Herramienta de l√≠nea de comandos para controlar dispositivos video4linux.
+.SS Crear el fichero de configuraci√≥n
 Tanto
 .B xawtv
 como
 .B motv
-disponen de funciones para editar los canales y guardar la configuraciÛn.
-Pero la funciÛn para grabarla \fBno\fP conservar· los comentarios
-que hubiera en el fichero de configuraciÛn ...
+disponen de funciones para editar los canales y guardar la configuraci√≥n.
+Pero la funci√≥n para grabarla \fBno\fP conservar√° los comentarios
+que hubiera en el fichero de configuraci√≥n ...
 .P
-TambiÈn puede usar su editor de textos favorito y modificar el fichero
-de configuraciÛn directamente.
+Tambi√©n puede usar su editor de textos favorito y modificar el fichero
+de configuraci√≥n directamente.
 .P
-TambiÈn es posible usar la utilidad de lÌnea de comandos
+Tambi√©n es posible usar la utilidad de l√≠nea de comandos
 .B scantv
-para crear un fichero de configuraciÛn inicial.  scantv escanear·
-autom·ticamente todos los canales en busca de cadenas con emisiÛn y 
-escribir· las que encuentre en el fichero de configuraciÛn.
+para crear un fichero de configuraci√≥n inicial.  scantv escanear√°
+autom√°ticamente todos los canales en busca de cadenas con emisi√≥n y
+escribir√° las que encuentre en el fichero de configuraci√≥n.
 .SH SINTAXIS
 .B xawtvrc
 usa una sintaxis similar a la de smb.conf: las secciones empiezan con
-[nombre], seguida de lÌneas con parejas opciÛn = valor.
+[nombre], seguida de l√≠neas con parejas opci√≥n = valor.
 .P
 Hay cuatro secciones especiales: [global], [launch], [eventmap] y
-[defaults].  Todas las dem·s secciones describen una cadena de TV cada una.
+[defaults].  Todas las dem√°s secciones describen una cadena de TV cada una.
 .SS Opciones de cadenas de TV.
-Las siguientes opciones son v·lidas para cadenas de TV y la secciÛn
-[defaults].  Las opciones de la secciÛn [defaults] se usan -- como su
-nombre sugiere -- como valores por defecto para todoslos dem·s canales.  
-Puede poner todo lo que es com˙n para todos los canales (como la
-norma de TV que se usa en su paÌs) en la secciÛn [defaults], de modo que
-ya no deber· especificarla para cada canal.
+Las siguientes opciones son v√°lidas para cadenas de TV y la secci√≥n
+[defaults].  Las opciones de la secci√≥n [defaults] se usan -- como su
+nombre sugiere -- como valores por defecto para todoslos dem√°s canales.
+Puede poner todo lo que es com√∫n para todos los canales (como la
+norma de TV que se usa en su pa√≠s) en la secci√≥n [defaults], de modo que
+ya no deber√° especificarla para cada canal.
 .P
-Con una secciÛn [defaults] razonable, sÛlo necesitar· especificar
+Con una secci√≥n [defaults] razonable, s√≥lo necesitar√° especificar
 el canal para cada cadena de TV de esta manera:
 
 .nf
@@ -74,29 +74,29 @@ channel = 27
 El resto de opciones son:
 .TP
 .B fine = n
-ajuste fino (lo mismo que las teclas cursor izq.+cursor der. hacen en el xawtv), 
+ajuste fino (lo mismo que las teclas cursor izq.+cursor der. hacen en el xawtv),
 por defecto: 0
 .TP
 .B norm = pal | ntsc | secam
-la norma de TV, la opciÛn por defecto es pal
+la norma de TV, la opci√≥n por defecto es pal
 .TP
 .B key = keysym
-Tecla para el canal. Se permiten todas las teclas keysyms de X11. 
+Tecla para el canal. Se permiten todas las teclas keysyms de X11.
 Puede preceder una tecla con Modificador+, por ejemplo "Ctrl+F".
 .TP
 .B capture = off | overlay | grabdisplay
 modo de captura: off, overlay (por defecto, tarjeta de TV => video, 0% cpu) o
-grabdisplay (tarjeta de TV => memoria principal => Servidor X => video, 
-la proporciÛn de cuadros por segundo depende de la carga y tamaÒo de la
+grabdisplay (tarjeta de TV => memoria principal => Servidor X => video,
+la proporci√≥n de cuadros por segundo depende de la carga y tama√±o de la
 imagen).  Por defecto se usa overlay.  Si no es posible usar el modo
-overlay por alguna razÛn (display remoto, no soportado por el hardware,
-lo que sea) las aplicaciones seleccionar·n autom·ticamente el modo
-grabdisplay. 
+overlay por alguna raz√≥n (display remoto, no soportado por el hardware,
+lo que sea) las aplicaciones seleccionar√°n autom√°ticamente el modo
+grabdisplay.
 .TP
 .B input = Television | Composite1 | Composite2 | SVHS
-fuente de entrada.  Los valores v·lidos dependen del driver del hardware, 
-los valores de arriba son sÛlo ejemplos.  Puede usar "v4lctl list" 
-para obtener una lista con las opciones v·lidas.
+fuente de entrada.  Los valores v√°lidos dependen del driver del hardware,
+los valores de arriba son s√≥lo ejemplos.  Puede usar "v4lctl list"
+para obtener una lista con las opciones v√°lidas.
 .TP
 .B color = n
 .TP
@@ -105,8 +105,8 @@ para obtener una lista con las opciones v·lidas.
 .B hue = n
 .TP
 .B contrast = n
-El rango v·lido va de 0 a 65535, siendo 32768 el valor por defecto.  
-AÒadiendo el sÌmbolo del tanto por ciento cambia el rango de 0 a 100, 
+El rango v√°lido va de 0 a 65535, siendo 32768 el valor por defecto.
+A√±adiendo el s√≠mbolo del tanto por ciento cambia el rango de 0 a 100,
 por ejemplo "50%" es lo mismo que "32768".
 .TP
 .B audio = mono | stereo | lang1 | lang2
@@ -114,69 +114,69 @@ Establece el modo de audio para un determinado canal.
 .TP
 .B freq = n
 Especifica la frecuencia para un determinado canal (en MHz, el transportador
-de video).  No deberÌa necesitar esto para un uso normal, todos los
-canales deberÌan estar listado en la tabla de frecuencia de su zona 
-(si no, envÌeme un parche).
-A no ser que quiz·s viva cerca de la frontera y el paÌs vecino use
+de video).  No deber√≠a necesitar esto para un uso normal, todos los
+canales deber√≠an estar listado en la tabla de frecuencia de su zona
+(si no, env√≠eme un parche).
+A no ser que quiz√°s viva cerca de la frontera y el pa√≠s vecino use
 un esquema de canales diferente.
 .TP
 .B midi = nota
 Establece el evento midi de <nota> como tecla para el canal.
 .P
 .SS Opciones globales
-Un n˙mero de opciones sin relaciÛn a los canales van en la secciÛn "[global]":
+Un n√∫mero de opciones sin relaci√≥n a los canales van en la secci√≥n "[global]":
 .TP
 .B fullscreen = ancho x alto
 especifica el modo de video que se debe usar para el modo de pantalla
-completa.  SÛlamente funciona con XFree, y por supuest es necesario
-un modeline v·lido para este modo en su fichero XF86Config.  
-TambiÈn debe habilitar la extensiÛn VidMode (opciÛn -vm, mire abajo)
+completa.  S√≥lamente funciona con XFree, y por supuest es necesario
+un modeline v√°lido para este modo en su fichero XF86Config.
+Tambi√©n debe habilitar la extensi√≥n VidMode (opci√≥n -vm, mire abajo)
 para que funcione.
 .TP
 .B wm-off-by = [+-]x[+-]y
-Algunos gestores de ventanas no manejan correctamente la gravedad est·tica 
+Algunos gestores de ventanas no manejan correctamente la gravedad est√°tica
 (que yo sepa mwm y kwm).  Esto es algo fastidioso en el modo a
-pantalla completa.  Con esta opciÛn puede corregirlo mediante un
-desplazamiento para mover las ventanas.  Por ejemplo, wm-off-by = -4-24 
+pantalla completa.  Con esta opci√≥n puede corregirlo mediante un
+desplazamiento para mover las ventanas.  Por ejemplo, wm-off-by = -4-24
 soluciona el problema en el kwm (el window manager del KDE1).
 .TP
-.B freqtab = 
-selecciona el mapeo de canal a frecuencia. La tabla de 
-"Options window->Frequency" (en el xawtv) muestra un men˙ con todas las
-entradas v·lidas (y permite cambiar de tabla en tiempo de ejecuciÛn).
+.B freqtab =
+selecciona el mapeo de canal a frecuencia. La tabla de
+"Options window->Frequency" (en el xawtv) muestra un men√∫ con todas las
+entradas v√°lidas (y permite cambiar de tabla en tiempo de ejecuci√≥n).
 .TP
 .B pixsize = ancho x alto
-tamaÒo de los pixmaps de los canales (dentro de la ventana de canales).  
-0x0 deshabilita esta opciÛn.
+tama√±o de los pixmaps de los canales (dentro de la ventana de canales).
+0x0 deshabilita esta opci√≥n.
 .TP
 .B pixcols = n
-n˙mero de columnas que se usar·n en la ventana de canales. Por defecto: 1.
+n√∫mero de columnas que se usar√°n en la ventana de canales. Por defecto: 1.
 .TP
 .B mixer = ctl | device:ctl
-Esta opciÛn permite controlar el volumen por medio del mezclador de la
-tarjeta de sonido.  ctl es el control del mezclador, como por ejemplo 
+Esta opci√≥n permite controlar el volumen por medio del mezclador de la
+tarjeta de sonido.  ctl es el control del mezclador, como por ejemplo
 "vol" para el volumen maestro. "line1" puede ser un buen candidato
 para la tarjeta de TV.  device es el dispositivo mezclador (sino se
-especifica se usar· /dev/mixer).  El volumen se controla con las
-teclas del teclado numÈrico: + sube el volumen, - lo baja, Intro lo 
+especifica se usar√° /dev/mixer).  El volumen se controla con las
+teclas del teclado num√©rico: + sube el volumen, - lo baja, Intro lo
 silencia.
 .TP
 .B jpeg-quality = n
-establece el nivel de calidad para im·genes o cuadros (M)JPEG.  
-El rango v·lido es para n es [0 .. 100] siendo 75 el valor por defecto.
+establece el nivel de calidad para im√°genes o cuadros (M)JPEG.
+El rango v√°lido es para n es [0 .. 100] siendo 75 el valor por defecto.
 .TP
 .B keypad-ntsc = on | off
-Configura el modo del teclado numÈrico.  Por defecto off.  
-Cuando se pone a on, los n˙meros que se tecleen en el teclado
-numÈrico ser·n interpretados como n˙mero de canales (asÌ es como
-funciona el NTSC TV).  De otro modo ser·n interpretados como canales
+Configura el modo del teclado num√©rico.  Por defecto off.
+Cuando se pone a on, los n√∫meros que se tecleen en el teclado
+num√©rico ser√°n interpretados como n√∫mero de canales (as√≠ es como
+funciona el NTSC TV).  De otro modo ser√°n interpretados como canales
 programados, es decir, 1 es el primer canal del $HOME/.xawtv, ...
 .TP
 .B keypad-partial = on | off
-Otro modo de configuraciÛn del teclado numÈrico. Por defectos on.  
-Cuando se pone a off, teclear un dÌgito en el teclado numÈrico no
-cambia el canal si hay canales de dos dÌgitos que empiezan por ese 
-n˙mero.
+Otro modo de configuraci√≥n del teclado num√©rico. Por defectos on.
+Cuando se pone a off, teclear un d√≠gito en el teclado num√©rico no
+cambia el canal si hay canales de dos d√≠gitos que empiezan por ese
+n√∫mero.
 .TP
 .B osd = on | off
 Habilita o deshabilita los textos en pantalla en el modo
@@ -196,64 +196,64 @@ por defecto es 4:3.  Use 0:0 si no quiere un aspect ratio fijo.
 .TP
 .B mov-rate = rate
 Establece los valores para grabaciones. No todas las combinaciones son
-posibles.  "streamer -h" mostrar· una lista.
+posibles.  "streamer -h" mostrar√° una lista.
 .TP
 .B midi = puerto
-Puede especificar un puerto ALSA por el cual xawtv recibir· eventos
+Puede especificar un puerto ALSA por el cual xawtv recibir√° eventos
 midi.  Configurado de este modo, puede programar las teclas de su
 teclado midi como teclas asignadas a canales y usar eventos del
-controlador midi para controlar los ajustes de volumen, brillo, etc.  
-Mire la descripciÛn de la secciÛn [eventmap] que hay m·s abajo para m·s 
+controlador midi para controlar los ajustes de volumen, brillo, etc.
+Mire la descripci√≥n de la secci√≥n [eventmap] que hay m√°s abajo para m√°s
 detalles.
-.SS La secciÛn [launch]
+.SS La secci√≥n [launch]
 Es posible arrancar otros programas desde el xawtv.  Se configura
-con entradas en la secciÛn "[launch]":
+con entradas en la secci√≥n "[launch]":
 .TP
-.B label = tecla, lÌnea de comandos
-La tecla especificada ejecutar· el programa. TambiÈn vale llamar
-la acciÛn como "Launch(label)".  Si quiere jugar con las tablas
-de traducciÛn de Xt, siÈntase libre de hacerlo.  Pero no se queje
+.B label = tecla, l√≠nea de comandos
+La tecla especificada ejecutar√° el programa. Tambi√©n vale llamar
+la acci√≥n como "Launch(label)".  Si quiere jugar con las tablas
+de traducci√≥n de Xt, si√©ntase libre de hacerlo.  Pero no se queje
 si rompe algo...
-.SS La secciÛn [eventmap]
-La secciÛn eventmap consiste simplemente en un n˙mero de lÌneas 
-"evento = acciÛn".  "acciÛn" puede ser cualquier comando que el xawtv
-entienda (mire la p·gina man del xawtv-remote para una lista).  
+.SS La secci√≥n [eventmap]
+La secci√≥n eventmap consiste simplemente en un n√∫mero de l√≠neas
+"evento = acci√≥n".  "acci√≥n" puede ser cualquier comando que el xawtv
+entienda (mire la p√°gina man del xawtv-remote para una lista).
 "evento" es un evento generado por cualquier dispositivo de entrada
-de los que escucha el xawtv.  Un evento puede tener alg˙n argumento, 
-por ejemplo los eventos del midi-ctrl tienen uno.  Si est· presente
-el argumento ser· aÒadido a la acciÛn.
+de los que escucha el xawtv.  Un evento puede tener alg√∫n argumento,
+por ejemplo los eventos del midi-ctrl tienen uno.  Si est√° presente
+el argumento ser√° a√±adido a la acci√≥n.
 .P
 Hay mapeos por defecto para eventos de entrada del lirc y del joystick,
-por tanto no ser· necesario que cree un eventmap para poder usarlos.  
+por tanto no ser√° necesario que cree un eventmap para poder usarlos.
 Pero en caso de que no le guste los valores por defecto puede
-cambiarlos f·cilmente.
+cambiarlos f√°cilmente.
 .P
-A continuaciÛn hay una lista de eventos v·lidos:
+A continuaci√≥n hay una lista de eventos v√°lidos:
 .TP
 .B lirc-key-<nombre>
 Se ha pulsado la tecla <nombre> en el mando a distancia IR.
 .TP
 .B joy-button-<n>
-Se pulsÛ el botÛn <n> del joystick.
+Se puls√≥ el bot√≥n <n> del joystick.
 .TP
 .B joy-axis-<left|right|up|down>
-El joystick se ha movido en la direcciÛn especificada.
+El joystick se ha movido en la direcci√≥n especificada.
 .TP
 .B midi-note-<n>
 Se ha recibido un evento de nota <n> (porque se ha pulsado una
 tecla en el teclado midi).
 .TP
 .B midi-ctrl-<n>
-Se ha recibido un mensaje del controlador midi para el control <n>.  
+Se ha recibido un mensaje del controlador midi para el control <n>.
 Este evento tiene un argumento (el valor actual del control).
 .TP
 .B kbd-key-<nombre>
-La tecla <nombre> se ha pulsado en el teclado.  SÛlamente fbtv
-soporta esta opciÛn.
-.SS Ejemplo de fichero de configuraciÛn
+La tecla <nombre> se ha pulsado en el teclado.  S√≥lamente fbtv
+soporta esta opci√≥n.
+.SS Ejemplo de fichero de configuraci√≥n
 .nf
 # esto es un comentario
-# las lÌnea vacÌas tambiÈn se ignoran
+# las l√≠nea vac√≠as tambi√©n se ignoran
 
 [global]
 freqtab = europe-west
@@ -284,14 +284,14 @@ key=F1
 channel = 43
 key = F2
 
-# las dem·s cadenas van aquÌ
+# las dem√°s cadenas van aqu√≠
 
-[C·mara]
+[C√°mara]
 input = Composite1
 key = K
 .fi
 
-.SH VEA TAMBI…N
+.SH VEA TAMBI√âN
 scantv(1), xawtv(1), motv(1), fbtv(1), ttv(1), v4lctl(1)
-.SH TRADUCCI”N
-P·gina traducida al espaÒol por Ricardo Villalba <rvm@escomposlinux.org>
+.SH TRADUCCI√ìN
+P√°gina traducida al espa√±ol por Ricardo Villalba <rvm@escomposlinux.org>
