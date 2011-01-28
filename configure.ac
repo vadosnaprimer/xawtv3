@@ -301,6 +301,9 @@ AC_SUBST(x11conf)
 
 AC_MSG_CHECKING(for X11 app-defaults directory)
 resdir=/usr/lib/X11
+if test -d /usr/share/X11/app-defaults; then
+	resdir=/usr/share/X11
+fi
 if test -d /etc/X11/app-defaults; then
 	resdir=/etc/X11
 fi
