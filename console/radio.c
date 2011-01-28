@@ -56,20 +56,21 @@ radio_setfreq(int fd, float freq)
     memset (&frequency, 0, sizeof(frequency));
     frequency.type = V4L2_TUNER_RADIO;
     frequency.frequency = ifreq;
-    return ioctl(fd, VIDIOC_S_FREQUENCY, &frequency);
+    return (ioctl(fd, VIDIOC_S_FREQUENCY, &frequency) == -1);
 }
 
 static int radio_getfreq(int fd, float *freq)
 {
-    int ioctl_status;
     int ifreq;
     struct v4l2_frequency frequency;
 
     memset (&frequency, 0, sizeof(frequency));
+    frequency.type = V4L2_TUNER_RADIO;
 
-    ioctl_status = ioctl(fd, VIDIOC_G_FREQUENCY, &frequency);
-    if (ioctl_status == -1)
-        return ioctl_status;
+    if (-1  == ioctl(fd, VIDIOC_G_FREQUENCY, &frequency)) {
+	perror("VIDIOC_G_FREQUENCY");
+        return errno;
+    }
 
     ifreq = frequency.frequency;
     *freq = (float) ifreq / freqfact;
@@ -85,7 +86,7 @@ radio_mute(int fd, int mute)
     ctrl.id = V4L2_CID_AUDIO_MUTE;
     ctrl.value = mute;
 
-    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl));
+    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1)
 	perror("VIDIOC_S_CTRL");
 }
 
@@ -98,8 +99,7 @@ radio_getstereo(int fd)
 	return;
 
     memset (&tuner, 0, sizeof(tuner));
-    
-    if (ioctl (fd, VIDIOC_G_TUNER, tuner)) {
+    if (ioctl (fd, VIDIOC_G_TUNER, &tuner) == -1) {
 	mvwprintw(wfreq,2,1,"     ");
 	perror("VIDIOC_G_TUNER");
 	return;
@@ -116,8 +116,7 @@ radio_getsignal(int fd)
     int signal, i;
 
     memset (&tuner, 0, sizeof(tuner));
-    
-    if (ioctl (fd, VIDIOC_G_TUNER, tuner)) {
+    if (ioctl (fd, VIDIOC_G_TUNER, &tuner) == -1) {
 	perror("VIDIOC_G_TUNER");
 	return 0;
     }
@@ -461,8 +460,8 @@ main(int argc, char *argv[])
 	exit(1);
     }
 
-    memset(&tuner,0,sizeof(tuner));
-    if (0 == ioctl(fd, VIDIOC_G_TUNER, &tuner) &&
+    memset(&tuner, 0, sizeof(tuner));
+    if ((-1 != ioctl(fd, VIDIOC_G_TUNER, &tuner)) &&
 	(tuner.capability & V4L2_TUNER_CAP_LOW))
 	freqfact = 16000;
 
@@ -552,10 +551,10 @@ main(int argc, char *argv[])
 	mvwprintw(wstations,1,1,"[none]");
     wrefresh(wstations);
 
-    if (ifreq == 0) {
-	float ffreq;
-	radio_getfreq(fd,&ffreq);
-	ifreq = ffreq * 1000000;
+    if (!ifreq) {
+	float ffreq = 0;
+	if (!radio_getfreq(fd,&ffreq))
+		ifreq = ffreq * 1000000;
     }
     
     radio_mute(fd, 0);
