@@ -121,13 +121,16 @@ radio_getsignal(int fd)
 	return 0;
     }
 
-    signal = (tuner.signal)>>13;
+    /* Signal will range from 0 to 7 */
+    signal = (tuner.signal * 7) / 65535;
 
     if (!ncurses)
 	return signal;
 
-    for(i = 0; i < 8; i++)
-        mvwprintw(wfreq, 3, i+1, "%s", signal>i ? "*" : " ");
+    for (i = 0; i < 8; i++)
+        mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
+    mvwprintw(wfreq, 3, i + 1, "|");
+
     return signal;
 }
 
