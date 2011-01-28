@@ -43,7 +43,7 @@
 /* JMMV: WINDOWS for radio */
 int ncurses = 0;
 int debug = 0;
-char *device = "/dev/radio";
+char *device = "/dev/radio0";
 WINDOW *wfreq, *woptions, *wstations, *wcommand;
 int freqfact = 16;
 
