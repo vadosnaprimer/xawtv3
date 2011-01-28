@@ -15,7 +15,7 @@ clean distclean:
 configure:
 	autoconf
 
-tarball rpm dsc debs pbuild release snapshot snap: configure
+tag archive rpm dsc debs pbuild release snapshot snap: configure
 	./configure
 	$(MAKE) $@
 
