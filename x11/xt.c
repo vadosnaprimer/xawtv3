@@ -314,6 +314,12 @@ ExitWP(XtPointer client_data)
 void
 ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
 {
+    static int exit_pending = 0;
+
+    if (exit_pending)
+        return;
+
+    exit_pending = 1;
     audio_off();
     video_overlay(0);
     video_close();
