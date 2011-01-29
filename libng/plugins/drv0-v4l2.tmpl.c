@@ -32,6 +32,10 @@
 
 #ifdef USE_LIBV4L
 #include <libv4l2.h>
+
+#define PLUGIN_NAME "libv4l"
+#else
+#define PLUGIN_NAME "v4l2"
 #endif /* USE_LIBV4L */
 /* ---------------------------------------------------------------------- */
 
@@ -114,11 +118,7 @@ struct v4l2_handle {
 /* ---------------------------------------------------------------------- */
 
 struct ng_vid_driver v4l2_driver = {
-#ifndef USE_LIBV4L
-    name:          "v4l2",
-#else
-    name:          "libv4l",
-#endif /* USE_LIBV4L */
+    name:          PLUGIN_NAME,
     open:          v4l2_open_handle,
     close:         v4l2_close_handle,
 
@@ -467,6 +467,8 @@ v4l2_open_handle(char *device)
 #ifdef USE_LIBV4L
     int libv4l2_fd;
 #endif /* USE_LIBV4L */
+
+    fprintf(stderr, "Using %s plugin\n", PLUGIN_NAME);
 
     h = malloc(sizeof(*h));
     if (NULL == h)

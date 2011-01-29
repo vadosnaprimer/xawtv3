@@ -85,7 +85,7 @@ libng/plugins/drv0-libv4l.o: libng/plugins/drv0-v4l2.tmpl.c
 	@$(compile_c)
 	@$(fixup_deps)
 
-../libng/plugins/drv0-v4l2.o: libng/plugins/drv0-v4l2.tmpl.c
+libng/plugins/drv0-v4l2.o: libng/plugins/drv0-v4l2.tmpl.c
 	@$(echo_compile_c)
 	@$(compile_c)
 	@$(fixup_deps)
