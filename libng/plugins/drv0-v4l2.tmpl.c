@@ -1,9 +1,9 @@
 /*
- * interface to the libv4l driver
+ * interface to the v4l2 driver
  *
  *   (c) 1998-2002 Gerd Knorr <kraxel@bytesex.org>
  *
- * Ported to libv4l by Hans de Goede <hdegoede@redhat.com>
+ * Patch to use libv4l by Hans de Goede <hdegoede@redhat.com>
  */
 #include "config.h"
 
@@ -30,8 +30,9 @@
 #include "struct-dump.h"
 #include "struct-v4l2.h"
 
+#ifdef USE_LIBV4L
 #include <libv4l2.h>
-
+#endif /* USE_LIBV4L */
 /* ---------------------------------------------------------------------- */
 
 /* open+close */
@@ -112,8 +113,12 @@ struct v4l2_handle {
 
 /* ---------------------------------------------------------------------- */
 
-struct ng_vid_driver libv4l_driver = {
+struct ng_vid_driver v4l2_driver = {
+#ifndef USE_LIBV4L
+    name:          "v4l2",
+#else
     name:          "libv4l",
+#endif /* USE_LIBV4L */
     open:          v4l2_open_handle,
     close:         v4l2_close_handle,
 
@@ -169,7 +174,11 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
 {
     int rc;
 
+#ifndef USE_LIBV4L
+    rc = ioctl(fd,cmd,arg);
+#else /* USE_LIBV4L */
     rc = v4l2_ioctl(fd,cmd,arg);
+#endif /* USE_LIBV4L */
     if (rc >= 0 && ng_debug < 2)
 	return rc;
     if (mayfail && errno == mayfail && ng_debug < 2)
@@ -223,7 +232,11 @@ get_device_capabilities(struct v4l2_handle *h)
     }
 
     h->streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+#ifndef USE_LIBV4L
+    ioctl(h->fd,VIDIOC_G_PARM,&h->streamparm);
+#else /* USE_LIBV4L */
     v4l2_ioctl(h->fd,VIDIOC_G_PARM,&h->streamparm);
+#endif /* USE_LIBV4L */
 
     /* controls */
     for (i = 0; i < MAX_CTRL; i++) {
@@ -450,7 +463,10 @@ static void*
 v4l2_open_handle(char *device)
 {
     struct v4l2_handle *h;
-    int i, libv4l2_fd;
+    int i;
+#ifdef USE_LIBV4L
+    int libv4l2_fd;
+#endif /* USE_LIBV4L */
 
     h = malloc(sizeof(*h));
     if (NULL == h)
@@ -462,16 +478,17 @@ v4l2_open_handle(char *device)
 	goto err;
     }
 
+#ifdef USE_LIBV4L
     /* Note the v4l2_xxx functions are designed so that if they get passed an
        unknown fd, the will behave exactly as their regular xxx counterparts, so
        if v4l2_fd_open fails, we continue as normal (missing the libv4l2 custom
        cam format to normal formats conversion). Chances are big we will still
-       fail then though, as normally v4l2_fd_open only fails if the device is not
-       a v4l2 device. */
+       fail then though, as normally v4l2_fd_open only fails if the device is
+       not a v4l2 device. */
     libv4l2_fd = v4l2_fd_open(h->fd, 0);
     if (libv4l2_fd != -1)
         h->fd = libv4l2_fd;
-
+#endif /* USE_LIBV4L */
     if (-1 == xioctl(h->fd,VIDIOC_QUERYCAP,&h->cap,EINVAL))
 	goto err;
     if (ng_debug)
@@ -508,7 +525,11 @@ v4l2_open_handle(char *device)
 
  err:
     if (h->fd != -1)
+#ifndef USE_LIBV4L
+	close(h->fd);
+#else /* USE_LIBV4L */
 	v4l2_close(h->fd);
+#endif /* USE_LIBV4L */
     if (h)
 	free(h);
     return NULL;
@@ -522,7 +543,11 @@ v4l2_close_handle(void *handle)
     if (ng_debug)
 	fprintf(stderr, "v4l2: close\n");
 
+#ifndef USE_LIBV4L
+    close(h->fd);
+#else /* USE_LIBV4L */
     v4l2_close(h->fd);
+#endif /* USE_LIBV4L */
     free(h);
     return 0;
 }
@@ -831,7 +856,11 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 	h->buf_me[i].fmt  = h->fmt_me;
 	h->buf_me[i].size = h->buf_me[i].fmt.bytesperline *
 	    h->buf_me[i].fmt.height;
+#ifndef USE_LIBV4L
+	h->buf_me[i].data = mmap(NULL, h->buf_v4l2[i].length,
+#else /* USE_LIBV4L */
 	h->buf_me[i].data = v4l2_mmap(NULL, h->buf_v4l2[i].length,
+#endif /* USE_LIBV4L */
 				 PROT_READ | PROT_WRITE, MAP_SHARED,
 				 h->fd, h->buf_v4l2[i].m.offset);
 	if (MAP_FAILED == h->buf_me[i].data) {
@@ -872,7 +901,11 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     unsigned int i;
     
     /* stop capture */
+#ifndef USE_LIBV4L
+    if (-1 == ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
+#else /* USE_LIBV4L */
     if (-1 == v4l2_ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
+#endif /* USE_LIBV4L */
 	perror("ioctl VIDIOC_STREAMOFF");
     
     /* free buffers */
@@ -881,7 +914,11 @@ v4l2_stop_streaming(struct v4l2_handle *h)
 	    ng_waiton_video_buf(&h->buf_me[i]);
 	if (ng_debug)
 	    print_bufinfo(&h->buf_v4l2[i]);
+#ifndef USE_LIBV4L
+	if (-1 == munmap(h->buf_me[i].data, h->buf_v4l2_size[i]))
+#else /* USE_LIBV4L */
 	if (-1 == v4l2_munmap(h->buf_me[i].data, h->buf_v4l2_size[i]))
+#endif /* USE_LIBV4L */
 	    perror("munmap");
     }
     h->queue = 0;
@@ -1002,7 +1039,11 @@ v4l2_nextframe(void *handle)
     } else {
 	size = h->fmt_me.bytesperline * h->fmt_me.height;
 	buf = ng_malloc_video_buf(&h->fmt_me,size);
+#ifndef USE_LIBV4L
+	rc = read(h->fd,buf->data,size);
+#else /* USE_LIBV4L */
 	rc = v4l2_read(h->fd,buf->data,size);
+#endif /* USE_LIBV4L */
 	if (rc != size) {
 	    if (-1 == rc) {
 		perror("v4l2: read");
@@ -1036,11 +1077,19 @@ v4l2_getimage(void *handle)
     size = h->fmt_me.bytesperline * h->fmt_me.height;
     buf = ng_malloc_video_buf(&h->fmt_me,size);
     if (h->cap.capabilities & V4L2_CAP_READWRITE) {
+#ifndef USE_LIBV4L
+	rc = read(h->fd,buf->data,size);
+#else /* USE_LIBV4L */
 	rc = v4l2_read(h->fd,buf->data,size);
+#endif /* USE_LIBV4L */
 	if (-1 == rc  &&  EBUSY == errno  &&  h->ov_on) {
 	    h->ov_on = 0;
 	    xioctl(h->fd, VIDIOC_OVERLAY, &h->ov_on, 0);
+#ifndef USE_LIBV4L
+	    rc = read(h->fd,buf->data,size);
+#else /* USE_LIBV4L */
 	    rc = v4l2_read(h->fd,buf->data,size);
+#endif /* USE_LIBV4L */
 	    h->ov_on = 1;
 	    xioctl(h->fd, VIDIOC_OVERLAY, &h->ov_on, 0);
 	}
@@ -1074,5 +1123,5 @@ v4l2_getimage(void *handle)
 extern void ng_plugin_init(void);
 void ng_plugin_init(void)
 {
-    ng_vid_driver_register(NG_PLUGIN_MAGIC,__FILE__,&libv4l_driver);
+    ng_vid_driver_register(NG_PLUGIN_MAGIC,__FILE__,&v4l2_driver);
 }

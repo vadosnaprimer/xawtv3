@@ -80,6 +80,16 @@ libng/plugins/drv0-libv4l.so: \
 	libng/plugins/struct-v4l2.o \
 	libng/plugins/struct-dump.o
 
+libng/plugins/drv0-libv4l.o: libng/plugins/drv0-v4l2.tmpl.c
+	@$(echo_compile_c) -D USE_LIBV4L
+	@$(compile_c)
+	@$(fixup_deps)
+
+../libng/plugins/drv0-v4l2.o: libng/plugins/drv0-v4l2.tmpl.c
+	@$(echo_compile_c)
+	@$(compile_c)
+	@$(fixup_deps)
+
 libng/plugins/struct-dump.o: structs/struct-dump.c
 	@$(echo_compile_c)
 	@$(compile_c)
