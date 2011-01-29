@@ -56,6 +56,7 @@ AC_SUBST(FOUND_OS)
 AC_SUBST(FOUND_X11)
 AC_SUBST(FOUND_GL)
 AC_SUBST(FOUND_ZVBI)
+AC_SUBST(LIBV4L)
 FOUND_AALIB="no"
 FOUND_ALSA="no"
 FOUND_DV="no"
@@ -65,6 +66,7 @@ FOUND_OS="unknown"
 FOUND_X11="no"
 FOUND_GL="no"
 FOUND_ZVBI="no"
+LIBV4L="no"
 
 case "`uname -s`" in
 	Linux)
@@ -168,6 +170,13 @@ AC_SUBST(TOOLS)
 AC_SUBST(LDLIBS)
 AC_SUBST(XFT_FLAGS)
 AC_SUBST(XFT_LIBS)
+
+AC_CHECK_LIB(v4l2, v4l2_fd_open, LIBV4L="yes",,)
+if test "$LIBV4L" != "yes"; then
+    echo "Oops:	libv4l library not found. This is needed to use most webcams."
+    echo "Note:	to compile stuff just the library packages are not enough,"
+    echo "	you need also the *-devel packages."
+fi
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then

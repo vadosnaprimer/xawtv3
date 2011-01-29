@@ -5,3 +5,4 @@ autoconf
 autoheader
 rm -rf autom4te.cache
 cp "$inst" .
+./configure

@@ -63,6 +63,7 @@ FOUND_OS	:= @FOUND_OS@
 FOUND_X11	:= @FOUND_X11@
 FOUND_ZVBI	:= @FOUND_ZVBI@
 USE_MMX		:= @USE_MMX@
+LIBV4L		:= @LIBV4L@
 
 # build final cflags
 CFLAGS   := @CFLAGS@

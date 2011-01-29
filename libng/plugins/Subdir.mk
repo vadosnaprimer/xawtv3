@@ -23,6 +23,10 @@ TARGETS-plugins += \
 	libng/plugins/drv0-v4l2.so \
 	libng/plugins/snd-oss.so
 endif
+ifeq ($(LIBV4L),yes)
+TARGETS-plugins += \
+        libng/plugins/drv0-libv4l.so
+endif
 ifeq ($(FOUND_OS),bsd)
 TARGETS-plugins += \
 	libng/plugins/drv0-bsd.so \
@@ -39,6 +43,7 @@ libng/plugins/read-qt.so  : LDLIBS := $(QT_LIBS)
 libng/plugins/write-qt.so : LDLIBS := $(QT_LIBS)
 libng/plugins/read-dv.so  : LDLIBS := $(DV_LIBS)
 libng/plugins/write-dv.so : LDLIBS := $(DV_LIBS)
+libng/plugins/drv0-libv4l.so: LDLIBS := -lv4l2
 
 # global targets
 all:: $(TARGETS-plugins)
@@ -67,6 +72,11 @@ libng/plugins/write-qt.so:   libng/plugins/write-qt.o
 
 libng/plugins/drv0-v4l2.so: \
 	libng/plugins/drv0-v4l2.o \
+	libng/plugins/struct-v4l2.o \
+	libng/plugins/struct-dump.o
+
+libng/plugins/drv0-libv4l.so: \
+	libng/plugins/drv0-libv4l.o \
 	libng/plugins/struct-v4l2.o \
 	libng/plugins/struct-dump.o
 
