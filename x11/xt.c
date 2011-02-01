@@ -1389,9 +1389,15 @@ grabber_init()
     }
 #endif
     if (!do_overlay) {
+	drv = NULL;
+
 	if (debug)
 	    fprintf(stderr,"x11: remote display (overlay disabled)\n");
-	drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
+
+	if (!args.driver)
+	    drv = ng_vid_open(args.device, "libv4l", NULL, base, &h_drv);
+        if (!drv)
+	    drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
