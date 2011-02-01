@@ -350,3 +350,23 @@ do
 	test -d $dir && continue
 	mkdir -p $dir
 done
+
+dnl ---------------------------------------------------------------------
+dnl compile time options summary
+
+cat <<EOF
+
+compile time options summary
+============================
+
+    aalib        : $FOUND_AALIB
+    alsa         : $FOUND_ALSA
+    dv           : $FOUND_DV
+    QuickTime    : $FOUND_LQT
+    OpenMotif    : $FOUND_MOTIF
+    X11R6        : $FOUND_X11
+    OpenGL       : $FOUND_GL
+    zvbi         : $FOUND_ZVBI
+    libv4l       : $LIBV4L
+
+EOF
