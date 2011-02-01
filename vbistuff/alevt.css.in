@@ -3,7 +3,7 @@ body		{ background-color: white; color: black }
 pre.vt		{ border: 1pt solid black; padding: 12pt }
 pre.vt		{ background-color: #c0c0c0; width: auto; float: left }
 pre.vt		{ white-space: pre }
-pre.vt		{ font-family: "teletext, monospace"; font-size: 20px; line-height: 20px }
+pre.vt		{ font-family: "teletext"; font-size: 20px; line-height: 20px }
 
 div.quick	{ clear: both }
 
