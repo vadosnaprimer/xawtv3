@@ -565,6 +565,13 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
     }
 #endif
 
+    if (ng_debug) {
+	if (driver)
+	    fprintf(stderr,"vid-open: Seeking for %s plugin.\n", driver);
+	else
+	    fprintf(stderr,"vid-open: Seeking for the first available driver.\n");
+    }
+
     /* check all grabber drivers */
     list_for_each(item,&ng_vid_drivers) {
         drv = list_entry(item, struct ng_vid_driver, list);
