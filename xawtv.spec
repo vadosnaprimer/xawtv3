@@ -1,7 +1,7 @@
 Name:         xawtv
 Group:        Applications/Multimedia
 Autoreqprov:  on
-Version:      3.99.rc1
+Version:      3.99.rc2
 Release:      0
 License:      GPL
 Summary:      v4l applications

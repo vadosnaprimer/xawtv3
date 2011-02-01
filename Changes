@@ -1,3 +1,10 @@
+3.99.rc2
+========
+
+* Add a libv4l driver, using it as default
+* Now, it displays the optional features that are configured at ./configure
+* Use fonts found on modern (Xorg) setups
+
 3.99.rc1
 ========
 * Fixed radio backport to V4L2
