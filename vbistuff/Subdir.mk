@@ -32,7 +32,7 @@ vbistuff/ntsc-cc : LDLIBS  += $(ATHENA_LIBS)
 all:: $(TARGETS-vbistuff)
 
 install::
-	$(INSTALL_PROGRAM) -s $(TARGETS-vbistuff) $(bindir)
+	$(INSTALL_PROGRAM) $(STRIP_FLAG) $(TARGETS-vbistuff) $(bindir)
 
 clean::
 	rm -f $(HTML-alevtd)

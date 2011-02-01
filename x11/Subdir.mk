@@ -146,7 +146,7 @@ endif
 
 ifeq ($(FOUND_X11),yes)
 install::
-	$(INSTALL_PROGRAM) -s $(TARGETS-x11) $(bindir)
+	$(INSTALL_PROGRAM) $(STRIP_FLAG) $(TARGETS-x11) $(bindir)
 	$(INSTALL_DIR) $(resdir)/app-defaults
 	$(INSTALL_DATA) $(srcdir)/x11/Xawtv.ad $(resdir)/app-defaults/Xawtv
 endif

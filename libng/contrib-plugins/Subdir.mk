@@ -26,7 +26,7 @@ all:: $(TARGETS-contrib-plugins)
 
 install::
 	$(INSTALL_DIR) $(libdir)
-	$(INSTALL_PROGRAM) -s $(TARGETS-contrib-plugins) $(libdir)
+	$(INSTALL_PROGRAM) $(STRIP_FLAG) $(TARGETS-contrib-plugins) $(libdir)
 
 clean::
 	rm -f $(TARGETS-contrib-plugins)

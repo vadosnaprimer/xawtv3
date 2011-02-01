@@ -4,6 +4,7 @@ VPATH		:= $(srcdir)
 # for package builds (buildroot install + no root privs needed)
 DESTDIR=
 SUID_ROOT=-m4755 -o root
+STRIP_FLAG=
 
 # install paths
 prefix		:= @prefix@
@@ -19,7 +20,7 @@ config		:= @x11conf@/xawtvrc
 CC		:= @CC@
 CXX		:= @CXX@
 INSTALL		:= @INSTALL@
-INSTALL_PROGRAM := @INSTALL_PROGRAM@ -s
+INSTALL_PROGRAM := @INSTALL_PROGRAM@ $(STRIP_FLAG)
 INSTALL_DATA	:= @INSTALL_DATA@
 INSTALL_DIR	:= @INSTALL@ -d -m 755
 

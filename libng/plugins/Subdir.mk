@@ -50,7 +50,7 @@ all:: $(TARGETS-plugins)
 
 install::
 	$(INSTALL_DIR) $(libdir)
-	$(INSTALL_PROGRAM) -s $(TARGETS-plugins) $(libdir)
+	$(INSTALL_PROGRAM) $(STRIP_FLAG) $(TARGETS-plugins) $(libdir)
 	rm -f $(GONE-plugins)
 
 clean::
