@@ -48,6 +48,11 @@
 #define MIN(x,y)        ((x)<(y)?(x):(y))
 
 /* ---------------------------------------------------------------------- */
+/* video plugin                                                           */
+static int libv4l = 1;
+static int v4l2 = 0;
+
+/* ---------------------------------------------------------------------- */
 /* framebuffer                                                            */
 
 static char  *fbdev    = NULL;
@@ -524,6 +529,7 @@ do_fullscreen(void)
 static void
 grabber_init(void)
 {
+    drv = NULL;
     struct ng_video_fmt screen;
 
     memset(&screen,0,sizeof(screen));
@@ -531,7 +537,14 @@ grabber_init(void)
     screen.width        = fb_var.xres_virtual;
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
-    drv = ng_vid_open(ng_dev.video,NULL,&screen,0,&h_drv);
+
+    if (libv4l)
+	drv = ng_vid_open(ng_dev.video, "libv4l", &screen, 0, &h_drv);
+    if (v4l2 && !drv)
+	drv = ng_vid_open(ng_dev.video, "v4l2", &screen, 0, &h_drv);
+
+    if (!drv)
+	drv = ng_vid_open(ng_dev.video,NULL,&screen,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -607,10 +620,14 @@ main(int argc, char *argv[])
     ng_init();
     for (;;) {
 	double val;
-	c = getopt(argc, argv, "Mgvqxkd:o:s:c:f:m:z:t:j:");
+	c = getopt(argc, argv, "Mgvqxk2d:o:s:c:f:m:z:t:j:");
 	if (c == -1)
 	    break;
 	switch (c) {
+	case '2':
+	    v4l2 = 1;
+	    libv4l = 0;
+	    break;
 	case 'z':
 	    if(sscanf(optarg, "%lf", &val) == 1) {
 		if(val < 0.1 || val > 10)
