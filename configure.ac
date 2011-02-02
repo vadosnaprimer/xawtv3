@@ -79,6 +79,9 @@ case "`uname -s`" in
 		LDLIBS="$LDLIBS -L/usr/local/lib"
 		FOUND_OS="bsd"
 		;;
+	GNU/kFreeBSD)
+		FOUND_OS="bsd"
+		;;
 	*)
 		AC_MSG_CHECKING(if xawtv will build on `uname -s`)
 		AC_MSG_RESULT(maybe)

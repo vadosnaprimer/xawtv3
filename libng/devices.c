@@ -9,7 +9,7 @@
 /*
  * default devices names
  */
-#if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
 struct ng_device_config ng_dev = {
     video:  "/dev/bktr0",
     radio:  NULL,
