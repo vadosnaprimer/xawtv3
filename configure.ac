@@ -240,7 +240,10 @@ else
     echo "*** DV disabled"
 fi
 
-dashlglib=$(glib-config --libs 2>/dev/null)
+dashlglib=$(pkg-config glib-2.0 --libs 2>/dev/null)
+if test "$dashlglib" = ""; then
+	dashlglib=$(glib-config --libs 2>/dev/null)
+fi
 if test "$enable_quicktime" != "no"; then
     AC_CHECK_LIB(quicktime, lqt_query_registry,
 	FOUND_LQT="yes"; AC_DEFINE(HAVE_LIBQUICKTIME,1,"have libquicktime"),,
