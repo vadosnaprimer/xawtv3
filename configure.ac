@@ -145,9 +145,9 @@ if test "$no_x" != "yes"; then
   XFT_LIBS=""
   if test "$enable_xft" != "no"; then
     AC_MSG_CHECKING(for Xft)
-    if test -x "`which pkg-config 2>/dev/null`" && pkg-config xft; then
-      XFT_FLAGS="`pkg-config --cflags xft`"
-      XFT_LIBS="`pkg-config --libs xft`"
+    if test -x "`which pkg-config 2>/dev/null`" && pkg-config xft && pkg-config fontconfig; then
+      XFT_FLAGS="`pkg-config --cflags xft fontconfig`"
+      XFT_LIBS="`pkg-config --libs xft fontconfig`"
       AC_DEFINE(HAVE_XFT,1,"have xft")
       AC_MSG_RESULT(yes)
     else
