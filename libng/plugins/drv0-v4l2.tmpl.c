@@ -550,7 +550,23 @@ v4l2_close_handle(void *handle)
 #else /* USE_LIBV4L */
     v4l2_close(h->fd);
 #endif /* USE_LIBV4L */
+
+    if (NULL != h->attr) {
+        int i;
+        for (i = 0; i < h->nattr; ++i) {
+          if ((NULL != h->attr[i].choices) &&
+              (stereo != h->attr[i].choices)) {
+                free(h->attr[i].choices);
+                h->attr[i].choices = NULL;
+            }
+        }
+        free(h->attr);
+        h->attr = NULL;
+    }
+
     free(h);
+    h = NULL;
+
     return 0;
 }
 
