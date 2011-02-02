@@ -60,9 +60,6 @@ static char  *fontfile = NULL;
 static char  *mode     = NULL;
 static char  *joydev   = NULL;
 static struct fs_font *f;
-#ifndef X_DISPLAY_MISSING
-static char *x11_font = "10x20";
-#endif
 
 static unsigned short red[256],  green[256],  blue[256];
 static struct fb_cmap cmap  = { 0, 256, red,  green,  blue };
@@ -328,10 +325,6 @@ text_init(char *font)
 
     if (NULL == f)
         f = fs_consolefont(font ? fonts : NULL);
-#ifndef X_DISPLAY_MISSING
-    if (NULL == f && 0 == fs_connect(NULL))
-        f = fs_open(font ? font : x11_font);
-#endif
     if (NULL == f) {
         fprintf(stderr,"no font available\n");
         exit(1);
