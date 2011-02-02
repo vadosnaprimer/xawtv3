@@ -47,6 +47,7 @@ OSS_LIBS	:= @LIBOSS@
 ALSA_LIBS	:= @LIBALSA@
 AA_LIBS		:= @AALIBS@
 QT_LIBS		:= @QTLIBS@
+QT_FLAGS	:= @QTFLAGS@
 VBI_LIBS	:= @LIBZVBI@
 GL_LIBS		:= @LIBGL@
 DV_LIBS		:= @LIBDV@
@@ -72,6 +73,7 @@ CFLAGS   += $(WARN_FLAGS)
 CFLAGS   += $(LFS_FLAGS)
 CFLAGS   += $(X11_FLAGS)
 CFLAGS   += $(LIB_FLAGS)
+CFLAGS   += $(QT_FLAGS)
 CFLAGS   += -DCONFIGFILE='"$(config)"'
 CFLAGS   += -DLIBDIR='"$(libdir)"'
 CFLAGS   += -DDATADIR='"$(datadir)"'

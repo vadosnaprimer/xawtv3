@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#include <quicktime/quicktime.h>
-#include <quicktime/colormodels.h>
-#include <quicktime/lqt.h>
+#include <quicktime.h>
+#include <colormodels.h>
+#include <lqt.h>
 
 #include "grab-ng.h"
 

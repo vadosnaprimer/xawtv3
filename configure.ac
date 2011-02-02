@@ -253,9 +253,14 @@ else
 fi
 QTLIBS=""
 if test "$FOUND_LQT" = "yes"; then
+    QTFLAGS="`pkg-config libquicktime --cflags-only-I`"
+    if test "$QTFLAGS" = ""; then
+	QTFLAGS= "-I/usr/include/quicktime"
+    fi
     QTLIBS="-lquicktime $DLFLAGS $dashlglib -lm" 
 fi
 AC_SUBST(QTLIBS)
+AC_SUBST(QTFLAGS)
 
 if test "$enable_xfree_ext" != "no"; then
     AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
