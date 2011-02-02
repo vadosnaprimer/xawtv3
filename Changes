@@ -1,3 +1,13 @@
+3.99.rc3
+========
+
+* Auto-detect libquicktime include directory
+* Add detection for glib2
+* Fix a memory leak at drv0-v4l2
+* Auto-detect KFreeBSD variant
+* vbi-conf.8 reports that it still in man1 section instead of man8
+* Improve xft library detection
+
 3.99.rc2
 ========
 
