@@ -3,31 +3,16 @@
 ! Strings
 
 Xawtv*international:		true
-! Modern X (with fontconfig system and unicode locales)
-! works acceptable with these lines commented out.
-! Feel free to uncomment it and choose the proper font(s) if needed.
-!Xawtv*fontSet:			\
-! -*-fixed-bold-r-normal-*-14-*-*-*-*-*-iso10646-1, \
-! -*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
-!          -*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
-!         -gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*, \
-!       -efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*, \
-!                -*-*-bold-r-normal-*-16-*-*-*-m-*-*-*, \
-!                -*-*-bold-r-normal-*-16-*-*-*-c-*-*-*, \
-!                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*, *
+Xawtv*fontSet:			\
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--13-*-*-*-*-*-*-*,*
 
 TopLevelShell*international:	true
-! Modern X (with fontconfig system and unicode locales)
-! works acceptable with these lines commented out.
-! Feel free to uncomment it and choose the proper font(s) if needed.
-!TopLevelShell*fontSet:		\
-! -*-lucidatypewriter-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
-!          -*-courier-bold-r-normal-*-14-*-*-*-m-*-iso8859-*, \
-!         -gnu-unifont-bold-r-normal--16-*-*-*-c-*-*-*, \
-!       -efont-biwidth-bold-r-normal--16-*-*-*-*-*-*-*, \
-!                -*-*-bold-r-normal-*-16-*-*-*-m-*-*-*, \
-!                -*-*-bold-r-normal-*-16-*-*-*-c-*-*-*, \
-!                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+TopLevelShell*fontSet:		\
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--13-*-*-*-*-*-*-*,*
 
 *popup_help.title:		Welcome to xawtv!
 xawtv.tv.help: \
@@ -387,15 +372,10 @@ xawtv.onscreen*background:		black
 xawtv.onscreen*borderColor:		black
 xawtv.onscreen*foreground:		lightgreen
 xawtv.onscreen.label.justify:		left
-! Modern X (with fontconfig system and unicode locales)
-! works acceptable with these lines commented out.
-! Feel free to uncomment it and choose the proper font(s) if needed.
-!xawtv.onscreen.label.fontSet:		\
-!     -*-ledfixed-medium-r-semicondensed--39-*-*-*-c-*-*-*, \
-! -*-bitstream vera sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-!           -*-luxi sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-!                          -*-*-r-normal--39-*-*-*-*-*-*-*, \
-!                               -*-*-*-*--39-*-*-*-*-*-*-*,*
+xawtv.onscreen.label.fontSet:		\
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--20-*-*-*-*-*-*-*,*
 
 xawtv.vtx.allowShellResize:		true
 xawtv.vtx.label.resize:			true
