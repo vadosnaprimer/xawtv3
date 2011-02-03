@@ -1,12 +1,12 @@
 #include <X11/Xlib.h>
 #include <X11/Xmd.h>
 #ifdef HAVE_LIBXXF86DGA
-# include <X11/extensions/xf86dga.h>
-# include <X11/extensions/xf86dgastr.h>
+# include <X11/extensions/Xxf86dga.h>
+# include <X11/extensions/xf86dgaproto.h>
 #endif
 #ifdef HAVE_LIBXXF86VM
 # include <X11/extensions/xf86vmode.h>
-# include <X11/extensions/xf86vmstr.h>
+# include <X11/extensions/xf86vmproto.h>
 #endif
 #ifdef HAVE_LIBXINERAMA
 # include <X11/extensions/Xinerama.h>
