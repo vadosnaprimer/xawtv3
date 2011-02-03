@@ -1,10 +1,19 @@
+3.99.rc5
+========
+
+* Re-add locale to xawtv/motv/mtt
+* Print plugin info only when debug
+* avoid usage of "bool"
+* Change some obsoleted headers pathes
+* Remove dead code
+
 3.99.rc4
 ========
 
-cc2f726 Don't mix install-sh scripts
-643f59a motv/mtt: Disable locale setting, as this cause failure
-931cefc x11/xawtv: Disable locale setting, as this cause failure
-9673593 Remove the legacy xfs connection for FB
+* Don't mix install-sh scripts
+* motv/mtt: Disable locale setting, as this cause failure
+* x11/xawtv: Disable locale setting, as this cause failure
+* Remove the legacy xfs connection for FB
 
 3.99.rc3
 ========
