@@ -3252,7 +3252,23 @@ main(int argc, char *argv[])
     unsigned long  freq;
     
     hello_world("motv");
-    XtSetLanguageProc(NULL,NULL,NULL);
+#if 0
+    /*
+     * There are several issues with modern Xorg servers and
+     * UTF-8 fonts. Basically, on several setups, xawtv won't
+     * find a proper UTF-8, failing to load with:
+     * Warning: Missing charsets in String to FontSet conversion
+     * Warning: Unable to load any usable fontset
+     * Error: Aborting: no fontset found
+     *
+     * While disabling locale is not that a good idea, it is better
+     * to disable it than to fail completely. A proper fix would be
+     * to change its code to use some newer Xorg libraries, but this
+     * would be a major change.
+     */
+
+     XtSetLanguageProc(NULL,NULL,NULL);
+#endif
     app_shell = XtVaAppInitialize(&app_context, "MoTV",
 				  opt_desc, opt_count,
 				  &argc, argv,
