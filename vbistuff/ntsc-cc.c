@@ -350,7 +350,7 @@ static int webtv_check(char * buf,int len)
 
 static int CCdecode(int data)
 {
-	int b1, b2, row, len, x,y;
+	int b1, b2, len, x,y;
 	if (data == -1) //invalid data. flush buffers to be safe.
 	{
 		memset(ccbuf[1],0,255);
@@ -375,7 +375,6 @@ static int CCdecode(int data)
 
 		if (b2 & 0x40)	//preamble address code (row & indent)
 		{
-			row=rowdata[((b1<<1)&14)|((b2>>5)&1)];
 			if (len!=0)
 				ccbuf[ccmode][len++]='\n';
 

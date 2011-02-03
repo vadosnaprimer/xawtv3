@@ -92,7 +92,7 @@ static void
 resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
     static int width,height;
-    int wx,wy,wwidth,wheight;
+    int wwidth,wheight;
     Display *dpy = XtDisplay(video);
 #if 0
     Screen  *scr = DefaultScreenOfDisplay(dpy);
@@ -101,8 +101,6 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 
     switch(event->type) {
     case ConfigureNotify:
-	wx      = event->xconfigure.x;
-	wy      = event->xconfigure.y;
 	wwidth  = event->xconfigure.width;
 	wheight = event->xconfigure.height;
 #if 0

@@ -172,13 +172,12 @@ main(int argc, char *argv[])
 
     int ver, rel, req, ev, err, dummy;
     int adaptors,attributes;
-    int i,stop,bg,newwin,do_mute,have_mute,grab;
+    int i,bg,newwin,do_mute,have_mute,grab;
 
     dpy = XOpenDisplay(NULL);
     scr = DefaultScreenOfDisplay(dpy);
     init_atoms(dpy);
 
-    stop = 0;
     bg = 0;
     do_mute = 1;
     have_mute = 0;

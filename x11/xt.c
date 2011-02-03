@@ -2102,12 +2102,10 @@ void
 create_pointers(Widget app_shell)
 {
     XColor white,red,dummy;
-    Screen *scr;
     
     left_ptr = XCreateFontCursor(dpy,XC_left_ptr);
     menu_ptr = XCreateFontCursor(dpy,XC_right_ptr);
     qu_ptr   = XCreateFontCursor(dpy,XC_question_arrow);
-    scr = DefaultScreenOfDisplay(dpy);
     if (vinfo.depth > 1) {
 	if (XAllocNamedColor(dpy,colormap,"white",&white,&dummy) &&
 	    XAllocNamedColor(dpy,colormap,"red",&red,&dummy)) {

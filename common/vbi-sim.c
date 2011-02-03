@@ -179,22 +179,6 @@ ttx_sim(double t, double F, const uint8_t *text)
 	} else {
 		return 0.0;
 	}
-
-	if (t < t1) {
-		return 0.0;
-	} else if (t < t2) {
-		int i, j, n;
-
-		t -= t1;
-		i = (t * F - .0);
-		j = i >> 3;
-		if (j < 44)
-			n = ((text[j + 1] * 256 + text[j]) >> i) & 3;
-		else
-			n = (text[i] >> i) & 3;
-
-		return shape(ph);
-	}
 }
 
 static unsigned int caption_i = 0;

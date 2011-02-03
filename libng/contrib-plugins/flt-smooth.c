@@ -462,7 +462,7 @@ frame(void *h, struct ng_video_buf *in)
     unsigned char *dst;
     unsigned char *src;
     unsigned char *last;
-    unsigned int y,cnt;
+    unsigned int y;
 
     out = ng_malloc_video_buf(&in->fmt, in->fmt.height * in->fmt.bytesperline);
     out->info = in->info;
@@ -470,7 +470,6 @@ frame(void *h, struct ng_video_buf *in)
     dst = out->data;
     src = in->data;
     last = handle->pLastFrame->data;
-    cnt = in->fmt.width * ng_vfmt_to_depth[in->fmt.fmtid] / 8;
 
     for (y = 0; y < in->fmt.height; y++) {
 	switch (in->fmt.fmtid) {
