@@ -40,7 +40,7 @@ unsigned int           x11_dpy_fmtid;
 static int             display_bits = 0;
 static unsigned int    display_bytes = 0;
 static unsigned int    pixmap_bytes = 0;
-static bool            x11_byteswap = 0;
+static int             x11_byteswap = 0;
 static int             no_mitshm = 0;
 static int             gl_error = 0;
 

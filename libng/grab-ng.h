@@ -25,7 +25,6 @@ extern char ng_v4l_conf[256];
 
 #if __STDC_VERSION__ < 199901
 # define restrict
-# define bool int
 #endif
 
 #define UNSET          (-1U)
