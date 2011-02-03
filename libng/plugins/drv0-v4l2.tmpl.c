@@ -468,6 +468,7 @@ v4l2_open_handle(char *device)
     int libv4l2_fd;
 #endif /* USE_LIBV4L */
 
+    if (ng_debug)
     fprintf(stderr, "Using %s plugin\n", PLUGIN_NAME);
 
     h = malloc(sizeof(*h));
