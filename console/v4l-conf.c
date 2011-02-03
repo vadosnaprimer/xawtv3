@@ -51,6 +51,7 @@ int    verbose    = 1;
 int    yuv        = 0;
 int    user_bpp   = 0;
 int    user_shift = 0;
+int    user_bpl   = 0;
 void   *user_base = NULL;
 char   *display   = NULL;
 char   *fbdev     = NULL;
@@ -377,7 +378,15 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
     }
     if (yuv)
 	fb.fmt.pixelformat = V4L2_PIX_FMT_YUYV;
+    /* Prefer an already configured bpl (if it makes sense) over our found bpl
+       if we did not find a base as our bpl is not very reliable when we did
+       not find a base */
+    if (user_bpl || d->base ||
+            fb.fmt.bytesperline < (fb.fmt.width * ((d->bpp + 7) / 8)))
     fb.fmt.bytesperline = d->bpl;
+    else
+        fprintf(stderr,"WARNING: keeping fbuf pitch at: %d, as no base addr was detected\n",
+            (int)fb.fmt.bytesperline);
     fb.fmt.sizeimage = fb.fmt.height * fb.fmt.bytesperline;
     if (NULL != d->base)
 	fb.base   = d->base;
@@ -431,7 +440,7 @@ main(int argc, char *argv[])
     
     /* parse options */
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hyq12d:c:b:s:fa:")))
+	if (-1 == (c = getopt(argc, argv, "hyq12d:c:b:s:fa:p:")))
 	    break;
 	switch (c) {
 	case 'q':
@@ -468,6 +477,14 @@ main(int argc, char *argv[])
 		exit(1);
 	    }
 	    break;
+	case 'p':
+	    if (0 == getuid()) {
+		sscanf(optarg,"%d",&user_bpl);
+	    } else {
+		fprintf(stderr,"only root is allowed to use the -p option\n");
+		exit(1);
+	    }
+	    break;
 	case 'h':
 	default:
 	    fprintf(stderr,
@@ -485,6 +502,8 @@ main(int argc, char *argv[])
 		    "    -a <addr> set framebuffer address to <addr>\n"
 		    "              (in hex, root only, successful autodetect\n"
 		    "               will overwrite this address)\n"
+		    "    -p <pitch> set framebuffer pitch to <pitch> bytes\n"
+		    "              (decimal, root only)\n"
 		    "    -1        force v4l API\n"
 		    "    -2        force v4l2 API\n",
 		    argv[0],
@@ -550,6 +569,9 @@ main(int argc, char *argv[])
     if ((user_bpp == 15 || user_bpp == 16) &&
 	(d.depth  == 15 || d.depth  == 16))
 	d.depth = user_bpp;
+
+    if (user_bpl)
+        d.bpl = user_bpl;
 
     if (verbose) {
 	fprintf(stderr,"mode: %dx%d, depth=%d, bpp=%d, bpl=%d, ",
