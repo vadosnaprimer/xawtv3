@@ -1382,8 +1382,12 @@ grabber_init()
     if (have_dga) {
 	int bar,fred;
         orig_xfree_error_handler = XSetErrorHandler(xfree_dga_error_handler);
-    	XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,
-			  &screen.bytesperline,&bar,&fred);
+	if (!XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,
+			      &screen.bytesperline,&bar,&fred)) {
+	    have_dga = 0;
+	    memset(&screen,0,sizeof(screen));	/*  paranoia   */
+	    base = NULL;			/*  paranoia   */
+	}
         XSync(dpy, 0);
         XSetErrorHandler(orig_xfree_error_handler);
     }

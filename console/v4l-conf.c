@@ -255,7 +255,8 @@ displayinfo_dga(Display *dpy, struct DISPLAYINFO *d)
 	return;
     }
     orig_xfree_error_handler = XSetErrorHandler(dga_error_handler);
-    XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,&width,&foo,&bar);
+    if (!XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,&width,&foo,&bar))
+	dga_error = 1;
     XSync(dpy, 0);
     XSetErrorHandler(orig_xfree_error_handler);
     if (dga_error) {
