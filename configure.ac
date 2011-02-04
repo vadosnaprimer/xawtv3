@@ -143,7 +143,6 @@ AC_PATH_XTRA
 if test "$no_x" != "yes"; then
   FOUND_X11="yes"
   ATHENA="-lXaw -lXmu -lXt $X_PRE_LIBS -lXpm -lXext -lX11 $X_EXTRA_LIBS"
-  FSLIB="-lFS"
   XFT_FLAGS=""
   XFT_LIBS=""
   if test "$enable_xft" != "no"; then
@@ -159,7 +158,6 @@ if test "$no_x" != "yes"; then
   fi
 else
   ATHENA=""
-  FSLIB=""
 fi
 AC_SUBST(X_CFLAGS)
 AC_SUBST(X_PRE_LIBS)
@@ -167,7 +165,6 @@ AC_SUBST(X_EXTRA_LIBS)
 AC_SUBST(X_LIBS)
 AC_SUBST(x_includes)
 AC_SUBST(ATHENA)
-AC_SUBST(FSLIB)
 AC_SUBST(SUBS)
 AC_SUBST(TOOLS)
 AC_SUBST(LDLIBS)

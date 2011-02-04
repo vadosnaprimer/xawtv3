@@ -51,7 +51,6 @@ QT_FLAGS	:= @QTFLAGS@
 VBI_LIBS	:= @LIBZVBI@
 GL_LIBS		:= @LIBGL@
 DV_LIBS		:= @LIBDV@
-FS_LIBS		:= @FSLIB@
 DLFLAGS		:= @DLFLAGS@
 
 # stuff configure has found

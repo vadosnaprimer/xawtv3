@@ -1,24 +1,3 @@
-#ifndef X_DISPLAY_MISSING
-# include <FSlib.h>
-
-struct fs_font {
-    Font               font;
-    FSXFontInfoHeader  fontHeader;
-    FSPropInfo         propInfo;
-    FSPropOffset       *propOffsets;
-    unsigned char      *propData;
-
-    FSXCharInfo        *extents;
-    FSOffset           *offsets;
-    unsigned char      *glyphs;
-
-    int                maxenc,width,height;
-    FSXCharInfo        **eindex;
-    unsigned char      **gindex;
-};
-
-#else
-
 typedef struct _FSXCharInfo {
     short       left;
     short       right;
@@ -48,8 +27,6 @@ struct fs_font {
     FSXCharInfo        **eindex;
     unsigned char      **gindex;
 };
-
-#endif
 
 /* ------------------------------------------------------------------ */
 
