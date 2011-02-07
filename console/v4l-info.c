@@ -30,7 +30,7 @@ static int dump_v4l2(int fd, int tab)
 	struct v4l2_format      format;
 	struct v4l2_framebuffer fbuf;
 	struct v4l2_queryctrl   qctrl;
-	int i;
+	int i, id;
 
 	printf("general info\n");
 	memset(&capability,0,sizeof(capability));
@@ -159,6 +159,17 @@ static int dump_v4l2(int fd, int tab)
 		printf("    VIDIOC_QUERYCTRL(BASE+%d)\n",i);
 		print_struct(stdout,desc_v4l2_queryctrl,&qctrl,"",tab);
 	}
+        for (i = 0; i < V4L2_CID_LASTP1 - V4L2_CID_USER_BASE; i++) {
+		memset(&qctrl,0,sizeof(qctrl));
+		qctrl.id = id + V4L2_CID_USER_BASE;
+		if (-1 == ioctl(fd,VIDIOC_QUERYCTRL,&qctrl))
+			break;
+		if (qctrl.flags & V4L2_CTRL_FLAG_DISABLED)
+			continue;
+		printf("    VIDIOC_QUERYCTRL(USER_BASE+%d)\n", i);
+		print_struct(stdout,desc_v4l2_queryctrl,&qctrl, "", tab);
+	}
+
 	for (i = 0;; i++) {
 		memset(&qctrl,0,sizeof(qctrl));
 		qctrl.id = V4L2_CID_PRIVATE_BASE+i;
@@ -184,7 +195,7 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		device = argv[1];
-	
+
 	fd = open(device,O_RDONLY);
 	if (-1 == fd) {
 		fprintf(stderr,"open %s: %s\n",device,strerror(errno));
