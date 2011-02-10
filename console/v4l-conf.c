@@ -286,8 +286,8 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
 	    exit(1);
 	}
 	if (-1 == ioctl(fd, VT_GETSTATE, &vstat)) {
-	    perror("ioctl VT_GETSTATE");
-	    exit(1);
+	    perror("VT_GETSTATE is not supported");
+	    return;
 	}
 	close(fd);
 	c2m.console = vstat.v_active;
