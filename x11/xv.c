@@ -63,7 +63,7 @@ struct xv_handle {
     int                  vi_adaptor;
     XvPortID             vi_port;
     GC                   vi_gc;
-    
+
     /* attributes */
     int                  nattr;
     struct ng_attribute  *attr;
@@ -87,11 +87,29 @@ static const struct XVATTR {
     { ATTR_ID_HUE,      ATTR_TYPE_INTEGER, "XV_HUE",        },
     { ATTR_ID_BRIGHT,   ATTR_TYPE_INTEGER, "XV_BRIGHTNESS", },
     { ATTR_ID_CONTRAST, ATTR_TYPE_INTEGER, "XV_CONTRAST",   },
+    { -1,               ATTR_TYPE_BOOL,    "XV_CHROMA_AGC", },
+    { -1,               ATTR_TYPE_BOOL,    "XV_COMBFILTER", },
+    { -1,               ATTR_TYPE_BOOL,    "XV_AUTOMUTE",   },
+    { -1,               ATTR_TYPE_BOOL,    "XV_LUMA_DECIMATION_FILTER", },
+    { -1,               ATTR_TYPE_BOOL,    "XV_AGC_CRUSH",  },
+    { -1,               ATTR_TYPE_BOOL,    "XV_VCR_HACK",   },
+    { -1,               ATTR_TYPE_BOOL,    "XV_FULL_LUMA_RANGE", },
     { ATTR_ID_MUTE,     ATTR_TYPE_BOOL,    "XV_MUTE",       },
+    { -1,               ATTR_TYPE_INTEGER, "XV_BALANCE",    },
+    { -1,               ATTR_TYPE_INTEGER, "XV_BASS",       },
+    { -1,               ATTR_TYPE_INTEGER, "XV_TREBLE",     },
     { ATTR_ID_VOLUME,   ATTR_TYPE_INTEGER, "XV_VOLUME",     },
     { -1,               -1,                "XV_COLORKEY",   },
+    { -1,               -1,                "XV_AUTOPAINT_COLORKEY", },
     { -1,               -1,                "XV_FREQ",       },
     { -1,               -1,                "XV_ENCODING",   },
+    { -1,               -1,                "XV_WHITECRUSH_UPPER", },
+    { -1,               -1,                "XV_WHITECRUSH_LOWER", },
+    { -1,               -1,                "XV_UV_RATIO",   },
+    { -1,               -1,                "XV_CORING",     },
+    { -1,               -1,                "XV_AUTOPAINT_COLORKEY", },
+    { -1,               -1,                "XV_SET_DEFAULTS", },
+    { -1,               -1,                "XV_ITURBT_709", },
     {}
 };
 
@@ -107,10 +125,10 @@ static int xv_read_attr(struct ng_attribute *attr)
 	XvGetPortAttribute(dpy, h->vi_port,atom,&value);
 	if (debug)
 	    fprintf(stderr,"xv: get %s: %d\n",at->name,value);
-	
+
     } else if (attr->id == ATTR_ID_NORM) {
 	value = h->norm;
-	
+
     } else if (attr->id == ATTR_ID_INPUT) {
 	value = h->input;
 
@@ -155,7 +173,7 @@ xv_add_attr(struct xv_handle *h, int id, int type,
 	    int defval, struct STRTAB *choices, XvAttribute *at)
 {
     int i;
-    
+
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
     memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
     if (at) {
@@ -229,7 +247,7 @@ xv_video(Window win, int dw, int dh, int on)
     struct xv_handle *h = h_drv; /* FIXME */
     int sx,sy,dx,dy;
     int sw,sh;
-    
+
     if (on) {
 	sx = sy = dx = dy = 0;
 	sw = dw;
@@ -356,7 +374,7 @@ void xv_video_init(unsigned int port, int hwscan)
 	    fprintf(stderr,"\n");
 	    continue;
 	}
-	
+
 	if ((ai[i].type & XvInputMask) &&
 	    (ai[i].type & XvVideoMask) &&
 	    (vi_port == -1)) {
@@ -514,7 +532,7 @@ init_icon_window(Widget shell,WidgetClass class)
 	icon_height = 48;
     }
     fprintf(stderr,"icon init %dx%d\n",icon_width,icon_height);
-    
+
     icon_win = XCreateWindow(XtDisplay(shell),root,
 			     0,0,icon_width,icon_height,1,
 			     CopyFromParent,InputOutput,CopyFromParent,
