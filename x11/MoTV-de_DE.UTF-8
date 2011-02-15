@@ -3,7 +3,7 @@
 ! some standard motif stuff [i18n]
 
 *.cancelLabelString:				Abbrechen
-*.applyLabelString:				Übernehmen
+*.applyLabelString:				Ãœbernehmen
 *.XmFileSelectionBox.dirListLabelString:	Verzeichnisse
 *.XmFileSelectionBox.fileListLabelString:	Dateien
 *.XmFileSelectionBox.selectionLabelString:	Auswahl
@@ -12,7 +12,7 @@
 ! ----------------------------------------------------------------------------
 ! strings [i18n]
 
-MoTV.about_box_popup.title:		Über motv
+MoTV.about_box_popup.title:		Ãœber motv
 MoTV*about_box_popup*messageString:	\
 	motv - Motif TV application	\n\
 	\n\
@@ -25,7 +25,7 @@ control*menubar*editM.tearOffTitle:	Bearbeiten
 control*menubar*toolsM.tearOffTitle:	Tools
 control*menubar*tuneM.tearOffTitle:	Tuner
 control*menubar*grabM.tearOffTitle:	Bild speichern
-control*menubar*ratioM.tearOffTitle:	Seitenverhältnis
+control*menubar*ratioM.tearOffTitle:	SeitenverhÃ¤ltnis
 control*menubar*launchM.tearOffTitle:	Launch
 control*menubar*subM.tearOffTitle:	Untertitel
 control*menubar*stationsM.tearOffTitle:	Sender
@@ -44,7 +44,7 @@ control*menubar.tools.labelString:	Tools
 control*menubar.tools.mnemonic:		T
 control*menubar*tune.labelString:	Tuner
 control*menubar*grab.labelString:	Bild speichern
-control*menubar*ratio.labelString:	Seitenverhältnis
+control*menubar*ratio.labelString:	SeitenverhÃ¤ltnis
 control*menubar*launch.labelString:	Launch
 control*menubar*sub.labelString:	Untertitel
 control*menubar.stations.labelString:	Sender
@@ -87,12 +87,12 @@ control*menubar*ontop.accelerator:	<Key>T
 control*menubar*levels.labelString:	Aufnahmepegel ...
 control*menubar*levels.acceleratorText:	L
 control*menubar*levels.accelerator:	<Key>L
-control*menubar*st_up.labelString:	Nächster Sender
+control*menubar*st_up.labelString:	NÃ¤chster Sender
 control*menubar*st_up.acceleratorText:	page up
 control*menubar*st_dn.labelString:	Vorheriger Sender
 control*menubar*st_dn.acceleratorText:	page down
 
-control*menubar*ch_up.labelString:	Nächster Kanal
+control*menubar*ch_up.labelString:	NÃ¤chster Kanal
 control*menubar*ch_up.acceleratorText:	up
 control*menubar*ch_dn.labelString:	Vorheriger Kanal
 control*menubar*ch_dn.acceleratorText:	down
@@ -101,17 +101,17 @@ control*menubar*fi_up.acceleratorText:	right
 control*menubar*fi_dn.labelString:	Finetune down
 control*menubar*fi_dn.acceleratorText:	left
 
-control*menubar*ppm_f.labelString:	PPM, maximale Größe
+control*menubar*ppm_f.labelString:	PPM, maximale GrÃ¶ÃŸe
 control*menubar*ppm_f.acceleratorText:	G
 control*menubar*ppm_f.accelerator:	~Ctrl<Key>G
-control*menubar*ppm_w.labelString:	PPM, Fenstergröße
+control*menubar*ppm_w.labelString:	PPM, FenstergrÃ¶ÃŸe
 control*menubar*ppm_w.acceleratorText:	Ctrl+G
 control*menubar*ppm_w.accelerator:	Ctrl<Key>G
-control*menubar*jpg_f.labelString:	JPEG, maximale Größe
+control*menubar*jpg_f.labelString:	JPEG, maximale GrÃ¶ÃŸe
 control*menubar*jpg_f.mnemonic:		J
 control*menubar*jpg_f.acceleratorText:	J
 control*menubar*jpg_f.accelerator:	~Ctrl<Key>J
-control*menubar*jpg_w.labelString:	JPEG, Fenstergröße
+control*menubar*jpg_w.labelString:	JPEG, FenstergrÃ¶ÃŸe
 control*menubar*jpg_w.acceleratorText:	Ctrl+J
 control*menubar*jpg_w.accelerator:	Ctrl<Key>J
 
@@ -133,7 +133,7 @@ control*menubar*s_888.labelString:	Seite 888
 control*menubar*s_888.mnemonic:		8
 
 ! options menu
-control*menubar*add.labelString:	Sender hinzufügen ...
+control*menubar*add.labelString:	Sender hinzufÃ¼gen ...
 control*menubar*add.mnemonic:		h
 control*menubar*scan.labelString:	Sendersuche ...
 control*menubar*pref.labelString:	Konfiguration ...
@@ -160,19 +160,19 @@ control*menubar*fnone.mnemonic:		K
 ! help menu
 control*menubar*man.labelString:	Manual anzeigen
 control*menubar*man.mnemonic:		M
-control*menubar*about.labelString:	Über ...
+control*menubar*about.labelString:	Ãœber ...
 control*menubar*about.mnemonic:		b
 
 ! tooltips (needs openmotif 2.2)
-control*tool.prev.toolTipString:	nächster Sender
+control*tool.prev.toolTipString:	nÃ¤chster Sender
 control*tool.next.toolTipString:	vorheriger Sender
 control*tool.snap.toolTipString:	Bild speichern
 control*tool.movie.toolTipString:	Film aufnehmen
 control*tool.mute.toolTipString:	Ton aus
 control*tool.exit.toolTipString:	Beenden
 
-control*box.XmPushButton*menu.del.labelString:	Löschen
-control*box.XmPushButton*menu.edit.labelString:	Ändern ...
+control*box.XmPushButton*menu.del.labelString:	LÃ¶schen
+control*box.XmPushButton*menu.edit.labelString:	Ã„ndern ...
 
 ! channel scan
 *chscan_popup.title:			Sendersuche
@@ -180,10 +180,10 @@ control*box.XmPushButton*menu.edit.labelString:	Ändern ...
 *chscan_popup*hints.labelString:	\
 	Der Sendersuchlauf baut eine komplett neue\n\
 	Senderliste auf, die jetzige Liste wird\n\
-	überschrieben.\n\
+	Ã¼berschrieben.\n\
 	\n\
 	Damit die Sendersuche richtig funkioniert\n\
-	müssen Fernsehnorm und Frequenztabelle\n\
+	mÃ¼ssen Fernsehnorm und Frequenztabelle\n\
 	richtig eingestellt sein.  Beides ist auch\n\
 	unter "Einstellungen" zu finden.\n
 
@@ -197,31 +197,31 @@ control*box.XmPushButton*menu.edit.labelString:	Ändern ...
 *prop_popup*rc.buttons.cancel.labelString: Abbrechen
 *prop_popup*no_name_popup.title:	Fehler
 *prop_popup*no_name_popup*messageString: \
-	Einen Namen für den Sender mußt Du schon vergeben.
+	Einen Namen fÃ¼r den Sender muÃŸt Du schon vergeben.
 
 ! preferences
 *pref_popup.title:			Einstellungen
 *pref_popup*okLabelString:		Speichern
 *pref_popup*fsL.labelString:		Vollbild
-*pref_popup*fsT.labelString:		Auflösung umschalten
-*pref_popup*fsO.labelString:		Auflösung:
+*pref_popup*fsT.labelString:		AuflÃ¶sung umschalten
+*pref_popup*fsO.labelString:		AuflÃ¶sung:
 *pref_popup*mixL.labelString:		\
-	Lautstärke (funkioniert erst nach Neustart)
-*pref_popup*mixT.labelString:		Lautstärke mit Mixer regeln
-*pref_popup*mix1O.labelString:		Gerät:
+	LautstÃ¤rke (funkioniert erst nach Neustart)
+*pref_popup*mixT.labelString:		LautstÃ¤rke mit Mixer regeln
+*pref_popup*mix1O.labelString:		GerÃ¤t:
 *pref_popup*mix2O.labelString:		Regler:
 *pref_popup*optL.labelString:		Optionen
 *pref_popup*osd.labelString:		Bei Vollbild OSD benutzen
 *pref_popup*keypad-ntsc.labelString:	Nummernblock: ntsc modus
 *pref_popup*keypad-partial.labelString:	\
 	Nummernblock: beim ersten Tastendruck umschalten
-*pref_popup*jpeg.label.labelString:	JPEG Bildqualität:
+*pref_popup*jpeg.label.labelString:	JPEG BildqualitÃ¤t:
 
 scale.title:				Regler
-scale*volume.titleString:		Lautstärke
+scale*volume.titleString:		LautstÃ¤rke
 scale*bright.titleString:		Helligkeit
 scale*hue.titleString:			Farbe
-scale*color.titleString:		Sättigung
+scale*color.titleString:		SÃ¤ttigung
 scale*contrast.titleString:		Kontrast
 
 levels.title:				Monitor
@@ -245,9 +245,9 @@ streamer*files.labelString:		Browse ...
 streamer*buttons.rec.labelString:	Aufnahme
 streamer*buttons.stop.labelString:	Stop
 streamer*buttons.play.labelString:	Abspielen
-streamer*buttons.cancel.labelString:	Schließen
+streamer*buttons.cancel.labelString:	SchlieÃŸen
 
 MoTV.man_popup.title:			Manual page
-MoTV.man_popup*okLabelString:		Fenster schließen
+MoTV.man_popup*okLabelString:		Fenster schlieÃŸen
 MoTV.man_popup*label.labelString:	bitte warten ...
 

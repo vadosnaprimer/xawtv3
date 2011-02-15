@@ -122,7 +122,7 @@ x11/complete-motif.o : CFLAGS += -DMOTIF=1
 
 
 # i18n
-LANGUAGES := de it fr de_DE.UTF-8
+LANGUAGES := de_DE.UTF-8 fr_FR.UTF-8 it_IT.UTF-8
 MOTV-app  := $(patsubst %,x11/MoTV.%.ad,$(LANGUAGES))
 
 
@@ -170,9 +170,6 @@ x11/MoTV.ad: $(srcdir)/x11/MoTV-default $(srcdir)/x11/MoTV-fixed
 
 x11/MoTV.%.ad: x11/MoTV-%
 	cat $< $(srcdir)/x11/MoTV-fixed > $@
-
-x11/MoTV.de_DE.UTF-8.ad: x11/MoTV.de.ad
-	iconv -f iso-8859-1 -t utf-8 < $< > $@
 
 install-motv-%:
 	$(INSTALL_DIR) $(resdir)/$*/app-defaults

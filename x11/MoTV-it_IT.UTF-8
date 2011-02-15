@@ -93,15 +93,15 @@ control*menubar*ontop.accelerator:	<Key>T
 control*menubar*st_up.labelString:	Stazione successiva
 control*menubar*st_up.acceleratorText:	pagina su
 control*menubar*st_dn.labelString:	Stazione precedente
-control*menubar*st_dn.acceleratorText:	pagina gi˘
+control*menubar*st_dn.acceleratorText:	pagina gi√π
 
 control*menubar*ch_up.labelString:	Canale Successivo
 control*menubar*ch_up.acceleratorText:	su
 control*menubar*ch_dn.labelString:	Canale precedente
-control*menubar*ch_dn.acceleratorText:	gi˘
+control*menubar*ch_dn.acceleratorText:	gi√π
 control*menubar*fi_up.labelString:	Sintonizzazione di precisione su
 control*menubar*fi_up.acceleratorText:	destra
-control*menubar*fi_dn.labelString:	Sintonizzazione di precisione gi˘
+control*menubar*fi_dn.labelString:	Sintonizzazione di precisione gi√π
 control*menubar*fi_dn.acceleratorText:	sinistra
 
 control*menubar*ppm_f.labelString:	PPM, dimensione max
@@ -184,14 +184,14 @@ control*box.XmPushButton*menu.edit.labelString:	Modifica ...
 *chscan_popup*okLabelString:	Inizia
 *chscan_popup*hints.labelString:	\
 	COn questa opzione puoi lasciarmi\n\
-	scansionare tutti i canali TV. CosÏ\n\
-	sar‡ creata una nuova lista canali\n\
-	che sovrascriver‡ quella attuale.\n\
+	scansionare tutti i canali TV. Cos√¨\n\
+	sar√† creata una nuova lista canali\n\
+	che sovrascriver√† quella attuale.\n\
 	\n\
 	Prima assicurati di aver configurato\n\
 	correttamente TV Norm e Frequency table\n\
 	(vedi menu Opzioni), altrimenti la scansione\n\
-	non individuer‡ alcuna stazione ...\n\
+	non individuer√† alcuna stazione ...\n\
 	\n
 
 ! channel properties
@@ -211,21 +211,21 @@ control*box.XmPushButton*menu.edit.labelString:	Modifica ...
 *pref_popup*okLabelString:		Salva
 *pref_popup*fsL.labelString:		Fullscreen
 *pref_popup*fsT.labelString:		Abilita lo switchng video
-*pref_popup*fsO.labelString:		Modalit‡ video:
+*pref_popup*fsO.labelString:		Modalit√† video:
 *pref_popup*mixL.labelString:		Volume (necessario riavviare)
 *pref_popup*mixT.labelString:		Usa il mixer per regolare il volume
 *pref_popup*mix1O.labelString:		Periferica mixer:
 *pref_popup*mix2O.labelString:		Controllo mixer:
 *pref_popup*optL.labelString:		Opzioni
-*pref_popup*osd.labelString:		Usa onscreen display in modalit‡ fullscreen
-*pref_popup*keypad-ntsc.labelString:	keypad: modalit‡ ntsc
+*pref_popup*osd.labelString:		Usa onscreen display in modalit√† fullscreen
+*pref_popup*keypad-ntsc.labelString:	keypad: modalit√† ntsc
 *pref_popup*keypad-partial.labelString:	\
 	keypad: abilita parzialmente (cambia al primo tasto)
-*pref_popup*jpeg.label.labelString:	Qaulit‡ JPEG:
+*pref_popup*jpeg.label.labelString:	Qaulit√† JPEG:
 
 scale.title:				Controlli scala
 scale*volume.titleString:		Volume
-scale*bright.titleString:		Luminosit‡
+scale*bright.titleString:		Luminosit√†
 scale*hue.titleString:			Tono
 scale*color.titleString:		Saturazione
 scale*contrast.titleString:		Contrasto
