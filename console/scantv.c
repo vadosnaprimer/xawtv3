@@ -34,7 +34,7 @@ char *tvname;
 static void
 grabber_init(void)
 {
-    drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -68,10 +68,10 @@ get_vbi_name(struct vbi_state *vbi)
     start = time(NULL);
     for (;;) {
 	vbi_hasdata(vbi);
-        if (time(NULL) > start+timeout)
-            break;
-        if (tvname)
-            break;
+	if (time(NULL) > start+timeout)
+	    break;
+	if (tvname)
+	    break;
     }
     return tvname;
 }
@@ -121,12 +121,13 @@ usage(FILE *out, char *prog, char *outfile)
 	    "   -f table     set frequency table.\n"
 	    "   -c device    set video device file.  [%s]\n"
 	    "   -C device    set vbi device file.    [%s]\n"
+	    "   -D driver    set video driver.       [%s]\n"
 	    "   -s           skip channel scan\n"
 	    "   -a           full scan (all frequencies, not just\n"
 	    "                the ones from the frequency table)\n",
 	    prog,
 	    outfile ? outfile : "stdout",
-	    ng_dev.video, ng_dev.vbi);
+	    ng_dev.video, ng_dev.vbi, ng_dev.driver);
 }
 
 int
@@ -146,7 +147,7 @@ main(int argc, char **argv)
     /* parse options */
     ng_init();
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hsadi:n:f:o:c:C:")))
+	if (-1 == (c = getopt(argc, argv, "hsadi:n:f:o:c:C:D:")))
 	    break;
 	switch (c) {
 	case 'd':
@@ -175,6 +176,9 @@ main(int argc, char **argv)
 	    break;
 	case 'C':
 	    ng_dev.vbi = optarg;
+	    break;
+	case 'D':
+	    ng_dev.driver = optarg;
 	    break;
 	case 'h':
 	    usage(stdout,argv[0],outfile);
@@ -239,7 +243,7 @@ main(int argc, char **argv)
 	exit(1);
     }
     vbi_event_handler_add(vbi->dec,~0,event,vbi);
-    
+
     if (!fullscan) {
 	/* scan channels */
 	fprintf(stderr,"\nscanning channel list %s...\n",
@@ -312,7 +316,7 @@ main(int argc, char **argv)
 	    fprintf(stderr,"=> %6.2f MHz (%-4s): ", fc/16.0,
 		    (-1 != fi) ? chanlist[fi].name : "-");
 	    drv->setfreq(h_drv,fc);
-	    
+
 	    name = get_vbi_name(vbi);
 	    fprintf(stderr,"%s\n",name ? name : "???");
 	    if (NULL == name) {

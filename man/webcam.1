@@ -26,6 +26,7 @@ Here is an sample config file (the given values are the defaults):
 
 [grab]
 device = /dev/video0
+driver = libv4l
 text = "webcam %Y-%m-%d %H:%M:%S"
 infofile = filename
 fg_red = 255
@@ -94,10 +95,10 @@ reasonable quality within the first few seconds ...).
 is the JPEG quality for the stored images.
 .P
 .B top, bottom, left,
-and 
+and
 .B right
 in the grab section allow cropping the image after it is grabbed.
-They should satisfy 0<=top<bottom<=height and 
+They should satisfy 0<=top<bottom<=height and
 0<=left<right<=width.  (0,0 is the top, left corner.)
 If
 .B rotate
@@ -110,7 +111,7 @@ set to a non-zero value webcam will upload the image only if the
 content of the image has changed.  It just looks for the maximum
 difference between the last uploaded and current image and if it is
 greater than the specified value the image will be uploaded.
-If 
+If
 .B once
 is set to 1 webcam will upload a single frame and quit.
 .P
@@ -131,7 +132,7 @@ switch, check the ftp(1) man page for more info about the ~/.netrc file).
 If
 .B local
 in the ftp section is non-zero, files will be stored locally (using
-the 
+the
 .B dir, tmp,
 and
 .B file
@@ -143,7 +144,7 @@ contributed by Frederic Helin, the parameters belong into the [grab]
 section of the config file too.
 .TP
 .B distor = 1
-If distor param is set to 1, the correction of distortion works. 
+If distor param is set to 1, the correction of distortion works.
 .TP
 .B distor_k = 700
 This is the coefficient of distortion. This algorithm is based on the

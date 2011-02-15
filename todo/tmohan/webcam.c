@@ -379,7 +379,7 @@ grab_init (void)
 	struct ng_attribute *attr;
 	int val, i;
 
-	drv = ng_vid_open (ng_dev.video, NULL, NULL, 0, &h_drv);
+	drv = ng_vid_open (ng_dev.video, ng_dev.driver, NULL, 0, &h_drv);
 	if (NULL == drv)
 	{
 		fprintf (stderr, "no grabber device available\n");
@@ -597,7 +597,7 @@ correct_distor (unsigned char *in, int width, int height,
 		for (i = 0; i < width; i++)
 		{
 
-			// compute radial distortion / parameters of center of image 
+			// compute radial distortion / parameters of center of image
 			cr = sqrt ((i - cx) / sx * (i - cx) / sx + (j - cy) * (j - cy));
 			ca = atan (cr / k / zoom);
 			dr = k * tan (ca / 2);
@@ -711,14 +711,14 @@ compare_images(unsigned char *saved, unsigned char *last, unsigned char *current
 			avg2 += diff2;
 			if (diff2 > max2)
 				max2 = diff2;
-			
+
     }
 
     avg = avg / width / height;
     avg2 = avg2 / width / height;
     fprintf(stderr,"compare: max=%d,%d,avg=%d,%d\n",max,max2,avg,avg2);
 
- 
+
     return max;
 }*/
 
@@ -1295,6 +1295,8 @@ main (int argc, char *argv[])
 
 	if (NULL != (val = cfg_get_str ("grab", "device")))
 		ng_dev.video = val;
+	if (NULL != (val = cfg_get_str ("grab", "driver")))
+		ng_dev.driver = val;
 	if (NULL != (val = cfg_get_str ("grab", "text")))
 		grab_text = val;
 	if (NULL != (val = cfg_get_str ("grab", "infofile")))

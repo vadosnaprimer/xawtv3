@@ -39,6 +39,12 @@ disables Xvideo support.
 .br
 Resource: xawtv.device (string).
 .TP
+\fB-D\fP, \fB-driver\fP name
+set video4linux driver (default is "libv4l").  This option also
+disables Xvideo support.
+.br
+Resource: xawtv.driver (string).
+.TP
 \fB-C\fP, \fB-dspdev\fP device
 set audio device (default is /dev/dsp).
 .br
@@ -188,9 +194,9 @@ C            Popup \fIC\fPhannels Window
 E            Popup Channel \fIE\fPditor
 R            Popup AVI \fIR\fPecording Window
 Z            Channel Hopper (\fIz\fPapping, tune in every
-             station a few seconds)
+	     station a few seconds)
 Ctrl+Z       Fast Channel Hopping (grab the images for the
-             Channel Buttons)
+	     Channel Buttons)
 
 up/down      tune up/down one channel
 left/right   fine tuning

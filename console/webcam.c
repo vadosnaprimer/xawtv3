@@ -84,7 +84,7 @@ write_file(int fd, unsigned char *data, int width, int height)
 
     for (i = 0, line = data; i < height; i++, line += width*3)
 	jpeg_write_scanlines(&cinfo, &line, 1);
-    
+
     jpeg_finish_compress(&(cinfo));
     jpeg_destroy_compress(&(cinfo));
     fclose(fp);
@@ -142,7 +142,7 @@ static int ftp_xfer(struct xfer_state *s, char *image, int width, int height)
 {
     char filename[1024];
     int fh;
-    
+
     sprintf(filename,"%s/webcamXXXXXX",tmpdir);
     if (-1 == (fh = mkstemp(filename))) {
 	perror("mkstemp");
@@ -190,7 +190,7 @@ static int ssh_xfer(struct xfer_state *s, char *image, int width, int height)
     unsigned char buf[4096];
     FILE *sshp, *imgdata;
     int len,fh;
-    
+
     sprintf(filename,"%s/webcamXXXXXX",tmpdir);
     if (-1 == (fh = mkstemp(filename))) {
 	perror("mkstemp");
@@ -235,12 +235,12 @@ static struct xfer_ops ssh_ops = {
 static int local_open(struct xfer_state *s)
 {
     char *t;
-    
+
     if (s->dir != NULL && s->dir[0] != '\0' ) {
 	t = malloc(strlen(s->tmpfile)+strlen(s->dir)+2);
 	sprintf(t, "%s/%s", s->dir, s->tmpfile);
 	s->tmpfile = t;
-	
+
 	t = malloc(strlen(s->file)+strlen(s->dir)+2);
 	sprintf(t, "%s/%s", s->dir, s->file);
 	s->file = t;
@@ -257,7 +257,7 @@ static void local_info(struct xfer_state *s)
 static int local_xfer(struct xfer_state *s, char *image, int width, int height)
 {
     int fh;
-    
+
     if (-1 == (fh = open(s->tmpfile,O_CREAT|O_WRONLY|O_TRUNC,0666))) {
 	fprintf(stderr,"open %s: %s\n",s->tmpfile,strerror(errno));
 	exit(1);
@@ -296,8 +296,8 @@ grab_init(void)
 {
     struct ng_attribute *attr;
     int val,i;
-    
-    drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
+
+    drv = ng_vid_open(ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -332,7 +332,7 @@ grab_init(void)
     fmt.height = grab_height;
     if (0 == drv->setformat(h_drv,&fmt))
 	return;
-    
+
     /* check all available conversion functions */
     fmt.bytesperline = fmt.width*ng_vfmt_to_depth[fmt.fmtid]/8;
     for (i = 0;;) {
@@ -366,14 +366,14 @@ grab_one(int *width, int *height)
     }
 
     if (NULL != conv) {
-        buf = ng_malloc_video_buf(&fmt,3*fmt.width*fmt.height);
+	buf = ng_malloc_video_buf(&fmt,3*fmt.width*fmt.height);
 	conv->frame(hconv,buf,cap);
 	buf->info = cap->info;
 	ng_release_video_buf(cap);
     } else {
 	buf = cap;
     }
-    
+
     *width  = buf->fmt.width;
     *height = buf->fmt.height;
     return buf->data;
@@ -394,7 +394,7 @@ get_message(void)
     static char buffer[MSG_MAXLEN+1];
     FILE *fp;
     char *p;
-    
+
     if (NULL == grab_infofile)
 	return grab_text;
 
@@ -447,9 +447,9 @@ add_text(char *image, int width, int height)
 /* Frederic Helin <Frederic.Helin@inrialpes.fr> - 15/07/2002              */
 /* Correction fonction of stereographic radial distortion                 */
 
-int grab_dist_on = 0; 
+int grab_dist_on = 0;
 int grab_dist_k = 700;
-int grab_dist_cx = -1; 
+int grab_dist_cx = -1;
 int grab_dist_cy = -1;
 int grab_dist_zoom = 50;
 int grab_dist_sensorw = 640;
@@ -461,55 +461,55 @@ correct_distor(unsigned char * in, int width, int height,
 	       int grab_sensorw, int grab_sensorh)
 {
     static unsigned char * corrimg = NULL;
-    
+
     int i, j, di, dj;
     float dr, cr,ca, sensor_w, sensor_h, sx, zoom, k;
-    
+
     sensor_w = grab_dist_sensorw/100.0;
     sensor_h = grab_dist_sensorh/100.0;
     zoom = grab_zoom / 100.0;
     k = grap_k / 100.0;
-    
+
     if (corrimg == NULL && (corrimg = malloc(width*height*3)) == NULL ) {
 	fprintf(stderr, "out of memory\n");
 	exit(1);
     }
-    
+
     sensor_w = 6.4;
     sensor_h = 4.8;
-    
+
     // calc ratio x/y
     sx = width * sensor_h / (height * sensor_w);
-    
+
     // calc new value of k in the coordonates systeme of computer
     k = k * height / sensor_h;
-    
+
     // Clear image
     for (i = 0; i < height*width*3; i++) corrimg[i] = 255;
-    
+
     for (j = 0; j < height ; j++) {
-	for (i = 0; i < width ; i++) {	
-	    
-	    // compute radial distortion / parameters of center of image 
+	for (i = 0; i < width ; i++) {
+
+	    // compute radial distortion / parameters of center of image
 	    cr  = sqrt((i-cx)/sx*(i-cx)/sx+(j-cy)*(j-cy));
 	    ca  = atan(cr/k/zoom);
-	    dr = k * tan(ca/2);	
-	    
+	    dr = k * tan(ca/2);
+
 	    if (i == cx && j == cy) {di = cx; dj = cy;}
 	    else {
 		di = (i-cx) * dr / cr + cx;
 		dj = (j-cy) * dr / cr + cy;
 	    }
-	    
+
 	    if (dj<height && di < width && di >= 0  && dj >= 0 &&
 		j<height &&  i < width &&  i >= 0  &&  j >= 0 ) {
 		corrimg[3*(j*width + i)  ] = in[3*(dj*width + di)  ];
 		corrimg[3*(j*width + i)+1] = in[3*(dj*width + di)+1];
-		corrimg[3*(j*width + i)+2] = in[3*(dj*width + di)+2];	
+		corrimg[3*(j*width + i)+2] = in[3*(dj*width + di)+2];
 	    }
 	}
     }
-    return corrimg;	
+    return corrimg;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -606,7 +606,7 @@ rotate_image(unsigned char * in, int *wp, int *hp, int rot,
 	*hp = ow;
 	break;
     }
-    return rotimg;	
+    return rotimg;
 }
 
 
@@ -629,7 +629,7 @@ static int make_dirs(char *filename)
 	if (ENOENT == errno)
 	    if (0 == make_dirs(dirname))
 		retval = mkdir(dirname,0777);
-    
+
  done:
     free(dirname);
     return retval;
@@ -657,6 +657,8 @@ main(int argc, char *argv[])
 
     if (NULL != (val = cfg_get_str("grab","device")))
 	ng_dev.video = val;
+    if (NULL != (val = cfg_get_str("grab","driver")))
+	ng_dev.driver = val;
     if (NULL != (val = cfg_get_str("grab","text")))
 	grab_text = val;
     if (NULL != (val = cfg_get_str("grab","infofile")))
@@ -711,7 +713,7 @@ main(int argc, char *argv[])
     if (-1 != (i = cfg_get_int("grab","bg_blue")))
 	if (i >= 0 && i <= 255)
 	    grab_bg_b = i;
-    
+
     if (-1 != (i = cfg_get_int("grab","distor")))
       grab_dist_on = i;
     if (-1 != (i = cfg_get_int("grab","distor_k")))
@@ -831,16 +833,16 @@ main(int argc, char *argv[])
 
     /* run as daemon - detach from terminal */
     if (daemonize) {
-        switch (fork()) {
-        case -1:
+	switch (fork()) {
+	case -1:
 	    perror("fork");
 	    exit(1);
-        case 0:
-            close(0); close(1); close(2); setsid();
-            break;
-        default:
-            exit(0);
-        }
+	case 0:
+	    close(0); close(1); close(2); setsid();
+	    break;
+	default:
+	    exit(0);
+	}
     }
 
     /* main loop */
@@ -853,7 +855,7 @@ main(int argc, char *argv[])
 				  grab_dist_zoom, grab_dist_k,
 				  grab_dist_cx, grab_dist_cy,
 				  grab_dist_sensorw, grab_dist_sensorh);
-	
+
 	image = rotate_image(gimg, &width, &height, grab_rotate,
 			     grab_top, grab_left, grab_bottom, grab_right);
 

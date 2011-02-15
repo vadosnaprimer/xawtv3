@@ -43,6 +43,12 @@ disables Xvideo support.
 .br
 Resource: motv.device (string).
 .TP
+\fB-D\fP, \fB-driver\fP name
+set video4linux driver (default is "libv4l").  This option also
+disables Xvideo support.
+.br
+Resource: motv.driver (string).
+.TP
 \fB-C\fP, \fB-dspdev\fP device
 set audio device (default is /dev/dsp).
 .br
@@ -193,9 +199,9 @@ C            Popup \fIC\fPontrol Window
 R            Popup AVI \fIR\fPecording Window
 S            Popup \fIS\fPcale controls
 Z            Channel Hopper (\fIz\fPapping, tune in every
-             station a few seconds)
+	     station a few seconds)
 Ctrl+Z       Fast Channel Hopping (grab the images for the
-             Channel Bottons)
+	     Channel Bottons)
 
 up/down      tune up/down one channel
 left/right   fine tuning

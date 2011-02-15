@@ -12,6 +12,7 @@
 #if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
 struct ng_device_config ng_dev = {
     video:  "/dev/bktr0",
+    driver: "bktr",
     radio:  NULL,
     vbi:    "/dev/vbi0",
     dsp:    "/dev/dsp",
@@ -25,7 +26,7 @@ struct ng_device_config ng_dev = {
     },
     mixer_scan: {
 	"/dev/mixer",
-	"/dev/mixer1", 
+	"/dev/mixer1",
 	"/dev/mixer2",
 	"/dev/mixer3",
 	NULL
@@ -34,10 +35,9 @@ struct ng_device_config ng_dev = {
 #endif
 #if defined(__linux__)
 struct ng_device_config ng_dev = {
-    video:  "/dev/video0", /* <rant>thank you redhat breaking
-			    * /dev/video as symbolic link to the
-			    * default video device ... </rant> */
-    radio:  "/dev/radio",
+    video:  "/dev/video0",
+    driver: "libv4l",
+    radio:  "/dev/radio0",
     vbi:    "/dev/vbi0",
     dsp:    "/dev/dsp",
     mixer:  "/dev/mixer",
@@ -50,7 +50,7 @@ struct ng_device_config ng_dev = {
     },
     mixer_scan: {
 	"/dev/mixer",
-	"/dev/mixer1", 
+	"/dev/mixer1",
 	"/dev/mixer2",
 	"/dev/mixer3",
 	NULL
@@ -59,6 +59,7 @@ struct ng_device_config ng_dev = {
 
 struct ng_device_config ng_dev_devfs = {
     video:  "/dev/v4l/video0",
+    driver: "libv4l",
     radio:  "/dev/v4l/radio0",
     vbi:    "/dev/v4l/vbi0",
     dsp:    "/dev/sound/dsp",
@@ -72,7 +73,7 @@ struct ng_device_config ng_dev_devfs = {
     },
     mixer_scan: {
 	"/dev/sound/mixer",
-	"/dev/sound/mixer1", 
+	"/dev/sound/mixer1",
 	"/dev/sound/mixer2",
 	"/dev/sound/mixer3",
 	NULL

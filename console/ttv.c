@@ -36,7 +36,7 @@ static int fast;
 static void
 grabber_init(void)
 {
-    drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -154,10 +154,11 @@ usage(void)
 	   "  -h             print this text\n"
 	   "  -f             use fast aalib render function\n"
 	   "  -c <device>    video device [%s]\n"
+	   "  -D <driver>    video driver [%s]\n"
 	   "\n"
 	   "aalib options:\n"
 	   "%s",
-	   ng_dev.video,aa_help);
+	   ng_dev.video,ng_dev.driver,aa_help);
     exit(1);
 }
 
@@ -176,7 +177,7 @@ main(int argc, char **argv)
     if (!aa_parseoptions (&params, &render, &argc, argv))
 	usage();
     for (;;) {
-	c = getopt(argc, argv, "vfhc:");
+	c = getopt(argc, argv, "vfhc:D:");
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -189,6 +190,9 @@ main(int argc, char **argv)
 	    break;
 	case 'c':
 	    ng_dev.video = optarg;
+	    break;
+	case 'D':
+	    ng_dev.driver = optarg;
 	    break;
 	case 'h':
 	default:
@@ -234,7 +238,7 @@ main(int argc, char **argv)
     /* build channel list */
     parse_config();
     do_va_cmd(2,"setfreqtab",(-1 != chantab)
-              ? chanlist_names[chantab].str : "europe-west");
+	      ? chanlist_names[chantab].str : "europe-west");
     cur_capture = 0;
     do_va_cmd(2,"capture","grabdisplay");
     if (optind+1 == argc) {
@@ -254,7 +258,7 @@ main(int argc, char **argv)
 		set_defaults();
 	}
     }
-    
+
     /* catch ^C */
     signal(SIGINT,ctrlc);
     signal(SIGTERM,ctrlc);
@@ -273,7 +277,7 @@ main(int argc, char **argv)
 	    last = now;
 	    frames = 0;
 	}
-	
+
 	/* grab + convert frame */
 	if (NULL == (buf = ng_grabber_grab_image(0))) {
 	    fprintf(stderr,"capturing image failed\n");

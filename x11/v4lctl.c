@@ -37,7 +37,7 @@ Display *dpy;
 static void
 grabber_init(void)
 {
-    drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
     ng_init();
     for (;;) {
-	if (-1 == (c = getopt(argc, argv, "hv:c:")))
+	if (-1 == (c = getopt(argc, argv, "hv:c:D:")))
 	    break;
 	switch (c) {
 	case 'v':
@@ -74,6 +74,10 @@ int main(int argc, char *argv[])
 	    break;
 	case 'c':
 	    ng_dev.video = optarg;
+	    xvideo = 0;
+	    break;
+	case 'D':
+	    ng_dev.driver = optarg;
 	    xvideo = 0;
 	    break;
 	case 'h':

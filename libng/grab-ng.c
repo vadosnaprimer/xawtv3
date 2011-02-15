@@ -121,7 +121,7 @@ const char* ng_attr_to_desc[] = {
 void ng_init_video_buf(struct ng_video_buf *buf)
 {
     memset(buf,0,sizeof(*buf));
-    pthread_mutex_init(&buf->lock,NULL);    
+    pthread_mutex_init(&buf->lock,NULL);
     pthread_cond_init(&buf->cond,NULL);
 }
 
@@ -226,7 +226,7 @@ const char*
 ng_attr_getstr(struct ng_attribute *attr, int value)
 {
     int i;
-    
+
     if (NULL == attr)
 	return NULL;
     if (attr->type != ATTR_TYPE_CHOICE)
@@ -242,7 +242,7 @@ int
 ng_attr_getint(struct ng_attribute *attr, char *value)
 {
     int i,val;
-    
+
     if (NULL == attr)
 	return -1;
     if (attr->type != ATTR_TYPE_CHOICE)
@@ -260,7 +260,7 @@ ng_attr_getint(struct ng_attribute *attr, char *value)
 	for (i = 0; attr->choices[i].str != NULL; i++)
 	    if (val == attr->choices[i].nr)
 		return attr->choices[i].nr;
-	
+
     }
     return -1;
 }
@@ -269,7 +269,7 @@ void
 ng_attr_listchoices(struct ng_attribute *attr)
 {
     int i;
-    
+
     fprintf(stderr,"valid choices for \"%s\": ",attr->name);
     for (i = 0; attr->choices[i].str != NULL; i++)
 	fprintf(stderr,"%s\"%s\"",
@@ -409,7 +409,7 @@ ng_aconv_register(int magic, char *plugname,
 		  struct ng_audio_conv *list, int count)
 {
     int n;
-    
+
     if (0 != ng_check_magic(magic,plugname,"audio converters"))
 	return -1;
     for (n = 0; n < count; n++)
@@ -504,7 +504,7 @@ ng_conv_find_from(unsigned int in, int *i)
 {
     struct list_head *item;
     struct ng_video_conv *ret;
-    
+
     int j = 0;
 
     list_for_each(item,&ng_conv) {
@@ -531,7 +531,7 @@ ng_conv_find_match(unsigned int in, unsigned int out)
 {
     struct list_head *item;
     struct ng_video_conv *ret = NULL;
-    
+
     list_for_each(item,&ng_conv) {
 	ret = list_entry(item, struct ng_video_conv, list);
 	if (ret->fmtid_in  == in && ret->fmtid_out == out)
@@ -565,31 +565,43 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
     }
 #endif
 
-    if (ng_debug) {
-	if (driver)
-	    fprintf(stderr,"vid-open: Seeking for %s plugin.\n", driver);
-	else
-	    fprintf(stderr,"vid-open: Seeking for the first available driver.\n");
+    if (!driver) {
+	fprintf (stderr, "Video4linux driver is not specified\n");
+	return NULL;
     }
 
     /* check all grabber drivers */
     list_for_each(item,&ng_vid_drivers) {
-        drv = list_entry(item, struct ng_vid_driver, list);
-	if (driver && 0 != strcasecmp(driver, drv->name))
-	    continue;
-	if (ng_debug)
-	    fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
-	if (NULL != (*handle = (drv->open)(device)))
+	drv = list_entry(item, struct ng_vid_driver, list);
+	if (strcasecmp(driver, drv->name) == 0)
 	    break;
-	if (ng_debug)
-	    fprintf(stderr,"vid-open: failed: %s\n",drv->name);
     }
-    if (item == &ng_vid_drivers)
+
+    if (item == &ng_vid_drivers) {
+	if (strcasecmp(driver, "help") != 0)
+	    fprintf (stderr, "Cannot find %s video driver\n", drv->name);
+	fprintf (stderr, "Available drivers:");
+	list_for_each(item,&ng_vid_drivers) {
+	    drv = list_entry(item, struct ng_vid_driver, list);
+	    fprintf (stderr, " %s", drv->name);
+	}
+	fprintf (stderr, "\n");
+
 	return NULL;
+    }
+
+    if (ng_debug)
+	fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
+    if (!(*handle = (drv->open)(device))) {
+	fprintf(stderr,"vid-open: failed: %s\n",drv->name);
+	return NULL;
+    }
     if (ng_debug)
 	fprintf(stderr,"vid-open: ok: %s\n",drv->name);
+
     if (NULL != screen && drv->capabilities(*handle) & CAN_OVERLAY)
 	drv->setupfb(*handle,screen,base);
+
     return drv;
 }
 
@@ -601,7 +613,7 @@ ng_dsp_open(char *device, struct ng_audio_fmt *fmt, int record, void **handle)
 
     /* check all dsp drivers */
     list_for_each(item,&ng_dsp_drivers) {
-        drv = list_entry(item, struct ng_dsp_driver, list);
+	drv = list_entry(item, struct ng_dsp_driver, list);
 	if (NULL == drv->name)
 	    continue;
 	if (record && NULL == drv->read)
@@ -629,10 +641,10 @@ ng_mix_init(char *device, char *channel)
     struct ng_mix_driver *drv = NULL;
     struct ng_attribute *attrs = NULL;
     void *handle;
-    
+
     /* check all mixer drivers */
     list_for_each(item, &ng_mix_drivers) {
-        drv = list_entry(item, struct ng_mix_driver, list);
+	drv = list_entry(item, struct ng_mix_driver, list);
 	if (ng_debug)
 	    fprintf(stderr,"mix-init: trying: %s... \n", drv->name);
 	if (NULL != (handle = (drv->open)(device))) {
@@ -658,7 +670,7 @@ struct ng_reader* ng_find_reader(char *filename)
 
     if (NULL == (fp = fopen(filename, "r"))) {
 	fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
-        return NULL;
+	return NULL;
     }
     memset(blk,0,sizeof(blk));
     fread(blk,1,sizeof(blk),fp);

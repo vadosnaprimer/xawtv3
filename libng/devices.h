@@ -1,6 +1,7 @@
 
 struct ng_device_config {
     char *video;
+    char *driver;
     char *radio;
     char *vbi;
     char *dsp;

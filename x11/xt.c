@@ -252,6 +252,7 @@ const int args_count = XtNumber(args_desc);
 XrmOptionDescRec opt_desc[] = {
     { "-c",          "device",      XrmoptionSepArg, NULL },
     { "-device",     "device",      XrmoptionSepArg, NULL },
+    { "-D",          "driver",      XrmoptionSepArg, NULL },
     { "-driver",     "driver",      XrmoptionSepArg, NULL },
     { "-C",          "dspdev",      XrmoptionSepArg, NULL },
     { "-dspdev",     "dspdev",      XrmoptionSepArg, NULL },
@@ -260,7 +261,7 @@ XrmOptionDescRec opt_desc[] = {
     { "-o",          "basename",    XrmoptionSepArg, NULL },
     { "-outfile",    "basename",    XrmoptionSepArg, NULL },
     { "-conffile",   "conffile",    XrmoptionSepArg, NULL },
-    
+
     { "-v",          "debug",       XrmoptionSepArg, NULL },
     { "-debug",      "debug",       XrmoptionSepArg, NULL },
     { "-b",          "bpp",         XrmoptionSepArg, NULL },
@@ -269,7 +270,7 @@ XrmOptionDescRec opt_desc[] = {
     { "-xvport",     "xvport",      XrmoptionSepArg, NULL },
     { "-parallel",   "parallel",    XrmoptionSepArg, NULL },
     { "-bufcount",   "bufcount",    XrmoptionSepArg, NULL },
-    
+
     { "-remote",     "remote",      XrmoptionNoArg,  "1" },
     { "-n",          "readconfig",  XrmoptionNoArg,  "0" },
     { "-noconf",     "readconfig",  XrmoptionNoArg,  "0" },
@@ -277,7 +278,7 @@ XrmOptionDescRec opt_desc[] = {
     { "-fullscreen", "fullscreen",  XrmoptionNoArg,  "1" },
     { "-hwscan",     "hwscan",      XrmoptionNoArg,  "1" },
     { "-fb",         "fbdev",       XrmoptionNoArg,  "1" },
-    
+
     { "-xv",         "xv",          XrmoptionNoArg,  "1" },
     { "-noxv",       "xv",          XrmoptionNoArg,  "0" },
     { "-xv-video",   "xvVideo",     XrmoptionNoArg,  "1" },
@@ -293,7 +294,7 @@ XrmOptionDescRec opt_desc[] = {
     { "-nodga",      "dga",         XrmoptionNoArg,  "0" },
     { "-randr",      "randr",       XrmoptionNoArg,  "1" },
     { "-norandr",    "randr",       XrmoptionNoArg,  "0" },
-    
+
     { "-h",          "help",        XrmoptionNoArg,  "1" },
     { "-help",       "help",        XrmoptionNoArg,  "1" },
     { "--help",      "help",        XrmoptionNoArg,  "1" },
@@ -317,7 +318,7 @@ ExitCB(Widget widget, XtPointer client_data, XtPointer calldata)
     static int exit_pending = 0;
 
     if (exit_pending)
-        return;
+	return;
 
     exit_pending = 1;
     audio_off();
@@ -385,9 +386,9 @@ RemoteAction(Widget widget, XEvent * event,
 		    argv[argc] = NULL;
 		    do_command(argc,argv);
 		    argc = 0;
-	        } else {
+		} else {
 		    argv[argc++] = args+i;
-	        }
+		}
 	    }
 	    XFree(args);
 	}
@@ -446,7 +447,7 @@ static void
 scan_timeout(XtPointer client_data, XtIntervalId *id)
 {
     scan_timer = 0;
-    
+
     /* check */
     if (!(f_drv & CAN_TUNE))
 	return;
@@ -474,7 +475,7 @@ RatioAction(Widget widget, XEvent *event,
 	    String *params, Cardinal *num_params)
 {
     int w,h;
-    
+
     if (2 != *num_params)
 	return;
     w = atoi(params[0]);
@@ -647,7 +648,7 @@ exec_player(char *moviefile)
     char *cmd;
     char **argv;
     int  argc;
-    
+
     /* go! */
     cmd = malloc(strlen(command)+strlen(moviefile)+5);
     sprintf(cmd,"%s %s",command,moviefile);
@@ -661,7 +662,7 @@ LaunchAction(Widget widget, XEvent *event,
 {
     char **argv;
     int  i,argc;
-    
+
     if (*num_params != 1)
 	return;
     for (i = 0; i < nlaunch; i++) {
@@ -735,7 +736,7 @@ xt_siginit(void)
 
     act.sa_handler  = SIG_IGN;
     sigaction(SIGPIPE,&act,&old);
-    
+
     if (debug) {
 	act.sa_handler  = segfault;
 	sigaction(SIGSEGV,&act,&old);
@@ -811,7 +812,7 @@ do_vidmode_modeswitch(int fs_state, int *vp_width, int *vp_height)
     static XF86VidModeModeInfo  *vm_current    = NULL;
     static XF86VidModeModeInfo  *vm_fullscreen = NULL;
     int i;
-    
+
     if (fs_state) {
 	/* enter fullscreen mode */
 	XF86VidModeGetModeLine(dpy,XDefaultScreen(dpy),&vm_dot,&vm_line);
@@ -867,7 +868,7 @@ do_randr_modeswitch(int fs_state, int *vp_width, int *vp_height)
     XRRScreenConfiguration *sc;
     Rotation rotation;
     SizeID current, new, i;
-    
+
     sc = XRRGetScreenInfo(dpy, root);
     current = XRRConfigCurrentConfiguration(sc, &rotation);
     new = current;
@@ -944,10 +945,10 @@ do_screensaver(int fs_state)
 			&prefer_blanking,&allow_exposures);
 	XSetScreenSaver(dpy,0,0,DefaultBlanking,DefaultExposures);
 #ifdef HAVE_LIBXDPMS
-	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
+	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) &&
 	    (DPMSCapable(dpy))) {
 	    DPMSInfo(dpy, &dpms_state, &dpms_on);
-            DPMSDisable(dpy); 
+	    DPMSDisable(dpy);
 	}
 #endif
 	xscreensaver_timer = XtAppAddTimeOut(app_context,60000,
@@ -956,7 +957,7 @@ do_screensaver(int fs_state)
 	/* fullscreen off -- enable screensaver */
 	XSetScreenSaver(dpy,timeout,interval,prefer_blanking,allow_exposures);
 #ifdef HAVE_LIBXDPMS
-	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) && 
+	if ((DPMSQueryExtension(dpy, &dpms_dummy, &dpms_dummy)) &&
 	    (DPMSCapable(dpy)) && (dpms_on)) {
 		DPMSEnable(dpy);
 	}
@@ -1000,13 +1001,13 @@ do_fullscreen(void)
 	if (debug)
 	    fprintf(stderr,"turning fs off (%dx%d+%d+%d)\n",w,h,x,y);
 	do_modeswitch(0,&vp_width,&vp_height);
-	
+
 	if (on_timer) {
 	    XtPopdown(on_shell);
 	    XtRemoveTimeOut(on_timer);
 	    on_timer = 0;
 	}
-	
+
 	XtVaSetValues(app_shell,
 		      XtNwidthInc, WIDTH_INC,
 		      XtNheightInc,HEIGHT_INC,
@@ -1017,7 +1018,7 @@ do_fullscreen(void)
 		      NULL);
 
 	do_screensaver(0);
-    	if (warp_pointer)
+	if (warp_pointer)
 	    XWarpPointer(dpy, None, RootWindowOfScreen(XtScreen(tv)),
 			 0, 0, 0, 0, rpx, rpy);
 	fs = 0;
@@ -1054,7 +1055,7 @@ do_fullscreen(void)
 	    int i;
 	    for (i = 0; i < nxinerama; i++) {
 		if (x >= xinerama[i].x_org &&
-		    y >= xinerama[i].y_org && 
+		    y >= xinerama[i].y_org &&
 		    x <  xinerama[i].x_org + xinerama[i].width &&
 		    y <  xinerama[i].y_org + xinerama[i].height) {
 		    vp_x      = xinerama[i].x_org;
@@ -1081,7 +1082,7 @@ do_fullscreen(void)
 		      XtNheight,     vp_height,
 		      NULL);
 
-        XRaiseWindow(dpy, XtWindow(app_shell));
+	XRaiseWindow(dpy, XtWindow(app_shell));
 	do_screensaver(1);
 	if (warp_pointer)
 	    XWarpPointer(dpy, None, XtWindow(tv), 0, 0, 0, 0, 30, 15);
@@ -1178,9 +1179,9 @@ set_property(int freq, char *channel, char *name)
     len += sprintf(line+len,"%s",channel ? channel : "?") +1;
     len += sprintf(line+len,"%s",name    ? name    : "?") +1;
     XChangeProperty(dpy, XtWindow(app_shell),
-                    _XAWTV_STATION, XA_STRING,
-                    8, PropModeReplace,
-                    line, len);
+		    _XAWTV_STATION, XA_STRING,
+		    8, PropModeReplace,
+		    line, len);
 }
 
 void command_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
@@ -1266,7 +1267,7 @@ xfree_dga_init(Display *dpy)
 
     if (!do_overlay)
 	return;
-    
+
     if (args.dga) {
 	if (XF86DGAQueryExtension(dpy,&foo,&xfree_dga_error_base)) {
 	    XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
@@ -1304,7 +1305,7 @@ xfree_vm_init(Display *dpy)
 		    fprintf(stderr," %dx%d",
 			    vm_modelines[i]->hdisplay,
 			    vm_modelines[i]->vdisplay);
-		}	    
+		}
 		fprintf(stderr,"\n");
 	    }
 	}
@@ -1317,7 +1318,7 @@ xfree_randr_init(Display *dpy)
 {
 #ifdef HAVE_LIBXRANDR
     int bar,i;
-    
+
     if (args.randr) {
 	if (XRRQueryExtension(dpy,&randr_evbase,&bar)) {
 	    randr = XRRSizes(dpy,DefaultScreen(dpy),&nrandr);
@@ -1342,7 +1343,7 @@ xfree_xinerama_init(Display *dpy)
 {
 #ifdef HAVE_LIBXINERAMA
     int foo,bar,i;
-    
+
     if (XineramaQueryExtension(dpy,&foo,&bar) &&
 	XineramaIsActive(dpy)) {
 	xinerama = XineramaQueryScreens(dpy,&nxinerama);
@@ -1381,27 +1382,21 @@ grabber_init()
 #ifdef HAVE_LIBXXF86DGA
     if (have_dga) {
 	int bar,fred;
-        orig_xfree_error_handler = XSetErrorHandler(xfree_dga_error_handler);
+	orig_xfree_error_handler = XSetErrorHandler(xfree_dga_error_handler);
 	if (!XF86DGAGetVideoLL(dpy,XDefaultScreen(dpy),(void*)&base,
 			      &screen.bytesperline,&bar,&fred)) {
 	    have_dga = 0;
 	    memset(&screen,0,sizeof(screen));	/*  paranoia   */
 	    base = NULL;			/*  paranoia   */
 	}
-        XSync(dpy, 0);
-        XSetErrorHandler(orig_xfree_error_handler);
+	XSync(dpy, 0);
+	XSetErrorHandler(orig_xfree_error_handler);
     }
 #endif
     if (!do_overlay) {
-	drv = NULL;
-
 	if (debug)
 	    fprintf(stderr,"x11: remote display (overlay disabled)\n");
-
-	if (!args.driver)
-	    drv = ng_vid_open(args.device, "libv4l", NULL, base, &h_drv);
-        if (!drv)
-	    drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
+	drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
@@ -1484,7 +1479,7 @@ x11_check_remote()
 
     if (debug)
 	fprintf(stderr, "check if the X-Server is local ... ");
-    
+
     /* me */
     length = sizeof(ss);
     if (-1 == getsockname(fd,(struct sockaddr*)&ss,&length)) {
@@ -1500,7 +1495,7 @@ x11_check_remote()
 	    fprintf(stderr, " ok (unix socket)\n");
 	return;
     }
-    
+
     getnameinfo((struct sockaddr*)&ss,length,
 		me,INET6_ADDRSTRLEN,port,16,
 		NI_NUMERICHOST | NI_NUMERICSERV);
@@ -1622,6 +1617,7 @@ usage(void)
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"
 	    "  -c  -device file    use <file> as video4linux device\n"
+	    "  -D  -driver name    use <name> as video4linux driver\n"
 	    "  -C  -dspdev file    use <file> as audio (oss) device\n"
 	    "      -vbidev file    use <file> as vbi device\n"
 	    "      -joydev file    use <file> as joystick device\n"
@@ -1648,7 +1644,7 @@ hello_world(char *name)
 	fprintf(stderr,"%s *must not* be installed suid root\n",name);
 	exit(1);
     }
-    
+
     uname(&uts);
     fprintf(stderr,"This is %s-%s, running on %s/%s (%s)\n",
 	    name,VERSION,uts.sysname,uts.machine,uts.release);
@@ -1676,11 +1672,12 @@ handle_cmdline_args(void)
 	args.dspdev = ng_dev.dsp;
     if (NULL == args.vbidev)
 	args.vbidev = ng_dev.vbi;
-    if (NULL == args.device) {
-	args.device = ng_dev.video;
-    } else {
+    if (args.device || args.driver)
 	args.xv_video = 0;
-    }
+    if (NULL == args.device)
+	args.device = ng_dev.video;
+    if (NULL == args.driver)
+	args.driver = ng_dev.driver;
     if (0 != args.xv_port)
 	args.xv_video = 1;
 }
@@ -1752,7 +1749,7 @@ vtx_to_tt(struct vt_page *vtp)
     struct fmt_page pg[1];
     struct fmt_char l[W+2];
 #define L (l+1)
-    
+
     t = 0;
     fmt_page(fmt,pg,vtp);
     memset(tt,0,sizeof(tt));
@@ -1777,21 +1774,21 @@ vtx_to_tt(struct vt_page *vtp)
 	    }
 	    L[x] = c;
 	}
-	
+
 	/* delay fg and attr changes as far as possible */
 	for (x = 0; x < W; ++x)
 	    if (L[x].ch == ' ') {
 		L[x].fg = L[x-1].fg;
 		L[x].attr = L[x-1].attr;
 	    }
-	
+
 	/* move fg and attr changes to prev bg change point */
 	for (x = W-1; x >= 0; x--)
 	    if (L[x].ch == ' ' && L[x].bg == L[x+1].bg) {
 		L[x].fg = L[x+1].fg;
 		L[x].attr = L[x+1].attr;
 	    }
-	
+
 	/* now render the line */
 	lcolor = -1;
 	tt[t].line = y;
@@ -1839,7 +1836,7 @@ tt_pick_subtitle(struct TEXTELEM *tt)
 	    i--;
 	tt[i].len = 0;
     }
-    
+
     return tt;
 }
 
@@ -1868,7 +1865,7 @@ x11_vbi_event(struct vbi_event *ev, void *user)
 {
     struct vbi_page pg;
     struct vbi_rect rect;
-    
+
     switch (ev->type) {
     case VBI_EVENT_NETWORK:
 	strcpy(x11_vbi_station,ev->ev.network.name);
@@ -2062,7 +2059,7 @@ void xt_kbd_init(Widget tv)
     list = cfg_list_entries("eventmap");
     if (NULL == list)
 	return;
-    
+
     for (; *list != NULL; list++) {
 	if (1 != sscanf(*list,"kbd-key-%31s",key))
 	    continue;
@@ -2092,7 +2089,7 @@ Pixmap bm_no;
 static unsigned char bm_yes_data[] = {
     /* -------- -------- */  0x00,
     /* -------- -------- */  0x00,
-    /* ------xx xx------ */  0x18,			   
+    /* ------xx xx------ */  0x18,
     /* ----xxxx xxxx---- */  0x3c,
     /* ----xxxx xxxx---- */  0x3c,
     /* ------xx xx------ */  0x18,
@@ -2106,7 +2103,7 @@ void
 create_pointers(Widget app_shell)
 {
     XColor white,red,dummy;
-    
+
     left_ptr = XCreateFontCursor(dpy,XC_left_ptr);
     menu_ptr = XCreateFontCursor(dpy,XC_right_ptr);
     qu_ptr   = XCreateFontCursor(dpy,XC_question_arrow);
@@ -2116,7 +2113,7 @@ create_pointers(Widget app_shell)
 	    XRecolorCursor(dpy,left_ptr,&red,&white);
 	    XRecolorCursor(dpy,menu_ptr,&red,&white);
 	    XRecolorCursor(dpy,qu_ptr,&red,&white);
-	} 
+	}
     }
 }
 
@@ -2163,7 +2160,7 @@ int xt_vm_randr_input_init(Display *dpy)
     if (debug)
 	fprintf(stderr,"xt: checking for vidmode extention ...\n");
     xfree_vm_init(dpy);
-    
+
     /* input */
     if (debug)
 	fprintf(stderr,"xt: checking for lirc ...\n");
@@ -2184,7 +2181,7 @@ int xt_vm_randr_input_init(Display *dpy)
 int xt_main_loop()
 {
     XEvent event;
-    
+
     if (debug)
 	fprintf(stderr,"xt: enter main event loop... \n");
     signal(SIGHUP,SIG_IGN); /* don't really need a tty ... */

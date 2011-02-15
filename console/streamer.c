@@ -69,7 +69,7 @@ list_formats(FILE *out)
     struct list_head *item;
     const struct ng_writer *wr;
     int j;
-    
+
     fprintf(out,"\nmovie writers:\n");
     list_for_each(item,&ng_writers) {
 	wr = list_entry(item, struct ng_writer, list);
@@ -116,6 +116,7 @@ usage(FILE *out)
 	    "  -o file     video/movie file name\n"
 	    "  -f format   specify video format\n"
 	    "  -c device   specify video4linux device   [%s]\n"
+	    "  -D driver   specify video4linux driver   [%s]\n"
 	    "  -r fps      frame rate                   [%d.%03d]\n"
 	    "  -s size     specify size                 [%dx%d]\n"
 	    "\n"
@@ -132,9 +133,9 @@ usage(FILE *out)
 	    "  -C device   specify dsp device           [%s]\n"
 	    "  -R rate     sample rate                  [%d]\n"
 	    "\n",
-	    
+
 	    parallel,wait_seconds,
-	    ng_dev.video, fps/1000, fps%1000,
+	    ng_dev.video, ng_dev.driver, fps/1000, fps%1000,
 	    video.width, video.height,
 	    absframes, bufcount, ng_jpeg_quality,
 	    ng_dev.dsp, audio.rate
@@ -333,7 +334,7 @@ main(int argc, char **argv)
     ng_init();
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "haqdp:w:"
-			      "o:c:f:r:s:t:n:i:b:j:" "O:C:F:R:")))
+			      "o:c:f:r:s:t:n:i:b:j:D:" "O:C:F:R:")))
 	    break;
 	switch (c) {
 	    /* general options */
@@ -364,6 +365,9 @@ main(int argc, char **argv)
 	case 'c':
 	    ng_dev.video = optarg;
 	    break;
+	case 'D':
+	    ng_dev.driver = optarg;
+	    break;
 	case 'r':
 	    fps = (int)(atof(optarg) * 1000 + 0.5);
 	    break;
@@ -371,7 +375,7 @@ main(int argc, char **argv)
 	    if (2 != sscanf(optarg,"%dx%d",&video.width,&video.height))
 		video.width = video.height = 0;
 	    break;
-	    
+
 	case 't':
 	    raw_length = optarg;
 	    break;
@@ -438,7 +442,7 @@ main(int argc, char **argv)
 		ng_vfmt_to_desc[video.fmtid],ng_afmt_to_desc[audio.fmtid]);
 
     if (video.fmtid != VIDEO_NONE) {
-	drv = ng_vid_open(ng_dev.video,NULL,NULL,0,&h_drv);
+	drv = ng_vid_open(ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
 	if (NULL == drv) {
 	    fprintf(stderr,"no grabber device available\n");
 	    exit(1);
@@ -459,7 +463,7 @@ main(int argc, char **argv)
 	if (tvnorm != NULL)
 	    do_va_cmd(2,"setnorm",tvnorm);
     }
-	
+
     /* init movie writer */
     ng_ratio_x = video.width;
     ng_ratio_y = video.height;

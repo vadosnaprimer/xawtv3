@@ -48,11 +48,6 @@
 #define MIN(x,y)        ((x)<(y)?(x):(y))
 
 /* ---------------------------------------------------------------------- */
-/* video plugin                                                           */
-static int libv4l = 1;
-static int v4l2 = 0;
-
-/* ---------------------------------------------------------------------- */
 /* framebuffer                                                            */
 
 static char  *fbdev    = NULL;
@@ -240,7 +235,7 @@ fb_initcolors(int fd, int gray)
 	if (-1 == ioctl(fd,FBIOGETCMAP,&cmap))
 	    perror("ioctl FBIOGETCMAP");
     }
-    
+
     switch (fb_var.bits_per_pixel) {
     case 8:
 	if (gray) {
@@ -324,10 +319,10 @@ text_init(char *font)
     char   *fonts[2] = { font, NULL };
 
     if (NULL == f)
-        f = fs_consolefont(font ? fonts : NULL);
+	f = fs_consolefont(font ? fonts : NULL);
     if (NULL == f) {
-        fprintf(stderr,"no font available\n");
-        exit(1);
+	fprintf(stderr,"no font available\n");
+	exit(1);
     }
 }
 
@@ -419,7 +414,7 @@ static void do_capture(int from, int to, int tmp_switch)
 	}
 	dx += (fb_var.xres-24-fmt.width)/2;
 	dy += (fb_var.yres-16-fmt.height)/2;
-	
+
 	if (f_drv & CAN_CAPTURE)
 	    drv->startvideo(h_drv,-1,2);
 	break;
@@ -531,13 +526,7 @@ grabber_init(void)
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
 
-    if (libv4l)
-	drv = ng_vid_open(ng_dev.video, "libv4l", &screen, 0, &h_drv);
-    if (v4l2 && !drv)
-	drv = ng_vid_open(ng_dev.video, "v4l2", &screen, 0, &h_drv);
-
-    if (!drv)
-	drv = ng_vid_open(ng_dev.video,NULL,&screen,0,&h_drv);
+    drv = ng_vid_open(ng_dev.video, ng_dev.driver, &screen, 0, &h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -558,7 +547,7 @@ console_switch(void)
 	break;
     case FB_ACQ_REQ:
 	switch_last = fb_switch_state;
-        fb_switch_acquire();
+	fb_switch_acquire();
 	fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
 	ioctl(fb,FBIOPAN_DISPLAY,&fb_var);
 	do_va_cmd(2,"capture","on");
@@ -613,14 +602,10 @@ main(int argc, char *argv[])
     ng_init();
     for (;;) {
 	double val;
-	c = getopt(argc, argv, "Mgvqxk2d:o:s:c:f:m:z:t:j:");
+	c = getopt(argc, argv, "Mgvqxk2d:o:s:c:f:m:z:t:j:D:");
 	if (c == -1)
 	    break;
 	switch (c) {
-	case '2':
-	    v4l2 = 1;
-	    libv4l = 0;
-	    break;
 	case 'z':
 	    if(sscanf(optarg, "%lf", &val) == 1) {
 		if(val < 0.1 || val > 10)
@@ -667,6 +652,9 @@ main(int argc, char *argv[])
 	    strcat(ng_v4l_conf," -c ");
 	    strcat(ng_v4l_conf,ng_dev.video);
 	    break;
+	case 'D':
+	    ng_dev.driver = optarg;
+	    break;
 	case 't':
 	    if (optarg)
 		vt = strtoul(optarg, 0, 0);
@@ -695,7 +683,7 @@ main(int argc, char *argv[])
 	    matrox = 0;
     if (matrox)
 	strcat(ng_v4l_conf," -y ");
-    
+
     grabber_init();
     freq_init();
     read_config(NULL,NULL,NULL);
