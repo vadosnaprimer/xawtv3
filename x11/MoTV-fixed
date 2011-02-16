@@ -5,29 +5,23 @@
 *renderTable:
 *renderTable.fontType: FONT_IS_FONTSET
 *renderTable.fontName: \
-  -adobe-helvetica-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
- -cronyx-helvetica-medium-r-normal-*-14-*-*-*-p-*-koi8-r, \
-	 -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
-       -gnu-unifont-medium-r-normal--16-*-*-*-p-*-*-*, \
-     -efont-biwidth-medium-r-normal--16-*-*-*-*-*-*-*, \
-	      -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
-	      -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
-			-*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
-			-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--13-*-*-*-*-*-*-*,*
 
 MoTV.onscreen.label.renderTable:
 MoTV.onscreen.label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.onscreen.label.renderTable.fontName: \
-     -*-ledfixed-medium-r-semicondensed--39-*-*-*-c-*-*-*, \
- -*-bitstream vera sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-	   -*-luxi sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-			  -*-*-r-normal--39-*-*-*-*-*-*-*, \
-			       -*-*-*-*--39-*-*-*-*-*-*-*,*
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--20-*-*-*-*-*-*-*,*
 
 MoTV.vtx.label.renderTable:
 MoTV.vtx.label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.vtx.label.renderTable.fontName: \
-	-*-fixed-medium-r-normal--20-*-*-*-*-*-*, *
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-medium-r-normal--20-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--20-*-*-*-*-*-*-*,*
 
 
 ! ----------------------------------------------------------------------------
@@ -345,16 +339,14 @@ MoTV.man_popup*label.marginHeight:		5
 MoTV.man_popup*label.renderTable: bold,underline
 MoTV.man_popup*label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.fontName: \
-	-*-fixed-medium-r-normal--13-*-*-*-*-*-iso8859-*, \
-	-*-fixed-medium-r-normal-ja-13-*-*-*-*-*-iso10646-1, \
-	-gnu-unifont-medium-r-normal--16-*-*-*-*-*-*-*, \
-	*
+ -misc-fixed-medium-r-normal--13-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-medium-r-normal--13-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--13-*-*-*-*-*-*-*,*
 MoTV.man_popup*label.renderTable.bold.fontType: FONT_IS_FONTSET
 MoTV.man_popup*label.renderTable.bold.fontName: \
-	-*-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-*, \
-	-*-fixed-medium-r-normal-ja-13-*-*-*-*-*-iso10646-1, \
-	-gnu-unifont-bold-r-normal--16-*-*-*-*-*-*-*, \
-	*
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso10646-1, \
+ -misc-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-* \
+ -*-*-*-*--13-*-*-*-*-*-*-*,*
 MoTV.man_popup*label.renderTable.underline.underlineType: SINGLE_LINE
 
 
