@@ -184,7 +184,7 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
     if (mayfail && errno == mayfail && ng_debug < 2)
 	return rc;
     print_ioctl(stderr,ioctls_v4l2,PREFIX,cmd,arg);
-    fprintf(stderr,": %s\n",(rc == 0) ? "ok" : strerror(errno));
+    fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : strerror(errno));
     return rc;
 }
 
