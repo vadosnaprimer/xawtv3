@@ -77,7 +77,7 @@ x11_label_pixmap(Display *dpy, Colormap colormap, Pixmap pixmap,
     static XColor          color,dummy;
     XGCValues              values;
     GC                     gc;
-    
+
     if (!font) {
 	font = XLoadQueryFont(dpy,"fixed");
 	XAllocNamedColor(dpy,colormap,"yellow",&color,&dummy);
@@ -166,7 +166,7 @@ video_gd_idle(XtPointer data)
 {
     struct video_handle *h = data;
     struct ng_video_buf *buf;
-    
+
     if (!(f_drv & CAN_CAPTURE))
 	goto oops;
 
@@ -176,7 +176,7 @@ video_gd_idle(XtPointer data)
     } else {
 	goto oops;
     }
-    
+
     if (debug) {
 	static long count,lastsec;
 	struct timeval  t;
@@ -234,7 +234,7 @@ void
 video_gd_suspend(void)
 {
     struct video_handle *h = &vh;
-    
+
     h->suspend = 1;
     if (cur_capture != CAPTURE_GRABDISPLAY)
 	return;
@@ -281,7 +281,7 @@ video_gd_configure(int width, int height)
     if (debug)
 	fprintf(stderr,"gd: config %dx%d win=%lx\n",
 		width,height,XtWindow(h->win));
-	
+
     if (!XtWindow(h->win))
 	return;
 
@@ -387,7 +387,7 @@ add_clip(int x1, int y1, int x2, int y2)
     oc[oc_count].x2 = x2;
     oc[oc_count].y2 = y2;
     oc_count++;
-} 
+}
 
 static void
 get_clips(void)
@@ -413,7 +413,7 @@ get_clips(void)
 	add_clip(swidth-wx, 0, wfmt.width, wfmt.height);
     if ((wy+wfmt.height) > sheight)
 	add_clip(0, sheight-wy, wfmt.width, wfmt.height);
-    
+
     root=DefaultRootWindow(dpy);
     me = XtWindow(video);
     for (;;) {
@@ -429,7 +429,7 @@ get_clips(void)
     for (i = 0; i < nchildren; i++)
 	if (children[i]==me)
 	    break;
-    
+
     for (i++; i<nchildren; i++) {
 	XGetWindowAttributes(dpy, children[i], &wts);
 	if (!(wts.map_state & IsViewable))
@@ -442,8 +442,8 @@ get_clips(void)
 	if ((x2 < 0) || (x1 > (int)wfmt.width) ||
 	    (y2 < 0) || (y1 > (int)wfmt.height))
 	    continue;
-	
-	if (x1<0)      	         x1=0;
+
+	if (x1<0)      		 x1=0;
 	if (y1<0)                y1=0;
 	if (x2>(int)wfmt.width)  x2=wfmt.width;
 	if (y2>(int)wfmt.height) y2=wfmt.height;
@@ -666,7 +666,7 @@ video_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 		fprintf(stderr,"video: tv(+root): %s\n",
 			event_names[event->type]);
 	    break;
-	}	
+	}
     }
 }
 
@@ -739,13 +739,13 @@ video_init(Widget parent, XVisualInfo *vinfo, WidgetClass class,
 			  VisibilityChangeMask |
 			  StructureNotifyMask,
 			  False, video_event, NULL);
-	
+
 	/* root window -- need */
 	XSelectInput(XtDisplay(video),root,
 		     VisibilityChangeMask |
 		     SubstructureNotifyMask |
 		     StructureNotifyMask);
-	
+
 	XtRegisterDrawable(XtDisplay(video),root,video);
     }
 

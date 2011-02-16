@@ -38,7 +38,7 @@ while test "$done" = "0"; do
 		-h | -help | --help)
 			usage
 			exit 0
-			;;			
+			;;
 		-tty)
 			cc_tty=1
 			shift

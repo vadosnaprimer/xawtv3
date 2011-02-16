@@ -226,7 +226,7 @@ do_va_cmd(int argc, ...)
     va_list ap;
     int  i;
     char *argv[32];
-    
+
     va_start(ap,argc);
     for (i = 0; i < argc; i++)
 	argv[i] = va_arg(ap,char*);
@@ -239,7 +239,7 @@ int
 do_command(int argc, char **argv)
 {
     int i;
-    
+
     if (argc == 0) {
 	fprintf(stderr,"do_command: no argument\n");
 	return -1;
@@ -307,7 +307,7 @@ set_capture(int capture, int tmp_switch)
     if (set_capture_hook) {
 	if (capture == CAPTURE_ON)
 	    capture = last_on;
-	
+
 	if (capture == CAPTURE_OVERLAY) {
 	    /* can we do overlay ?? */
 	    if (!(f_drv & CAN_OVERLAY))
@@ -320,7 +320,7 @@ set_capture(int capture, int tmp_switch)
 	    set_capture_hook(cur_capture,capture,tmp_switch);
 	    cur_capture = capture;
 	}
-	
+
 	if (cur_capture != CAPTURE_OFF)
 	    last_on = cur_capture;
     }
@@ -342,7 +342,7 @@ static void
 set_volume(void)
 {
     struct ng_attribute *attr;
-    
+
     if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_VOLUME)))
 	attr->write(attr,cur_attrs[ATTR_ID_VOLUME]);
     if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_MUTE)))
@@ -356,7 +356,7 @@ static void
 set_freqtab(int j)
 {
     freq_newtab(j);
-    
+
     /* cur_channel might be invalid (>chancount) right now */
     cur_channel = -1;
     /* this is valid for (struct CHANNEL*)->channel too    */
@@ -395,7 +395,7 @@ static void
 set_msg_int(struct ng_attribute *attr, int val)
 {
     static char  title[256];
-    
+
     if (display_message) {
 	sprintf(title,"%s: %d%%",attr->name,
 		ng_attr_int2percent(attr,val));
@@ -407,7 +407,7 @@ static void
 set_msg_bool(const char *name, int val)
 {
     static char  title[256];
-    
+
     if (display_message) {
 	sprintf(title,"%s: %s",name, val ? "on" : "off");
 	display_message(title);
@@ -418,7 +418,7 @@ static void
 set_msg_str(char *name, char *val)
 {
     static char  title[256];
-    
+
     if (display_message) {
 	sprintf(title,"%s: %s",name,val);
 	display_message(title);
@@ -435,9 +435,9 @@ static int update_int(struct ng_attribute *attr, int old, char *new)
     step = (attr->max - attr->min) * 3 / 100;
     if (step == 0)
 	step = 1;
-    
+
     if (0 == strcasecmp(new,"inc"))
-        value += step;
+	value += step;
     else if (0 == strcasecmp(new,"dec"))
 	value -= step;
     else if (0 == strncasecmp(new,"+=",2))
@@ -463,7 +463,7 @@ attr_init(void)
 {
     struct ng_attribute *attr;
     int val;
-    
+
     for (attr = attrs; attr != NULL && attr->name != NULL; attr++) {
 	if (attr->id == ATTR_ID_VOLUME ||
 	    attr->id == ATTR_ID_MUTE)
@@ -574,7 +574,7 @@ static int setstation_handler(char *name, int argc, char **argv)
 	set_title();
 	return 0;
     }
-    
+
     if (cur_movie) {
 	if (display_message)
 	    display_message("grabber busy");
@@ -613,7 +613,7 @@ static int setstation_handler(char *name, int argc, char **argv)
     /* ok ?? */
     if (i < 0 || i >= count)
 	return -1;
-    
+
     /* switch ... */
     if (channel_switch_hook)
 	channel_switch_hook();
@@ -643,7 +643,7 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (cur_attrs[ATTR_ID_NORM] != channels[i]->norm)
 	if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_NORM)))
 	    set_attr(attr,channels[i]->norm);
-    
+
     /* station */
     cur_channel  = channels[i]->channel;
     cur_fine     = channels[i]->fine;
@@ -651,7 +651,7 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (f_drv & CAN_TUNE)
 	drv->setfreq(h_drv,channels[i]->freq);
     set_capture(channels[i]->capture,0);
-    
+
     set_title();
     if (setstation_notify)
 	setstation_notify();
@@ -667,7 +667,7 @@ static int setchannel_handler(char *name, int argc, char **argv)
 {
     struct ng_attribute *mute;
     int c,i;
-    
+
     if (0 == argc) {
 	set_title();
 	return 0;
@@ -701,7 +701,7 @@ static int setchannel_handler(char *name, int argc, char **argv)
 		cur_fine = defaults.fine;
 	    }
 	}
-	
+
 	if (0 != strncmp(argv[0],"fine",4)) {
 	    /* look if there is a known station on that channel */
 	    for (i = 0; i < count; i++) {
@@ -721,7 +721,7 @@ static int setchannel_handler(char *name, int argc, char **argv)
 	    cur_fine = 0;
 	}
     }
-    
+
     if (channel_switch_hook)
 	channel_switch_hook();
     set_capture(CAPTURE_OFF,1);
@@ -751,7 +751,7 @@ static void
 print_choices(char *name, char *value, struct STRTAB *tab)
 {
     int i;
-    
+
     fprintf(stderr,"unknown %s: '%s' (available: ",name,value);
     for (i = 0; tab[i].str != NULL; i++)
 	fprintf(stderr,"%s'%s'", (0 == i) ? "" : ", ", tab[i].str);
@@ -792,7 +792,7 @@ static int volume_handler(char *name, int argc, char **argv)
 
     if (0 == argc)
 	goto display;
-    
+
     if (0 == strcasecmp(argv[0],"mute")) {
 	/* mute on/off/toggle */
 	if (argc > 1) {
@@ -976,7 +976,7 @@ static int dattr_handler(char *name, int argc, char **argv)
 {
     struct ng_attribute *attr = NULL;
     unsigned int i;
-    
+
     if (argc > 0 && 0 == strcasecmp(argv[0],"next")) {
 	for (i = 0; i < NUM_DATTR; i++) {
 	    cur_dattr++;
@@ -1052,7 +1052,7 @@ static int snap_handler(char *hname, int argc, char **argv)
     /* filename */
     if (argc > 2)
 	filename = argv[2];
-    
+
     if (NULL == (buf = ng_grabber_get_image(&fmt))) {
 	if (display_message)
 	    display_message("grabbing failed");
@@ -1233,7 +1233,7 @@ tcp_connect(struct addrinfo *ai, char *host, char *serv)
 	    fprintf(stderr,"tcp: socket: %s\n",strerror(errno));
 	    continue;
 	}
-        setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+	setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
 	if (-1 == connect(sock,e->ai_addr,e->ai_addrlen)) {
 	    fprintf(stderr,"tcp: connect: %s\n",strerror(errno));
 	    close(sock);
@@ -1326,7 +1326,7 @@ vdr_handler(char *name, int argc, char **argv)
     strcpy(line+len,"\r\n");
     len += 2;
     if (len != (rc = write(vdr_sock,line,len))) {
- 	if (-1 == rc  &&  EPIPE == errno) {
+	if (-1 == rc  &&  EPIPE == errno) {
 	    if (debug)
 		fprintf(stderr,"tcp: write: broken pipe, trying reconnect\n");
 	    close(vdr_sock);
@@ -1339,7 +1339,7 @@ vdr_handler(char *name, int argc, char **argv)
     }
     if (debug)
 	fprintf(stderr,"vdr: >> %s",line);
-    
+
     /* skip answer */
     if (-1 == tcp_readbuf(vdr_sock,3,line,sizeof(line)))
 	goto oops;

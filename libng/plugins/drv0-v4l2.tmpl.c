@@ -134,7 +134,7 @@ struct ng_vid_driver v4l2_driver = {
     stopvideo:     v4l2_stopvideo,
     nextframe:     v4l2_nextframe,
     getimage:      v4l2_getimage,
-    
+
     getfreq:       v4l2_getfreq,
     setfreq:       v4l2_setfreq,
     is_tuned:      v4l2_tuned,
@@ -213,7 +213,7 @@ static void
 get_device_capabilities(struct v4l2_handle *h)
 {
     int i;
-    
+
     for (h->ninputs = 0; h->ninputs < MAX_INPUT; h->ninputs++) {
 	h->inp[h->ninputs].index = h->ninputs;
 	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs], EINVAL))
@@ -329,7 +329,7 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 {
     static int private_ids = ATTR_ID_COUNT;
     unsigned int i;
-    
+
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
     memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
     if (ctl) {
@@ -394,14 +394,14 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 	c.id = ctl->id;
 	xioctl(h->fd,VIDIOC_G_CTRL,&c,0);
 	value = c.value;
-	
+
     } else if (attr->id == ATTR_ID_NORM) {
 	value = -1;
 	xioctl(h->fd,VIDIOC_G_STD,&std,0);
 	for (i = 0; i < h->nstds; i++)
 	    if (std & h->std[i].id)
 		value = i;
-	
+
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_G_INPUT,&value,0);
 
@@ -442,10 +442,10 @@ static void v4l2_write_attr(struct ng_attribute *attr, int value)
 	c.id = ctl->id;
 	c.value = value;
 	xioctl(h->fd,VIDIOC_S_CTRL,&c,0);
-	
+
     } else if (attr->id == ATTR_ID_NORM) {
 	xioctl(h->fd,VIDIOC_S_STD,&h->std[value].id,0);
-	
+
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_S_INPUT,&value,0);
 
@@ -475,7 +475,7 @@ v4l2_open_handle(char *device)
     if (NULL == h)
 	return NULL;
     memset(h,0,sizeof(*h));
-    
+
     if (-1 == (h->fd = open(device, O_RDWR))) {
 	fprintf(stderr,"v4l2: open %s: %s\n",device,strerror(errno));
 	goto err;
@@ -490,7 +490,7 @@ v4l2_open_handle(char *device)
        not a v4l2 device. */
     libv4l2_fd = v4l2_fd_open(h->fd, 0);
     if (libv4l2_fd != -1)
-        h->fd = libv4l2_fd;
+	h->fd = libv4l2_fd;
 #endif /* USE_LIBV4L */
     if (-1 == xioctl(h->fd,VIDIOC_QUERYCAP,&h->cap,EINVAL))
 	goto err;
@@ -520,7 +520,7 @@ v4l2_open_handle(char *device)
 
     /* capture buffers */
     for (i = 0; i < WANTED_BUFFERS; i++) {
-    	ng_init_video_buf(h->buf_me+i);
+	ng_init_video_buf(h->buf_me+i);
 	h->buf_me[i].release = ng_wakeup_video_buf;
     }
 
@@ -553,16 +553,16 @@ v4l2_close_handle(void *handle)
 #endif /* USE_LIBV4L */
 
     if (NULL != h->attr) {
-        int i;
-        for (i = 0; i < h->nattr; ++i) {
-          if ((NULL != h->attr[i].choices) &&
-              (stereo != h->attr[i].choices)) {
-                free(h->attr[i].choices);
-                h->attr[i].choices = NULL;
-            }
-        }
-        free(h->attr);
-        h->attr = NULL;
+	int i;
+	for (i = 0; i < h->nattr; ++i) {
+	  if ((NULL != h->attr[i].choices) &&
+	      (stereo != h->attr[i].choices)) {
+		free(h->attr[i].choices);
+		h->attr[i].choices = NULL;
+	    }
+	}
+	free(h->attr);
+	h->attr = NULL;
     }
 
     free(h);
@@ -648,7 +648,7 @@ v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base)
 
     if (-1 == xioctl(h->fd, VIDIOC_G_FBUF, &h->ov_fb, 0))
 	return -1;
-    
+
     /* double-check settings */
     if ((NULL != base && h->ov_fb.base != base) || h->ov_fb.base == NULL) {
 	fprintf(stderr,"v4l2: WARNING: framebuffer base address mismatch\n");
@@ -702,7 +702,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
 
     if (h->ov_error)
 	return -1;
-    
+
     if (NULL == fmt) {
 	if (ng_debug)
 	    fprintf(stderr,"v4l2: overlay off\n");
@@ -743,7 +743,7 @@ v4l2_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
     if (h->ov_fb.capability & V4L2_FBUF_CAP_LIST_CLIPPING) {
 	h->ov_win.fmt.win.clips      = h->ov_clips;
 	h->ov_win.fmt.win.clipcount  = count;
-	
+
 	for (i = 0; i < count; i++) {
 	    h->ov_clips[i].next = (i+1 == count) ? NULL : &h->ov_clips[i+1];
 	    h->ov_clips[i].c.left   = oc[i].x1;
@@ -805,7 +805,7 @@ v4l2_waiton(struct v4l2_handle *h)
     struct v4l2_buffer buf;
     struct timeval tv;
     fd_set rdset;
-    
+
     /* wait for the next frame */
  again:
     tv.tv_sec  = 5;
@@ -858,7 +858,7 @@ v4l2_start_streaming(struct v4l2_handle *h, int buffers)
 {
     int disable_overlay = 0;
     unsigned int i;
-    
+
     /* setup buffers */
     h->reqbufs.count  = buffers;
     h->reqbufs.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -918,7 +918,7 @@ static void
 v4l2_stop_streaming(struct v4l2_handle *h)
 {
     unsigned int i;
-    
+
     /* stop capture */
 #ifndef USE_LIBV4L
     if (-1 == ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
@@ -926,7 +926,7 @@ v4l2_stop_streaming(struct v4l2_handle *h)
     if (-1 == v4l2_ioctl(h->fd,VIDIOC_STREAMOFF,&h->fmt_v4l2.type))
 #endif /* USE_LIBV4L */
 	perror("ioctl VIDIOC_STREAMOFF");
-    
+
     /* free buffers */
     for (i = 0; i < h->reqbufs.count; i++) {
 	if (0 != h->buf_me[i].refcount)
@@ -945,7 +945,7 @@ v4l2_stop_streaming(struct v4l2_handle *h)
 
     /* unrequest buffers (only needed for some drivers) */
     h->reqbufs.count = 0;
-    xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, EINVAL); 
+    xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, EINVAL);
 
     /* turn on preview (if needed) */
     if (h->ov_on != h->ov_enabled) {
@@ -964,7 +964,7 @@ static int
 v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
 {
     struct v4l2_handle *h = handle;
-    
+
     h->fmt_v4l2.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     h->fmt_v4l2.fmt.pix.pixelformat  = xawtv_pixelformat[fmt->fmtid];
     h->fmt_v4l2.fmt.pix.width        = fmt->width;
@@ -984,15 +984,15 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     fmt->height       = h->fmt_v4l2.fmt.pix.height;
     fmt->bytesperline = h->fmt_v4l2.fmt.pix.bytesperline;
     /* struct v4l2_format.fmt.pix.bytesperline is bytesperline for the
-       main plane for planar formats, where as we want it to be the total 
+       main plane for planar formats, where as we want it to be the total
        bytesperline for all planes */
     switch (fmt->fmtid) {
-        case VIDEO_YUV422P:
-          fmt->bytesperline *= 2;
-          break;
-        case VIDEO_YUV420P:
-          fmt->bytesperline = fmt->bytesperline * 3 / 2;
-          break;
+	case VIDEO_YUV422P:
+	  fmt->bytesperline *= 2;
+	  break;
+	case VIDEO_YUV420P:
+	  fmt->bytesperline = fmt->bytesperline * 3 / 2;
+	  break;
     }
     if (0 == fmt->bytesperline)
 	fmt->bytesperline = fmt->width * ng_vfmt_to_depth[fmt->fmtid] / 8;
@@ -1090,7 +1090,7 @@ static struct ng_video_buf*
 v4l2_getimage(void *handle)
 {
     struct v4l2_handle *h = handle;
-    struct ng_video_buf *buf; 
+    struct ng_video_buf *buf;
     int size,frame,rc;
 
     size = h->fmt_me.bytesperline * h->fmt_me.height;

@@ -116,9 +116,9 @@ mkheader(struct REQUEST *req, int status, time_t mtime)
 			 req->mime,
 			 req->lbody);
     if (mtime != -1)
-        req->lres += strftime(req->hres+req->lres,80,
-                              "Last-Modified: " RFCTIME "\r\n",
-                              gmtime(&mtime));
+	req->lres += strftime(req->hres+req->lres,80,
+			      "Last-Modified: " RFCTIME "\r\n",
+			      gmtime(&mtime));
     req->lres += strftime(req->hres+req->lres,80,
 			  "Date: " RFCTIME "\r\n\r\n",
 			  gmtime(&now));

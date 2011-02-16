@@ -9,7 +9,7 @@
 # Marks works now. Some correction to handel correct.
 # 30.8.2002
 # Version 0.10 made
-# Tool is now with menu and supports keystrokens for sortings. 
+# Tool is now with menu and supports keystrokens for sortings.
 # 30.8.2002
 # Version 0.11 made
 # You cann now chose tv canels with return key it needs v4lctl program
@@ -46,41 +46,41 @@ $DateiMenu->command(-label => "Save",
 $DateiMenu->command(-label => "Save as",
 		    -underline => 6,
 		    -command => sub { $top->Dialog(-text => "Sorry Save as not jet implemented",
-                                                   -title => "Sorry")->Show; } );
+						   -title => "Sorry")->Show; } );
 $DateiMenu->separator();
-$DateiMenu->command(-label => "Exit", 
+$DateiMenu->command(-label => "Exit",
 		    -underline => 1,
 		    -command => [ $top => 'destroy' ] );
 
 $HelpMenu->command(-label => "keyboard",
 		   -underline => 0,
-	           -command => sub { $top->Dialog(-text =>
+		   -command => sub { $top->Dialog(-text =>
 						"up\t\t= go up\n".
 						"down\t\t= go down\n".
-                                                "shift-up\t\t= move up\n".
-                                                "shift-down\t= move down\n". 
-                                                "ctrl-up\t\t= move at top\n". 
-                                                "ctrl-down\t= move to bottom\n". 
-                                                "home\t\t= go to first entry\n". 
-                                                "end\t\t= go to last entry\n". 
-                                                "ctrl-l\t\t= (un)locks entry\n". 
-                                                "ctrl-m\t\t= (un)marks entry\n". 
-                                                "ctrl-u\t\t= unmarks all\n". 
-                                                "ctrl-s\t\t= sorts stations\n". 
-                                                "ctrl-n\t\t= sorts numbers\n". 
-                                                "return\t\t= sets the sender\n", 
-                                                 -buttons => [qw/Close/] ,
-                                                 -title => "Keyboard Help"
+						"shift-up\t\t= move up\n".
+						"shift-down\t= move down\n".
+						"ctrl-up\t\t= move at top\n".
+						"ctrl-down\t= move to bottom\n".
+						"home\t\t= go to first entry\n".
+						"end\t\t= go to last entry\n".
+						"ctrl-l\t\t= (un)locks entry\n".
+						"ctrl-m\t\t= (un)marks entry\n".
+						"ctrl-u\t\t= unmarks all\n".
+						"ctrl-s\t\t= sorts stations\n".
+						"ctrl-n\t\t= sorts numbers\n".
+						"return\t\t= sets the sender\n",
+						 -buttons => [qw/Close/] ,
+						 -title => "Keyboard Help"
 						)->Show; } ) ;
 $HelpMenu->separator();
 $HelpMenu->command(-label => "about",
 		   -underline => 0,
-	           -command => sub { $hd = $top->Dialog(-text =>
+		   -command => sub { $hd = $top->Dialog(-text =>
 						"Autor D. Landolt\n".
 						"Version $version\n\n".
 						"perl/tk programm for sorting .xawtv file",
-                                                 -buttons => [qw/Close/] ,
-                                                 -title => "Help about"
+						 -buttons => [qw/Close/] ,
+						 -title => "Help about"
 						);
 					$hd->Show; } ) ;
 
@@ -116,7 +116,7 @@ sub OpenFile {
 				$table->put($x,$y,"");
 			}
 		}
-		$StatusText->configure(-text => "Reading : ".$xawtvfile );	
+		$StatusText->configure(-text => "Reading : ".$xawtvfile );
 		$top->update;
 		ReadXawtv($file);
 		$xawtvfile = $file;
@@ -224,16 +224,16 @@ sub invokebutton {
 	if ( $bnr > 4) {
 		settablefocus("up",$entry) if($bnr == 5);
 		settablefocus("down",$entry) if($bnr == 6);
-	 	settablefocus("up",$entry) if($bnr == 7);
-	 	settablefocus("down",$entry) if($bnr == 8);
+		settablefocus("up",$entry) if($bnr == 7);
+		settablefocus("down",$entry) if($bnr == 8);
 	}
-	
+
 }
 
 sub settablefocus {
 	my ($direct,$entry) = @_;
 	my ($x, $y) = $table->Posn($top->focusCurrent);
-	
+
 	if ( $entry ne '' ) {
 		my $loop = $x;
 		my $pm = 0;
@@ -292,7 +292,7 @@ sub SaveXawtv {
 	# XA= STDOUT;
 
 	my $oldtext = $StatusText->cget(-text);
-	$StatusText->configure(-text => "Saveing : ".$filename );	
+	$StatusText->configure(-text => "Saveing : ".$filename );
 	$top->update;
 
 	@stations = (); # Initialize Aerea
@@ -305,7 +305,7 @@ sub SaveXawtv {
 		push(@stations,$table->get($i,1)->get);
 	}
 	close XA;
-	$StatusText->configure(-text => $oldtext );	
+	$StatusText->configure(-text => $oldtext );
 }
 
 
@@ -418,7 +418,7 @@ sub exchangevalue {
 	} else {
 		$table->get($dest,3)->deselect;
 	}
-	
+
 }
 
 sub tablesortstation {

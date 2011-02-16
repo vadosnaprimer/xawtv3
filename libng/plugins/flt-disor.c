@@ -19,7 +19,7 @@
 /* ------------------------------------------------------------------- */
 
 int parm_k = 700;
-int parm_cx = 50; 
+int parm_cx = 50;
 int parm_cy = 50;
 int parm_zoom = 50;
 
@@ -43,7 +43,7 @@ frame(void *handle, struct ng_video_buf *in)
 
     int i, j, cx, cy, di, dj;
     float dr, cr,ca, sx, zoom, k;
-    
+
     out = ng_malloc_video_buf(&in->fmt, in->fmt.height * in->fmt.bytesperline);
     out->info = in->info;
 
@@ -63,7 +63,7 @@ frame(void *handle, struct ng_video_buf *in)
 
     /* calc ratio x/y */
     sx = in->fmt.width * sensor_h / (in->fmt.height * sensor_w);
-    
+
     /* calc new value of k in the coordonates systeme of computer */
     k = k * in->fmt.height / sensor_h;
 #else
@@ -72,13 +72,13 @@ frame(void *handle, struct ng_video_buf *in)
 #endif
 
     for (j = 0; j < (int)in->fmt.height ; j++) {
-	for (i = 0; i < (int)in->fmt.width ; i++) {	
-	    
-	    // compute radial distortion / parameters of center of image 
+	for (i = 0; i < (int)in->fmt.width ; i++) {
+
+	    // compute radial distortion / parameters of center of image
 	    cr  = sqrt((i-cx)/sx*(i-cx)/sx+(j-cy)*(j-cy));
 	    ca  = atan(cr/k/zoom);
-	    dr = k * tan(ca/2);	
-	    
+	    dr = k * tan(ca/2);
+
 	    if (i == cx && j == cy) {
 		di = cx;
 		dj = cy;
@@ -86,11 +86,11 @@ frame(void *handle, struct ng_video_buf *in)
 		di = (i-cx) * dr / cr + cx;
 		dj = (j-cy) * dr / cr + cy;
 	    }
-	    
+
 	    if (dj >= (int)in->fmt.height || dj < 0 ||
 		di >= (int)in->fmt.width  || di < 0)
 		continue;
-	    
+
 	    switch (in->fmt.fmtid) {
 	    case VIDEO_RGB15_LE:
 	    case VIDEO_RGB16_LE:

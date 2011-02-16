@@ -87,7 +87,7 @@ static void station_list(FILE *fp)
 {
     char filename[100];
     char **list;
-    
+
     sprintf(filename,"%.*s/%s",(int)sizeof(filename)-8,
 	    getenv("HOME"),".xawtv");
     cfg_parse_file(CONFIGFILE);
@@ -107,7 +107,7 @@ static void wm_menu(FILE *fp)
 {
     fprintf(fp,"\"TV stations\" MENU\n");
     station_list(fp);
-    fprintf(fp,"\"TV stations\" END\n");    
+    fprintf(fp,"\"TV stations\" END\n");
 }
 
 static void video_blit(Display *dpy, Window win)
@@ -254,7 +254,7 @@ main(int argc, char *argv[])
     XGetWindowAttributes (dpy, win, &wts);
     XSelectInput(dpy, win, wts.your_event_mask |
 		 KeyPressMask | StructureNotifyMask | ExposureMask);
-    
+
     /* query+print Xvideo properties */
     if (Success != XvQueryExtension(dpy,&ver,&rel,&req,&ev,&err)) {
 	puts("Server does'nt support Xvideo");
@@ -269,7 +269,7 @@ main(int argc, char *argv[])
     for (i = 0; i < adaptors; i++) {
 	if (verbose)
 	    fprintf(stderr,"  port=%ld name=\"%s\"\n",ai[i].base_id,ai[i].name);
-	
+
 	/* video adaptor ? */
 	if ((ai[i].type & XvInputMask) &&
 	    (ai[i].type & XvVideoMask) &&
@@ -327,7 +327,7 @@ main(int argc, char *argv[])
     sigaction(SIGINT,&act,&old);
     sigaction(SIGHUP,&act,&old);
     sigaction(SIGTERM,&act,&old);
-    
+
     /* put video to the window */
     if (newwin)
 	XMapWindow(dpy,win);
@@ -340,14 +340,14 @@ main(int argc, char *argv[])
     /* receive events */
     XvSelectPortNotify(dpy, port, 1);
     XvSelectVideoNotify(dpy, win, 1);
-    
+
     /* main loop */
     for (;!bye && !termsig;) {
 	int rc;
 	fd_set set;
 	XEvent event;
 
-        if (False == XCheckMaskEvent(dpy, ~0, &event)) {
+	if (False == XCheckMaskEvent(dpy, ~0, &event)) {
 	    /* wait for x11 events, make sure that signals are catched */
 	    XFlush(dpy);
 	    FD_ZERO(&set);
@@ -358,7 +358,7 @@ main(int argc, char *argv[])
 		    perror("... select");
 	    continue;
 	}
-	
+
 	if (event.type > ev) {
 	    /* Xvideo extention event */
 	    switch (event.type-ev) {

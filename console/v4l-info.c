@@ -159,7 +159,7 @@ static int dump_v4l2(int fd, int tab)
 		printf("    VIDIOC_QUERYCTRL(BASE+%d)\n",i);
 		print_struct(stdout,desc_v4l2_queryctrl,&qctrl,"",tab);
 	}
-        for (; i < V4L2_CID_LASTP1 - V4L2_CID_USER_BASE; i++) {
+	for (; i < V4L2_CID_LASTP1 - V4L2_CID_USER_BASE; i++) {
 		memset(&qctrl,0,sizeof(qctrl));
 		qctrl.id = i + V4L2_CID_USER_BASE;
 		if (-1 == ioctl(fd,VIDIOC_QUERYCTRL,&qctrl))

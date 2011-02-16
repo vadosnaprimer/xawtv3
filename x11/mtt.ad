@@ -8,13 +8,13 @@ mtt.deleteResponse:			DO_NOTHING
 *renderTable.fontName: \
   -adobe-helvetica-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
  -cronyx-helvetica-medium-r-normal-*-14-*-*-*-p-*-koi8-r, \
-         -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
+	 -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
        -gnu-unifont-medium-r-normal--16-*-*-*-p-*-*-*, \
      -efont-biwidth-medium-r-normal--16-*-*-*-*-*-*-*, \
-              -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
-              -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
-                        -*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
-                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+	      -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
+	      -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
+			-*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
+			-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 ! arrange widgets
 mtt.form.*.leftAttachment:		ATTACH_FORM
@@ -26,7 +26,7 @@ mtt.form.tt.topWidget:			tool
 mtt.form.tt.bottomAttachment:		ATTACH_FORM
 mtt.form.tt.background:			black
 mtt.form.tt.foreground:			white
-	
+
 ! menubar
 mtt*bar.file.labelString:		File
 mtt*bar.file.mnemonic:			F

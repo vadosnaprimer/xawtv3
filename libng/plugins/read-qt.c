@@ -71,7 +71,7 @@ static void* qt_open(char *moviename)
 	str = quicktime_get_info(h->qt);
 	if (str)
 	    fprintf(stderr,"  info: %s\n",str);
-	
+
 	/* print video info */
 	if (quicktime_has_video(h->qt)) {
 	    fprintf(stderr,"  video: %d track(s)\n",quicktime_video_tracks(h->qt));
@@ -91,7 +91,7 @@ static void* qt_open(char *moviename)
 			quicktime_video_compressor(h->qt,i));
 	    }
 	}
-	
+
 	/* print audio info */
 	if (quicktime_has_audio(h->qt)) {
 	    fprintf(stderr,"  audio: %d track(s)\n",quicktime_audio_tracks(h->qt));
@@ -174,7 +174,7 @@ static struct ng_video_buf* qt_vdata(void *handle, unsigned int drop)
     struct qt_handle *h = handle;
     struct ng_video_buf *buf;
     unsigned int i;
-    
+
     if (quicktime_video_position(h->qt,0) >= quicktime_video_length(h->qt,0))
 	return NULL;
 
@@ -203,7 +203,7 @@ static struct ng_video_buf* qt_vdata(void *handle, unsigned int drop)
     /* drop frames */
     for (i = 0; i < drop; i++)
 	quicktime_read_frame(h->qt,buf->data,0);
-        
+
     buf->info.seq  = quicktime_video_position(h->qt,0);
     buf->info.ts   = (long long) buf->info.seq * 1000000000 / h->rate;
     lqt_decode_video(h->qt, h->rows, 0);
@@ -217,7 +217,7 @@ static struct ng_audio_buf* qt_adata(void *handle)
     int16_t *dest;
     long pos;
     int i;
-    
+
     if (quicktime_audio_position(h->qt,0) >= quicktime_audio_length(h->qt,0))
 	return NULL;
 
@@ -274,7 +274,7 @@ struct ng_reader qt_reader = {
     magic:	{ "moov", "mdat" },
     moff:       {  4,      4     },
     mlen:       {  4,      4     },
-    
+
     rd_open:    qt_open,
     rd_vfmt:    qt_vfmt,
     rd_afmt:    qt_afmt,

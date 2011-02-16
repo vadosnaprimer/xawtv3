@@ -309,7 +309,7 @@ action_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
 void toolkit_set_label(Widget widget, char *str)
 {
-    XtVaSetValues(widget,XtNlabel,str,NULL);    
+    XtVaSetValues(widget,XtNlabel,str,NULL);
 }
 
 /*--- videotext ----------------------------------------------------------*/
@@ -468,7 +468,7 @@ resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
     static int width = 0, height = 0, first = 1;
     char label[64];
-    
+
     switch(event->type) {
     case ConfigureNotify:
 	if (first) {
@@ -499,12 +499,12 @@ set_float(Widget widget, char *name, float value)
 
     if (sizeof(float) > sizeof(XtArgVal)) {
 	/*
-	 * If a float is larger than an XtArgVal then pass this 
+	 * If a float is larger than an XtArgVal then pass this
 	 * resource value by reference.
 	 */
 	XtSetArg(args[0], name, &value);
     } else {
-        /*
+	/*
 	 * Convince C not to perform an automatic conversion, which
 	 * would truncate 0.5 to 0.
 	 *
@@ -585,7 +585,7 @@ new_channel(void)
 		 (cur_channel == -1) ? NULL : chanlist[cur_channel].name,
 		 (cur_sender == -1)  ? NULL : channels[cur_sender]->name);
     conf_station_switched();
-    
+
     if (zap_timer) {
 	XtRemoveTimeOut(zap_timer);
 	zap_timer = 0;
@@ -706,7 +706,7 @@ pixit(void)
     if (channels[cur_sender]->pixmap)
 	XFreePixmap(dpy,channels[cur_sender]->pixmap);
     channels[cur_sender]->pixmap = pix;
-    
+
  done2:
     ng_release_video_buf(buf);
  done1:
@@ -809,7 +809,7 @@ StayOnTop(Widget widget, XEvent *event,
     stay_on_top = stay_on_top ? 0 : 1;
     if (debug)
 	fprintf(stderr,"stay_on_top: %d\n",stay_on_top);
-	
+
     wm_stay_on_top(dpy,XtWindow(app_shell),stay_on_top);
     wm_stay_on_top(dpy,XtWindow(on_shell),stay_on_top);
     for (i = 0; i < TOPLEVELS; i++)
@@ -861,7 +861,7 @@ update_movie_menus(void)
     for (i = 0; NULL != movie_driver->audio[i].name; i++) {
 	m_movie_audio[i].nr  = i;
 	m_movie_audio[i].str = movie_driver->audio[i].desc ?
-	    movie_driver->audio[i].desc : 
+	    movie_driver->audio[i].desc :
 	    ng_afmt_to_desc[movie_driver->audio[i].fmtid];
 	if (NULL != mov_audio)
 	    if (0 == strcasecmp(mov_audio,movie_driver->audio[i].name))
@@ -881,7 +881,7 @@ update_movie_menus(void)
     for (i = 0; NULL != movie_driver->video[i].name; i++) {
 	m_movie_video[i].nr  = i;
 	m_movie_video[i].str = movie_driver->video[i].desc ?
-	    movie_driver->video[i].desc : 
+	    movie_driver->video[i].desc :
 	    ng_vfmt_to_desc[movie_driver->video[i].fmtid];
 	if (NULL != mov_video)
 	    if (0 == strcasecmp(mov_video,movie_driver->video[i].name))
@@ -915,9 +915,9 @@ init_movie_menus(void)
 }
 
 #define PANED_FIX               \
-        XtNallowResize, False,  \
-        XtNshowGrip,    False,  \
-        XtNskipAdjust,  True
+	XtNallowResize, False,  \
+	XtNshowGrip,    False,  \
+	XtNskipAdjust,  True
 
 struct DO_CMD cmd_fs   = { 1, { "fullscreen",        NULL }};
 struct DO_CMD cmd_mute = { 2, { "volume",  "mute",   NULL }};
@@ -980,7 +980,7 @@ menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	    int i = 0;
 	    struct list_head *item;
 	    struct ng_writer *writer = NULL;
-	    
+
 	    list_for_each(item,&ng_writers) {
 		if (i++ == j)
 		    writer = list_entry(item,struct ng_writer, list);
@@ -1091,7 +1091,7 @@ add_attr_option(Widget paned, struct ng_attribute *attr)
     a = malloc(sizeof(*a));
     memset(a,0,sizeof(*a));
     a->attr = attr;
-    
+
     switch (attr->type) {
     case ATTR_TYPE_BOOL:
     case ATTR_TYPE_CHOICE:
@@ -1140,11 +1140,11 @@ create_optwin(void)
 			   ("<Message>WM_PROTOCOLS: Popup()"));
     opt_paned = XtVaCreateManagedWidget("paned", panedWidgetClass, opt_shell,
 					NULL);
-    
+
     c = XtVaCreateManagedWidget("mute", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_mute);
-    
+
     c = XtVaCreateManagedWidget("fs", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_fs);
@@ -1210,7 +1210,7 @@ create_attr_widgets(void)
 	    continue;
 	add_attr_option(opt_paned,attr);
     }
-    
+
     /* integer options */
     attr = ng_attr_byid(attrs,ATTR_ID_BRIGHT);
     if (NULL != attr)
@@ -1408,7 +1408,7 @@ do_movie_record(int argc, char **argv)
 	XtVaSetValues(w_movie_status,XtNlabel,"recording",NULL);
 	return;
     }
-    
+
     /* stop */
     if (argc > 0 && 0 == strcasecmp(argv[0],"stop")) {
 	if (0 == cur_movie)
@@ -1452,7 +1452,7 @@ create_strwin(void)
 			   ("<Message>WM_PROTOCOLS: Popup()"));
 
     form = XtVaCreateManagedWidget("form", formWidgetClass, str_shell,
-                                   NULL);
+				   NULL);
 
     /* driver */
     button = XtVaCreateManagedWidget("driver", commandWidgetClass, form,
@@ -1470,7 +1470,7 @@ create_strwin(void)
 				   XtNfromVert, label,
 				   NULL);
     w_movie_fvideo = text;
-    
+
     /* audio filename */
     label = XtVaCreateManagedWidget("alabel", labelWidgetClass, form,
 				    FIX_LEFT_TOP,
@@ -1526,7 +1526,7 @@ create_strwin(void)
 				     XtNfromVert, label,
 				     NULL);
     XtAddCallback(button,XtNcallback,exec_record,NULL);
-    
+
     button = XtVaCreateManagedWidget("xanim", commandWidgetClass, form,
 				     FIX_LEFT_TOP,
 				     XtNfromVert, button,
@@ -1606,7 +1606,7 @@ main(int argc, char *argv[])
 #endif
 	grabber_scan();
     }
-    
+
     /* look for a useful visual */
     visual_init("xawtv","Xawtv");
 
@@ -1636,7 +1636,7 @@ main(int argc, char *argv[])
     if (args.xv_image)
 	xv_image_init(dpy);
 #endif
-    
+
     /* set hooks (command.c) */
     update_title        = new_title;
     display_message     = new_message;
@@ -1659,7 +1659,7 @@ main(int argc, char *argv[])
     capture_get_hook    = video_gd_suspend;
     capture_rel_hook    = video_gd_restart;
     channel_switch_hook = pixit;
-    
+
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
     tv = video_init(app_shell, &vinfo, simpleWidgetClass,
@@ -1708,9 +1708,9 @@ main(int argc, char *argv[])
     }
     init_movie_menus();
     create_attr_widgets();
-    
+
     xt_vm_randr_input_init(dpy);
-    
+
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
     XtRealizeWidget(app_shell);

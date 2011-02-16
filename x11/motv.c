@@ -319,7 +319,7 @@ static void
 resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
     static int width = 0, height = 0, first = 1;
-    
+
     switch(event->type) {
     case ConfigureNotify:
 	if (first) {
@@ -410,7 +410,7 @@ static void
 about_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     Widget msgbox;
-    
+
     msgbox = XmCreateInformationDialog(app_shell,"about_box",NULL,0);
     XtUnmanageChild(XmMessageBoxGetChild(msgbox,XmDIALOG_HELP_BUTTON));
     XtUnmanageChild(XmMessageBoxGetChild(msgbox,XmDIALOG_CANCEL_BUTTON));
@@ -469,7 +469,7 @@ rend_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void create_vtx(void)
 {
     Widget shell,label;
-    
+
     shell = XtVaCreateWidget("vtx",transientShellWidgetClass,
 			     app_shell,
 			     XtNoverrideRedirect,True,
@@ -556,7 +556,7 @@ display_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
 	XFreePixmap(dpy,pix);
     pix = vbi_export_pixmap(vtx,pg,rect);
     XtVaSetValues(vtx->tt,XmNlabelPixmap,pix,XmNlabelType,XmPIXMAP,NULL);
-    
+
     XtVaGetValues(app_shell,XtNx,&x,XtNy,&y,XtNwidth,&w,XtNheight,&h,NULL);
     XtVaGetValues(vtx->shell,XtNwidth,&sw,XtNheight,&sh,NULL);
     XtVaSetValues(vtx->shell,XtNx,x+(w-sw)/2,XtNy,y+h-10-sh,NULL);
@@ -741,7 +741,7 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     group = XmTextGetString(prop_group);
     if (0 == strlen(group))
 	group = "main";
-	
+
     XtVaGetValues(prop_channel,XmNselectedItem,&str,NULL);
     cname = XmStringUnparse(str,NULL,XmMULTIBYTE_TEXT,XmMULTIBYTE_TEXT,
 			    NULL,0,0);
@@ -755,7 +755,7 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	XtManageChild(msgbox);
 	return;
     }
-    
+
     if (i == count) {
 	/* add */
 	c = add_channel(name);
@@ -773,7 +773,7 @@ chan_apply_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	    free(c->key);
 	    c->key = NULL;
 	}
-	if (0 != strlen(key)) 
+	if (0 != strlen(key))
 	    c->key = strdup(key);
 	c->cname   = strdup(cname);
 	c->group   = strdup(group);
@@ -887,7 +887,7 @@ filter_add_ctrls(Widget rc, struct ng_filter *filter,
     f->next   = filter_attrs;
     f->value  = attr->read(attr);
     filter_attrs = f;
-    
+
     str = XmStringGenerate((char*)attr->name, NULL, XmMULTIBYTE_TEXT, NULL);
     switch (attr->type) {
     case ATTR_TYPE_INTEGER:
@@ -949,7 +949,7 @@ create_filter_prop(void)
     XmdRegisterEditres(filter_shell);
     XmAddWMProtocolCallback(filter_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,filter_shell);
-    
+
     rc1 = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, filter_shell,
 				  NULL);
 
@@ -1055,7 +1055,7 @@ add_attr_option(Widget menu, struct ng_attribute *attr)
     a = malloc(sizeof(*a));
     memset(a,0,sizeof(*a));
     a->attr = attr;
-    
+
     switch (attr->type) {
     case ATTR_TYPE_CHOICE:
 	a->widget = XmCreatePulldownMenu(menu,(char*)attr->name,NULL,0);
@@ -1214,7 +1214,7 @@ chan_makebutton(struct CHANNEL *channel)
 
     if (NULL != channel->button)
 	return;
-    
+
     channel->button =
 	XtVaCreateManagedWidget(channel->name,
 				xmPushButtonWidgetClass, chan_box,
@@ -1235,7 +1235,7 @@ create_control(void)
     Widget form,menubar,menu,smenu,push,clip,tool,rc,fr;
     char action[256];
     int i;
-    
+
     control_shell = XtVaAppCreateShell("control","MoTV",
 				       topLevelShellWidgetClass,
 				       dpy,
@@ -1281,7 +1281,7 @@ create_control(void)
     XtVaGetValues(chan_viewport,XmNclipWindow,&clip,NULL);
     XtAddEventHandler(clip,StructureNotifyMask, True,
 		      chan_resize_eh, NULL);
-    
+
     /* menu - file */
     menu = XmCreatePulldownMenu(menubar,"fileM",NULL,0);
     XtVaCreateManagedWidget("file",xmCascadeButtonWidgetClass,menubar,
@@ -1309,7 +1309,7 @@ create_control(void)
     XtVaCreateManagedWidget("stations",xmCascadeButtonWidgetClass,menubar,
 			    XmNsubMenuId,st_menu1,NULL);
     XtAddCallback(st_menu1,XmNmapCallback,menu_cols_cb,NULL);
-    
+
     /* menu - tools (name?) */
     menu = XmCreatePulldownMenu(menubar,"toolsM",NULL,0);
     XtVaCreateManagedWidget("tools",xmCascadeButtonWidgetClass,menubar,
@@ -1366,7 +1366,7 @@ create_control(void)
     push = XtVaCreateManagedWidget("jpg_w",xmPushButtonWidgetClass,smenu,NULL);
     XtAddCallback(push,XmNactivateCallback,action_cb,
 		  "Command(snap,jpeg,win)");
-    
+
     /* menu - tools / aspect ratio */
     smenu = XmCreatePulldownMenu(menu,"ratioM",NULL,0);
     XtVaCreateManagedWidget("ratio",xmCascadeButtonWidgetClass,menu,
@@ -1433,7 +1433,7 @@ create_control(void)
 				   cap_menu,XmNindicatorType,XmONE_OF_MANY,
 				   NULL);
     add_cmd_callback(push,XmNvalueChangedCallback,"capture","off",NULL);
-    
+
     freq_menu = XmCreatePulldownMenu(menu,"freqM",NULL,0);
     XtVaCreateManagedWidget("freq",xmCascadeButtonWidgetClass,menu,
 			    XmNsubMenuId,freq_menu,NULL);
@@ -1451,7 +1451,7 @@ create_control(void)
     if ((f_drv & CAN_CAPTURE)  &&  !list_empty(&ng_filters))  {
 	struct list_head *item;
 	struct ng_filter *filter;
-	
+
 	menu = XmCreatePulldownMenu(menubar,"filterM",NULL,0);
 	XtVaCreateManagedWidget("filter",xmCascadeButtonWidgetClass,menubar,
 				XmNsubMenuId,menu,NULL);
@@ -1663,7 +1663,7 @@ create_scale(void)
 void create_chanwin(void)
 {
     Widget form,clip,menu,push;
-    
+
 }
 #endif
 
@@ -1825,7 +1825,7 @@ create_strwin(void)
     Widget form,push,rowcol,frame,fbox;
     struct FILE_DATA *h;
     Arg args[2];
-    
+
     str_shell = XtVaAppCreateShell("streamer", "MoTV",
 				   topLevelShellWidgetClass,
 				   dpy,
@@ -1860,7 +1860,7 @@ create_strwin(void)
     XtManageChild(video_option);
     XtVaCreateManagedWidget("fpsL",xmLabelWidgetClass,rowcol,NULL);
     m_fps = XtVaCreateManagedWidget("fps",xmComboBoxWidgetClass,rowcol,NULL);
-    
+
     /* audio format + sample rate */
     frame = XtVaCreateManagedWidget("audioF", xmFrameWidgetClass, form, NULL);
     XtVaCreateManagedWidget("audioL",xmLabelWidgetClass,frame,NULL);
@@ -1933,7 +1933,7 @@ update_movie_menus(void)
     XmString str;
     Boolean sensitive;
     int i;
-    
+
     /* drivers  */
     if (first) {
 	first = 0;
@@ -1964,7 +1964,7 @@ update_movie_menus(void)
     for (i = 0; NULL != movie_driver->audio[i].name; i++) {
 	str = XmStringGenerate
 	    ((char*)(movie_driver->audio[i].desc ?
-		     movie_driver->audio[i].desc : 
+		     movie_driver->audio[i].desc :
 		     ng_afmt_to_desc[movie_driver->audio[i].fmtid]),
 	     NULL, XmMULTIBYTE_TEXT, NULL);
 	push = XtVaCreateManagedWidget(movie_driver->audio[i].name,
@@ -1991,7 +1991,7 @@ update_movie_menus(void)
     for (i = 0; NULL != movie_driver->video[i].name; i++) {
 	str = XmStringGenerate
 	    ((char*)(movie_driver->video[i].desc ?
-		     movie_driver->video[i].desc : 
+		     movie_driver->video[i].desc :
 		     ng_vfmt_to_desc[movie_driver->video[i].fmtid]),
 	     NULL, XmMULTIBYTE_TEXT, NULL);
 	push = XtVaCreateManagedWidget(movie_driver->video[i].name,
@@ -2109,7 +2109,7 @@ do_movie_record(int argc, char **argv)
 	movie_blit = (cur_capture == CAPTURE_GRABDISPLAY);
 	video_gd_suspend();
 	XmToggleButtonSetState(levels_toggle,0,True);
-	
+
 	fvideo = XmTextGetString(m_fvideo);
 	faudio = XmTextGetString(m_faudio);
 	fvideo = tilde_expand(fvideo);
@@ -2119,7 +2119,7 @@ do_movie_record(int argc, char **argv)
 	rate = atoi(XmTextGetString(text));
 	XtVaGetValues(m_fps,XmNtextField,&text,NULL);
 	fps = (int)(atof(XmTextGetString(text))*1000);
-	
+
 	memset(&video,0,sizeof(video));
 	memset(&audio,0,sizeof(audio));
 
@@ -2129,7 +2129,7 @@ do_movie_record(int argc, char **argv)
 	video.height = cur_tv_height;
 	audio.fmtid  = wr->audio[movie_audio].fmtid;
 	audio.rate   = rate;
-	
+
 	movie_state = movie_writer_init
 	    (fvideo, faudio, wr,
 	     &video, wr->video[movie_video].priv, fps,
@@ -2156,7 +2156,7 @@ do_movie_record(int argc, char **argv)
 	toolkit_set_label(m_status, "recording");
 	return;
     }
-    
+
     /* stop */
     if (argc > 0 && 0 == strcasecmp(argv[0],"stop")) {
 	if (0 == cur_movie)
@@ -2264,7 +2264,7 @@ chscan_start_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	return;
     if (channel_switch_hook)
 	channel_switch_hook();
-    
+
     /* clear */
     while (count) {
 	XtDestroyWidget(channels[count-1]->button);
@@ -2272,7 +2272,7 @@ chscan_start_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     }
     cur_sender = -1;
     channel_menu();
-    
+
     x11_vbi_start(args.vbidev);
     chscan = 0;
     chvbi  = 0;
@@ -2285,7 +2285,7 @@ chscan_start_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     x11_vbi_station[0] = 0;
     chtimer = XtAppAddTimeOut(app_context, CHSCAN, chscan_timeout,NULL);
 }
-    
+
 static void
 chscan_cancel_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
@@ -2301,13 +2301,13 @@ static void
 chscan_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     Widget rc;
-    
+
     chdlg = XmCreatePromptDialog(control_shell,"chscan",NULL,0);
     XmdRegisterEditres(XtParent(chdlg));
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_SELECTION_LABEL));
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_HELP_BUTTON));
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_TEXT));
-    
+
     rc = XtVaCreateManagedWidget("rc",xmRowColumnWidgetClass,chdlg,NULL);
     XtVaCreateManagedWidget("hints",xmLabelWidgetClass,rc,NULL);
     chscale = XtVaCreateManagedWidget("channel",xmScaleWidgetClass,rc,NULL);
@@ -2354,7 +2354,7 @@ pref_fs(void)
 	    XtVaSetValues(pref_fs_toggle,XtNsensitive,0,NULL);
 	}
     }
-    
+
     XmToggleButtonSetState(pref_fs_toggle,on,False);
     if (on) {
 	pref_menu(pref_fs_option,pref_fs_menu,1);
@@ -2406,7 +2406,7 @@ pref_mix2(void)
     char *name;
     int i,on;
     struct ng_devinfo *info = NULL;
-    
+
     on = XmToggleButtonGetState(pref_mix_toggle);
     XtVaGetValues(pref_mix1_menu,XmNmenuHistory,&w,NULL);
     if (w) {
@@ -2416,9 +2416,9 @@ pref_mix2(void)
 	    info = mix->channels(name);
 	}
     }
-    
+
     if (NULL != info && on) {
- 	pref_menu(pref_mix2_option,pref_mix2_menu,1);
+	pref_menu(pref_mix2_option,pref_mix2_menu,1);
 	for (i = 0; 0 != strlen(info[i].name); i++) {
 	    push = XtVaCreateManagedWidget(info[i].device,
 					   xmPushButtonWidgetClass,
@@ -2526,7 +2526,7 @@ static void
 pref_manage_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     char tmp[16];
-    
+
 #ifdef HAVE_LIBXXF86VM
     XmToggleButtonSetState(pref_fs_toggle,fs_width && fs_height,False);
     pref_fs();
@@ -2573,7 +2573,7 @@ create_pref(void)
     pref_fs_option = XmCreateOptionMenu(rc2,"fsO",args,1);
     XtManageChild(pref_fs_option);
 #endif
-    
+
     /* second frame */
     frame = XtVaCreateManagedWidget("mixF",xmFrameWidgetClass,rc1,NULL);
     XtVaCreateManagedWidget("mixL",xmLabelWidgetClass,frame,NULL);
@@ -2581,22 +2581,22 @@ create_pref(void)
     pref_mix_toggle = XtVaCreateManagedWidget("mixT",xmToggleButtonWidgetClass,
 					      rc2,NULL);
     XtAddCallback(pref_mix_toggle,XmNvalueChangedCallback,pref_mix1_cb,NULL);
-    
+
     pref_mix1_menu = XmCreatePulldownMenu(rc2,"mix1M",NULL,0);
     XtSetArg(args[0],XmNsubMenuId,pref_mix1_menu);
     pref_mix1_option = XmCreateOptionMenu(rc2,"mix1O",args,1);
     XtManageChild(pref_mix1_option);
-    
+
     pref_mix2_menu = XmCreatePulldownMenu(rc2,"mix2M",NULL,0);
     XtSetArg(args[0],XmNsubMenuId,pref_mix2_menu);
     pref_mix2_option = XmCreateOptionMenu(rc2,"mix2O",args,1);
     XtManageChild(pref_mix2_option);
-    
+
     /* third frame */
     frame = XtVaCreateManagedWidget("optF",xmFrameWidgetClass,rc1,NULL);
     XtVaCreateManagedWidget("optL",xmLabelWidgetClass,frame,NULL);
     rc2 = XtVaCreateManagedWidget("rc",xmRowColumnWidgetClass,frame,NULL);
-    
+
     /* options */
     pref_osd = XtVaCreateManagedWidget("osd",xmToggleButtonWidgetClass,
 				       rc2,NULL);
@@ -2612,7 +2612,7 @@ create_pref(void)
     pref_quality = XtVaCreateManagedWidget("quality",
 					   xmTextWidgetClass,
 					   rc3,NULL);
-    
+
     /* buttons */
     XtAddCallback(pref_dlg,XmNokCallback,pref_done_cb,NULL);
     XtAddCallback(pref_dlg,XmNapplyCallback,pref_done_cb,NULL);
@@ -2656,7 +2656,7 @@ scale_rgb_buffer(struct ng_video_buf *in, int scale)
     struct ng_video_buf *buf;
     char *src,*dst;
     unsigned int x,y;
-    
+
     fmt = in->fmt;
     fmt.width  = in->fmt.width  / scale;
     fmt.height = in->fmt.height / scale;
@@ -2664,7 +2664,7 @@ scale_rgb_buffer(struct ng_video_buf *in, int scale)
 	fmt.width++;
     fmt.bytesperline = fmt.width * 3;
     buf = ng_malloc_video_buf(&fmt, fmt.width * fmt.height * 3);
-    
+
     /* scale down */
     dst = buf->data;
     for (y = 0; y < fmt.height; y++) {
@@ -2710,7 +2710,7 @@ ipc_iconify(Widget widget, struct ipc_data *ipc)
     small = scale_rgb_buffer(ipc->buf,scale);
     small = convert_buffer(small, x11_dpy_fmtid);
     ipc->icon_pixmap = x11_create_pixmap(dpy,&vinfo,small);
-        
+
     /* build DnD icon */
     n = 0;
     depth = DefaultDepthOfScreen(XtScreen(widget));
@@ -2719,7 +2719,7 @@ ipc_iconify(Widget widget, struct ipc_data *ipc)
     XtSetArg(args[n], XmNheight, small->fmt.height); n++;
     XtSetArg(args[n], XmNdepth,  depth); n++;
     ipc->icon_widget = XmCreateDragIcon(widget,"dragicon",args,n);
-    
+
     ng_release_video_buf(small);
 }
 
@@ -2728,7 +2728,7 @@ ipc_find(Atom selection)
 {
     struct list_head   *item;
     struct ipc_data    *ipc;
-    
+
     list_for_each(item,&ipc_selections) {
 	ipc = list_entry(item, struct ipc_data, list);
 	if (ipc->atom == selection)
@@ -2743,7 +2743,7 @@ ipc_init(Atom selection)
     struct ipc_data *ipc;
     struct ng_video_fmt fmt;
     struct ng_video_buf *buf;
-    
+
     /* capture a frame and save a copy */
     video_gd_suspend();
     memset(&fmt,0,sizeof(fmt));
@@ -2793,7 +2793,7 @@ static void
 ipc_pixmap(struct ipc_data *ipc)
 {
     struct ng_video_buf *buf;
-    
+
     if (0 != ipc->pix)
 	return;
 
@@ -2867,7 +2867,7 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	if (t) XFree(t);
 	if (s) XFree(s);
     }
-    
+
     /* tell which formats we can handle */
     if ((ccs->target == XA_TARGETS) ||
 	(ccs->target == _MOTIF_CLIPBOARD_TARGETS) ||
@@ -2912,7 +2912,7 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	ccs->status = XmCONVERT_DONE;
 	return;
     }
-    
+
     /* find data */
     ipc = ipc_find(ccs->selection);
     if (NULL == ipc) {
@@ -2921,7 +2921,7 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	ccs->status = XmCONVERT_REFUSE;
 	return;
     }
-    
+
     if (ccs->target == _MOTIF_LOSE_SELECTION ||
 	ccs->target == XA_DONE) {
 	/* cleanup */
@@ -2980,7 +2980,7 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	ccs->type   = MIME_IMAGE_PPM;
 	ccs->format = 8;
 	ccs->status = XmCONVERT_DONE;
-	
+
     } else if (ccs->target == MIME_IMAGE_JPEG) {
 	struct ng_video_buf *buf;
 	ipc->buf->refcount++;
@@ -2993,7 +2993,7 @@ ipc_convert(Widget widget, XtPointer ignore, XtPointer call_data)
 	ccs->type   = MIME_IMAGE_JPEG;
 	ccs->format = 8;
 	ccs->status = XmCONVERT_DONE;
-	
+
     } else if (ccs->target == XA_FILE_NAME       ||
 	       ccs->target == XA_FILE            ||
 	       ccs->target == XA_STRING          ||
@@ -3138,7 +3138,7 @@ static void
 create_levels(void)
 {
     Widget rc;
-    
+
     levels_shell = XtVaAppCreateShell("levels", "MoTV",
 				      topLevelShellWidgetClass,
 				      dpy,
@@ -3183,7 +3183,7 @@ stderr_input(XtPointer clientdata, int *src, XtInputId *id)
     Widget label;
     char buf[1024];
     int rc;
-    
+
     rc = read(h->pipe,buf,sizeof(buf)-1);
     if (rc <= 0) {
 	/* Oops */
@@ -3250,7 +3250,7 @@ main(int argc, char *argv[])
 {
     int            i;
     unsigned long  freq;
-    
+
     hello_world("motv");
     XtSetLanguageProc(NULL,NULL,NULL);
     app_shell = XtVaAppInitialize(&app_context, "MoTV",
@@ -3266,7 +3266,7 @@ main(int argc, char *argv[])
     /* handle command line args */
     ng_init();
     handle_cmdline_args();
-    
+
     /* device scan */
     if (args.hwscan) {
 	fprintf(stderr,"looking for available devices\n");
@@ -3275,10 +3275,10 @@ main(int argc, char *argv[])
 #endif
 	grabber_scan();
     }
-    
+
     /* look for a useful visual */
     visual_init("motv","MoTV");
-    
+
     /* remote display? */
     do_overlay = !args.remote;
     if (do_overlay)
@@ -3385,7 +3385,7 @@ main(int argc, char *argv[])
     INIT_LIST_HEAD(&ipc_selections);
 
     xt_vm_randr_input_init(dpy);
-    
+
     if (debug)
 	fprintf(stderr,"main: mapping main window ...\n");
     XtRealizeWidget(app_shell);

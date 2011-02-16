@@ -29,11 +29,11 @@
 
 #define SCANLINE_PAD_BYTES 1
 #define GLWIDTHBYTESPADDED(bits, nBytes)                                    \
-        ((nBytes) == 1 ? (((bits)  +  7) >> 3)          /* pad to 1 byte  */\
-        :(nBytes) == 2 ? ((((bits) + 15) >> 3) & ~1)    /* pad to 2 bytes */\
-        :(nBytes) == 4 ? ((((bits) + 31) >> 3) & ~3)    /* pad to 4 bytes */\
-        :(nBytes) == 8 ? ((((bits) + 63) >> 3) & ~7)    /* pad to 8 bytes */\
-        : 0)
+	((nBytes) == 1 ? (((bits)  +  7) >> 3)          /* pad to 1 byte  */\
+	:(nBytes) == 2 ? ((((bits) + 15) >> 3) & ~1)    /* pad to 2 bytes */\
+	:(nBytes) == 4 ? ((((bits) + 31) >> 3) & ~3)    /* pad to 4 bytes */\
+	:(nBytes) == 8 ? ((((bits) + 63) >> 3) & ~7)    /* pad to 8 bytes */\
+	: 0)
 
 static const unsigned fs_masktab[] = {
     (1 << 7), (1 << 6), (1 << 5), (1 << 4),
@@ -152,7 +152,7 @@ int fs_textwidth(struct fs_font *f, unsigned char *str)
 {
     int width = 0;
     int i,c;
-    
+
     for (i = 0; str[i] != '\0'; i++) {
 	c = str[i];
 	if (NULL == f->eindex[c])

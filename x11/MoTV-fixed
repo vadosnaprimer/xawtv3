@@ -7,22 +7,22 @@
 *renderTable.fontName: \
   -adobe-helvetica-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
  -cronyx-helvetica-medium-r-normal-*-14-*-*-*-p-*-koi8-r, \
-         -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
+	 -*-lucida-medium-r-normal-*-14-*-*-*-p-*-iso8859-*, \
        -gnu-unifont-medium-r-normal--16-*-*-*-p-*-*-*, \
      -efont-biwidth-medium-r-normal--16-*-*-*-*-*-*-*, \
-              -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
-              -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
-                        -*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
-                        -*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
+	      -*-*-medium-r-normal-*-14-*-*-*-p-*-*-*, \
+	      -*-*-medium-r-normal-*-16-*-*-*-p-*-*-*, \
+			-*-*-*-*-*-*-14-*-*-*-*-*-*-*, \
+			-*-*-*-*-*-*-16-*-*-*-*-*-*-*,*
 
 MoTV.onscreen.label.renderTable:
 MoTV.onscreen.label.renderTable.fontType: FONT_IS_FONTSET
 MoTV.onscreen.label.renderTable.fontName: \
      -*-ledfixed-medium-r-semicondensed--39-*-*-*-c-*-*-*, \
  -*-bitstream vera sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-           -*-luxi sans-medium-r-normal--39-*-*-*-*-*-*-*, \
-                          -*-*-r-normal--39-*-*-*-*-*-*-*, \
-                               -*-*-*-*--39-*-*-*-*-*-*-*,*
+	   -*-luxi sans-medium-r-normal--39-*-*-*-*-*-*-*, \
+			  -*-*-r-normal--39-*-*-*-*-*-*-*, \
+			       -*-*-*-*--39-*-*-*-*-*-*-*,*
 
 MoTV.vtx.label.renderTable:
 MoTV.vtx.label.renderTable.fontType: FONT_IS_FONTSET

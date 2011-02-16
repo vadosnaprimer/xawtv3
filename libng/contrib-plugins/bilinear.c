@@ -1,19 +1,19 @@
-/* 
+/*
  * Simple xawtv deinterlacing plugin - bilinear interpolation
- * 
+ *
  * CAVEATS: Effectively halves framerate, (working on it)
  * May cause some general slowness (uses more cpu) but the framerate is smooth
  * on my athlon 700, running the -mjc branch of 2.4 kernel (preempt and other
  * patches for desktop performance)
  * Text (in console games for example) looks really ugly
- * 
+ *
  * BENEFITS: It's no longer interlaced ;)
  * Looks a metric shitton better than line doubling
- * 
+ *
  * AUTHORS:
  * Conrad Kreyling <conrad@conrad.nerdland.org>
  * Patrick Barrett <yebyen@nerdland.org>
- * 
+ *
  * This is licenced under the GNU GPL until someone tells me I'm stealing code
  * and can't do that ;) www.gnu.org for any version of the license.
  *

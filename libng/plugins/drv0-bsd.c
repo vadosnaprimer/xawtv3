@@ -47,7 +47,7 @@ struct bsd_handle {
     /* attributes */
     int muted;
     struct ng_attribute     *attr;
-    
+
     /* overlay */
     struct meteor_video     fb,pos;
     struct meteor_geomet    ovgeo;
@@ -112,7 +112,7 @@ struct ng_vid_driver bsd_driver = {
     stopvideo:     bsd_stopvideo,
     nextframe:     bsd_nextframe,
     getimage:      bsd_getimage,
-    
+
     getfreq:       bsd_getfreq,
     setfreq:       bsd_setfreq,
     is_tuned:      bsd_tuned,
@@ -278,14 +278,14 @@ xioctl(int fd, int cmd, void *arg)
     }
     case METEORCAPTUR:
     {
-        int *a = arg;
+	int *a = arg;
 
 	fprintf(stderr,PREFIX "METEORCAPTUR(%d)",*a);
 	break;
     }
     case METEORSSIGNAL:
     {
-        int *a = arg;
+	int *a = arg;
 
 	fprintf(stderr,PREFIX "METEORSSIGNAL(0x%x)",*a);
 	break;
@@ -342,7 +342,7 @@ bsd_open(char *filename)
     if (NULL == h)
 	return NULL;
     memset(h,0,sizeof(*h));
-    
+
     if (-1 == (h->fd = open(filename,O_RDONLY))) {
 	fprintf(stderr,"bktr: open %s: %s\n", filename,strerror(errno));
 	goto err;
@@ -366,11 +366,11 @@ bsd_open(char *filename)
 	case METEOR_PIXTYPE_RGB:
 	    switch(h->pf[h->pf_count].masks[0]) {
 	    case 31744: /* 15 bpp */
-	        format = h->pf[h->pf_count].swap_bytes
+		format = h->pf[h->pf_count].swap_bytes
 		    ? VIDEO_RGB15_LE : VIDEO_RGB15_BE;
 		break;
 	    case 63488: /* 16 bpp */
-	        format = h->pf[h->pf_count].swap_bytes
+		format = h->pf[h->pf_count].swap_bytes
 		    ? VIDEO_RGB16_LE : VIDEO_RGB16_BE;
 		break;
 	    case 16711680: /* 24/32 bpp */
@@ -611,7 +611,7 @@ set_overlay(struct bsd_handle *h, int state)
     if (h->ov_on == state)
 	return;
     h->ov_on = state;
-    
+
     if (state) {
 	/* enable */
 	xioctl(h->fd, METEORSVIDEO, &h->pos);

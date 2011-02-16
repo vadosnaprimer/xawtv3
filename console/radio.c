@@ -69,7 +69,7 @@ static int radio_getfreq(int fd, float *freq)
 
     if (-1  == ioctl(fd, VIDIOC_G_FREQUENCY, &frequency)) {
 	perror("VIDIOC_G_FREQUENCY");
-        return errno;
+	return errno;
     }
 
     ifreq = frequency.frequency;
@@ -128,7 +128,7 @@ radio_getsignal(int fd)
 	return signal;
 
     for (i = 0; i < 8; i++)
-        mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
+	mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
     mvwprintw(wfreq, 3, i + 1, "|");
 
     return signal;
@@ -139,7 +139,7 @@ select_wait(int sec)
 {
     struct timeval  tv;
     fd_set          se;
-    
+
     FD_ZERO(&se);
     FD_SET(0,&se);
     tv.tv_sec = sec;
@@ -158,7 +158,7 @@ char *digit[3][10] = {
 static void print_freq(float freq)
 {
     int x,y,i;
-    char text[10]; 
+    char text[10];
     sprintf(text,"%6.2f",freq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
@@ -241,9 +241,9 @@ static void
 foundone(int m)
 {
     int i;
-    
+
     for (i=0; i<100 && astation[i]; i++) {
-        if(abs(astation[i]-m) <5 )  // 20 kHz width 
+	if(abs(astation[i]-m) <5 )  // 20 kHz width
 	    break;
     }
     if (g[m] > g[astation[i]]) {  //  select bigger signal
@@ -255,7 +255,7 @@ foundone(int m)
     }
 }
 
-static void 
+static void
 maxi(int m)
 {
     int i,l,r;
@@ -264,16 +264,16 @@ maxi(int m)
     if (debug)
 	fprintf(stderr,"maxi i %d %f %f\n",m,87.5+m*0.05,g[m]);
     if(g[m]<baseline)
-        return;
+	return;
     halbwert=(g[m]-baseline)/2+baseline;
-    
+
     for(i=m;i>0;i--)
 	if(g[i]< halbwert)
 	    break;
     l=i;
     if (debug)
 	fprintf(stderr,"Left   i %d %f %f\n",i,87.5+i*0.05,g[i]);
-    
+
     for(i=m;i<411;i++)
 	if(g[i]< halbwert)
 	    break;
@@ -286,13 +286,13 @@ maxi(int m)
     foundone(m);
 }
 
-static void 
+static void
 findmax(void)
 {
     int i;
-    
+
     for (i = 0; i < ARRAY_SIZE(g)-1; i++){
-        if (g[i+1] < g[i])
+	if (g[i+1] < g[i])
 	    maxi(i);
     }
 }
@@ -323,7 +323,7 @@ get_baseline(float ming, float maxg)
     return nullinie;
 }
 
-static void 
+static void
 findstations(void)
 {
     float maxg=0,ming=8;
@@ -343,7 +343,7 @@ findstations(void)
 static void do_scan(int fd,int scan)
 {
     FILE * fmap=NULL;
-    float freq,s; 
+    float freq,s;
     int i,j;
 
     if(scan > 1)
@@ -457,7 +457,7 @@ main(int argc, char *argv[])
 	    exit(1);
 	}
     }
-    
+
     if (-1 == (fd = open(device, O_RDONLY))) {
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	exit(1);
@@ -473,7 +473,7 @@ main(int argc, char *argv[])
 	do_scan(fd,scan);
 	if (!ifreq  &&  max_astation) {
 	    current_astation = 0;
-            ifreq = FREQ_MIN + astation[current_astation]*50000;
+	    ifreq = FREQ_MIN + astation[current_astation]*50000;
 	}
     }
     if (ifreq) {
@@ -501,7 +501,7 @@ main(int argc, char *argv[])
     noecho();
     keypad(stdscr,1);
     curs_set(0);
-    
+
     /* JMMV: Set colors and windows */
     /* XXX: Color definitions are wrong! BLUE is RED, CYAN is YELLOW and
      * viceversa */
@@ -516,7 +516,7 @@ main(int argc, char *argv[])
     werase(wfreq);
     box(wfreq, 0, 0);
     mvwprintw(wfreq, 0, 1, " Tuner ");
-    
+
     woptions = newwin(7,COLS-38,1,36);
     wbkgd(woptions,A_BOLD | COLOR_PAIR(3));
     werase(woptions);
@@ -528,14 +528,14 @@ main(int argc, char *argv[])
     werase(wstations);
     box(wstations, 0, 0);
     mvwprintw(wstations, 0, 1, " Preset stations ");
-    
+
     wcommand = newwin(3,COLS-4,LINES-4,2);
     wbkgd(wcommand,A_BOLD | COLOR_PAIR(3));
     werase(wcommand);
     box(wcommand,0,0);
     mvwprintw(wcommand, 0, 1, " Command window ");
-    wrefresh(wcommand);    
-    
+    wrefresh(wcommand);
+
     /* JMMV: Added key information and windows division */
     mvwprintw(woptions, 1, 1, "Up/Down     - inc/dec frequency");
     mvwprintw(woptions, 2, 1, "PgUp/PgDown - next/prev station");
@@ -559,7 +559,7 @@ main(int argc, char *argv[])
 	if (!radio_getfreq(fd,&ffreq))
 		ifreq = ffreq * 1000000;
     }
-    
+
     radio_mute(fd, 0);
     for (done = 0; done == 0;) {
 	if (ifreq != lastfreq) {
@@ -614,14 +614,14 @@ main(int argc, char *argv[])
 			  "Frequency out of range (87.5-108 MHz)");
 	    break;
 	case KEY_UP:
-            ifreq += FREQ_STEP;
-            if (ifreq > FREQ_MAX)
+	    ifreq += FREQ_STEP;
+	    if (ifreq > FREQ_MAX)
 		ifreq = FREQ_MIN;
 	    mvwprintw(wcommand, 1, 2, "Increment frequency");
 	    break;
 	case KEY_DOWN:
-            ifreq -= FREQ_STEP;
-            if (ifreq < FREQ_MIN)
+	    ifreq -= FREQ_STEP;
+	    if (ifreq < FREQ_MIN)
 		ifreq = FREQ_MAX;
 	    mvwprintw(wcommand, 1, 2, "Decrease frequency");
 	    break;
@@ -648,7 +648,7 @@ main(int argc, char *argv[])
 		}
 	    }
 	    break;
-        case '1':
+	case '1':
 	case '2':
 	case '3':
 	case '4':

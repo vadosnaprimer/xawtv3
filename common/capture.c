@@ -45,7 +45,7 @@ int
 fifo_put(struct FIFO *fifo, void *data)
 {
     int full;
-    
+
     pthread_mutex_lock(&fifo->lock);
     if (NULL == data) {
 	fifo->eof++;
@@ -133,7 +133,7 @@ ng_convert_thread(void *arg)
 {
     struct ng_convthread_handle *h = arg;
     struct ng_video_buf *in, *out;
-    
+
     if (debug)
 	fprintf(stderr,"convert_thread start [pid=%d]\n",getpid());
     ng_convert_init(h->c);
@@ -164,7 +164,7 @@ ng_grabber_setformat(struct ng_video_fmt *fmt, int fix_ratio)
 {
     struct ng_video_fmt gfmt;
     int rc;
-    
+
     /* no capture support */
     if (!(f_drv & CAN_CAPTURE))
 	return -1;
@@ -202,7 +202,7 @@ ng_grabber_findconv(struct ng_video_fmt *fmt,
     struct ng_video_fmt  gfmt;
     struct ng_video_conv *conv;
     int i;
-    
+
     /* check all available conversion functions */
     for (i = 0;;) {
 	conv = ng_conv_find_to(fmt->fmtid, &i);
@@ -235,7 +235,7 @@ ng_grabber_get_image(struct ng_video_fmt *fmt)
     struct ng_video_conv *conv;
     struct ng_convert_handle *ch;
     struct ng_video_buf *buf;
-    
+
     if (0 == ng_grabber_setformat(fmt,1))
 	return ng_grabber_grab_image(1);
     gfmt = *fmt;
@@ -330,7 +330,7 @@ writer_video_thread(void *arg)
     seq = 0;
     memset(&reorder,0,sizeof(reorder));
     for (;;) {
-        buf = fifo_get(&h->vfifo);
+	buf = fifo_get(&h->vfifo);
 	if (NULL == buf)
 	    break;
 	slot = buf->info.seq % REORDER_SIZE;
@@ -342,7 +342,7 @@ writer_video_thread(void *arg)
 	    exit(1);
 	}
 	reorder[slot] = buf;
-	
+
 	for (;;) {
 	    slot = seq % REORDER_SIZE;
 	    if (NULL == reorder[slot])
@@ -396,7 +396,7 @@ record_audio_thread(void *arg)
 
 struct movie_handle*
 movie_writer_init(char *moviename, char *audioname,
-		  const struct ng_writer *writer, 
+		  const struct ng_writer *writer,
 		  struct ng_video_fmt *video,const void *priv_video,int fps,
 		  struct ng_audio_fmt *audio,const void *priv_audio,char *dsp,
 		  int slots, int threads)
@@ -465,8 +465,8 @@ movie_writer_init(char *moviename, char *audioname,
 	}
 	h->vfmt = *video;
 	h->fps  = fps;
-    }	
-    
+    }
+
     /* open file */
     h->handle = writer->wr_open(moviename,audioname,
 				video,priv_video,fps,
@@ -646,14 +646,14 @@ movie_grab_put_video(struct movie_handle *h, struct ng_video_buf **ret)
 	buf->refcount++;
 	*ret = buf;
     }
-    
+
     /* put into fifo */
     if (h->cthreads)
 	rc = fifo_put(&h->cfifo,buf);
     else
 	rc = fifo_put(&h->vfifo,buf);
     if (0 != rc) {
-	ng_release_video_buf(buf);    
+	ng_release_video_buf(buf);
 	return h->frames;
     }
     h->seq++;

@@ -50,19 +50,19 @@ int open_pty(struct ftp_state *s)
     static char pty_name[32];
     static char s1[] = "pqrs";
     static char s2[] = "0123456789abcdef";
-    
+
     char *p1,*p2;
     int pty;
 
     for (p1 = s1; *p1; p1++) {
-        for (p2 = s2; *p2; p2++) {
-            sprintf(pty_name,"/dev/pty%c%c",*p1,*p2);
-            sprintf(s->tty_name,"/dev/tty%c%c",*p1,*p2);
+	for (p2 = s2; *p2; p2++) {
+	    sprintf(pty_name,"/dev/pty%c%c",*p1,*p2);
+	    sprintf(s->tty_name,"/dev/tty%c%c",*p1,*p2);
 	    if (-1 == access(s->tty_name,R_OK|W_OK))
 		continue;
-            if (-1 != (pty = open(pty_name,O_RDWR)))
-                return pty;
-        }
+	    if (-1 != (pty = open(pty_name,O_RDWR)))
+		return pty;
+	}
     }
     return -1;
 #endif
@@ -80,18 +80,18 @@ struct ftp_state* ftp_init(char *name, int autologin, int passive, int debug)
     s->debug = debug;
     if (-1 == (s->pty = open_pty(s))) {
 	fprintf(stderr,"can't grab pty\n");
-        exit(1);
+	exit(1);
     }
     switch (s->pid = fork()) {
     case -1:
-        perror("fork");
+	perror("fork");
 	exit(1);
     case 0:
-        /* child */
+	/* child */
 	close(s->pty);
-        close(0); close(1); close(2);
+	close(0); close(1); close(2);
 	setsid();
-        open(s->tty_name,O_RDWR); dup(0); dup(0);
+	open(s->tty_name,O_RDWR); dup(0); dup(0);
 
 	/* need english messages from ftp */
 	setenv("LC_ALL","C",1);
@@ -100,11 +100,11 @@ struct ftp_state* ftp_init(char *name, int autologin, int passive, int debug)
 	    execvp(doauto[0],doauto);
 	else
 	    execvp(noauto[0],noauto);
-        perror("execvp");
-        exit(1);
+	perror("execvp");
+	exit(1);
     default:
-        /* parent */
-        break;
+	/* parent */
+	break;
     }
     ftp_recv(s);
 
@@ -131,7 +131,7 @@ ftp_send(struct ftp_state *s, int argc, ...)
 	    line[length++] = ' ';
 	arg = va_arg(ap,char*);
 	length += strlen(arg);
-        strcat(line,arg);
+	strcat(line,arg);
     }
     line[length++] = '\n';
     va_end (ap);
@@ -155,7 +155,7 @@ ftp_recv(struct ftp_state *s)
 	FD_ZERO(&set);
 	FD_SET(s->pty,&set);
 	select(s->pty+1,&set,NULL,NULL,NULL);
-	
+
 	switch (length = read(s->pty,line,511)) {
 	case -1:
 	    perror("ftp: read error");
@@ -241,7 +241,7 @@ ftp_connect(struct ftp_state *s, char *host, char *user, char *pass, char *dir)
 	    fprintf(stderr,"ftp: login incorrect\n");
 	    exit(1);
 	}
-	
+
     login_ok:
 	/* set directory */
 	ftp_send(s,2,"cd",dir);

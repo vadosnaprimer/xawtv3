@@ -1,22 +1,22 @@
-/* 
+/*
  * Simple xawtv deinterlacing plugin - cubic interpolation
- * 
+ *
  * CAVEATS: Effectively halves framerate, (working on it)
  * May cause some general slowness (uses more cpu) but the framerate is smooth
  * on my athlon 700, running the -mjc branch of 2.4 kernel (preempt and other
  * patches for desktop performance)
- * 
+ *
  * BENEFITS: It's no longer interlaced ;)
  * Looks a metric shitton better than line doubling & bilinear interpolation
  * around text, but these nasty white specks occur on the border of pure black
  * (0) and pure white (255).  My original theory was that it had something to
  * do with 0 messing up our multiplication, but that does not appear to be the
  * case based on preliminary fiddling around.
- * 
+ *
  * AUTHORS:
  * Conrad Kreyling <conrad@conrad.nerdland.org>
  * Patrick Barrett <yebyen@nerdland.org>
- * 
+ *
  * This is licenced under the GNU GPL until someone tells me I'm stealing code
  * and can't do that ;) www.gnu.org for any version of the license.
  *
@@ -34,7 +34,7 @@
 #include "grab-ng.h"
 
 /*static int isOdd; // Global variable so we can tell if a frame uses even or
-                  //odd scanlines, not implemented properly yet */
+		  //odd scanlines, not implemented properly yet */
 
 static void inline
 deinterlace (struct ng_video_buf *frame)
@@ -61,10 +61,10 @@ deinterlace (struct ng_video_buf *frame)
 		  break;
 	   case 255:
 		  frame->data[x]--;
-		  break;		  
+		  break;
 	 }
   }*/ // This doesn't work to fix the problem with the specks
-  
+
   for (y = 3; y < frame->fmt.height - 3; y += 2)
   {
 	 for (x = 0; x < bytes; x++)

@@ -68,12 +68,12 @@ void init_atoms(Display *dpy)
     INIT_ATOM(dpy, _WIN_SUPPORTING_WM_CHECK);
     INIT_ATOM(dpy, _WIN_PROTOCOLS);
     INIT_ATOM(dpy, _WIN_LAYER);
-    
+
     INIT_ATOM(dpy, _NETSCAPE_URL);
 
     INIT_ATOM(dpy, _XAWTV_STATION);
     INIT_ATOM(dpy, _XAWTV_REMOTE);
-    
+
     INIT_ATOM(dpy, XV_MUTE);
     INIT_ATOM(dpy, XV_ENCODING);
     INIT_ATOM(dpy, XV_FREQ);
@@ -85,9 +85,9 @@ void init_atoms(Display *dpy)
     INIT_ATOM(dpy, _MOTIF_DROP);
     INIT_ATOM(dpy, _MOTIF_EXPORT_TARGETS);
     INIT_ATOM(dpy, _MOTIF_LOSE_SELECTION);
-    
+
     XA_DEACTIVATE      = XInternAtom(dpy, "DEACTIVATE",       False);
-    
+
     XA_TARGETS         = XInternAtom(dpy, "TARGETS",          False);
     XA_DONE            = XInternAtom(dpy, "DONE",             False);
     XA_CLIPBOARD       = XInternAtom(dpy, "CLIPBOARD",        False);
@@ -97,7 +97,7 @@ void init_atoms(Display *dpy)
     XA_BACKGROUND      = XInternAtom(dpy, "BACKGROUND",       False);
     XA_FOREGROUND      = XInternAtom(dpy, "FOREGROUND",       False);
     XA_PIXEL           = XInternAtom(dpy, "PIXEL",            False);
-    
+
     MIME_TEXT_ISO8859_1 =
 	XInternAtom(dpy, "text/plain;charset=ISO-8859-1", False);
     MIME_TEXT_UTF_8 =

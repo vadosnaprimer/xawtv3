@@ -26,7 +26,7 @@ struct ng_video_buf* ng_grabber_get_image(struct ng_video_fmt *fmt);
 
 struct movie_handle*
 movie_writer_init(char *moviename, char *audioname,
-		  const struct ng_writer *writer, 
+		  const struct ng_writer *writer,
 		  struct ng_video_fmt *video,const void *priv_video,int fps,
 		  struct ng_audio_fmt *audio,const void *priv_audio,char *dsp,
 		  int slots, int threads);

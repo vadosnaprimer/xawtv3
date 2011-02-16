@@ -50,7 +50,7 @@ swap_rgb24(char *mem, int n)
     char  c;
     char *p = mem;
     int   i = n;
-    
+
     while (--i) {
 	c = p[0]; p[0] = p[2]; p[2] = c;
 	p += 3;
@@ -110,12 +110,12 @@ static struct mjpeg_compress*
 mjpg_init(struct ng_video_fmt *fmt)
 {
     struct mjpeg_compress *h;
-    
+
     h = malloc(sizeof(*h));
     if (NULL == h)
 	return NULL;
     memset(h,0,sizeof(*h));
-    
+
     h->mjpg_cinfo.err = jpeg_std_error(&h->mjpg_jerr);
     jpeg_create_compress(&h->mjpg_cinfo);
 
@@ -143,7 +143,7 @@ mjpg_cleanup(void *handle)
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_cleanup\n");
-    
+
     jpeg_destroy_compress(&h->mjpg_cinfo);
     for (i = 0; i < 3; i++)
 	if (NULL != h->mjpg_ptrs[i])
@@ -186,7 +186,7 @@ mjpg_rgb_compress(void *handle, struct ng_video_buf *out,
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_rgb_compress\n");
-    
+
     h->mjpg_buffer  = out->data;
     h->mjpg_bufsize = out->size;
 
@@ -222,7 +222,7 @@ mjpg_yuv_init(struct ng_video_fmt *out, void *priv)
 	return NULL;
 
     h->mjpg_cinfo.input_components = 3;
-    h->mjpg_cinfo.in_color_space = JCS_YCbCr; 
+    h->mjpg_cinfo.in_color_space = JCS_YCbCr;
 
     jpeg_set_defaults(&h->mjpg_cinfo);
     h->mjpg_cinfo.dct_method = JDCT_FASTEST;
@@ -234,14 +234,14 @@ mjpg_yuv_init(struct ng_video_fmt *out, void *priv)
     h->mjpg_ptrs[0] = malloc(h->fmt.height*sizeof(char*));
     h->mjpg_ptrs[1] = malloc(h->fmt.height*sizeof(char*));
     h->mjpg_ptrs[2] = malloc(h->fmt.height*sizeof(char*));
-    
+
     h->mjpg_cinfo.comp_info[0].h_samp_factor = c->luma_h;
     h->mjpg_cinfo.comp_info[0].v_samp_factor = c->luma_v;
     h->mjpg_cinfo.comp_info[1].h_samp_factor = 1;
     h->mjpg_cinfo.comp_info[1].v_samp_factor = 1;
     h->mjpg_cinfo.comp_info[2].h_samp_factor = 1;
     h->mjpg_cinfo.comp_info[2].v_samp_factor = 1;
-    
+
     jpeg_suppress_tables(&h->mjpg_cinfo, TRUE);
     return h;
 }
@@ -255,7 +255,7 @@ mjpg_420_compress(struct mjpeg_compress *h)
     mjpg_run[0] = h->mjpg_ptrs[0];
     mjpg_run[1] = h->mjpg_ptrs[1];
     mjpg_run[2] = h->mjpg_ptrs[2];
-    
+
     jpeg_start_compress(&h->mjpg_cinfo, h->mjpg_tables);
     for (y = 0; y < h->mjpg_cinfo.image_height; y += 2*DCTSIZE) {
 	jpeg_write_raw_data(&h->mjpg_cinfo, mjpg_run,2*DCTSIZE);
@@ -275,7 +275,7 @@ mjpg_422_compress(struct mjpeg_compress *h)
     mjpg_run[0] = h->mjpg_ptrs[0];
     mjpg_run[1] = h->mjpg_ptrs[1];
     mjpg_run[2] = h->mjpg_ptrs[2];
-    
+
     h->mjpg_cinfo.write_JFIF_header = FALSE;
     jpeg_start_compress(&h->mjpg_cinfo, h->mjpg_tables);
     jpeg_write_marker(&h->mjpg_cinfo, JPEG_APP0, "AVI1\0\0\0\0", 8);
@@ -389,13 +389,13 @@ static void*
 mjpg_de_init(struct ng_video_fmt *fmt, void *priv)
 {
     struct mjpeg_decompress *h;
-    
+
     h = malloc(sizeof(*h));
     if (NULL == h)
 	return NULL;
     memset(h,0,sizeof(*h));
     h->fmt = *fmt;
-    
+
     h->mjpg_cinfo.err = jpeg_std_error(&h->mjpg_jerr);
     jpeg_create_decompress(&h->mjpg_cinfo);
 
@@ -464,7 +464,7 @@ mjpg_yuv420_decompress(void *handle, struct ng_video_buf *out,
 		h->mjpg_cinfo.comp_info[1].v_samp_factor,
 		h->mjpg_cinfo.comp_info[2].h_samp_factor,
 		h->mjpg_cinfo.comp_info[2].v_samp_factor);
-    
+
     jpeg_start_decompress(&h->mjpg_cinfo);
     mjpg_run[0] = h->mjpg_ptrs[0];
     mjpg_run[1] = h->mjpg_ptrs[1];
@@ -479,7 +479,7 @@ mjpg_yuv420_decompress(void *handle, struct ng_video_buf *out,
 	line = out->data + out->fmt.width*out->fmt.height;
 	for (i = 0; i < out->fmt.height; i+=2, line += out->fmt.width/2)
 	    h->mjpg_ptrs[1][i/2] = line;
-	
+
 	line = out->data + out->fmt.width*out->fmt.height*5/4;
 	for (i = 0; i < out->fmt.height; i+=2, line += out->fmt.width/2)
 	    h->mjpg_ptrs[2][i/2] = line;
@@ -498,7 +498,7 @@ mjpg_yuv420_decompress(void *handle, struct ng_video_buf *out,
 	    h->mjpg_ptrs[1][i+0] = line;
 	    h->mjpg_ptrs[1][i+1] = line;
 	}
-	
+
 	line = out->data + out->fmt.width*out->fmt.height*5/4;
 	for (i = 0; i < out->fmt.height; i+=2, line += out->fmt.width/2) {
 	    h->mjpg_ptrs[2][i+0] = line;
@@ -523,7 +523,7 @@ mjpg_de_cleanup(void *handle)
 
     if (ng_debug > 1)
 	fprintf(stderr,"mjpg_de_cleanup\n");
-    
+
     jpeg_destroy_decompress(&h->mjpg_cinfo);
     if (h->mjpg_ptrs[0])
 	free(h->mjpg_ptrs[0]);

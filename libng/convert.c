@@ -16,7 +16,7 @@ ng_convert_alloc(struct ng_video_conv *conv,
 		 struct ng_video_fmt *o)
 {
     struct ng_convert_handle *h;
-    
+
     h = malloc(sizeof(*h));
     if (NULL == h)
 	return 0;
@@ -99,7 +99,7 @@ ng_convert_frame(struct ng_convert_handle *h,
 	return NULL;
 
     if (NULL == dest && NULL != h->conv)
-        dest = ng_malloc_video_buf(&h->ofmt,h->osize);
+	dest = ng_malloc_video_buf(&h->ofmt,h->osize);
 
     if (NULL != dest) {
 	dest->fmt  = h->ofmt;

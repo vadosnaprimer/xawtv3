@@ -3,7 +3,7 @@ use strict;
 
 sub fix_filename ($) {
 	my $name = shift @_;
-	
+
 	$name =~ tr/_A-Z/-a-z/;
 	$name =~ s/^freq-//;
 	$name .= ".list";
@@ -35,7 +35,7 @@ while (<>) {
 	}
 	if (m/^\s+(FREQ_\w+)/) {
 		$filename = fix_filename($1);
-	        print FILE "#include \"$filename\"\n";
+		print FILE "#include \"$filename\"\n";
 		next;
 	}
 

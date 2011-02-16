@@ -25,12 +25,12 @@
 
 #if BYTE_ORDER == BIG_ENDIAN
 # define SWAP2(x) (((x>>8) & 0x00ff) |\
-                   ((x<<8) & 0xff00))
+		   ((x<<8) & 0xff00))
 
 # define SWAP4(x) (((x>>24) & 0x000000ff) |\
-                   ((x>>8)  & 0x0000ff00) |\
-                   ((x<<8)  & 0x00ff0000) |\
-                   ((x<<24) & 0xff000000))
+		   ((x>>8)  & 0x0000ff00) |\
+		   ((x<<8)  & 0x00ff0000) |\
+		   ((x<<24) & 0xff000000))
 #else
 # define SWAP2(a) (a)
 # define SWAP4(a) (a)
@@ -56,10 +56,10 @@ typedef uint8_t boolean;
 
 #if BYTE_ORDER == BIG_ENDIAN
 # define MAKEFOURCC(a,b,c,d) ((((DWORD)a)<<24) | (((DWORD)b)<<16) | \
-                              (((DWORD)c)<< 8) | ( (DWORD)d)      )
+			      (((DWORD)c)<< 8) | ( (DWORD)d)      )
 #else
 # define MAKEFOURCC(a,b,c,d) ( ((DWORD)a)      | (((DWORD)b)<< 8) | \
-                              (((DWORD)c)<<16) | (((DWORD)d)<<24)  )
+			      (((DWORD)c)<<16) | (((DWORD)d)<<24)  )
 #endif
 
 /* The only FOURCCs interpreted by this program: */
@@ -75,7 +75,7 @@ typedef uint8_t boolean;
 
 #define avi_tag MAKEFOURCC('A','V','I',' ')
 #define wavetag MAKEFOURCC('W','A','V','E')
-#define fmt_tag MAKEFOURCC('f','m','t',' ') 
+#define fmt_tag MAKEFOURCC('f','m','t',' ')
 
 #define MJPGtag MAKEFOURCC('M','J','P','G')
 #define _00dbtag MAKEFOURCC('0','0','d','b')
@@ -186,19 +186,19 @@ struct VAL names_strf_auds[] = {
     { INT32,  "av_bps" },
     { INT16,  "blockalign" },
     { INT16,  "size" },
-    { EoLST,  NULL }    
+    { EoLST,  NULL }
 };
 
 struct VAL names_dmlh[] = {
     { INT32,  "frames" },
-    { EoLST,  NULL }    
+    { EoLST,  NULL }
 };
 
 static void dump_vals(FILE *f, int count, struct VAL *names)
 {
     DWORD i,j,val32;
     WORD  val16;
-    
+
     for (i = 0; names[i].type != EoLST; i++) {
 	switch (names[i].type) {
 	case INT32:
@@ -258,7 +258,7 @@ struct JPEG_MARKER {
 static void hexlog(unsigned char *buf, int count)
 {
     int l,i;
-    
+
     for (l = 0; l < count; l+= 16) {
 	printf("\t  ");
 	for (i = l; i < l+16; i++) {
@@ -346,7 +346,7 @@ off_t_to_char(off_t val, int base, int len)
 	val = val / base;
     }
     return p;
-}    
+}
 
 /* Reads a chunk ID and the chunk's size from file f at actual
    file position : */
@@ -380,14 +380,14 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
     char   tagstr[5];          /* FOURCC of chunk converted to string */
     FOURCC chunkid;            /* read FOURCC of chunk                */
     size_t datapos;            /* position of data in file to process */
-    
+
     if (filepos>filesize-1) {  /* Oops. Must be something wrong!      */
 	printf("  *****  Error: Data would be behind end of file!\n");
 	if (stop_on_errors)
 	    return(FALSE);
     }
     fseeko(f,filepos,SEEK_SET);    /* Go to desired file position!     */
-    
+
     if (!ReadChunkHead(f,&chunkid,chunksize)) {  /* read chunk header */
 	printf("  *****  Error reading chunk at filepos 0x%s\n",
 	       off_t_to_char(filepos,16,1));
@@ -403,7 +403,7 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 	    return(FALSE);
 	}
     }
-    
+
     datapos=filepos+sizeof(FOURCC)+sizeof(DWORD); /* here is the data */
 
     /* print out header: */
@@ -415,9 +415,9 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 	if (stop_on_errors)
 	    return(FALSE);
     }
-    
+
     switch (chunkid) {
-	
+
   /* Depending on the ID of the chunk and the internal state, the
      different IDs can be interpreted. At the moment the only
      interpreted chunks are RIFF- and LIST-chunks. For all other
@@ -425,15 +425,15 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 
     case RIFFtag:
     case LISTtag: {
-	
+
 	DWORD datashowed;
 	FOURCC formtype;       /* format of chunk                     */
 	char   formstr[5];     /* format of chunk converted to string */
 	DWORD  subchunksize;   /* size of a read subchunk             */
-	
+
 	fread(&formtype,sizeof(FOURCC),1,f);    /* read the form type */
 	FOURCC2Str(formtype,formstr);           /* make it printable  */
-	
+
 	/* print out the indented form of the chunk: */
 	if (chunkid==RIFFtag) {
 	    printf("%12c %*c  Form Type = <%s>\n",
@@ -442,29 +442,29 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 	} else
 	    printf("%12c %*c  List Type = <%s>\n",
 		   ' ',(RekDepth+1)*4,' ',formstr);
-	
+
 	datashowed=sizeof(FOURCC);    /* we showed the form type      */
 	datapos+=datashowed;          /* for the rest of the routine  */
-	
+
 	while (datashowed<*chunksize) {      /* while not showed all: */
-	    
+
 	    long subchunklen;           /* complete size of a subchunk  */
-	    
+
 	    /* recurse for subchunks of RIFF and LIST chunks: */
 	    if (!ProcessChunk(f,datapos,filesize,0,
 			      RekDepth+1,&subchunksize)) return(FALSE);
-	    
+
 	    subchunklen = sizeof(FOURCC) +  /* this is the complete..   */
 		sizeof(DWORD)  +  /* .. size of the subchunk  */
 		((subchunksize+1) & ~1);
-	    
+
 	    datashowed += subchunklen;      /* we showed the subchunk   */
 	    datapos    += subchunklen;      /* for the rest of the loop */
 	}
     } break;
-    
+
     /* Feel free to put your extensions here! */
-    
+
     case avihtag:
 	dump_vals(f,sizeof(names_avih)/sizeof(struct VAL),names_avih);
 	break;
@@ -504,7 +504,7 @@ static boolean ProcessChunk(FILE* f, size_t filepos, size_t filesize,
 	dump_jpeg(buf,buflen);
 	break;
     }
-    
+
     return(TRUE);
 }
 
@@ -554,18 +554,18 @@ int main (int argc, char **argv)
 	    exit(1);
 	}
     }
-    
+
     if (optind == argc) {
 	usage(argv[0]);
 	exit(1);
     }
-    
+
     if (!(f=fopen(argv[optind],"rb"))) {
 	printf("\n\n *** Error opening file %s. Program aborted!\n",
 	       argv[optind]);
 	return(1);
     }
-    
+
     fseeko(f, 0, SEEK_END);
     filesize = ftello(f);
     fseeko(f, 0, SEEK_SET);
@@ -581,6 +581,6 @@ int main (int argc, char **argv)
 	filepos += chunksize + 8;
 	printf("\n");
     }
-    
+
     return(0);
 }

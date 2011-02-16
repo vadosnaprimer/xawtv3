@@ -119,7 +119,7 @@ mixer_volctl(void *handle, char *channel)
     memcpy(attrs,mixer_attrs,sizeof(mixer_attrs));
     for (i = 0; attrs[i].name != NULL; i++)
 	attrs[i].handle = h;
-    
+
     return attrs;
 }
 
@@ -309,7 +309,7 @@ oss_setformat(struct oss_handle *h, struct ng_audio_fmt *fmt)
     if (-1 == ioctl(h->fd, SNDCTL_DSP_GETBLKSIZE,  &h->blocksize)) {
 	if (ng_debug)
 	    perror("SNDCTL_DSP_GETBLKSIZE");
-        goto err;
+	goto err;
     }
     if (0 == h->blocksize)
 	/* dmasound bug compatibility */
@@ -322,7 +322,7 @@ oss_setformat(struct oss_handle *h, struct ng_audio_fmt *fmt)
 		ng_afmt_to_bits[fmt->fmtid],
 		ng_afmt_to_desc[fmt->fmtid]);
     return 0;
-    
+
  err:
     if (ng_debug)
 	fprintf(stderr,"oss: sound format not supported [%s]\n",
@@ -383,7 +383,7 @@ oss_open(char *device, struct ng_audio_fmt *fmt, int record)
 
     fprintf(stderr,"oss: can't use format %s\n",
 	    ng_afmt_to_desc[fmt->fmtid]);
-    
+
  err:
     fmt->rate  = 0;
     fmt->fmtid = AUDIO_NONE;

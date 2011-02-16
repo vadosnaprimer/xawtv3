@@ -18,21 +18,21 @@
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 # define SWAP2(x) ((((uint16_t)x>>8)  & (uint16_t)0x00ff) |\
-                   (((uint16_t)x<<8)  & (uint16_t)0xff00))
+		   (((uint16_t)x<<8)  & (uint16_t)0xff00))
 
 # define SWAP4(x) ((((uint32_t)x>>24) & (uint32_t)0x000000ff) |\
-                   (((uint32_t)x>>8)  & (uint32_t)0x0000ff00) |\
-                   (((uint32_t)x<<8)  & (uint32_t)0x00ff0000) |\
-                   (((uint32_t)x<<24) & (uint32_t)0xff000000))
+		   (((uint32_t)x>>8)  & (uint32_t)0x0000ff00) |\
+		   (((uint32_t)x<<8)  & (uint32_t)0x00ff0000) |\
+		   (((uint32_t)x<<24) & (uint32_t)0xff000000))
 
 # define SWAP8(x) ((((uint64_t)x>>56) & (uint64_t)0x00000000000000ffULL) |\
-                   (((uint64_t)x>>40) & (uint64_t)0x000000000000ff00ULL) |\
-                   (((uint64_t)x>>24) & (uint64_t)0x0000000000ff0000ULL) |\
-                   (((uint64_t)x>> 8) & (uint64_t)0x00000000ff000000ULL) |\
-                   (((uint64_t)x<< 8) & (uint64_t)0x000000ff00000000ULL) |\
-                   (((uint64_t)x<<24) & (uint64_t)0x0000ff0000000000ULL) |\
-                   (((uint64_t)x<<40) & (uint64_t)0x00ff000000000000ULL) |\
-                   (((uint64_t)x<<56) & (uint64_t)0xff00000000000000ULL))
+		   (((uint64_t)x>>40) & (uint64_t)0x000000000000ff00ULL) |\
+		   (((uint64_t)x>>24) & (uint64_t)0x0000000000ff0000ULL) |\
+		   (((uint64_t)x>> 8) & (uint64_t)0x00000000ff000000ULL) |\
+		   (((uint64_t)x<< 8) & (uint64_t)0x000000ff00000000ULL) |\
+		   (((uint64_t)x<<24) & (uint64_t)0x0000ff0000000000ULL) |\
+		   (((uint64_t)x<<40) & (uint64_t)0x00ff000000000000ULL) |\
+		   (((uint64_t)x<<56) & (uint64_t)0xff00000000000000ULL))
 #else
 # define SWAP2(a) (a)
 # define SWAP4(a) (a)
@@ -40,7 +40,7 @@
 #endif
 
 #define MAKEFOURCC(a,b,c,d) ((((uint32_t)a)<<24) | (((uint32_t)b)<<16) | \
-                             (((uint32_t)c)<< 8) | ( (uint32_t)d)      )
+			     (((uint32_t)c)<< 8) | ( (uint32_t)d)      )
 
 #define a_clip MAKEFOURCC('c','l','i','p')
 #define a_co64 MAKEFOURCC('c','o','6','4')
@@ -518,7 +518,7 @@ static void dump_string(int fh, off_t pos, off_t size)
     off_t off;
     uint16_t ssize,stype;
     char *str;
-    
+
     if (0 == verbose)
 	return;
     if (-1 == lseek(fh,pos,SEEK_SET)) {
@@ -652,7 +652,7 @@ int main(int argc, char *argv[])
 	    exit(1);
 	}
     }
-    
+
     if (optind == argc) {
 	usage(argv[0]);
 	exit(1);

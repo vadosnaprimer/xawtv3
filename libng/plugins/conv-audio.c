@@ -23,7 +23,7 @@ static int (*lame_init_params)(lame_global_flags * const );
 
 /*
  * num_samples = number of samples in the L (or R)
- * channel, not the total number of samples in pcm[]  
+ * channel, not the total number of samples in pcm[]
  * returns # of output bytes
  * mp3buffer_size_max = 1.25*num_samples + 7200
  */

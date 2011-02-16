@@ -269,7 +269,7 @@ main(int argc, char *argv[])
 	    for (ui = 0; ui < encodings; ui++) {
 		printf("    id=%ld, name=%s, size=%ldx%ld\n",
 		       ei[ui].encoding_id, ei[ui].name,
-		       ei[ui].width, ei[ui].height);		
+		       ei[ui].width, ei[ui].height);
 	    }
 	    XvFreeEncodingInfo(ei);
 
@@ -290,7 +290,7 @@ main(int argc, char *argv[])
 	    }
 	    if (at)
 		XFree(at);
-	    
+
 	    fo = XvListImageFormats(dpy, p, &formats);
 	    printf("  image format list for port %d (n=%d)\n",p,formats);
 	    for(ui = 0; ui < formats; ui++) {
@@ -348,7 +348,7 @@ main(int argc, char *argv[])
     /* receive events */
     XvSelectPortNotify(dpy, port, 1);
     XvSelectVideoNotify(dpy, XtWindow(video), 1);
-    
+
     /* main loop */
     for (;;) {
 	XEvent event;

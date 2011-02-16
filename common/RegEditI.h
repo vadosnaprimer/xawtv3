@@ -5,24 +5,24 @@
  * Copyright (c) 1996, 1997, 1998, 1999, 2000 The Open Group
  * ALL RIGHTS RESERVED (MOTIF).  See the file named COPYRIGHT.MOTIF for
  * the full copyright text.
- * 
+ *
  * This software is subject to an open license. It may only be
  * used on, with or for operating systems which are themselves open
  * source systems. You must contact The Open Group for a license
  * allowing distribution and sublicensing of this software on, with,
  * or for operating systems which are not Open Source programs.
- * 
+ *
  * See http://www.opengroup.org/openmotif/license for full
  * details of the license agreement. Any use, reproduction, or
  * distribution of the program constitutes recipient's acceptance of
  * this agreement.
- * 
+ *
  * EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, THE PROGRAM IS
  * PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  * KIND, EITHER EXPRESS OR IMPLIED INCLUDING, WITHOUT LIMITATION, ANY
  * WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY
  * OR FITNESS FOR A PARTICULAR PURPOSE
- * 
+ *
  * EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER RECIPIENT
  * NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY FOR ANY DIRECT,
  * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
@@ -32,7 +32,7 @@
  * ANY WAY OUT OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE
  * EXERCISE OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
- * 
+ *
  */
 /*
  * HISTORY
@@ -99,22 +99,22 @@ in this Software without prior written authorization from the X Consortium.
 	Window:		32-bit value
 	Widget:		32-bit value
 	String8:        ListOfCard8
-	
+
 	[a][b][c] represent an exclusive list of choices.
 
-	All widgets are passed as a list of widgets, containing the 
+	All widgets are passed as a list of widgets, containing the
 	full instance heirarch of this widget.  The hierarchy is ordered
 	from parent to child.  Thus the first element of each list is
 	the root of the widget tree (this makes verifying that the widget
 	still exists, MUCH faster).
 
 	ListOfFoo comprises a list of things in the following format:
-	
+
 	number:			Card16
 	<number> things:	????
-	
+
   This is a synchronous protocol, every request MUST be followed by a
-  reply.  
+  reply.
 
   Request:
 
@@ -126,13 +126,13 @@ in this Software without prior written authorization from the X Consortium.
 				  FindChild = 4,
 				  GetValues = 5 }
 	Length:		Card32
-	Data:		
+	Data:
 
    Reply:
 
 	Serial Number:	Card8
 	Type:		Card8 - { Formatted = 0,
-	                          Unformatted = 1,
+				  Unformatted = 1,
 				  ProtocolMismatch = 2
 				}
 	Length:		Card32
@@ -144,13 +144,13 @@ in this Software without prior written authorization from the X Consortium.
 
     Data:
 
-    	Formatted:
+	Formatted:
 
-        	The data contains the reply information for the request as
+		The data contains the reply information for the request as
 		specified below if the reply type is "Formatted".  The return
 		values for the other reply types are shown below.
 
-        Unformatted:
+	Unformatted:
 
 		Message:	String8
 
@@ -170,13 +170,13 @@ in this Software without prior written authorization from the X Consortium.
 		name:		String8
 		class:		String8
 		window:		Card32
-         	toolkit:        String8
+		toolkit:        String8
 
 	Send Widget Tree returns the toolkit type, and a fuly specified list
-        of widgets for each widget in the tree.  This is enough information
-        to completely reconstruct the entire widget heirarchy.
+	of widgets for each widget in the tree.  This is enough information
+	to completely reconstruct the entire widget heirarchy.
 
-	The window return value contains the Xid of the window currently 
+	The window return value contains the Xid of the window currently
 	used by this widget.  If the widget is unrealized then 0 is returned,
 	and if widget is a non-windowed object a value of 2 is returned.
 
@@ -196,26 +196,26 @@ in this Software without prior written authorization from the X Consortium.
 		widget:		ListOfWidgets
 		message:	String8
 
-	SetValues will allow the same resource to be set on a number of 
+	SetValues will allow the same resource to be set on a number of
 	widgets.  This function will return an error message if the SetValues
 	request caused an Xt error.
-	
+
   GetValues:
 
-        names:                ListOfString8       
-        widget:               Widget
+	names:                ListOfString8
+	widget:               Widget
 
-        --->
+	--->
 	novalues:             ListOfCard16
 	values:               ListOfString8
-                   
-        GetValues will allow a number of resource values to be read 
-        on a particular widget.  The request specifies the names of
+
+	GetValues will allow a number of resource values to be read
+	on a particular widget.  The request specifies the names of
 	the resources wanted and the widget id these resources are
 	from.  The reply returns a list of indices from the requests
 	name list of resources for which a value can not be returned.
 	It also returns a list of returned values, in the order of the
-        requests names list, skipping those indices present in novalues.
+	requests names list, skipping those indices present in novalues.
 
    GetResources:
 
@@ -235,10 +235,10 @@ in this Software without prior written authorization from the X Consortium.
 		Resource:
 			Kind:	{normal, constraint}
 			Name:	String8
-			Class:	String8	
+			Class:	String8
 			Type:	String8 ]
 
-	GetResource retrieves the kind, name, class and type for every 
+	GetResource retrieves the kind, name, class and type for every
 	widget passed to it.  If an error occured with the resource fetch
 	Error will be set to True for the given widget and a message
 	is returned rather than the resource info.
@@ -261,27 +261,27 @@ in this Software without prior written authorization from the X Consortium.
 		  X: 		Int16
 		  Y:  		Int16
 		  Width: 	Card16
-	      	  Height:	Card16
+		  Height:	Card16
 		  BorderWidth:	Card16 ]
 
 	GetGeometry retreives the mapping state, x, y, width, height
-	and border width for each widget specified.  If an error occured 
-	with the geometry fetch "Error" will be set to True for the given 
-	widget and a message is returned rather than the geometry info.  
+	and border width for each widget specified.  If an error occured
+	with the geometry fetch "Error" will be set to True for the given
+	widget and a message is returned rather than the geometry info.
 	X an Y corrospond to the root coordinates of the upper left corner
 	of the widget (outside the window border).
-	
+
   FindChild:
 
 	Widget:		ListOfWidgets
 	X:		Int16
 	Y:		Int16
-	
+
 	--->
 
 	Widget:		ListOfWidgets
 
-	Find Child returns a descendent of the widget specified that 
+	Find Child returns a descendent of the widget specified that
 	is at the root coordinates specified.
 
 	NOTE:
@@ -291,20 +291,20 @@ in this Software without prior written authorization from the X Consortium.
 
   GetValues:
 
-        names:                ListOfString8       
-        widget:               Widget
+	names:                ListOfString8
+	widget:               Widget
 
-        --->
-	
+	--->
+
 	values:               ListOfString8
 
-        GetValues will allow a number of resource values to be read 
-        on a particular widget.  Currently only InterViews 3.0.1 Styles 
+	GetValues will allow a number of resource values to be read
+	on a particular widget.  Currently only InterViews 3.0.1 Styles
 	and their attributes are supported.  In addition, the current
 	user interface  only supports the return of 1 resource.  The ability
 	to specify and return multiple resources is defined for future editres
 	interfaces where some or all of a widgets resource values are returned
-	and displayed at once. 
+	and displayed at once.
 
 
 ************************************************************/
@@ -337,10 +337,10 @@ in this Software without prior written authorization from the X Consortium.
 #define EDITRES_CLIENT_VALUE "EditresClientVal"
 #define EDITRES_PROTOCOL_ATOM "EditresProtocol"
 
-typedef enum { SendWidgetTree = 0, 
+typedef enum { SendWidgetTree = 0,
 	       SetValues      = 1,
 	       GetResources   = 2,
-	       GetGeometry    = 3, 
+	       GetGeometry    = 3,
 	       FindChild      = 4,
 	       GetValues      = 5
 	     } EditresCommand;

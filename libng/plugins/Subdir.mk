@@ -25,7 +25,7 @@ TARGETS-plugins += \
 endif
 ifeq ($(LIBV4L),yes)
 TARGETS-plugins += \
-        libng/plugins/drv0-libv4l.so
+	libng/plugins/drv0-libv4l.so
 endif
 ifeq ($(FOUND_OS),bsd)
 TARGETS-plugins += \

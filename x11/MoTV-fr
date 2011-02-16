@@ -183,17 +183,17 @@ control*box.XmPushButton*menu.edit.labelString:	Editer ...
 *chscan_popup*okLabelString:	Commencer
 *chscan_popup*hints.labelString:	\
 	Vous pouvez me faire rechercher tous\n\
-        les émetteurs disponibles ici. Ceci\n\
-        va créer une nouvelle liste d'émetteurs\n\
-        à partir de zéro, votre liste actuelle\n\
-        sera perdue.\n\
-        \n\
-        Assurez-vous d'avoir choisi la bonne\n\
-        norme TV et la table de fréquences\n\
-        d'abord (c'est aussi dans le menu des\n\
-        options), sinon la recherche ne\n\
-        trouvera aucun émetteur...\n\
-        \n
+	les émetteurs disponibles ici. Ceci\n\
+	va créer une nouvelle liste d'émetteurs\n\
+	à partir de zéro, votre liste actuelle\n\
+	sera perdue.\n\
+	\n\
+	Assurez-vous d'avoir choisi la bonne\n\
+	norme TV et la table de fréquences\n\
+	d'abord (c'est aussi dans le menu des\n\
+	options), sinon la recherche ne\n\
+	trouvera aucun émetteur...\n\
+	\n
 
 ! channel properties
 *prop_popup.title:			Editer émetteur

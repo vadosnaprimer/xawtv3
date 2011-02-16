@@ -96,10 +96,10 @@ displayinfo_mklinux(struct DISPLAYINFO *d)
 {
     struct vc_mode mode;
     int fd;
-	
+
     if (verbose)
 	fprintf(stderr,"v4l-conf: using mklinux console driver\n");
-    
+
     if (-1 == (fd = open("/dev/console",O_RDWR|O_NDELAY))) {
 	fprintf(stderr,"open console: %s\n",strerror(errno));
 	exit(1);
@@ -130,8 +130,8 @@ dev_open(const char *device, int major)
     int	fd;
 
     if (strncmp(device, "/dev/", 5)) {
-        fprintf(stderr, "error: %s is not a /dev file\n", device);
-        exit(1);
+	fprintf(stderr, "error: %s is not a /dev file\n", device);
+	exit(1);
     }
 
     /* open & check v4l device */
@@ -182,13 +182,13 @@ displayinfo_x11(Display *dpy, struct DISPLAYINFO *d)
 
     if (verbose)
 	fprintf(stderr,"v4l-conf: using X11 display %s\n",display);
-    
+
     /* take size from root window */
     root = DefaultRootWindow(dpy);
     XGetWindowAttributes(dpy, root, &wts);
     d->width  = wts.width;
     d->height = wts.height;
-    
+
     /* look for a usable visual */
     template.screen = XDefaultScreen(dpy);
     info = XGetVisualInfo(dpy, VisualScreenMask,&template,&found);
@@ -305,7 +305,7 @@ displayinfo_fbdev(struct DISPLAYINFO *d)
     }
     if (verbose)
 	fprintf(stderr,"v4l-conf: using framebuffer device %s\n",fbdev);
-    
+
     /* Open frame buffer device, with security checks */
     fd = dev_open(fbdev, 29 /* VIDEO_MAJOR */);
     if (-1 == ioctl(fd,FBIOGET_FSCREENINFO,&fix)) {
@@ -383,11 +383,11 @@ displayinfo_v4l2(int fd, struct DISPLAYINFO *d)
        if we did not find a base as our bpl is not very reliable when we did
        not find a base */
     if (user_bpl || d->base ||
-            fb.fmt.bytesperline < (fb.fmt.width * ((d->bpp + 7) / 8)))
+	    fb.fmt.bytesperline < (fb.fmt.width * ((d->bpp + 7) / 8)))
     fb.fmt.bytesperline = d->bpl;
     else
-        fprintf(stderr,"WARNING: keeping fbuf pitch at: %d, as no base addr was detected\n",
-            (int)fb.fmt.bytesperline);
+	fprintf(stderr,"WARNING: keeping fbuf pitch at: %d, as no base addr was detected\n",
+	    (int)fb.fmt.bytesperline);
     fb.fmt.sizeimage = fb.fmt.height * fb.fmt.bytesperline;
     if (NULL != d->base)
 	fb.base   = d->base;
@@ -438,7 +438,7 @@ main(int argc, char *argv[])
 	display = h;
     if (NULL != (h = getenv("FRAMEBUFFER")))
 	fbdev = h;
-    
+
     /* parse options */
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "hyq12d:c:b:s:fa:p:")))
@@ -572,7 +572,7 @@ main(int argc, char *argv[])
 	d.depth = user_bpp;
 
     if (user_bpl)
-        d.bpl = user_bpl;
+	d.bpl = user_bpl;
 
     if (verbose) {
 	fprintf(stderr,"mode: %dx%d, depth=%d, bpp=%d, bpl=%d, ",

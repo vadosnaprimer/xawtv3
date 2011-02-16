@@ -80,7 +80,7 @@ static int vbi_export_html(wchar_t *dest, int size,
 		}
 		link--;
 	    }
-	    
+
 	    /* this char */
 	    wch = ch[x].unicode;
 	    if (ch[x].size > VBI_DOUBLE_SIZE)
@@ -164,7 +164,7 @@ static int vbi_export_html(wchar_t *dest, int size,
 		  (tolower(L[x+2].ch) == 't') &&
 		  (tolower(L[x+3].ch) == 'p')))) {
 		int offs = 0;
-		
+
 		len += sprintf(out+len,"<a href=\"");
 		if(tolower(L[x].ch == 'w'))
 		    len += sprintf(out+len,"http://");
@@ -181,7 +181,7 @@ static int vbi_export_html(wchar_t *dest, int size,
 	    }
 #endif
 	    /* FIXME: fasttext links */
-	    
+
 	    if (size > 0) {
 		*obuf = wch;
 		obuf++;
@@ -387,7 +387,7 @@ void buildpage(struct REQUEST *req)
 	mkredirect(req);
 	return;
     }
-    
+
     mkerror(req,404,1);
     return;
 }

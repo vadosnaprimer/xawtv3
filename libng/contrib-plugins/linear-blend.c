@@ -1,9 +1,9 @@
-/* 
+/*
  * Simple xawtv deinterlacing plugin - linear blend
- * 
+ *
  * CAVEATS: Still some interlacing effects in high motion perhaps
  * Some ghosting in instant transitions, slightly noticeable
- * 
+ *
  * BENEFITS: NO DROP IN FRAMERATE =]
  * Looks absolutely beautiful
  * Doesn't lower framerate
@@ -109,11 +109,11 @@ deinterlace (struct ng_video_buf *frame)
 
   for (y = 1; y < frame->fmt.height - 8; y+=8)
   {
-        for (x = 0; x < bytes; x+=8)
-        {
-            src = frame->data + x + y * bytes;
-            linearBlend(src, bytes);
-        } 
+	for (x = 0; x < bytes; x+=8)
+	{
+	    src = frame->data + x + y * bytes;
+	    linearBlend(src, bytes);
+	}
   }
 
   emms();
@@ -124,16 +124,16 @@ static void *
 init (struct ng_video_fmt *out)
 {
   /* no status info needed */
-  static int dummy; 
+  static int dummy;
   return &dummy;
-} 
+}
 
 static struct ng_video_buf *
 frame (void *handle, struct ng_video_buf *frame)
-{       
+{
   deinterlace (frame);
   return frame;
-}                 
+}
 
 static void
 fini (void *handle)
@@ -162,7 +162,7 @@ static struct ng_filter filter = {
 
 extern void ng_plugin_init (void);
 void
-ng_plugin_init (void) 
+ng_plugin_init (void)
 {
   ng_filter_register (NG_PLUGIN_MAGIC,__FILE__,&filter);
 }

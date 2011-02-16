@@ -115,7 +115,7 @@ static void fini(void *handle)
 static void calc_lut(void)
 {
     int i,val;
-    
+
     for (i = 0; i < 256; i++) {
 	val = 255 * pow((float)i/255, 100.0/g);
 	if (val < 0)   val = 0;

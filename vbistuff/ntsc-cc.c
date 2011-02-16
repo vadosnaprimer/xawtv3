@@ -1,4 +1,4 @@
-/* cc.c -- closed caption decoder 
+/* cc.c -- closed caption decoder
  * Mike Baker (mbm@linux.com)
  * (based on code by timecop@japan.co.jp)
  *
@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- * 
+ *
  */
 
 #include "config.h"
@@ -51,7 +51,7 @@ int x;
 
 
 //XDSdecode
-char	info[8][25][256]; 
+char	info[8][25][256];
 char	newinfo[8][25][256];
 char	*infoptr=newinfo[0][0];
 int	mode,type;
@@ -88,13 +88,13 @@ static int parityok(int n)	/* check parity for 2 bytes packed in n */
     int mask=0;
     int j, k;
     for (k = 1, j = 0; j < 7; j++) {
-	  if (n & (1<<j)) 
+	  if (n & (1<<j))
 	    k++;
 	}
     if ((k & 1) == ((n>>7)&1))
 	  mask|=0x00FF;
     for (k = 1, j = 8; j < 15; j++) {
-	  if (n & (1<<j)) 
+	  if (n & (1<<j))
 	    k++;
 	}
     if ((k & 1) == ((n>>15)&1))
@@ -113,7 +113,7 @@ static int decodebit(unsigned char *data, int threshold)
 static int decode(unsigned char *vbiline)
 {
     int max[7], min[7], val[7], i, clk, tmp, sample, packedbits = 0;
-    
+
     for (clk=0; clk<7; clk++)
 	  max[clk] = min[clk] = val[clk] = -1;
     clk = tmp = 0;
@@ -133,10 +133,10 @@ static int decode(unsigned char *vbiline)
 		(min[clk++] = tmp, i = tmp + 10);
 	}
 	i++;
-    } 
+    }
 
-   i=min[6]=min[5]-max[5]+max[6]; 
-   
+   i=min[6]=min[5]-max[5]+max[6];
+
     if (clk != 7 || vbiline[max[3]] - vbiline[min[5]] < 45)		/* failure to locate clock lead-in */
 	return -1;
 
@@ -150,8 +150,8 @@ static int decode(unsigned char *vbiline)
       XFlush(dpy);
     }
 #endif
- 
-    
+
+
     /* calculate threshold */
     for (i=0,sample=0;i<7;i++)
 	    sample=(sample + vbiline[min[i]] + vbiline[max[i]])/3;
@@ -165,8 +165,8 @@ static int decode(unsigned char *vbiline)
       XFlush(dpy);
     }
 #endif
- 
-    
+
+
     tmp = i+57;
     for (i = 0; i < 16; i++)
 	if(decodebit(&vbiline[tmp + i * 57], sample))
@@ -180,11 +180,11 @@ static int XDSdecode(int data)
 
 	if (data == -1)
 		return -1;
-	
+
 	b1 = data & 0x7F;
 	b2 = (data>>8) & 0x7F;
 
-	if (b1 < 15) // start packet 
+	if (b1 < 15) // start packet
 	{
 		mode = b1;
 		type = b2;
@@ -298,16 +298,16 @@ static int webtv_check(char * buf,int len)
 	unsigned short  csum=0;
 	char temp[9];
 	int nbytes=0;
-	
+
 	while (buf[0]!='<' && len > 6)  //search for the start
 	{
 		buf++; len--;
 	}
-	
+
 	if (len == 6) //failure to find start
 		return 0;
-				
-	
+
+
 	while (nbytes+6 <= len)
 	{
 		//look for end of object checksum, it's enclosed in []'s and there shouldn't be any [' after
@@ -318,7 +318,7 @@ static int webtv_check(char * buf,int len)
 	}
 	if (nbytes+6>len) //failure to find end
 		return 0;
-	
+
 	nwords = nbytes >> 1; sum = 0;
 
 	//add up all two byte words
@@ -426,7 +426,7 @@ static int CCdecode(int data)
 						case 0x21: //backspace
 							ccbuf[ccmode][len--]=0;
 							break;
-							
+
 						/* these codes are insignifigant if we're ignoring positioning */
 						case 0x25: //2 row caption
 						case 0x26: //3 row caption
@@ -435,7 +435,7 @@ static int CCdecode(int data)
 						case 0x2B: //resume text display
 						case 0x2C: //erase displayed memory
 							break;
-							
+
 						case 0x2D: //carriage return
 							if (ccmode==2)
 								break;
@@ -489,12 +489,12 @@ static int print_raw(int data)
 	  return 0;
 	}
 
-	// semi-raw data output begins here... 
+	// semi-raw data output begins here...
 
 	// a control code.
 	if ( ( b1 >= 0x10 ) && ( b1 <= 0x1F ) ) {
-	  if ( ( b2 >= 0x20 ) && ( b2 <= 0x7F ) ) 
-	    fprintf(stderr,"[%02X-%02X]",b1,b2); 
+	  if ( ( b2 >= 0x20 ) && ( b2 <= 0x7F ) )
+	    fprintf(stderr,"[%02X-%02X]",b1,b2);
 	  return 0;
 	}
 
@@ -597,7 +597,7 @@ int main(int argc,char **argv)
 
    for (;;) //commandline parsing
    {
-           if (-1 == (arg = getopt(argc, argv, "?hxsckpwRr:d:")))
+	   if (-1 == (arg = getopt(argc, argv, "?hxsckpwRr:d:")))
 		   break;
 	   switch (arg)
 	   {
@@ -625,23 +625,23 @@ int main(int argc,char **argv)
 			   usecc=1; args++;
 			   break;
 		   case 'k':
-		           //args++;
+			   //args++;
 			   keyword[keywords++]=optarg;
 			   break;
 		   case 'p':
 			   plain=1; args++;
 			   break;
-	           case 'w':
-		           debugwin=1;
-		           break;
-	           case 'R':
-		           semirawdata=1;
-		           break;
+		   case 'w':
+			   debugwin=1;
+			   break;
+		   case 'R':
+			   semirawdata=1;
+			   break;
 		   case 'r':
 			   useraw=1; args++;
 			   rawline=atoi(optarg);
 			   break;
-	           case 'd':
+		   case 'd':
 			   vbifile = optarg;
 			   break;
 	   }
@@ -674,8 +674,8 @@ int main(int argc,char **argv)
        XMapWindow(dpy, Win);
    }
 #endif
-	
-   
+
+
    //mainloop
    while(1){
 	FD_ZERO(&rfds);

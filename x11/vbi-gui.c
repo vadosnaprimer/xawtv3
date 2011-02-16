@@ -114,7 +114,7 @@ vbi_check_rectangle(struct vbi_rect *rect)
 	h = rect->x1, rect->x1 = rect->x2, rect->x2 = h;
     if (rect->y1 > rect->y2)
 	h = rect->y1, rect->y1 = rect->y2, rect->y2 = h;
-    
+
     if (rect->x1 < 0) rect->x1 = 0;
     if (rect->x2 < 0) rect->x2 = 0;
     if (rect->y1 < 0) rect->y1 = 0;
@@ -166,7 +166,7 @@ static void
 vbi_render_head(struct vbi_window *vw, int pgno, int subno)
 {
     vbi_page pg;
-    
+
     memset(&pg,0,sizeof(pg));
     vbi_fetch_vt_page(vw->vbi->dec,&pg,pgno,subno,
 		      VBI_WST_LEVEL_1p5,1,0);
@@ -178,7 +178,7 @@ static void
 vbi_newdata(struct vbi_event *ev, void *user)
 {
     struct vbi_window *vw = user;
-    
+
     switch (ev->type) {
     case VBI_EVENT_TTX_PAGE:
 	if (vw->pgno  == ev->ev.ttx_page.pgno) {
@@ -276,7 +276,7 @@ static void
 vbi_destroy_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct vbi_window *vw = clientdata;
-    
+
     vbi_event_handler_unregister(vw->vbi->dec,vbi_newdata,vw);
     vbi_render_free_font(widget,vw);
     XFreeGC(XtDisplay(widget),vw->gc);
@@ -381,7 +381,7 @@ vbi_findpage(struct vbi_page *pg, int px, int py)
 	    newpage = vbi_calc_page(pg->pgno,-1);
 	}
     }
-    
+
     if (newpage < 0x100 || newpage >= 0x999)
 	return 0;
     return newpage;
@@ -584,15 +584,15 @@ export_save_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     Arg args[2];
 
     if (NULL == vw->savebox) {
-        vw->savebox = XmCreateFileSelectionDialog(vw->shell,"save",NULL,0);
-        help = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_HELP_BUTTON);
-        text = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_TEXT);
-        XtUnmanageChild(help);
+	vw->savebox = XmCreateFileSelectionDialog(vw->shell,"save",NULL,0);
+	help = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_HELP_BUTTON);
+	text = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_TEXT);
+	XtUnmanageChild(help);
 
-        menu = XmCreatePulldownMenu(vw->savebox,"formatM",NULL,0);
-        XtSetArg(args[0],XmNsubMenuId,menu);
-        option = XmCreateOptionMenu(vw->savebox,"format",args,1);
-        XtManageChild(option);
+	menu = XmCreatePulldownMenu(vw->savebox,"formatM",NULL,0);
+	XtSetArg(args[0],XmNsubMenuId,menu);
+	option = XmCreateOptionMenu(vw->savebox,"format",args,1);
+	XtManageChild(option);
 
 	vw->charset = nl_langinfo(CODESET);
 	push = XtVaCreateManagedWidget(vw->charset,xmPushButtonWidgetClass,
@@ -614,7 +614,7 @@ export_save_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	    XtAddCallback(push,XmNactivateCallback,export_charset_cb,vw);
 	}
 	XtAddCallback(vw->savebox,XmNokCallback,export_do_save_cb,vw);
-        XtAddCallback(vw->savebox,XmNcancelCallback,export_do_save_cb,vw);
+	XtAddCallback(vw->savebox,XmNcancelCallback,export_do_save_cb,vw);
     }
     XtManageChild(vw->savebox);
 }
@@ -627,7 +627,7 @@ selection_find(struct vbi_window *vw, Atom selection)
 {
     struct list_head      *item;
     struct vbi_selection  *sel;
-    
+
     list_for_each(item,&vw->selections) {
 	sel = list_entry(item, struct vbi_selection, list);
 	if (sel->atom == selection)
@@ -776,7 +776,7 @@ selection_convert_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 	ccs->status = XmCONVERT_DONE;
 	return;
     }
-	
+
     /* convert data */
     if (ccs->target == XA_STRING ||
 	ccs->target == MIME_TEXT_ISO8859_1) {
@@ -860,7 +860,7 @@ selection_clip_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
     if (tt_debug)
 	fprintf(stderr,"tt: clipboard [copy]\n");
-	
+
     XmeClipboardSource(vw->tt,XmCOPY,
 		       XtLastTimestampProcessed(XtDisplay(vw->tt)));
 }
@@ -1009,7 +1009,7 @@ static void vbi_xft_font_menu(Widget menu, struct vbi_window *vw)
     XmString    label;
     char        **fonts, *h;
     int         i;
-    
+
     pattern = FcNameParse(":style=Regular:spacing=100:slant=0:weight=100");
     oset = FcObjectSetBuild(FC_FAMILY, FC_STYLE, FC_SPACING, FC_SLANT,
 			    FC_WEIGHT, NULL);
@@ -1030,7 +1030,7 @@ static void vbi_xft_font_menu(Widget menu, struct vbi_window *vw)
 	    label = XmStringGenerate(fonts[i], NULL, XmMULTIBYTE_TEXT, NULL);
 	    XtVaSetValues(push, XmNlabelString, label, NULL);
 	    XmStringFree(label);
-	    
+
 	    XtAddCallback(push, XmNactivateCallback, vbi_font_cb, vw);
 	}
 
@@ -1090,7 +1090,7 @@ void vbi_create_widgets(Widget shell, struct vbi_state *vbi)
 			    XmNsubMenuId,menu,NULL);
     push = XtVaCreateManagedWidget("copy",xmPushButtonWidgetClass,menu,NULL);
     XtAddCallback(push,XmNactivateCallback,selection_clip_cb,vw);
-    
+
     /* menu -- go (navigation) */
     menu = XmCreatePulldownMenu(menubar,"goM",NULL,0);
     XtVaCreateManagedWidget("go",xmCascadeButtonWidgetClass,menubar,

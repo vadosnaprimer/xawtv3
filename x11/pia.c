@@ -177,7 +177,7 @@ static void resize_ev(Widget widget, XtPointer client_data,
 		      XEvent *event, Boolean *d)
 {
     static int first = 1;
-    
+
     switch(event->type) {
     case MapNotify:
     case ConfigureNotify:
@@ -233,7 +233,7 @@ static void usage(FILE *out, char *prog)
 static void sync_info(long long drift, int drops, int frames)
 {
     int total = drops + frames;
-    
+
     fprintf(stderr,"a/v sync: audio drift is %4d ms / "
 	    "%d of %d frame(s) [%3.1f%%] dropped \r",
 	    (int)((drift)/1000000),drops,total,
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
     int n, drop, droptotal, framecount, ww, wh;
     unsigned int fmtids[2*VIDEO_FMT_COUNT], i;
     XEvent event;
-    
+
     app_shell = XtVaAppInitialize(&app_context, "pia",
 				  opt_desc, opt_count,
 				  &argc, argv,
@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
     }
 
     /* enter main loop
-     * 
+     *
      * can't use XtAppMainLoop + Input + Timeout handlers here because
      * that doesn't give us usable event scheduling, thus we have our
      * own main loop here ...
@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
 	/* fill sound buffer */
 	fd_set wr;
 	int rc;
-	
+
 	for (;;) {
 	    FD_ZERO(&wr);
 	    FD_SET(snd_fd,&wr);
@@ -508,7 +508,7 @@ int main(int argc, char *argv[])
 	    wait.tv_usec = 0;
 	}
 	rc = select(max+1,&rd,&wr,NULL,&wait);
-	
+
 	if (afmt && FD_ISSET(snd_fd,&wr)) {
 	    /* write audio data */
 	    abuf = snd->write(shandle,abuf);

@@ -75,7 +75,7 @@ cfg_find_section(struct CFG_SECTIONS *c, char *name)
     e = cfg_init_entries();
     c->sec_names[c->sec_count]   = strdup(name);
     c->sec_entries[c->sec_count] = e;
-    c->sec_count++;    
+    c->sec_count++;
     c->sec_names[c->sec_count]   = NULL;
     c->sec_entries[c->sec_count] = NULL;
     return e;
@@ -96,7 +96,7 @@ cfg_set_entry(struct CFG_ENTRIES *e, char *name, char *value)
 	    e->ent_values = realloc(e->ent_values,(e->ent_count+2+ALLOC_SIZE)*sizeof(char*));
 	    e->ent_seen   = realloc(e->ent_seen,(e->ent_count+2+ALLOC_SIZE)*sizeof(int*));
 	}
-	e->ent_count++;    
+	e->ent_count++;
 	e->ent_names[e->ent_count]  = NULL;
 	e->ent_values[e->ent_count] = NULL;
 	e->ent_seen[e->ent_count]   = 0;
@@ -114,7 +114,7 @@ cfg_parse_file(char *filename)
     char line[256],tag[64],value[192];
     FILE *fp;
     int nr;
-    
+
     if (NULL == c)
 	c = cfg_init_sections();
     if (NULL == (fp = fopen(filename,"r")))
@@ -153,7 +153,7 @@ void
 cfg_parse_option(char *section, char *tag, char *value)
 {
     struct CFG_ENTRIES *e = NULL;
-    
+
     if (NULL == c)
 	c = cfg_init_sections();
     e = cfg_find_section(c,section);
@@ -205,7 +205,7 @@ cfg_get_str(char *sec, char *ent)
     struct CFG_ENTRIES* e = NULL;
     char *v = NULL;
     int i;
-    
+
     for (i = 0; i < c->sec_count; i++)
 	if (0 == strcasecmp(c->sec_names[i],sec))
 	    e = c->sec_entries[i];

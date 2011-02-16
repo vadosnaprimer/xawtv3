@@ -92,7 +92,7 @@ dv_open(char *filename, char *dummy,
     h->audio      = *audio;
 
     if (-1 == (h->fd = open(filename,O_CREAT | O_RDWR | O_TRUNC, 0666))) {
-        fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
+	fprintf(stderr,"open %s: %s\n",filename,strerror(errno));
 	goto fail;
     }
     h->enc = dv_encoder_new(0,0,0);
@@ -100,7 +100,7 @@ dv_open(char *filename, char *dummy,
 	fprintf(stderr,"dv: dv_encoder_new failed\n");
 	goto fail;
     }
-	
+
     if (h->audio.fmtid != AUDIO_NONE) {
     }
     if (h->video.fmtid != VIDEO_NONE) {

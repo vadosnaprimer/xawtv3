@@ -112,11 +112,11 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
 	    h->afmt.fmtid++;
     }
     h->afmt.rate = h->dec->audio->frequency;
-    
+
     /* movie length (# of frames) */
     len = lseek(h->fd,0,SEEK_END);
     h->frames = len / h->dec->frame_size;
-    
+
     if (ng_debug) {
 	fprintf(stderr,"dv: len=%lld => %d frames [%" PRId64 "]\n",len,h->frames,
 		len - (off_t)h->frames * h->dec->frame_size);
@@ -140,7 +140,7 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
 static void* dv_open(char *moviename)
 {
     struct dv_handle *h;
-    
+
     if (NULL == (h = malloc(sizeof(*h))))
 	goto oops;
     memset(h,0,sizeof(*h));
@@ -229,7 +229,7 @@ static struct ng_video_buf* dv_vdata(void *handle, unsigned int drop)
 
     dv_parse_packs(h->dec, h->map_ptr);
     dv_decode_full_frame(h->dec, h->map_ptr,
-			 fmtid_to_colorspace[h->vfmt.fmtid], 
+			 fmtid_to_colorspace[h->vfmt.fmtid],
 			 pixels, pitches);
     buf->info.seq  = h->vframe;
     buf->info.ts   = (long long) buf->info.seq * 1000000000 / h->rate;
@@ -274,7 +274,7 @@ static struct ng_audio_buf* dv_adata(void *handle)
     }
     if (1 == h->dec->audio->num_channels)
 	dv_decode_full_audio(h->dec, h->map_ptr, &dest);
-    
+
     buf->info.ts = (long long) h->samples * 1000000000 / h->afmt.rate;
     h->samples += h->dec->audio->samples_this_frame;
     h->aframe++;
@@ -312,7 +312,7 @@ struct ng_reader dv_reader = {
     magic:	{ "\x1f\x07\x00",  "\x3f\x07\x00" },
     moff:       {  0,              0x50           },
     mlen:       {  3,              3              },
-    
+
     rd_open:    dv_open,
     rd_vfmt:    dv_vfmt,
     rd_afmt:    dv_afmt,

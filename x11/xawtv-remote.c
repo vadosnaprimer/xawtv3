@@ -30,43 +30,43 @@ find_window(Display * dpy, Atom atom)
     Window          result = 0;
 
     if (!XQueryTree(dpy, root, &root2, &parent, &kids, &nkids)) {
-        fprintf(stderr, "XQueryTree failed on display %s\n",
-                DisplayString(dpy));
-        exit(2);
+	fprintf(stderr, "XQueryTree failed on display %s\n",
+		DisplayString(dpy));
+	exit(2);
     }
 
     if (!(kids && nkids)) {
-        fprintf(stderr, "root window has no children on display %s\n",
-                DisplayString(dpy));
-        exit(2);
+	fprintf(stderr, "root window has no children on display %s\n",
+		DisplayString(dpy));
+	exit(2);
     }
     for (n = nkids - 1; n >= 0; n--) {
-        Atom            type;
-        int             format;
-        unsigned long   nitems, bytesafter;
-        unsigned char  *args = NULL;
+	Atom            type;
+	int             format;
+	unsigned long   nitems, bytesafter;
+	unsigned char  *args = NULL;
 
-        Window          w = XmuClientWindow(dpy, kids[n]);
+	Window          w = XmuClientWindow(dpy, kids[n]);
 
-        XGetWindowProperty(dpy, w, atom,
-                           0, (65536 / sizeof(long)),
-                           False, XA_STRING,
-                           &type, &format, &nitems, &bytesafter,
-                           &args);
+	XGetWindowProperty(dpy, w, atom,
+			   0, (65536 / sizeof(long)),
+			   False, XA_STRING,
+			   &type, &format, &nitems, &bytesafter,
+			   &args);
 
-        if (!args)
-            continue;
+	if (!args)
+	    continue;
 	if (debug) {
 	    printf("query 0x%08lx: ",w);
 	    for (i = 0; i < nitems; i += strlen(args + i) + 1)
 		printf("%s ", args + i);
 	    printf("\n");
 	}
-        XFree(args);
+	XFree(args);
 
-        result = w;
+	result = w;
 #if 0 /* there might be more than window */
-        break;
+	break;
 #endif
     }
     return result;
@@ -83,19 +83,19 @@ pass_cmd(Display *dpy, Atom atom, Window win, int argc, char **argv)
     for (len = 0, i = 0; i < argc; i++) {
 	if (debug)
 	    printf("%s ",argv[i]);
-        len += strlen(argv[i]) + 1;
+	len += strlen(argv[i]) + 1;
     }
     if (debug)
 	printf("\n");
     pass = malloc(len);
     pass[0] = 0;
     for (len = 0, i = 0; i < argc; i++)
-        strcpy(pass + len, argv[i]),
-            len += strlen(argv[i]) + 1;
+	strcpy(pass + len, argv[i]),
+	    len += strlen(argv[i]) + 1;
     XChangeProperty(dpy, win,
-                    atom, XA_STRING,
-                    8, PropModeReplace,
-                    pass, len);
+		    atom, XA_STRING,
+		    8, PropModeReplace,
+		    pass, len);
     free(pass);
 }
 
@@ -170,7 +170,7 @@ main(int argc, char *argv[])
     XSetErrorHandler(x11_error_dev_null);
     station = XInternAtom(dpy, "_XAWTV_STATION", False);
     remote =  XInternAtom(dpy, "_XAWTV_REMOTE",  False);
-    
+
     if (0 == (win = find_window(dpy,station)) &&
 	0 == id) {
 	fprintf(stderr,"xawtv not running\n");

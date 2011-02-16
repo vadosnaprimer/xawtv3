@@ -111,7 +111,7 @@ void vbi_render_set_font(Widget shell, struct vbi_window *vw, char *label)
 	    if (0 == vbi_render_try_font(shell, vw, &vbi_fonts[i]))
 		return;
 	}
-	
+
 #ifdef HAVE_XFT
 	/* try xft */
 	pattern = FcNameParse(label);
@@ -147,7 +147,7 @@ vbi_render_init(Widget shell, Widget tt, struct vbi_state *vbi)
 
     vw = malloc(sizeof(*vw));
     memset(vw,0,sizeof(*vw));
-    
+
     vw->shell = shell;
     vw->tt    = tt;
     vw->vbi   = vbi;
@@ -222,7 +222,7 @@ vbi_render_line(struct vbi_window *vw, Drawable d, struct vbi_char *ch,
 	values.function   = GXcopy;
 	values.foreground = vw->colors[ch[x1].background & 7];
 	XChangeGC(XtDisplay(vw->tt), vw->gc, GCForeground|GCFunction, &values);
-	XFillRectangle(XtDisplay(vw->tt), d, 
+	XFillRectangle(XtDisplay(vw->tt), d,
 		       vw->gc, (x1-left)*vw->w, (y-top)*vw->h,
 		       vw->w * (x2-x1), vw->h * sy);
 

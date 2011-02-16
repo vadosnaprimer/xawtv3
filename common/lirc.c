@@ -88,7 +88,7 @@ int lirc_tv_init()
 {
 #ifdef HAVE_LIBLIRC_CLIENT
     int fd;
-    
+
     if (-1 == (fd = lirc_init("xawtv",debug))) {
 	if (debug)
 	    fprintf(stderr,"lirc: no infrared remote support available\n");
@@ -106,7 +106,7 @@ int lirc_tv_init()
     event_register_list(lirc_events);
     if (debug)
 	fprintf(stderr,"lirc: init ok\n");
-    
+
     return fd;
 #else
     if (debug)
@@ -121,7 +121,7 @@ int lirc_tv_havedata()
     char *code,event[32],*cmd,**argv;
     int dummy,repeat,argc;
     int ret=-1;
-    
+
     strcpy(event,"lirc-key-");
     while (lirc_nextcode(&code)==0  &&  code!=NULL) {
 	ret = 0;

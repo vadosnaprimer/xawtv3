@@ -55,7 +55,7 @@ read_request(struct REQUEST *req, int pipelined)
 	mkerror(req,400,0);
 	return;
     }
-    
+
     /* header complete ?? */
     if (NULL != (h = strstr(req->hreq,"\r\n\r\n")) ||
 	NULL != (h = strstr(req->hreq,"\n\n"))) {
@@ -115,7 +115,7 @@ parse_request(struct REQUEST *req)
 {
     char filename[2048], proto[5], *h;
     int  port;
-    
+
     if (debug > 2)
 	fprintf(stderr,"%s\n",req->hreq);
 
@@ -143,7 +143,7 @@ parse_request(struct REQUEST *req)
 	}
     }
 
-    unquote(req->path,req->uri);    
+    unquote(req->path,req->uri);
     if (debug)
 	fprintf(stderr,"%03d: %s \"%s\" HTTP/%d.%d\n",
 		req->fd, req->type, req->path, req->major, req->minor);

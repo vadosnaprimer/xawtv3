@@ -55,7 +55,7 @@ static int
 sound_open(int rate)
 {
     int frag,afmt,channels,trigger,srate;
-    
+
     if (-1 == (sound_fd = open(audio_dev, O_RDONLY))) {
 	fprintf(stderr,"open %s: %s\n",audio_dev,strerror(errno));
 	exit(1);
@@ -63,7 +63,7 @@ sound_open(int rate)
 
     frag = 0x7fff000d; /* 8k */
     if (-1 == ioctl(sound_fd, SNDCTL_DSP_SETFRAGMENT, &frag))
-        perror("ioctl SNDCTL_DSP_SETFRAGMENT");
+	perror("ioctl SNDCTL_DSP_SETFRAGMENT");
 
     /* format */
     afmt = AFMT_S16_LE;
@@ -161,7 +161,7 @@ sound_read(void)
 	v++;
 	if (abs(*v) > maxr)
 	    maxr = abs(*v);
-	v++;	
+	v++;
     }
 
     /* max for the last second */
@@ -278,7 +278,7 @@ typedef uint32_t  FOURCC;	/* a four character code */
 
 typedef struct CHUNKHDR {
     FOURCC ckid;		/* chunk ID */
-    DWORD dwSize; 	        /* chunk size */
+    DWORD dwSize; 		/* chunk size */
 } CHUNKHDR;
 
 /* simplified Header for standard WAV files */
@@ -402,7 +402,7 @@ static void
 print_bar(int line, char *name, int val1, int val2, int max)
 {
     int total,len;
-    
+
     total = COLS-16;
     len   = val1*total/max;
 
@@ -437,7 +437,7 @@ static int
 record_start(char *outfile, int *nr)
 {
     int wav;
-    
+
     do {
 	sprintf(outfile,"%s%03d.wav",filename,(*nr)++);
 	wav = open(outfile, O_WRONLY | O_EXCL | O_CREAT, 0666);
@@ -667,7 +667,7 @@ main(int argc, char *argv[])
 	mvprintw(12,0,"'Q'         quit");
 	mvprintw(LINES-3,0,"--");
 	mvprintw(LINES-2,0,"(c) 1999-2003 Gerd Knorr <kraxel@bytesex.org>");
-	
+
 	for (;!stop;) {
 	    refresh();
 	    FD_ZERO(&s);
@@ -679,7 +679,7 @@ main(int argc, char *argv[])
 		perror("select");
 		break;
 	    }
-	    
+
 	    if (FD_ISSET(sound_fd,&s)) {
 		/* sound */
 		if (-1 == sound_read())
@@ -710,7 +710,7 @@ main(int argc, char *argv[])
 		    mvprintw(3,0,"%c",ALIVE(sound_rcount));
 		}
 	    }
-	    
+
 	    if (FD_ISSET(0,&s)) {
 		/* tty in */
 		switch (key = getch()) {
@@ -794,14 +794,14 @@ main(int argc, char *argv[])
 		continue;
 	    }
 
-            sec = (done_size + wav_size) / (rate*4);
+	    sec = (done_size + wav_size) / (rate*4);
 	    if (maxsec && sec >= maxsec)
 		break;
 	    if (wav_size + sound_blksize + sizeof(WAVEHDR) > maxsize) {
 		record_stop(wav);
 		wav = record_start(outfile,&nr);
 	    }
-            wav_write_audio(wav,sound_buffer,sound_blksize);
+	    wav_write_audio(wav,sound_buffer,sound_blksize);
 	    if (verbose) {
 		int total = 10;
 		int len   = (maxl+maxr)*total/32768/2;
@@ -818,7 +818,7 @@ main(int argc, char *argv[])
 	    }
 	}
     }
-    
+
     if (record)
 	record_stop(wav);
     mixer_close();

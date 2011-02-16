@@ -156,7 +156,7 @@ qt_audio(void *handle, struct ng_audio_buf *buf)
 {
     struct qt_handle *h = handle;
     int16_t *ch[2];
-    
+
     if (h->lib_audio) {
 	/* FIXME: works for one channel (mono) only */
 	ch[0] = (int16_t*)buf->data;
@@ -255,12 +255,12 @@ static const struct ng_format_list qt_aformats[] = {
 	fmtid: AUDIO_U8_MONO,
 	priv:  &qt_mono8,
     },{
-        name:  "mono16",
+	name:  "mono16",
 	ext:   "mov",
 	fmtid: AUDIO_S16_BE_MONO,
 	priv:  &qt_mono16,
     },{
-        name:  "stereo",
+	name:  "stereo",
 	ext:   "mov",
 	fmtid: AUDIO_S16_BE_STEREO,
 	priv:  &qt_stereo,
@@ -360,7 +360,7 @@ static struct ng_format_list* video_list(void)
 		fprintf(stderr,"   skipping, no fourcc\n");
 	    continue;
 	}
-	
+
 	/* avoid dup entries */
 	skip = 0;
 	for (j = 0; video[j].name != NULL; j++) {

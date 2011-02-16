@@ -72,20 +72,20 @@
 
  * misc minor bugfixes.
 
- 
+
 3.90
 ====
 
  * bugfix release (was intented to be 3.88.2, but a debian NMU f*cked
    up my version numbering ...).
 
- 
+
 3.87 => 3.88
 ============
 
  * removed xxl core file from source tree.
 
- 
+
 3.86 => 3.87
 ============
 
@@ -160,7 +160,7 @@
 
  * misc small compile fixes and bugfixes.
 
- 
+
 3.78 => 3.79
 ============
 
@@ -199,7 +199,7 @@
  * added alsa mixer plugin (Malte Starostik <malte.starostik@t-online.de>).
  * added plugin for new v4l2 api
 
- 
+
 3.75 => 3.76
 ============
 
@@ -272,7 +272,7 @@
  * added iso8859-15 led font, for all these foobar@euro
    locales ...
 
- 
+
 3.71 => 3.72
 ============
 
@@ -348,7 +348,7 @@
  * increased audio mode check delay to get better results.
  * replaced rpm specfile
 
- 
+
 3.66 => 3.67
 ============
 
@@ -522,7 +522,7 @@
 
  * some fbtv fixes.
 
- 
+
 3.53 => 3.54
 ============
 
@@ -586,7 +586,7 @@
  * config file tags are case insensitive now.
  * changed webcam to use libng conversions (i.e. it can deal
    with yuv-only devices now).
- * raw yuv data support for quicktime (with help from 
+ * raw yuv data support for quicktime (with help from
    W. Michael Petullo <mike@flyn.org>)
  * more new motif stuff.
 
@@ -688,7 +688,7 @@
   * reorganized sound recording code a bit, added byteswapping support.
   * MIT SHM failures with XvImages are catched now (=> hw scaling on
     a remote display should work -- untested)
-  * gracefully fallback to "normal" rgb ximages if hw scaling with 
+  * gracefully fallback to "normal" rgb ximages if hw scaling with
     Xvideo failes because the v4l driver can't capture packed yuv.
   * 0.05 MHz steps for the radio app (Nils Kassube <kassube@gmx.net>).
   * fixed one more segfault.
@@ -709,7 +709,7 @@
   * added attribute reading for BSD.
   * added a switch to alevtd to set the vbi device.
 
- 
+
 3.37 => 3.38
 ============
 
@@ -823,7 +823,7 @@
   * added autoconf tests for getopt.h / getopt_long
   * streamer can write raw video data (again).
 
- 
+
 3.27 => 3.28
 ============
 
@@ -833,7 +833,7 @@
   * fixed bugs in the movie recording code (memory leak,
     uncatched failures).
 
- 
+
 3.26 => 3.27
 ============
 
@@ -887,7 +887,7 @@
     in grabdisplay mode).
   * Added cc.c patches (Adam <adam@cfar.umd.edu>).
 
- 
+
 3.22 => 3.23
 ============
 
@@ -898,7 +898,7 @@
     pointer.  Any pointer motion event will show the pointer again.
   * new xawtv-remote command: showtime.
 
-    
+
 3.21 => 3.22
 ============
 
@@ -1144,7 +1144,7 @@ fbtv problems.
   * some finetuning for the keypad stuff.
   * G200 backend scaler support in fbtv.
 
- 
+
 3.0 => 3.01
 ===========
 
@@ -1207,7 +1207,7 @@ fbtv problems.
     it must have been broken for weeks...
   * fbtv+xawtv refuse to work when installed suid root now.  This is
     /not/ needed, only v4l-conf requires root priviliges.
-  * v4l2: added tuner support, minor fixes. 
+  * v4l2: added tuner support, minor fixes.
   * added channel 36 for australia, this one was missing for some
     reason...
 
@@ -1668,7 +1668,7 @@ fbtv problems.
 
   * as allways, a few bug-fixes
   * added the -c switch to set-tv
-  * i2c problems with hauppauge cards hopefully fixed now.  Check 
+  * i2c problems with hauppauge cards hopefully fixed now.  Check
     bttv driver's Makefile, the code disabled by default (we don't
     know what happens with other boards...)
   * msp3400 uses soundcore instead of sound module (no oss needed

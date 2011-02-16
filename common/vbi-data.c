@@ -62,7 +62,7 @@ vbi_open(char *dev, int debug, int sim)
 
     if (vbi->sim) {
 	vbi->par = init_sim(625,services);
-        /* simulation for select */
+	/* simulation for select */
 	pipe(p);
 	switch (fork()) {
 	case -1:
@@ -220,7 +220,7 @@ vbi_dump_event(struct vbi_event *ev, void *user)
 int vbi_calc_page(int pagenr, int offset)
 {
     int result;
-    
+
     result = pagenr + offset;
     if (offset < 0) {
 	while ((result & 0x0f) > 0x09)
@@ -245,7 +245,7 @@ int vbi_calc_subpage(vbi_decoder *dec, int pgno, int subno, int offset)
 {
     vbi_page pg;
     int newno;
-    
+
     for (newno = subno+offset; newno != subno;) {
 	if (vbi_fetch_vt_page(dec,&pg,pgno,newno,
 			      VBI_WST_LEVEL_1,0,0))
@@ -349,7 +349,7 @@ void vbi_find_subtitle(vbi_page *pg, struct vbi_rect *rect)
 {
     int x,y,showline;
     vbi_char *ch;
-    
+
     *rect = vbi_fullrect;
 
     for (y = 1; y < 25; y++) {
@@ -362,7 +362,7 @@ void vbi_find_subtitle(vbi_page *pg, struct vbi_rect *rect)
 	    break;
     }
     rect->y1 = y;
-    
+
     for (y = 25; y >= rect->y1; y--) {
 	showline = 0;
 	ch = pg->text + 41*y;

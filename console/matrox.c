@@ -24,7 +24,7 @@ void (*gfx_scaler_on)(int offscreen, int pitch, int width, int height,
 void (*gfx_scaler_off)(void);
 
 static unsigned char	*bmmio;
-static uint32_t	        *mmio;
+static uint32_t		*mmio;
 
 static void
 wrio4(int adr, unsigned long val)
@@ -77,7 +77,7 @@ matrox_scaler_on(int offscreen, int pitch, int width, int height,
     /* color keying (turn it off) */
     bmmio[PALWTADD]  = XKEYOPMODE;
     bmmio[X_DATAREG] = 0;
-    
+
     /* src */
     wrio4(BESA1ORG,   offscreen);
     wrio4(BESA2ORG,   offscreen);
@@ -101,7 +101,7 @@ matrox_scaler_on(int offscreen, int pitch, int width, int height,
     wrio4(BESV2WGHT,   0);
     wrio4(BESV1SRCLST, height-1);
     wrio4(BESV2SRCLST, height-1);
-    
+
     /* turn on (enable, horizontal+vertical interpolation filters */
     wrio4(BESCTL,     (1 << 0) | (1 << 10) | (1 << 11));
     wrio4(BESGLOBCTL, 0);

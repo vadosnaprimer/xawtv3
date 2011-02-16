@@ -192,15 +192,15 @@ main(int argc, char *argv[])
     /* init X11 */
     app_shell = XtAppInitialize(&app_context, "Propwatch",
 				opt_desc, opt_count,
-                                &argc, argv,
-                                NULL,
-                                NULL, 0);
+				&argc, argv,
+				NULL,
+				NULL, 0);
     XtGetApplicationResources(app_shell,&args,
 			      args_desc,args_count,
 			      NULL,0);
 
     XtAppAddActions(app_context,actionTable,
-                    sizeof(actionTable)/sizeof(XtActionsRec));
+		    sizeof(actionTable)/sizeof(XtActionsRec));
     XtOverrideTranslations
 	(app_shell,XtParseTranslationTable("<Message>WM_PROTOCOLS: Quit()\n"));
     dpy = XtDisplay(app_shell);
@@ -215,7 +215,7 @@ main(int argc, char *argv[])
 	sprintf(title,"watch - ");
     }
     root = DefaultRootWindow(spy_dpy);
-    
+
     XSetErrorHandler(x11_error_dev_null);
 
     /* args */
@@ -244,13 +244,13 @@ main(int argc, char *argv[])
     menu_ptr = XCreateFontCursor(dpy,XC_right_ptr);
     scr = DefaultScreenOfDisplay(dpy);
     if (DefaultDepthOfScreen(scr) > 1) {
-        if (XAllocNamedColor(dpy,DefaultColormapOfScreen(scr),
-                             "white",&white,&dummy) &&
-            XAllocNamedColor(dpy,DefaultColormapOfScreen(scr),
-                             "red",&red,&dummy)) {
-            XRecolorCursor(dpy,left_ptr,&red,&white);
-            XRecolorCursor(dpy,menu_ptr,&red,&white);
-        } 
+	if (XAllocNamedColor(dpy,DefaultColormapOfScreen(scr),
+			     "white",&white,&dummy) &&
+	    XAllocNamedColor(dpy,DefaultColormapOfScreen(scr),
+			     "red",&red,&dummy)) {
+	    XRecolorCursor(dpy,left_ptr,&red,&white);
+	    XRecolorCursor(dpy,menu_ptr,&red,&white);
+	}
     }
 
     /* widgets*/
@@ -287,7 +287,7 @@ main(int argc, char *argv[])
 	    continue;
 	ProcessEvent(spy_dpy,&event);
     }
-    
+
     /* keep compiler happy */
     return 0;
 }

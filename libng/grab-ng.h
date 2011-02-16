@@ -292,12 +292,12 @@ struct ng_vid_driver {
     char* (*get_devname)(void *handle);
     int   (*capabilities)(void *handle);
     struct ng_attribute* (*list_attrs)(void *handle);
-    
+
     /* overlay */
     int   (*setupfb)(void *handle, struct ng_video_fmt *fmt, void *base);
     int   (*overlay)(void *handle, struct ng_video_fmt *fmt, int x, int y,
 		     struct OVERLAY_CLIP *oc, int count, int aspect);
-    
+
     /* capture */
     int   (*setformat)(void *handle, struct ng_video_fmt *fmt);
     int   (*startvideo)(void *handle, int fps, unsigned int buffers);

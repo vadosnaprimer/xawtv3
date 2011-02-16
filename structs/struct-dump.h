@@ -25,7 +25,7 @@ enum desc_type {
 struct struct_desc {
 	enum desc_type      type;
 	char                *name;
-        unsigned int        length;
+	unsigned int        length;
 	char                **enums;
 	char                **bits;
 	struct struct_desc  *desc;

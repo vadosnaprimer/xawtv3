@@ -13,7 +13,7 @@
 #include "grab-ng.h"
 
 #if 0 /* debugging */
-# define LIMIT_OPENDML      (1024*1024) 
+# define LIMIT_OPENDML      (1024*1024)
 #else
 # define LIMIT_OPENDML (2000*1024*1024)
 #endif
@@ -25,11 +25,11 @@
  *   list hdrl       header
  *     avih          avi header
  *     list strl     video stream header
- *       strh         
- *       strf        
+ *       strh
+ *       strf
  *     list strl     audio stream header
- *       strh        
- *       strf        
+ *       strh
+ *       strf
  *     istf          ??? software
  *     idit          ??? timestamp
  *   yunk            ??? 4k page pad
@@ -136,7 +136,7 @@ struct avi_handle {
     int    framesx;
     off_t  avix_start;
     off_t  datax_size;
-    
+
     /* statistics -- total */
     int    frames_total;
 
@@ -177,13 +177,13 @@ avi_writeindex(struct avi_handle *h)
 
     /* update header */
     h->avi_hdr.avih.flags       |= AVI_SWAP4(AVIF_HASINDEX);
-}   
+}
 
 static void
 avi_bigfile(struct avi_handle *h, int last)
 {
     off_t avix_end;
-    
+
     if (h->bigfile) {
 	/* finish this chunk */
 	avix_end = lseek(h->fd,0,SEEK_CUR);
@@ -223,7 +223,7 @@ avi_write_header(struct avi_handle *h)
 	h->avi_hdr_audio.strh.length =
 	    AVI_SWAP4(h->audio_size/h->avi_hdr_audio.strh.scale);
     h->avi_data.data_size        = AVI_SWAP4(h->data_size);
-    
+
     /* ... and write header again */
     curpos = lseek(h->fd,0,SEEK_CUR);
     lseek(h->fd,0,SEEK_SET);
@@ -335,7 +335,7 @@ avi_open(char *filename, char *dummy,
 	    AVI_SWAP2(ng_afmt_to_channels[h->audio.fmtid]);
 	h->avi_hdr_audio.strf.rate       =
 	    AVI_SWAP4(h->audio.rate);
-	h->avi_hdr_audio.strf.av_bps     = 
+	h->avi_hdr_audio.strf.av_bps     =
 	    AVI_SWAP4(ng_afmt_to_channels[h->audio.fmtid] *
 		      ng_afmt_to_bits[h->audio.fmtid] *
 		      h->audio.rate / 8);

@@ -59,7 +59,7 @@ If byte 3 is 00 == No stereo decoder chip. The block is 5 bytes. EG.
 74 02 01 00 03
 
 If byte 3 indicates a MSP chip, the block is 5 bytes, EG
-74 02 01 06 02 
+74 02 01 06 02
 
 If byte 3 indicates a TDA chip, the block is 8 bytes, EG
 77 02 01 03 03 43 17 12
@@ -105,7 +105,7 @@ c  BT829A
 d  BT827A
 e  BT878
 f  BT879
-10 BT880       
+10 BT880
 
 BUT only 0x09 and 0x0e have been used.
 
@@ -115,26 +115,26 @@ Tuner Byte
        2 Unspecified
        3 Phillips FI1216
        4 Phillips FI1216MF
-       5 Phillips FI1236  
+       5 Phillips FI1236
        6 Phillips FI1246
        7 Phillips FI1256
-       8 Phillips FI1216 MK2    
+       8 Phillips FI1216 MK2
        9 Phillips FI1216MF MK2
-       a Phillips FI1236 MK2 
-       b Phillips FI1246 MK2 
+       a Phillips FI1236 MK2
+       b Phillips FI1246 MK2
        c Phillips FI1256 MK2
        d Temic 4032FY5
-       e Temic 4002FH5 
+       e Temic 4002FH5
        f Temic 4062FY5
        10 Phillips FR1216 MK2
        11 Phillips FR1216MF MK2
        12 Phillips FR1236 MK2
        13 Phillips FR1246 MK2
        14 Phillips FR1256 MK2
-       15 Phillips FM1216 
+       15 Phillips FM1216
        16 Phillips FM1216MF
        17 Phillips FM1236
-       18 Temic ???              
+       18 Temic ???
 
 Stereo Decoder byte
 0 None

@@ -88,7 +88,7 @@ void event_readconfig(void)
     list = cfg_list_entries("eventmap");
     if (NULL == list)
 	return;
-    
+
     for (; *list != NULL; list++)
 	if (NULL != (val = cfg_get_str("eventmap",*list)))
 	    event_register(*list,val);
@@ -152,6 +152,6 @@ int event_dispatch(char *event)
     if (arg)
 	argv[argc++] = arg;
     do_command(argc,argv);
-    
+
     return 0;
 }

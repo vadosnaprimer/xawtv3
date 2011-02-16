@@ -43,9 +43,9 @@ bgr24_to_bgr32(unsigned char* restrict dest, unsigned char* restrict src,
     register unsigned char* restrict d = dest;
 
     while (p--) {
-        *(d++) = *(s++);
-        *(d++) = *(s++);
-        *(d++) = *(s++);
+	*(d++) = *(s++);
+	*(d++) = *(s++);
+	*(d++) = *(s++);
 	*(d++) = 0;
     }
 }
@@ -59,9 +59,9 @@ bgr24_to_rgb32(unsigned char* restrict dest, unsigned char* restrict src,
 
     while (p--) {
 	*(d++) = 0;
-        *(d++) = s[2];
-        *(d++) = s[1];
-        *(d++) = s[0];
+	*(d++) = s[2];
+	*(d++) = s[1];
+	*(d++) = s[0];
 	s +=3;
     }
 }
@@ -173,7 +173,7 @@ rgb15_le_gray(unsigned char* restrict dest, unsigned char* restrict src, int p)
 
 static struct ng_video_conv conv_list[] = {
     {
-	/* ----------------------------------- write GRAY -- */ 
+	/* ----------------------------------- write GRAY -- */
 #if BYTE_ORDER == BIG_ENDIAN
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_RGB15_BE,
@@ -197,7 +197,7 @@ static struct ng_video_conv conv_list[] = {
 	priv:		rgb15_native_gray,
     }, {
 #endif
-	/* ----------------------------------- write RGB15 -- */ 
+	/* ----------------------------------- write RGB15 -- */
 	NG_GENERIC_PACKED,
 	fmtid_in:	VIDEO_RGB15_LE,
 	fmtid_out:	VIDEO_RGB15_BE,

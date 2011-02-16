@@ -1,11 +1,11 @@
 /*
  * mtt - teletext test app.
- * 
+ *
  * This is just main() for the standalone version, the actual
  * code is in vbi-gui.c (motif) and vbi-tty.c (terminal).
  *
  *   (c) 2002 Gerd Knorr <kraxel@bytesex.org>
- * 
+ *
  */
 
 #include "config.h"
@@ -165,7 +165,7 @@ static int main_tty(int argc, char **argv)
 	    dev = argv[1];
 	    argc -= 2;
 	    argv += 2;
-	    
+
 	} else if (0 == strcmp(argv[0],"-tty")) {
 	    argc -= 1;
 	    argv += 1;
@@ -185,7 +185,7 @@ static int main_tty(int argc, char **argv)
 		   0 == strcmp(argv[0],"--help")) {
 	    usage();
 	    exit(0);
-	    
+
 	} else
 	    break;
     }

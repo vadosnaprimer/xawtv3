@@ -73,7 +73,7 @@ bgr32_to_lut2(unsigned char* restrict dest, unsigned char* restrict src,
 
     while (p-- > 0) {
        *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
-           ng_lut_blue[src[0]];
+	   ng_lut_blue[src[0]];
 	src += 4;
     }
 }
@@ -139,7 +139,7 @@ bgr32_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
 
     while (p-- > 0) {
        *(d++) = ng_lut_red[src[2]] | ng_lut_green[src[1]] |
-           ng_lut_blue[src[0]];
+	   ng_lut_blue[src[0]];
 	src += 4;
     }
 }
@@ -257,19 +257,19 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
     }
 
     for (i = 0; i < 32; i++) {
-        mask = (1 << i);
-        if (red_mask & mask)
-            rgb_red_bits++;
-        else if (!rgb_red_bits)
-            rgb_red_shift++;
-        if (green_mask & mask)
-            rgb_green_bits++;
-        else if (!rgb_green_bits)
-            rgb_green_shift++;
-        if (blue_mask & mask)
-            rgb_blue_bits++;
-        else if (!rgb_blue_bits)
-            rgb_blue_shift++;
+	mask = (1 << i);
+	if (red_mask & mask)
+	    rgb_red_bits++;
+	else if (!rgb_red_bits)
+	    rgb_red_shift++;
+	if (green_mask & mask)
+	    rgb_green_bits++;
+	else if (!rgb_green_bits)
+	    rgb_green_shift++;
+	if (blue_mask & mask)
+	    rgb_blue_bits++;
+	else if (!rgb_blue_bits)
+	    rgb_blue_shift++;
     }
 #if 0
     printf("color: bits shift\n");
@@ -277,21 +277,21 @@ ng_lut_init(unsigned long red_mask, unsigned long green_mask,
     printf("green: %04i %05i\n", rgb_green_bits, rgb_green_shift);
     printf("blue : %04i %05i\n", rgb_blue_bits, rgb_blue_shift);
 #endif
-    
+
     if (rgb_red_bits > 8)
 	for (i = 0; i < 256; i++)
 	    ng_lut_red[i] = (i << (rgb_red_bits + rgb_red_shift - 8));
     else
 	for (i = 0; i < 256; i++)
 	    ng_lut_red[i] = (i >> (8 - rgb_red_bits)) << rgb_red_shift;
-    
+
     if (rgb_green_bits > 8)
 	for (i = 0; i < 256; i++)
 	    ng_lut_green[i] = (i << (rgb_green_bits + rgb_green_shift - 8));
     else
 	for (i = 0; i < 256; i++)
 	    ng_lut_green[i] = (i >> (8 - rgb_green_bits)) << rgb_green_shift;
-    
+
     if (rgb_blue_bits > 8)
 	for (i = 0; i < 256; i++)
 	    ng_lut_blue[i] = (i << (rgb_blue_bits + rgb_blue_shift - 8));

@@ -233,12 +233,12 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
     unsigned char   *ximage_data;
     XShmSegmentInfo *shminfo = NULL;
     void            *old_handler;
-    
+
     if (no_mitshm)
 	goto no_mitshm;
 
     assert(width > 0 && height > 0);
-    
+
     old_handler = XSetErrorHandler(catch_no_mitshm);
     shminfo = malloc(sizeof(XShmSegmentInfo));
     memset(shminfo, 0, sizeof(XShmSegmentInfo));
@@ -261,7 +261,7 @@ x11_create_ximage(Display *dpy, XVisualInfo *vinfo,
     }
     ximage->data = shminfo->shmaddr;
     shminfo->readOnly = False;
-    
+
     XShmAttach(dpy, shminfo);
     XSync(dpy, False);
     if (no_mitshm)
@@ -327,15 +327,15 @@ x11_create_pixmap(Display *dpy, XVisualInfo *vinfo, struct ng_video_buf *buf)
     Screen          *scr = DefaultScreenOfDisplay(dpy);
 
     pixmap = XCreatePixmap(dpy,RootWindowOfScreen(scr),
-                           buf->fmt.width, buf->fmt.height, vinfo->depth);
+			   buf->fmt.width, buf->fmt.height, vinfo->depth);
 
     gc = XCreateGC(dpy, pixmap, 0, NULL);
 
     if (NULL == (ximage = x11_create_ximage(dpy, vinfo, buf->fmt.width,
 					    buf->fmt.height, &shm))) {
 	XFreePixmap(dpy, pixmap);
-        XFreeGC(dpy, gc);
-        return 0;
+	XFreeGC(dpy, gc);
+	return 0;
     }
     memcpy(ximage->data,buf->data,buf->size);
     x11_blit(dpy, pixmap, gc, ximage, 0, 0, 0, 0,
@@ -411,10 +411,10 @@ xv_create_ximage(Display *dpy, int width, int height, int format,
     unsigned char   *ximage_data;
     XShmSegmentInfo *shminfo = NULL;
     void            *old_handler;
-    
+
     if (no_mitshm)
 	goto no_mitshm;
-    
+
     old_handler = XSetErrorHandler(catch_no_mitshm);
     shminfo = malloc(sizeof(XShmSegmentInfo));
     memset(shminfo, 0, sizeof(XShmSegmentInfo));
@@ -435,7 +435,7 @@ xv_create_ximage(Display *dpy, int width, int height, int format,
     }
     xvimage->data = shminfo->shmaddr;
     shminfo->readOnly = False;
-    
+
     XShmAttach(dpy, shminfo);
     XSync(dpy, False);
     if (no_mitshm)
@@ -561,7 +561,7 @@ static int gl_init(Widget widget)
     XSetErrorHandler(old_handler);
     if (gl_error)
 	return -1;
-    
+
     have_gl = 1;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE,&max_gl);
     if (debug)
@@ -574,7 +574,7 @@ static int gl_ext(GLubyte *find)
     int len = strlen(find);
     const GLubyte *ext;
     GLubyte *pos;
-    
+
     ext = glGetString(GL_EXTENSIONS);
     if (NULL == ext)
 	return 0;
@@ -594,13 +594,13 @@ static int gl_resize(int iw, int ih, int ww, int wh,
 {
     char *dummy;
     int i;
-    
+
     /* check against max size */
     if (iw > max_gl)
 	return -1;
     if (ih > max_gl)
 	return -1;
-    
+
     /* textures have power-of-two x,y dimensions */
     for (i = 0; iw >= (1 << i); i++)
 	;
@@ -615,7 +615,7 @@ static int gl_resize(int iw, int ih, int ww, int wh,
     glClearColor (0.0, 0.0, 0.0, 0.0);
     glShadeModel(GL_FLAT);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    
+
     glViewport(0, 0, ww, wh);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -705,7 +705,7 @@ blit_init(Widget widget, XVisualInfo *vinfo, int use_gl)
     if (debug)
 	fprintf(stderr,"blit: init\n");
     BUG_ON(0 == XtWindow(widget), "no blit window");
-    
+
     st = malloc(sizeof(*st));
     memset(st,0,sizeof(*st));
 
@@ -877,7 +877,7 @@ void blit_fini_frame(struct blit_state *st)
 	    st->ximage = NULL;
 	}
 	break;
-	
+
 #if HAVE_LIBXV
     case STATUS_XVIDEO:
 	if (st->xvimage) {
@@ -888,12 +888,12 @@ void blit_fini_frame(struct blit_state *st)
 	break;
 #endif
 
-#if HAVE_GL	
+#if HAVE_GL
     case STATUS_OPENGL:
 	gl_cleanup(st->tex);
 	break;
 #endif
-	
+
     case STATUS_UNKNOWN:
     case STATUS_BROKEN:
 	break;
@@ -934,7 +934,7 @@ void blit_putframe(struct blit_state *st, struct ng_video_buf *buf)
 		 (st->win_height - st->buf.fmt.height) >> 1,
 		 st->buf.fmt.width, st->buf.fmt.height);
 	break;
-	
+
 #ifdef HAVE_LIBXV
     case STATUS_XVIDEO:
 	memcpy(st->xvimage->data,buf->data,buf->size);
@@ -945,7 +945,7 @@ void blit_putframe(struct blit_state *st, struct ng_video_buf *buf)
 		st->wx, st->wy, st->ww, st->wh);
 	break;
 #endif
-	
+
 #if HAVE_GL
     case STATUS_OPENGL:
 	gl_blit(st->widget,buf->data,
@@ -957,7 +957,7 @@ void blit_putframe(struct blit_state *st, struct ng_video_buf *buf)
 	ng_release_video_buf(buf);
 	break;
 #endif
-	
+
     case STATUS_UNKNOWN:
     case STATUS_BROKEN:
 	if (debug > 1)

@@ -140,7 +140,7 @@ struct AVI_DATA {
     unsigned char              data_type[4];
 
     /* audio+video data follows */
-    
+
 };
 
 struct CHUNK_HDR {

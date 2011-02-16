@@ -208,7 +208,7 @@ AC_SUBST(LIBZVBI)
 LIBZVBI=""
 if test "$enable_zvbi" != "no"; then
     AC_CHECK_LIB(zvbi, vbi_capture_fd,
-        AC_DEFINE(HAVE_ZVBI,1,"have zvbi") FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread -lm -lpng -lz",,$LIBPTHREAD)
+	AC_DEFINE(HAVE_ZVBI,1,"have zvbi") FOUND_ZVBI="yes"; LIBZVBI="-lzvbi -lpthread -lm -lpng -lz",,$LIBPTHREAD)
 else
     echo "*** zvbi disabled"
 fi
@@ -218,10 +218,10 @@ AALIBS=""
 if test "$enable_aa" != "no"; then
     AC_CHECK_LIB(aa,aa_autoinit, [ FOUND_AALIB="yes" ],,)
     if test "$FOUND_AALIB" = "yes"; then
-        AALIBS=-laa
-        if test -x "`which aalib-config 2>/dev/null`"; then
-            AALIBS=`aalib-config --libs`
-        fi
+	AALIBS=-laa
+	if test -x "`which aalib-config 2>/dev/null`"; then
+	    AALIBS=`aalib-config --libs`
+	fi
     fi
 else
     echo "*** aalib support disabled"
@@ -231,7 +231,7 @@ AC_SUBST(LIBDV)
 LIBDV=""
 if test "$enable_dv" != "no"; then
     AC_CHECK_LIB(dv, dv_decoder_new,
-        AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv -lm",,
+	AC_DEFINE(HAVE_DV,1,"have dv") FOUND_DV="yes"; LIBDV="-ldv -lm",,
 		-lm $LIBPTHREAD)
 else
     echo "*** DV disabled"
@@ -254,17 +254,17 @@ if test "$FOUND_LQT" = "yes"; then
     if test "$QTFLAGS" = ""; then
 	QTFLAGS= "-I/usr/include/quicktime"
     fi
-    QTLIBS="-lquicktime $DLFLAGS $dashlglib -lm" 
+    QTLIBS="-lquicktime $DLFLAGS $dashlglib -lm"
 fi
 AC_SUBST(QTLIBS)
 AC_SUBST(QTFLAGS)
 
 if test "$enable_xfree_ext" != "no"; then
-    AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,, 
+    AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension,,,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
-    AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,, 
+    AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension,,,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
-    AC_CHECK_LIB(Xdpms, DPMSQueryExtension,,, 
+    AC_CHECK_LIB(Xdpms, DPMSQueryExtension,,,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS)
     if test "$ac_cv_lib_Xdpms_DPMSQueryExtension" = "no"; then
 	AC_CHECK_LIB(Xext, DPMSQueryExtension,AC_DEFINE(HAVE_LIBXDPMS),,
@@ -298,7 +298,7 @@ AC_SUBST(LIBGL)
 LIBGL=""
 if test "$enable_gl" != "no"; then
     AC_CHECK_LIB(GL, glXChooseVisual,
-        AC_DEFINE(HAVE_GL,1,"have opengl") FOUND_GL="yes"; LIBGL="-lGL -lm",,
+	AC_DEFINE(HAVE_GL,1,"have opengl") FOUND_GL="yes"; LIBGL="-lGL -lm",,
 	$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS -lm)
 else
     echo "*** OpenGL disabled"

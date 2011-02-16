@@ -119,7 +119,7 @@ static void modify_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 
     if (channels[cur_sender]->key)
 	free(channels[cur_sender]->key);
-    if (0 != strlen(key)) 
+    if (0 != strlen(key))
 	channels[cur_sender]->key = strdup(key);
     else
 	channels[cur_sender]->key = 0;
@@ -172,7 +172,7 @@ void
 create_confwin(void)
 {
     Widget form, label, command;
-    
+
     conf_shell = XtVaAppCreateShell("Config", "Xawtv",
 				    topLevelShellWidgetClass,
 				    dpy,
@@ -184,7 +184,7 @@ create_confwin(void)
     XtOverrideTranslations(conf_shell, XtParseTranslationTable
 			   ("<Message>WM_PROTOCOLS: Popup()"));
     form = XtVaCreateManagedWidget("form", formWidgetClass, conf_shell,
-                                   NULL);
+				   NULL);
 
     /* list */
     viewport =
@@ -193,85 +193,85 @@ create_confwin(void)
 				XtNright,XawChainRight,
 				XtNtop,XawChainTop,
 				XtNbottom,XawChainBottom,
-                                NULL);
-    conf_list = 
+				NULL);
+    conf_list =
 	XtVaCreateManagedWidget("list", listWidgetClass, viewport,
-                                NULL);
+				NULL);
     XtAddCallback(conf_list,XtNcallback,list_cb,(XtPointer)NULL);
 
     /* Einstellungen */
     label =
 	XtVaCreateManagedWidget("lchannel", labelWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				NULL);
     conf_channel =
 	XtVaCreateManagedWidget("channel", labelWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, label,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, label,
+				NULL);
     label =
 	XtVaCreateManagedWidget("lkey", labelWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, conf_channel,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, conf_channel,
+				NULL);
     conf_key =
 	XtVaCreateManagedWidget("key", labelWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, label,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, label,
+				NULL);
     label =
 	XtVaCreateManagedWidget("lname", labelWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, conf_key,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, conf_key,
+				NULL);
     conf_name =
 	XtVaCreateManagedWidget("name", asciiTextWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, label,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, label,
+				NULL);
     XtAddEventHandler(conf_key, KeyPressMask, False, key_eh, NULL);
 
     /* buttons */
     command =
 	XtVaCreateManagedWidget("add", commandWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, conf_name,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, conf_name,
+				NULL);
     XtAddCallback(command,XtNcallback,add_cb,(XtPointer)NULL);
     command =
 	XtVaCreateManagedWidget("delete", commandWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, command,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, command,
+				NULL);
     XtAddCallback(command,XtNcallback,del_cb,(XtPointer)NULL);
     command =
 	XtVaCreateManagedWidget("modify", commandWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, command,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, command,
+				NULL);
     XtAddCallback(command,XtNcallback,modify_cb,(XtPointer)NULL);
     command =
 	XtVaCreateManagedWidget("save", commandWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, command,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, command,
+				NULL);
     XtAddCallback(command,XtNcallback,save_cb,(XtPointer)NULL);
     last_command = command =
 	XtVaCreateManagedWidget("close", commandWidgetClass, form,
-                                FIX_RIGHT_TOP,
-                                XtNfromHoriz, viewport,
-                                XtNfromVert, command,
-                                NULL);
+				FIX_RIGHT_TOP,
+				XtNfromHoriz, viewport,
+				XtNfromVert, command,
+				NULL);
     XtAddCallback(command,XtNcallback,close_cb,(XtPointer)NULL);
 
     XtInstallAllAccelerators(conf_name, conf_shell);
@@ -298,7 +298,7 @@ void conf_station_switched(void)
     } else {
 	if (channels[cur_sender]->key)
 	    XtVaSetValues(conf_key,XtNlabel,channels[cur_sender]->key, NULL);
-	else 
+	else
 	    XtVaSetValues(conf_key,XtNlabel,"", NULL);
 #if 0
 	/* This is needed for Xaw3d
@@ -319,7 +319,7 @@ void
 conf_list_update(void)
 {
     int i;
-    
+
     if (channel_list)
 	free(channel_list);
 

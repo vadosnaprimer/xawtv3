@@ -64,7 +64,7 @@ sub parsechar () {
     local($i) = 0;
     local($n) = 0;
     local($s) = 3;
-    
+
     print STDERR "--\n"	if $debug;
     print STDERR "*"	if !$debug;
     print "STARTCHAR $name\n";

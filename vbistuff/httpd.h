@@ -13,8 +13,8 @@
 #define BR_HEADER   512
 
 struct REQUEST {
-    int	        fd;		     /* socket handle */
-    int	        state;	             /* what to to ??? */
+    int		fd;		     /* socket handle */
+    int		state;		     /* what to to ??? */
     time_t      ping;                /* last read/write (for timeouts) */
     int         keep_alive;
 
@@ -25,7 +25,7 @@ struct REQUEST {
 #endif
     char        peerhost[65];
     char        peerserv[9];
-    
+
     /* request */
     char	hreq[MAX_HEADER+1];  /* request header */
     int 	lreq;		     /* request length */
@@ -35,12 +35,12 @@ struct REQUEST {
     char        hostname[65];        /* hostname */
     char	path[1024];          /* file path */
     int         major,minor;         /* http version */
-    
+
     /* response */
     int         status;              /* status code (log) */
     int         bc;                  /* byte counter (log) */
     char	hres[MAX_HEADER+1];  /* response header */
-    int	        lres;		     /* header length */
+    int		lres;		     /* header length */
     char        *mime;               /* mime type */
     char	*body;
     int         lbody;

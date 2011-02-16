@@ -71,10 +71,10 @@ add_menu_entry(Widget menu, const char *name,
 	       XtCallbackProc callback, XtPointer data)
 {
     Widget entry;
-    
+
     entry = XtVaCreateManagedWidget(name,smeBSBObjectClass,menu,NULL);
     if (callback)
-        XtAddCallback(entry,XtNcallback,callback,data);
+	XtAddCallback(entry,XtNcallback,callback,data);
     return entry;
 }
 
@@ -82,7 +82,7 @@ Widget
 add_menu_sep(Widget menu,char *name)
 {
     Widget entry;
-    
+
     entry = XtVaCreateManagedWidget(name,smeLineObjectClass,menu,NULL);
     return entry;
 }
@@ -144,7 +144,7 @@ popup_menu(Widget parent, const char *title, struct STRTAB *entries)
 		XtVaSetValues(line,XtNsensitive,False,NULL);
 	}
     }
-    
+
     XQueryPointer(dpy,
 		  RootWindowOfScreen(XtScreen(menu)),
 		  &root, &child,
@@ -176,7 +176,7 @@ popup_menu(Widget parent, const char *title, struct STRTAB *entries)
 	XtAppProcessEvent (context, XtIMAll);
     }
     if (sel == -2)
-	sel = -1;    
+	sel = -1;
     return sel;
 }
 
@@ -236,8 +236,8 @@ get_string_resource(Widget widget, char *name)
 
     res_desc[0].resource_name = name;
     XtGetApplicationResources(widget,&resdata,
-                              res_desc,XtNumber(res_desc),
-                              NULL,0);
+			      res_desc,XtNumber(res_desc),
+			      NULL,0);
     return resdata.str;
 }
 
@@ -435,7 +435,7 @@ set_shadowWidth_AC(Widget widget,  XEvent *event,
 		   String *params, Cardinal *num_params)
 {
     int depth;
-    
+
     if (1 != *num_params) {
 	fprintf(stderr,"SetShadowWidth: wrong number of arguments\n");
 	return;

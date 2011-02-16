@@ -147,7 +147,7 @@ int midi_open(struct midi_handle *h, char *name)
     func = "snd_seq_set_client_name";
     if ((rc = snd_seq_set_client_name(h->seq, name)) < 0)
 	goto err;
-    
+
     func = "snd_seq_create_simple_port";
     if ((rc = snd_seq_create_simple_port
 	 (h->seq,"name",
@@ -270,10 +270,10 @@ int main(int argc, char *argv[])
 
     if (argc > 1)
 	midi_connect(&h,argv[1]);
-    
-    for (;;) 
+
+    for (;;)
 	midi_read(&h);
-    
+
     midi_close(&h);
     exit(0);
 }
@@ -284,7 +284,7 @@ void midi_translate(struct midi_handle *h)
 {
     char event[64];
     int i;
-    
+
     switch (h->ev->type) {
     case SND_SEQ_EVENT_NOTEON:
 	if (0 == h->ev->data.note.velocity)

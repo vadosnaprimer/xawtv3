@@ -133,7 +133,7 @@ fb_switch_init()
     sigemptyset(&act.sa_mask);
     sigaction(SIGUSR1,&act,&old);
     sigaction(SIGUSR2,&act,&old);
-    
+
     if (-1 == ioctl(tty,VT_GETMODE, &vt_mode)) {
 	perror("ioctl VT_GETMODE");
 	exit(1);
@@ -142,7 +142,7 @@ fb_switch_init()
     vt_mode.waitv  = 0;
     vt_mode.relsig = SIGUSR1;
     vt_mode.acqsig = SIGUSR2;
-    
+
     if (-1 == ioctl(tty,VT_SETMODE, &vt_mode)) {
 	perror("ioctl VT_SETMODE");
 	exit(1);
@@ -158,7 +158,7 @@ fb_memset (void *addr, int c, size_t len)
 {
 #if 1 /* defined(__powerpc__) */
     unsigned int i, *p;
-    
+
     i = (c & 0xff) << 8;
     i |= i << 16;
     len >>= 2;
@@ -175,13 +175,13 @@ fb_setmode(char *name)
     FILE *fp;
     char line[80],label[32],value[16];
     int  geometry=0, timings=0;
-    
+
     /* load current values */
     if (-1 == ioctl(fb,FBIOGET_VSCREENINFO,&fb_var)) {
 	perror("ioctl FBIOGET_VSCREENINFO");
 	exit(1);
     }
-    
+
     if (NULL == name)
 	return -1;
     if (NULL == (fp = fopen("/etc/fb.modes","r")))
@@ -248,7 +248,7 @@ fb_setvt(int vtno)
 {
     struct vt_stat vts;
     char vtname[12];
-    
+
     if (vtno < 0) {
 	if (-1 == ioctl(tty,VT_OPENQRY, &vtno) || vtno == -1) {
 	    perror("ioctl VT_OPENQRY");
@@ -300,7 +300,7 @@ fb_setvt(int vtno)
 static int fb_activate_current(int tty)
 {
     struct vt_stat vts;
-    
+
     if (-1 == ioctl(tty,VT_GETSTATE, &vts)) {
 	perror("ioctl VT_GETSTATE");
 	return -1;
@@ -332,7 +332,7 @@ fb_init(char *device, char *mode, int vt)
 		strerror(errno));
 	exit(1);
     }
-    
+
     if (NULL == device) {
 	device = getenv("FRAMEBUFFER");
 	if (NULL == device) {
@@ -383,10 +383,10 @@ fb_init(char *device, char *mode, int vt)
 	exit(1);
     }
     tcgetattr(tty, &term);
-    
+
     /* switch mode */
     fb_setmode(mode);
-    
+
     /* checks & initialisation */
     if (-1 == ioctl(fb,FBIOGET_FSCREENINFO,&fb_fix)) {
 	perror("ioctl FBIOGET_FSCREENINFO");

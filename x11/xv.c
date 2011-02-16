@@ -438,13 +438,13 @@ void xv_video_init(unsigned int port, int hwscan)
 			(at[i].flags & XvGettable) ? " get" : "",
 			(at[i].flags & XvSettable) ? " set" : "",
 			at[i].min_value,at[i].max_value);
-            if (0 == strcmp("XV_ENCODING",at[i].name))
-                handle->xv_encoding = XV_ENCODING;
-            if (0 == strcmp("XV_FREQ",at[i].name))
-                handle->xv_freq     = XV_FREQ;
+	    if (0 == strcmp("XV_ENCODING",at[i].name))
+		handle->xv_encoding = XV_ENCODING;
+	    if (0 == strcmp("XV_FREQ",at[i].name))
+		handle->xv_freq     = XV_FREQ;
 #if 0
-            if (0 == strcmp("XV_COLORKEY",at[i].name))
-                handle->xv_colorkey = XV_COLORKEY;
+	    if (0 == strcmp("XV_COLORKEY",at[i].name))
+		handle->xv_colorkey = XV_COLORKEY;
 #endif
 	    xv_add_attr(handle, 0, 0, 0, NULL, at+i);
 	}

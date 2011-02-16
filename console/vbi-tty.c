@@ -33,10 +33,10 @@ int             saved_fl;
 static void tty_raw(void)
 {
     struct termios tattr;
-    
+
     fcntl(0,F_GETFL,&saved_fl);
     tcgetattr (0, &saved_attributes);
-    
+
     fcntl(0,F_SETFL,O_NONBLOCK);
     memcpy(&tattr,&saved_attributes,sizeof(struct termios));
     tattr.c_lflag &= ~(ICANON|ECHO);
@@ -140,7 +140,7 @@ vbi_render_page(struct vbi_tty *tty)
 				0,0,
 				tty->pg.columns, tty->pg.rows,
 				0,1);
-	
+
     } else {
 	len = vbi_export_txt(data,nl_langinfo(CODESET),25*41*8,
 			     &tty->pg,&vbi_fullrect,VBI_ANSICOLOR);
@@ -187,7 +187,7 @@ static void
 vbi_newdata(struct vbi_event *ev, void *user)
 {
     struct vbi_tty *tty = user;
-    
+
     switch (ev->type) {
     case VBI_EVENT_TTX_PAGE:
 	if (tty->pgno  == ev->ev.ttx_page.pgno &&

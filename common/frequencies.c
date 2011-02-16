@@ -122,7 +122,7 @@ static int freq_readlist(struct CHANLIST **list, int n, char *name)
 	    (*list)[n-1].freq = atoi(value);
 	    continue;
 	}
-	
+
 	/* Huh ? */
 	fprintf(stderr,"%s:%d: syntax error\n", filename, nr);
     }

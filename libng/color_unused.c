@@ -11,12 +11,12 @@ packed422_to_planar422(unsigned char *d, unsigned char *s, int p)
     y = d;
     u = y + p;
     v = u + p / 2;
-    
+
     while (--i) {
 	*(y++) = *(s++);
 	*(u++) = *(s++);
 	*(y++) = *(s++);
-        *(v++) = *(s++);
+	*(v++) = *(s++);
     }
     return p*2;
 }
@@ -30,7 +30,7 @@ packed422_to_planar420(unsigned char *d, unsigned char *s, int p)
 
     i = p/2;
     y = d;
-    
+
     while (--i) {
 	*(y++) = *(s++);
 	s++;

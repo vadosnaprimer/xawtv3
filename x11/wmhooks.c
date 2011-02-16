@@ -104,7 +104,7 @@ wm_check_capability(Display *dpy, Window root, Atom list, Atom wanted)
     unsigned long   *ldata;
     char            *name;
     int             retval = -1;
-    
+
     if (Success != XGetWindowProperty
 	(dpy, root, list, 0, (65536 / sizeof(long)), False,
 	 AnyPropertyType, &type, &format, &nitems, &bytesafter, &args))
@@ -137,7 +137,7 @@ wm_detect(Display *dpy)
 	if (debug)
 	    fprintf(stderr,"wmhooks: netwm state above\n");
 	wm_stay_on_top = netwm_stay_on_top;
-    } 
+    }
     if (NULL == wm_stay_on_top &&
 	0 == wm_check_capability(dpy,root,_NET_SUPPORTED,
 				 _NET_WM_STATE_STAYS_ON_TOP)) {

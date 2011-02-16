@@ -105,15 +105,15 @@ usage(char *name)
 	    "  -l log   write access log to file >log<      [%s]\n"
 	    "  -L log   same as above + flush every line\n"
 #if 0
-            "  -r       poll tv frequency and clear cache\n"
+	    "  -r       poll tv frequency and clear cache\n"
 	    "           on station changes                  [%s]\n"
 	    "  -a       use ascii art for block graphics    [%s]\n"
 #endif
 	    "",
 	    h ? h+1 : name,
 	    ng_dev.vbi,
- 	    debug     ?  "on" : "off",
- 	    dontdetach ?  "on" : "off",
+	    debug     ?  "on" : "off",
+	    dontdetach ?  "on" : "off",
 	    usesyslog ?  "on" : "off",
 	    timeout, max_conn,
 	    listen_port,
@@ -142,7 +142,7 @@ fix_ug(void)
 {
     struct passwd  *pw = NULL;
     struct group   *gr = NULL;
-    
+
     /* root is allowed to use any uid/gid,
      * others will get their real uid/gid */
     if (0 == getuid() && strlen(user) > 0) {
@@ -287,7 +287,7 @@ xerror(int loglevel, char *txt, char *peerhost)
 	    syslog(loglevel,"%s\n",txt);
 	else
 	    syslog(loglevel,"%s (peer=%s)\n",txt,peerhost);
-    }	
+    }
 }
 
 static void
@@ -550,7 +550,7 @@ main(int argc, char *argv[])
 	if (res->ai_canonname)
 	    strcpy(server_host,res->ai_canonname);
     }
-    
+
     /* parse options */
     v4 = 1; v6 = 1; simulate = 0;
     for (;;) {
@@ -587,9 +587,9 @@ main(int argc, char *argv[])
 	case 'r':
 	    cachereset++;
 	    break;
-        case 'N':
-            canonicalhost = 1;
-            /* fall through */
+	case 'N':
+	    canonicalhost = 1;
+	    /* fall through */
 	case 'n':
 	    strncpy(server_host,optarg,sizeof(server_host)-1);
 	    break;
@@ -658,7 +658,7 @@ main(int argc, char *argv[])
 		xperror(LOG_ERR,"socket (ipv6)",NULL);
 	}
     }
-    
+
     /* ... failing that try ipv4 */
     if (-1 == slisten  &&  v4) {
 	ask.ai_family = PF_INET;
@@ -692,11 +692,11 @@ main(int argc, char *argv[])
 
     if (-1 == bind(slisten, (struct sockaddr*) &ss, ss_len)) {
 	xperror(LOG_ERR,"bind",NULL);
-        exit(1);
+	exit(1);
     }
     if (-1 == listen(slisten, 2*max_conn)) {
 	xperror(LOG_ERR,"listen",NULL);
-        exit(1);
+	exit(1);
     }
 
     /* change user/group - also does chroot */
@@ -726,17 +726,17 @@ main(int argc, char *argv[])
 
     /* run as daemon - detach from terminal */
     if ((!debug) && (!dontdetach)) {
-        switch (fork()) {
-        case -1:
+	switch (fork()) {
+	case -1:
 	    xperror(LOG_ERR,"fork",NULL);
 	    exit(1);
-        case 0:
-            close(0); close(1); close(2); setsid();
+	case 0:
+	    close(0); close(1); close(2); setsid();
 	    have_tty = 0;
-            break;
-        default:
-            exit(0);
-        }
+	    break;
+	default:
+	    exit(0);
+	}
     }
     if (usesyslog) {
 	syslog_start();
@@ -758,7 +758,7 @@ main(int argc, char *argv[])
     /* go! */
     start = time(NULL);
     mainloop();
-    
+
     if (logfd)
 	fclose(logfd);
     if (debug)

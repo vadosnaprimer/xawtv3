@@ -201,7 +201,7 @@ static uint32_t avi_find_chunk(struct avi_handle *h, uint32_t id, off_t *pos)
 	    return 0;
     }
     for (;;) {
-        if (*pos >= h->movi[n].start + h->movi[n].size) {
+	if (*pos >= h->movi[n].start + h->movi[n].size) {
 	    n++;
 	    if (n >= h->movi_cnt)
 		return 0;
@@ -240,14 +240,14 @@ static void* avi_open(char *moviename)
     size = lseek(h->fd,0,SEEK_END);
     for (pos = 0; pos < size;)
 	pos += avi_parse_header(h,pos,0);
-    
+
     if (h->movi) {
 	h->a_pos = h->movi[0].start;
 	h->v_pos = h->movi[0].start;
     } else if (h->wave.start) {
 	h->a_pos = h->wave.start;
     }
-    
+
     /* audio stream ?? */
     if (FCCS(h->a_strh.type) == FCC('a','u','d','s') ||
 	FCCS(h->riff_type) == FCC('W','A','V','E')) {
@@ -295,7 +295,7 @@ static void* avi_open(char *moviename)
 	}
     }
     return h;
-    
+
  fail:
     if (-1 != h->fd)
 	close(h->fd);
@@ -403,7 +403,7 @@ struct ng_reader avi_reader = {
     magic:	{ "RIFF" },
     moff:       {  0     },
     mlen:       {  4     },
-    
+
     rd_open:    avi_open,
     rd_vfmt:    avi_vfmt,
     rd_afmt:    avi_afmt,

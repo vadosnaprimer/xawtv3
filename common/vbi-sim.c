@@ -97,7 +97,7 @@ wss625_sim(double t, double F, unsigned int bits)
 			return 0.0;
 		else if (n == 3)
 			return 1.0;
-		if ((n ^ i) & 1) 
+		if ((n ^ i) & 1)
 			ph = M_PI * 2 * (t - 1 / F) * F / 4;
 		else /* down */
 			ph = M_PI * 2 * (t - 0 / F) * F / 4;
@@ -129,7 +129,7 @@ wss525_sim(double t, double F, unsigned int bits)
 			return 0.0;
 		else if (n == 3)
 			return 1.0;
-		if ((n ^ i) & 1) 
+		if ((n ^ i) & 1)
 			ph = M_PI * 2 * (t - 0 / F) * F / 4;
 		else /* down */
 			ph = M_PI * 2 * (t - 1 / F) * F / 4;

@@ -307,7 +307,7 @@ struct struct_desc desc_video_mbuf[] = {{
 },{
 	.type   = SINT32,
 	.name   = "offsets",
-        /* FIXME len=32 */
+	/* FIXME len=32 */
 },{
 	/* end of list */
 }};

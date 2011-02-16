@@ -1,8 +1,8 @@
-/* 
+/*
     channel for Bt848 frame grabber driver
 
     Copyright (C) 1996,97 Marcus Metzler (mocm@thp.uni-koeln.de)
-              (c) 1998-2003 Gerd Knorr <kraxel@bytesex.org>
+	      (c) 1998-2003 Gerd Knorr <kraxel@bytesex.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@
 #include "event.h"
 
 /* ----------------------------------------------------------------------- */
-/* misc common stuff, not only channel related                             */ 
+/* misc common stuff, not only channel related                             */
 
 struct CHANNEL defaults = {
     name:     "defaults",
@@ -60,7 +60,7 @@ struct CHANNEL defaults = {
     hue:      -1,
     contrast: -1,
 };
-				
+
 struct CHANNEL  **channels  = NULL;
 int             count       = 0;
 int             alloc_count = 0;
@@ -137,7 +137,7 @@ int lookup_channel(char *channel)
     return i;
 #else
     int i;
-    
+
     if (NULL == channel)
 	return -1;
     for (i = 0; i < chancount; i++)
@@ -159,7 +159,7 @@ int get_freq(int i)
 int  cf2freq(char *name, int fine)
 {
     int i;
-    
+
     if (-1 == (i = lookup_channel(name)))
 	return -1;
     return get_freq(i)+fine;
@@ -203,9 +203,9 @@ add_channel(char *name)
 #ifndef NO_X11
 
 #define PANED_FIX               \
-        XtNallowResize, False,  \
-        XtNshowGrip,    False,  \
-        XtNskipAdjust,  True
+	XtNallowResize, False,  \
+	XtNshowGrip,    False,  \
+	XtNskipAdjust,  True
 
 void hotkey_channel(struct CHANNEL *channel)
 {
@@ -354,7 +354,7 @@ init_channel(char *name, struct CHANNEL *c)
 	    ng_attr_listchoices(attr);
 	}
     }
-    
+
     if (NULL != (val = cfg_get_str(name,"channel")))
 	c->cname   = strdup(val);
     if (NULL != (val = cfg_get_str(name,"freq")))
@@ -457,7 +457,7 @@ read_config(char *conffile, int *argc, char **argv)
 	    ng_ratio_x = ng_ratio_y = 0;
 	}
     }
-    
+
     if (-1 != (i = cfg_get_int("global","jpeg-quality")))
 	ng_jpeg_quality = i;
 
@@ -471,7 +471,7 @@ read_config(char *conffile, int *argc, char **argv)
 	if (-1 != (i = str_to_int(val,booltab)))
 	    use_osd = i;
     if (NULL != (val = cfg_get_str("global","osd-position")))
-        if (2 != sscanf(val,"%d , %d",&osd_x,&osd_y))
+	if (2 != sscanf(val,"%d , %d",&osd_x,&osd_y))
 	    fprintf(stderr,"invalid values for osd-position: %s\n",val);
     if (NULL != (val = cfg_get_str("global","use-wm-fullscreen")))
 	if (-1 != (i = str_to_int(val,booltab)))
@@ -609,9 +609,9 @@ save_config()
 	fprintf(fp,"mov-audio = %s\n",mov_audio);
     if (mov_rate)
 	fprintf(fp,"mov-rate = %s\n",mov_rate);
-    
+
     fprintf(fp,"\n");
-    
+
     if (nlaunch > 0) {
 	fprintf(fp,"[launch]\n");
 	for (i = 0; i < nlaunch; i++) {
@@ -678,7 +678,7 @@ save_config()
 	} else {
 	    fprintf(fp,"freq = %.2f\n",(float)(channels[i]->freq)/16);
 	}
-	
+
 	if ( channels[i]->norm != cur_attrs[ATTR_ID_NORM])
 	    fprintf(fp,"norm = %s\n",
 		    ng_attr_getstr(ng_attr_byid(attrs,ATTR_ID_NORM),
@@ -697,7 +697,7 @@ save_config()
 	if (channels[i]->capture != cur_capture)
 	    fprintf(fp,"capture = %s\n",
 		    int_to_str(channels[i]->capture,captab));
-	
+
 	attr = ng_attr_byid(attrs,ATTR_ID_COLOR);
 	if (attr && cur_attrs[ATTR_ID_COLOR] != channels[i]->color)
 	    fprintf(fp,"color = %d%%\n",
@@ -736,7 +736,7 @@ int
 str_to_int(char *str, struct STRTAB *tab)
 {
     int i;
-    
+
     if (str[0] >= '0' && str[0] <= '9')
 	return atoi(str);
     for (i = 0; tab[i].str != NULL; i++)
@@ -749,7 +749,7 @@ const char*
 int_to_str(int n, struct STRTAB *tab)
 {
     int i;
-    
+
     for (i = 0; tab[i].str != NULL; i++)
 	if (tab[i].nr == n)
 	    return tab[i].str;

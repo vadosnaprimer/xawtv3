@@ -36,7 +36,7 @@ int
 patch_up(char *name)
 {
     char *ptr;
-    
+
     for (ptr = name+strlen(name); ptr >= name; ptr--)
 	if (isdigit(*ptr))
 	    break;
@@ -59,23 +59,23 @@ snap_filename(char *base, char *channel, char *ext)
     static time_t last = 0;
     static int count = 0;
     static char *filename = NULL;
-    
+
     time_t now;
     struct tm* tm;
     char timestamp[32];
-    
+
     time(&now);
     tm = localtime(&now);
-    
+
     if (last != now)
 	count = 0;
     last = now;
     count++;
-    
+
     if (filename != NULL)
-	free(filename);	
+	free(filename);
     filename = malloc(strlen(base)+strlen(channel)+strlen(ext)+32);
-    
+
     strftime(timestamp,31,"%Y%m%d-%H%M%S",tm);
     sprintf(filename,"%s-%s-%s-%d.%s",
 	    base,channel,timestamp,count,ext);
@@ -108,7 +108,7 @@ static int do_write_jpeg(FILE *fp, struct ng_video_buf *buf,
     for (i = 0, line = buf->data; i < buf->fmt.height;
 	 i++, line += line_length)
 	jpeg_write_scanlines(&cinfo, &line, 1);
-    
+
     jpeg_finish_compress(&(cinfo));
     jpeg_destroy_compress(&(cinfo));
     fclose(fp);
@@ -133,7 +133,7 @@ int write_jpeg_fd(int fd, struct ng_video_buf *buf,
 		  int quality, int gray)
 {
     FILE *fp;
-    
+
     if (NULL == (fp = fdopen(fd,"w"))) {
 	fprintf(stderr,"grab: can't fdopen(%d): %s\n",fd,strerror(errno));
 	return -1;
@@ -145,7 +145,7 @@ int write_jpeg_fd(int fd, struct ng_video_buf *buf,
 int write_ppm(char *filename, struct ng_video_buf *buf)
 {
     FILE *fp;
-    
+
     if (NULL == (fp = fopen(filename,"w"))) {
 	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
 	return -1;
@@ -161,7 +161,7 @@ int write_ppm(char *filename, struct ng_video_buf *buf)
 int write_pgm(char *filename, struct ng_video_buf *buf)
 {
     FILE *fp;
-    
+
     if (NULL == (fp = fopen(filename,"w"))) {
 	fprintf(stderr,"grab: can't open %s: %s\n",filename,strerror(errno));
 	return -1;
@@ -200,7 +200,7 @@ typedef uint32_t  FOURCC;	/* a four character code */
 
 typedef struct CHUNKHDR {
     FOURCC ckid;		/* chunk ID */
-    DWORD dwSize; 	        /* chunk size */
+    DWORD dwSize; 		/* chunk size */
 } CHUNKHDR;
 
 /* simplified Header for standard WAV files */
@@ -337,7 +337,7 @@ files_video(void *handle, struct ng_video_buf *buf)
 	fprintf(stderr,"Oops: can't count up file names any more\n");
 	return -1;
     }
-    
+
     switch (h->video.fmtid) {
     case VIDEO_RGB24:
 	rc = write_ppm(h->file, buf);
@@ -413,7 +413,7 @@ raw_open(char *videoname, char *audioname,
     int frame_rate_code = 0;
     int frame_rate_mul  = fps;
     int frame_rate_div  = 1000;
-    
+
     if (NULL == (h = malloc(sizeof(*h))))
 	return NULL;
 
@@ -439,15 +439,15 @@ raw_open(char *videoname, char *audioname,
 	if (h->vpriv && h->vpriv->yuv4mpeg) {
 	    switch (fps) {
 	    case 23976:  frame_rate_code = 1;          /* 24000 / 1001 */
-		         frame_rate_mul  = 24000;
+			 frame_rate_mul  = 24000;
 			 frame_rate_div  = 1001;
 			 break;
 	    case 29970:  frame_rate_code = 4;          /* 30000 / 1001 */
-		         frame_rate_mul  = 30000;
-		         frame_rate_div  = 1001;
+			 frame_rate_mul  = 30000;
+			 frame_rate_div  = 1001;
 			 break;
 	    case 59940:  frame_rate_code = 7;          /* 60000 / 1001 */
-		         frame_rate_mul  = 60000;
+			 frame_rate_mul  = 60000;
 			 frame_rate_div  = 1001;
 			 break;
 	    case 24000:  frame_rate_code = 2; break;
@@ -481,7 +481,7 @@ raw_open(char *videoname, char *audioname,
 			h->video.width, h->video.height,frame_rate_code);
 		break;
 	    case 2:
-	    	sprintf(header, "YUV4MPEG2 W%d H%d F%d:%d\n",
+		sprintf(header, "YUV4MPEG2 W%d H%d F%d:%d\n",
 			h->video.width, h->video.height,
 			frame_rate_mul, frame_rate_div);
 		break;
@@ -498,15 +498,15 @@ raw_video(void *handle, struct ng_video_buf *buf)
 {
     struct raw_handle *h = handle;
 
-    if (h->vpriv && h->vpriv->yuv4mpeg) 
+    if (h->vpriv && h->vpriv->yuv4mpeg)
 	switch (h->vpriv->yuv4mpeg) {
 	case 1:
 	   if (6 != write(h->fd, "FRAME\n", 6))
-	   	return -1;
+		return -1;
 	   break;
 	case 2:
 	   if (7 != write(h->fd, "FRAME \n", 7))
-	   	return -1;
+		return -1;
 	   break;
 	}
 

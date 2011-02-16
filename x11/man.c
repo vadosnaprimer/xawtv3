@@ -62,7 +62,7 @@ man(char *page)
     XtManageChild(view);
     label = XtVaCreateManagedWidget("label", xmLabelWidgetClass,view, NULL);
     XtManageChild(dlg);
-    
+
     /* fetch page and render into XmString */
     sprintf(line,"man %s 2>/dev/null",page);
     fp = popen(line,"r");
@@ -78,7 +78,7 @@ man(char *page)
 		cur = MAN_UNDERLINE;
 	    /* add chunk if completed */
 	    if (MAN_UNDEF != last  &&  cur != last) {
-	        xmchunk = XmStringGenerate(chunk,NULL,XmMULTIBYTE_TEXT,
+		xmchunk = XmStringGenerate(chunk,NULL,XmMULTIBYTE_TEXT,
 					   man_tags[last]);
 		xmpage  = XmStringConcatAndFree(xmpage,xmchunk);
 		d = 0;

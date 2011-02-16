@@ -2,13 +2,13 @@
 <screensaver name="rootv" _label="rootv">
  <command arg="-root"/>
  <boolean id="mute"
-          _label="unmute/mute on start/stop"
-          arg-unset="-no-mute"
-          />
+	  _label="unmute/mute on start/stop"
+	  arg-unset="-no-mute"
+	  />
  <string id="station"
-         _label="TV station"
-         arg="-station %"
-         />
+	 _label="TV station"
+	 arg="-station %"
+	 />
  <_description>
   This hack displays some TV station using
   the Xvideo extention.  Use CNN or MTV as

@@ -65,7 +65,7 @@ yuv422_to_gray(unsigned char* restrict dest, unsigned char* restrict s,
 	       int p)
 {
     unsigned char* restrict d = dest;
-    
+
     while (p) {
 	d[0] = GRAY(s[0]);
 	p--;
@@ -80,7 +80,7 @@ yuv422_to_rgb24(unsigned char* restrict dest, unsigned char* restrict s,
 {
     unsigned char* restrict d = dest;
     int gray;
-    
+
     while (p) {
 	gray = GRAY(s[0]);
 	d[0] = RED(gray,s[3]);
@@ -102,7 +102,7 @@ ng_yuv422_to_lut2(unsigned char* restrict dest, unsigned char* restrict s,
 {
     unsigned short* restrict d = (unsigned short*)dest;
     int gray;
-    
+
     while (p) {
 	gray   = GRAY(s[0]);
 	*(d++) =
@@ -125,7 +125,7 @@ ng_yuv422_to_lut4(unsigned char* restrict dest, unsigned char* restrict s,
 {
     unsigned int* restrict d = (unsigned int*)dest;
     int gray;
-    
+
     while (p) {
 	gray   = GRAY(s[0]);
 	*(d++) =
@@ -179,7 +179,7 @@ yuv420p_to_rgb24(void *h, struct ng_video_buf *out, struct ng_video_buf *in)
     y  = in->data;
     u  = y + in->fmt.width * in->fmt.height;
     v  = u + in->fmt.width * in->fmt.height / 4;
-    
+
     for (i = 0; i < in->fmt.height; i++) {
 	d = dp;
 	us = u; vs = v;
@@ -425,21 +425,21 @@ static const int nconv = sizeof(conv_list)/sizeof(struct ng_video_conv);
 void ng_color_yuv2rgb_init(void)
 {
     int i;
-    
+
     /* init Lookup tables */
     for (i = 0; i < 256; i++) {
-        ng_yuv_gray[i] = i * LUN_MUL >> 8;
-        ng_yuv_red[i]  = (RED_ADD    + i * RED_MUL)    >> 8;
-        ng_yuv_blue[i] = (BLUE_ADD   + i * BLUE_MUL)   >> 8;
-        ng_yuv_g1[i]   = (GREEN1_ADD + i * GREEN1_MUL) >> 8;
-        ng_yuv_g2[i]   = (GREEN2_ADD + i * GREEN2_MUL) >> 8;
+	ng_yuv_gray[i] = i * LUN_MUL >> 8;
+	ng_yuv_red[i]  = (RED_ADD    + i * RED_MUL)    >> 8;
+	ng_yuv_blue[i] = (BLUE_ADD   + i * BLUE_MUL)   >> 8;
+	ng_yuv_g1[i]   = (GREEN1_ADD + i * GREEN1_MUL) >> 8;
+	ng_yuv_g2[i]   = (GREEN2_ADD + i * GREEN2_MUL) >> 8;
     }
     for (i = 0; i < CLIP; i++)
-        ng_clip[i] = 0;
+	ng_clip[i] = 0;
     for (; i < CLIP + 256; i++)
-        ng_clip[i] = i - CLIP;
+	ng_clip[i] = i - CLIP;
     for (; i < 2 * CLIP + 256; i++)
-        ng_clip[i] = 255;
+	ng_clip[i] = 255;
 
     /* register stuff */
     ng_conv_register(NG_PLUGIN_MAGIC,"built-in",conv_list,nconv);
