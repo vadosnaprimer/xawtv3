@@ -1,3 +1,23 @@
+3.99.rc6
+========
+
+* Check the return value properly in debug print as well
+* fbtools: close file properly
+* use "dev/vbi0" instead of "dev/vbi" etc
+* MoTV: avoid some warnings when "motv" starts
+* Use modern fonts for MoTV and mtt
+* motif locale patch: use UTF-8 for charsets
+* Whitespace cleanups
+* Add an option on apps to select between libv4l and v4l2 driver
+* Add other XV attributes found on bttv + nv driver
+* Fix a small bug at the V4L2_CID_USER_BASE get ctrl logic
+* v4l-conf.c: Don't abend if VT_GETSTATE is not supported
+* v4l-info: Add support for V4L2_CID_USER_BASE
+* Check the return value for XF86DGAGetVideoLL()
+* Remove the remaining requirements for libFS
+* Remove a Fedora-specific comment
+* Fix xawtv DGA mode
+
 3.99.rc5
 ========
 
