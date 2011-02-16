@@ -30,8 +30,10 @@ MoTV.vtx.label.renderTable.fontName: \
 MoTV.geometry:			320x240+50+50
 MoTV.winGravity:		Static
 
-MoTV.translations:		#override			\n\
-	<PropertyNotify>:	Remote()
+!  This is commented out to avoid warnings
+!  (seems not working now, as of 20110216)
+!MoTV.translations:		#override			\n\
+!	<PropertyNotify>:	Remote()
 
 MoTV.tv.traversalOn:		false
 MoTV.tv.highlightThickness:	0
