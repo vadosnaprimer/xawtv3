@@ -174,7 +174,7 @@ fb_setmode(char *name)
 {
     FILE *fp;
     char line[80],label[32],value[16];
-    int  geometry=0, timings=0;
+    int  geometry=0, timings=0, err=-1;
 
     /* load current values */
     if (-1 == ioctl(fb,FBIOGET_VSCREENINFO,&fb_var)) {
@@ -226,7 +226,7 @@ fb_setmode(char *name)
 	    }
 	    /* ok ? */
 	    if (!geometry || !timings)
-		return -1;
+		goto out;
 	    /* set */
 	    fb_var.xoffset = 0;
 	    fb_var.yoffset = 0;
@@ -237,10 +237,14 @@ fb_setmode(char *name)
 		perror("ioctl FBIOGET_VSCREENINFO");
 		exit(1);
 	    }
-	    return 0;
+	    err = 0;
+	    goto out;
 	}
     }
-    return -1;
+
+out:
+    fclose(fp);
+    return err;
 }
 
 static void
