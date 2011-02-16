@@ -586,7 +586,7 @@ static unsigned long getColor(char *colorName, float dim)
 
 int main(int argc,char **argv)
 {
-   char *vbifile = "/dev/vbi";
+   char *vbifile = "/dev/vbi0";
    unsigned char buf[65536];
    int arg;
    int args=0;
@@ -612,7 +612,7 @@ int main(int argc,char **argv)
 				  "\tw \t open debugging window (used with -r option)\n"
 				  "\tR \t semi-raw data (used with -r option)\n"
 				  "\tr #\t raw dump of data (use 11 or 27 as line number)\n"
-				  "\td dev \t file to open (default: /dev/vbi)\n"
+				  "\td dev \t file to open (default: /dev/vbi0)\n"
 				  );
 			   exit(0);
 		   case 'x':

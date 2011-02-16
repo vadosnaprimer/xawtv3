@@ -73,7 +73,7 @@ XtResource args_desc[] = {
 	"device",
 	XtCString, XtRString, sizeof(char*),
 	XtOffset(struct ARGS*,device),
-	XtRString, "/dev/vbi",
+	XtRString, "/dev/vbi0",
     },{
 	/* Integer */
 	"help",
@@ -138,7 +138,7 @@ static void usage(void)
 	    "options:\n"
 	    "  -help         print this text\n"
 	    "  -debug        enable debug messages\n"
-	    "  -device <dev> use vbi device <dev> instead of /dev/vbi\n"
+	    "  -device <dev> use vbi device <dev> instead of /dev/vbi0\n"
 	    "  -tty          use terminal mode\n"
 	    "\n"
 	    "--\n"
@@ -153,7 +153,7 @@ static void vbi_data(XtPointer data, int *fd, XtInputId *iproc)
 
 static int main_tty(int argc, char **argv)
 {
-    char *dev = "/dev/vbi";
+    char *dev = "/dev/vbi0";
     int debug = 0;
     int sim   = 0;
 

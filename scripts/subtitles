@@ -7,7 +7,7 @@
 # config
 cc_tty=0
 charset="latin-1"
-device="/dev/vbi"
+device="/dev/vbi0"
 
 ##########################################################################
 # helpers
