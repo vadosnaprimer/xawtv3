@@ -149,25 +149,15 @@ static int dump_v4l2(int fd, int tab)
 	}
 
 	printf("controls\n");
-	for (i = 0;; i++) {
+	for (i = 0; i < V4L2_CID_LASTP1 - V4L2_CID_USER_BASE; i++) {
 		memset(&qctrl,0,sizeof(qctrl));
 		qctrl.id = V4L2_CID_BASE+i;
 		if (-1 == ioctl(fd,VIDIOC_QUERYCTRL,&qctrl))
-			break;
+			continue;
 		if (qctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 			continue;
 		printf("    VIDIOC_QUERYCTRL(BASE+%d)\n",i);
 		print_struct(stdout,desc_v4l2_queryctrl,&qctrl,"",tab);
-	}
-	for (; i < V4L2_CID_LASTP1 - V4L2_CID_USER_BASE; i++) {
-		memset(&qctrl,0,sizeof(qctrl));
-		qctrl.id = i + V4L2_CID_USER_BASE;
-		if (-1 == ioctl(fd,VIDIOC_QUERYCTRL,&qctrl))
-			break;
-		if (qctrl.flags & V4L2_CTRL_FLAG_DISABLED)
-			continue;
-		printf("    VIDIOC_QUERYCTRL(USER_BASE+%d)\n", i);
-		print_struct(stdout,desc_v4l2_queryctrl,&qctrl, "", tab);
 	}
 
 	for (i = 0;; i++) {
