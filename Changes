@@ -1,3 +1,9 @@
+3.100
+=====
+
+* Update to the latest version of videodev2.h (kernel 2.6.38)
+* console/v4l-info: Fix control detection
+
 3.99.rc6
 ========
 
