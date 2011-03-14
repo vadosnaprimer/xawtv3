@@ -139,12 +139,15 @@ L'options habituelles de l'environnement comme \fB-geometry\fP
 sont aussi supportées.
 .SH MATÉRIEL SUPPORTÉ / INTERFACES
 .TP
-.B v4l
-video4linux - \fBla\fP API linux de capture video.
-.TP
 .B v4l2
-video4linux deux - une nouvelle interface de capture video améliorée
-au niveau des bogues de conceptionde V4l.
+video4linux deux - modernes de capture vidéo standard linux API.
+.TP
+.B libv4l
+travail grâce à la bibliothèque libv4l, qui fournit une couche mince
+supplémentaire sur le dessus de video4linux2 les appareils d'appui d'une large
+gamme de formats plus périphériques "pixel (souvent nécessaire
+pour les webcams, etc).
+Il est l'interface par défaut sur les systèmes Linux.
 .TP
 .B bktr
 Pilote pour FreeBSD / OpenBSD des cartes d'acquisition bt848/878.

@@ -142,12 +142,14 @@ Resource: xawtv.parallel (int).
 The usual toolkit options like \fB-geometry\fP are supported too.
 .SH SUPPORTED HARDWARE / INTERFACES
 .TP
-.B v4l
-video4linux - \fBthe\fP linux video capture API.
-.TP
 .B v4l2
-video4linux two - new, improved capture interface which fixes a number
-of v4l design bugs.
+video4linux two - modern standard linux video capture API
+.TP
+.B libv4l
+work through the libv4l library, which provides an additional thin layer
+on top of video4linux2 devices for support of more wide range
+of devices' pixel formats (often required for webcams etc.)
+It is default for Xawtv on Linux systems.
 .TP
 .B bktr
 FreeBSD / OpenBSD driver for bt848/878 grabber cards.

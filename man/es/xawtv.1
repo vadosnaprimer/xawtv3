@@ -130,12 +130,15 @@ Recurso: xawtv.parallel (int).
 Se soportan también las opciones habituales del toolkit como \fB-geometry\fP.
 .SH HARDWARE / INTERFACES SOPORTADOS
 .TP
-.B v4l
-video4linux - \fBel\fP API de captura de video de linux.
-.TP
 .B v4l2
-video4linux dos - el nuevo y mejorado interfaz de captura que corrige un
-número de errores de diseño del v4l.
+video4linux dos - moderna Linux estándar de captura de vídeo API.
+.TP
+.B libv4l
+trabajo a través de la biblioteca libv4l, que proporciona una fina capa
+adicional en la parte superior de Video4Linux2 dispositivos de apoyo a la más
+amplia gama de formatos de dispositivos 'pixel (a menudo necesaria para
+cámaras web, etc).
+Es la interfaz por defecto en sistemas Linux.
 .TP
 .B bktr
 Driver para tarjetas bt848/878 para FreeBSD / OpenBSD.
