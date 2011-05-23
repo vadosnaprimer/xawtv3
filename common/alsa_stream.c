@@ -23,6 +23,10 @@
  *
  */
 
+#include "config.h"
+
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +37,7 @@
 #include <alsa/asoundlib.h>
 #include <sys/time.h>
 #include <math.h>
+#include "alsa_stream.h"
 
 /* Private vars to control alsa thread status */
 static int alsa_is_running = 0;
@@ -482,6 +487,12 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice)
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
 
+    if (alsa_is_running) {
+       stop_alsa = 1;
+       while ((volatile int)alsa_is_running)
+	       usleep(10);
+    }
+
     stop_alsa = 0;
 
     ret = pthread_create(&thread, NULL,
@@ -499,13 +510,4 @@ int alsa_thread_is_running(void)
 	return alsa_is_running;
 }
 
-
-#ifdef TVTIME_ALSA_DEBUGGING
-/* This allows the alsa_stream.c to be a standalone binary for debugging */
- int main(int argc, char *argv[])
-{
-    char *pdevice = "hw:0,0";
-    char *cdevice = "hw:1,0";
-    alsa_stream(pdevice, cdevice);
-}
 #endif

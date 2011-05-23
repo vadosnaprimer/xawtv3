@@ -36,6 +36,7 @@ x11/xawtv: \
 	jwz/remote.o \
 	common/channel.o \
 	common/vbi-data.o \
+	$(OBJS-common-alsa) \
 	$(OBJS-common-input) \
 	$(OBJS-common-capture)
 
@@ -55,6 +56,7 @@ x11/motv: \
 	common/RegEdit.o \
 	common/channel-no-x11.o \
 	common/vbi-data.o \
+	$(OBJS-common-alsa) \
 	$(OBJS-common-input) \
 	$(OBJS-common-capture)
 
@@ -98,10 +100,10 @@ x11/propwatch:    x11/propwatch.o
 # libraries to link
 x11/xawtv        : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
+	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) $(V4L2UTIL_LIBS) -ljpeg -lm
 x11/motv         : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
+	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) $(V4L2UTIL_LIBS) -ljpeg -lm
 x11/mtt          : LDLIBS  += $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS) -ljpeg
 x11/v4lctl       : LDLIBS  += $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
 x11/pia          : LDLIBS  += $(ATHENA_LIBS) $(GL_LIBS) -ljpeg -lm
