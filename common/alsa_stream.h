@@ -1,1 +1,1 @@
-int tvtime_alsa_thread_startup(char *pdevice, char *cdevice);
+int alsa_thread_startup(char *pdevice, char *cdevice);

@@ -2,7 +2,7 @@
  *  tvtime ALSA device support
  *
  *  Copyright (c) by Devin Heitmueller <dheitmueller@kernellabs.com>
- * 
+ *
  *  Derived from the alsa-driver test tool latency.c:
  *    Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
@@ -43,12 +43,12 @@ struct final_params {
     int channels;
 };
 
-int setparams_stream(snd_pcm_t *handle,
-		     snd_pcm_hw_params_t *params,
-		     snd_pcm_format_t format,
-		     int channels,
-		     int rate,
-		     const char *id)
+static int setparams_stream(snd_pcm_t *handle,
+			    snd_pcm_hw_params_t *params,
+			    snd_pcm_format_t format,
+			    int channels,
+			    int rate,
+			    const char *id)
 {
     int err;
     unsigned int rrate;
@@ -66,14 +66,14 @@ int setparams_stream(snd_pcm_t *handle,
     err = snd_pcm_hw_params_set_access(handle, params,
 				       SND_PCM_ACCESS_RW_INTERLEAVED);
     if (err < 0) {
-	printf("Access type not available for %s: %s\n", id, 
+	printf("Access type not available for %s: %s\n", id,
 	       snd_strerror(err));
 	return err;
     }
 
     err = snd_pcm_hw_params_set_format(handle, params, format);
     if (err < 0) {
-	printf("Sample format not available for %s: %s\n", id, 
+	printf("Sample format not available for %s: %s\n", id,
 	       snd_strerror(err));
 	return err;
     }
@@ -129,10 +129,10 @@ int setparams_bufsize(snd_pcm_t *handle,
     return 0;
 }
 
-int setparams_set(snd_pcm_t *handle,
-		  snd_pcm_hw_params_t *params,
-		  snd_pcm_sw_params_t *swparams,
-		  const char *id)
+static int setparams_set(snd_pcm_t *handle,
+			 snd_pcm_hw_params_t *params,
+			 snd_pcm_sw_params_t *swparams,
+			 const char *id)
 {
     int err;
 
@@ -181,7 +181,7 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     snd_pcm_sw_params_t *p_swparams, *c_swparams;
     snd_pcm_uframes_t p_size, c_size, p_psize, c_psize;
     unsigned int p_time, c_time;
-    
+
     snd_pcm_hw_params_alloca(&p_params);
     snd_pcm_hw_params_alloca(&c_params);
     snd_pcm_hw_params_alloca(&pt_params);
@@ -258,7 +258,7 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     printf("final config\n");
     snd_pcm_dump_setup(phandle, output);
     snd_pcm_dump_setup(chandle, output);
-    printf("Parameters are %iHz, %s, %i channels\n", rate, 
+    printf("Parameters are %iHz, %s, %i channels\n", rate,
 	   snd_pcm_format_name(format), channels);
     fflush(stdout);
 #endif
@@ -270,7 +270,7 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     return 0;
 }
 
-void setscheduler(void)
+static void setscheduler(void)
 {
     struct sched_param sched_param;
 
@@ -287,8 +287,8 @@ void setscheduler(void)
     printf("!!!Scheduler set to Round Robin with priority %i FAILED!!!\n", sched_param.sched_priority);
 }
 
-snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
-			  size_t *frames, size_t *max)
+static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
+				 size_t *frames, size_t *max)
 {
     snd_pcm_sframes_t r;
 
@@ -306,8 +306,8 @@ snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
     return r;
 }
 
-snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
-			   size_t *frames)
+static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
+				  size_t *frames)
 {
     snd_pcm_sframes_t r;
 
@@ -352,7 +352,7 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
     return 0;
 }
 
-int tvtime_alsa_stream(const char *pdevice, const char *cdevice)
+static int alsa_stream(const char *pdevice, const char *cdevice)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -370,20 +370,20 @@ int tvtime_alsa_stream(const char *pdevice, const char *cdevice)
     }
 
 //    setscheduler();
- 
+
     printf("Playback device is %s\n", pdevice);
     printf("Capture device is %s\n", cdevice);
 
     /* Open the devices */
     if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
 			    SND_PCM_NONBLOCK)) < 0) {
-	printf("Cannot open ALSA Playback device %s: %s\n", pdevice, 
+	printf("Cannot open ALSA Playback device %s: %s\n", pdevice,
 	       snd_strerror(err));
 	return 0;
     }
     if ((err = snd_pcm_open(&chandle, cdevice, SND_PCM_STREAM_CAPTURE,
 			    SND_PCM_NONBLOCK)) < 0) {
-	printf("Cannot open ALSA Capture device %s: %s\n", 
+	printf("Cannot open ALSA Capture device %s: %s\n",
 	       cdevice, snd_strerror(err));
 	return 0;
     }
@@ -406,10 +406,10 @@ int tvtime_alsa_stream(const char *pdevice, const char *cdevice)
 	return 1;
     }
 
-    startup_capture(phandle, chandle, format, buffer, negotiated.latency, 
+    startup_capture(phandle, chandle, format, buffer, negotiated.latency,
 		    negotiated.channels);
 
-    while (1) { 			  
+    while (1) {
 	in_max = 0;
 
 	/* use poll to wait for next event */
@@ -460,13 +460,17 @@ struct input_params {
     const char *cdevice;
 };
 
-void *tvtime_alsa_thread_entry(void *whatever)
+static void *alsa_thread_entry(void *whatever)
 {
     struct input_params *inputs = (struct input_params *) whatever;
-    tvtime_alsa_stream(inputs->pdevice, inputs->cdevice);
+    alsa_stream(inputs->pdevice, inputs->cdevice);
 }
 
-int tvtime_alsa_thread_startup(const char *pdevice, const char *cdevice)
+/*************************************************************************
+ Public functions
+ *************************************************************************/
+
+int alsa_thread_startup(const char *pdevice, const char *cdevice)
 {
     int ret;
     pthread_t thread;
@@ -487,7 +491,7 @@ int tvtime_alsa_thread_startup(const char *pdevice, const char *cdevice)
     inputs->cdevice = strdup(cdevice);
 
     ret = pthread_create(&thread, NULL,
-			 &tvtime_alsa_thread_entry, (void *) inputs);
+			 &alsa_thread_entry, (void *) inputs);
     return ret;
 }
 
@@ -497,6 +501,6 @@ int tvtime_alsa_thread_startup(const char *pdevice, const char *cdevice)
 {
     char *pdevice = "hw:0,0";
     char *cdevice = "hw:1,0";
-    tvtime_alsa_stream(pdevice, cdevice);
+    alsa_stream(pdevice, cdevice);
 }
 #endif
