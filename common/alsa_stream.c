@@ -34,6 +34,10 @@
 #include <sys/time.h>
 #include <math.h>
 
+/* Private vars to control alsa thread status */
+static int alsa_is_running = 0;
+static int stop_alsa = 0;
+
 snd_output_t *output = NULL;
 
 struct final_params {
@@ -406,10 +410,11 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
 	return 1;
     }
 
+    alsa_is_running = 1;
     startup_capture(phandle, chandle, format, buffer, negotiated.latency,
 		    negotiated.channels);
 
-    while (1) {
+    while (!stop_alsa) {
 	in_max = 0;
 
 	/* use poll to wait for next event */
@@ -452,6 +457,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
 
     snd_pcm_close(phandle);
     snd_pcm_close(chandle);
+
+    alsa_is_running = 0;
     return 0;
 }
 
@@ -490,10 +497,23 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice)
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
 
+    stop_alsa = 0;
+
     ret = pthread_create(&thread, NULL,
 			 &alsa_thread_entry, (void *) inputs);
     return ret;
 }
+
+void alsa_thread_stop(void)
+{
+	stop_alsa = 1;
+}
+
+int alsa_thread_is_running(void)
+{
+	return alsa_is_running;
+}
+
 
 #ifdef TVTIME_ALSA_DEBUGGING
 /* This allows the alsa_stream.c to be a standalone binary for debugging */
