@@ -274,23 +274,6 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     return 0;
 }
 
-static void setscheduler(void)
-{
-    struct sched_param sched_param;
-
-    if (sched_getparam(0, &sched_param) < 0) {
-	printf("Scheduler getparam failed...\n");
-	return;
-    }
-    sched_param.sched_priority = sched_get_priority_max(SCHED_RR);
-    if (!sched_setscheduler(0, SCHED_RR, &sched_param)) {
-	printf("Scheduler set to Round Robin with priority %i...\n", sched_param.sched_priority);
-	fflush(stdout);
-	return;
-    }
-    printf("!!!Scheduler set to Round Robin with priority %i FAILED!!!\n", sched_param.sched_priority);
-}
-
 static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
 				 size_t *frames, size_t *max)
 {
@@ -471,6 +454,8 @@ static void *alsa_thread_entry(void *whatever)
 {
     struct input_params *inputs = (struct input_params *) whatever;
     alsa_stream(inputs->pdevice, inputs->cdevice);
+
+    return whatever;
 }
 
 /*************************************************************************
