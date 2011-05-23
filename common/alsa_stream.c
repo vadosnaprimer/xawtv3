@@ -458,7 +458,10 @@ struct input_params {
 static void *alsa_thread_entry(void *whatever)
 {
     struct input_params *inputs = (struct input_params *) whatever;
+
+    printf("Starting copying alsa stream from %s to %s\n", inputs->cdevice, inputs->pdevice);
     alsa_stream(inputs->pdevice, inputs->cdevice);
+    printf("Alsa stream stopped\n");
 
     return whatever;
 }

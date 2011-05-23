@@ -1383,7 +1383,7 @@ grabber_init()
 #if defined(HAVE_V4L2UTIL) && defined(HAVE_ALSA)
     struct media_devices *md;
     unsigned int size = 0;
-    char *alsa_cap, *alsa_out;
+    char *alsa_cap, *alsa_out, *p;
 #endif
 
     memset(&screen,0,sizeof(screen));
@@ -1428,11 +1428,17 @@ grabber_init()
 
 #if defined(HAVE_V4L2UTIL) && defined(HAVE_ALSA)
     /* Start audio capture thread */
-    md = discover_media_devices (&size);
-    alsa_cap = get_first_alsa_cap_device(md, size, args.device);
+    md = discover_media_devices(&size);
+    p = strrchr(args.device, '/');
+    if (!p)
+	p = args.device;
+    alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
     alsa_out = get_first_no_video_out_device(md, size);
+
+    printf("Alsa devices: cap: %s (%s), out: %s\n", alsa_cap, args.device, alsa_out);
+
     if (alsa_cap && alsa_out)
-        alsa_thread_startup(alsa_cap, alsa_out);
+        alsa_thread_startup(alsa_out, alsa_cap);
     free_media_devices(md, size);
 #endif
 }
