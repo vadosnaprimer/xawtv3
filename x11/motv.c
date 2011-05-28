@@ -43,6 +43,7 @@
 #include <Xm/TransferP.h>
 #include <Xm/DragIcon.h>
 #include <X11/extensions/XShm.h>
+#include <X11/Xmu/Editres.h>
 
 #include "grab-ng.h"
 #include "channel.h"
@@ -55,7 +56,6 @@
 #include "xt.h"
 #include "xv.h"
 #include "man.h"
-#include "RegEdit.h"
 #include "icons.h"
 #include "sound.h"
 #include "complete.h"
@@ -814,7 +814,8 @@ create_prop(void)
     Widget label,rowcol;
 
     prop_dlg = XmCreatePromptDialog(control_shell,"prop",NULL,0);
-    XmdRegisterEditres(XtParent(prop_dlg));
+    XtAddEventHandler(XtParent(prop_dlg), (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XtUnmanageChild(XmSelectionBoxGetChild(prop_dlg,XmDIALOG_SELECTION_LABEL));
     XtUnmanageChild(XmSelectionBoxGetChild(prop_dlg,XmDIALOG_HELP_BUTTON));
     XtUnmanageChild(XmSelectionBoxGetChild(prop_dlg,XmDIALOG_TEXT));
@@ -946,7 +947,8 @@ create_filter_prop(void)
 				      XtNdepth,vinfo.depth,
 				      XmNdeleteResponse,XmDO_NOTHING,
 				      NULL);
-    XmdRegisterEditres(filter_shell);
+    XtAddEventHandler(filter_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(filter_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,filter_shell);
 
@@ -1245,7 +1247,8 @@ create_control(void)
 				       XtNdepth,vinfo.depth,
 				       XmNdeleteResponse,XmDO_NOTHING,
 				       NULL);
-    XmdRegisterEditres(control_shell);
+    XtAddEventHandler(control_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(control_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,control_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, control_shell,
@@ -1610,7 +1613,8 @@ create_scale(void)
 				     XtNdepth,vinfo.depth,
 				     XmNdeleteResponse,XmDO_NOTHING,
 				     NULL);
-    XmdRegisterEditres(scale_shell);
+    XtAddEventHandler(scale_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(scale_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,scale_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, scale_shell,
@@ -1835,7 +1839,8 @@ create_strwin(void)
 				   XtNdepth,vinfo.depth,
 				   XmNdeleteResponse,XmDO_NOTHING,
 				   NULL);
-    XmdRegisterEditres(str_shell);
+    XtAddEventHandler(str_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(str_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,str_shell);
     form = XtVaCreateManagedWidget("form", xmFormWidgetClass, str_shell,
@@ -2303,7 +2308,8 @@ chscan_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     Widget rc;
 
     chdlg = XmCreatePromptDialog(control_shell,"chscan",NULL,0);
-    XmdRegisterEditres(XtParent(chdlg));
+    XtAddEventHandler(XtParent(chdlg), (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_SELECTION_LABEL));
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_HELP_BUTTON));
     XtUnmanageChild(XmSelectionBoxGetChild(chdlg,XmDIALOG_TEXT));
@@ -2549,7 +2555,8 @@ create_pref(void)
     Arg args[2];
 
     pref_dlg = XmCreatePromptDialog(control_shell,"pref",NULL,0);
-    XmdRegisterEditres(XtParent(pref_dlg));
+    XtAddEventHandler(XtParent(pref_dlg), (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XtUnmanageChild(XmSelectionBoxGetChild(pref_dlg,XmDIALOG_SELECTION_LABEL));
     XtUnmanageChild(XmSelectionBoxGetChild(pref_dlg,XmDIALOG_HELP_BUTTON));
     XtManageChild(XmSelectionBoxGetChild(pref_dlg,XmDIALOG_APPLY_BUTTON));
@@ -3148,7 +3155,8 @@ create_levels(void)
 				      XtNdepth,vinfo.depth,
 				      XmNdeleteResponse,XmDO_NOTHING,
 				      NULL);
-    XmdRegisterEditres(levels_shell);
+    XtAddEventHandler(levels_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(levels_shell,WM_DELETE_WINDOW,
 			    popupdown_cb,levels_shell);
     rc = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, levels_shell,
@@ -3258,7 +3266,8 @@ main(int argc, char *argv[])
 				  &argc, argv,
 				  fallback_ressources,
 				  NULL);
-    XmdRegisterEditres(app_shell);
+    XtAddEventHandler(app_shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     dpy = XtDisplay(app_shell);
     x11_icons_init(dpy,0);
     init_atoms(dpy);

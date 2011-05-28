@@ -23,6 +23,7 @@
 #include <X11/Xatom.h>
 #include <X11/Intrinsic.h>
 #include <X11/keysym.h>
+#include <X11/Xmu/Editres.h>
 #include <Xm/Xm.h>
 #include <Xm/Form.h>
 #include <Xm/Label.h>
@@ -37,7 +38,6 @@
 #include <Xm/DragIcon.h>
 #include <Xm/FileSB.h>
 
-#include "RegEdit.h"
 #include "atoms.h"
 #include "list.h"
 #include "vbi-data.h"
@@ -1138,7 +1138,8 @@ void vbi_create_widgets(Widget shell, struct vbi_state *vbi)
     XtAddEventHandler(push,KeyPressMask,False,vbi_kbd_eh,vw);
 
     /* shell stuff */
-    XmdRegisterEditres(shell);
+    XtAddEventHandler(shell, (EventMask) 0, True,
+                      (XtEventHandler) _XEditResCheckMessages, NULL);
     XmAddWMProtocolCallback(shell,WM_DELETE_WINDOW,vbi_close_cb,vw);
 
     /* set start page */

@@ -8,6 +8,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
+#include <X11/Xmu/Editres.h>
 #include <Xm/Xm.h>
 #include <Xm/Form.h>
 #include <Xm/Label.h>
@@ -16,7 +17,6 @@
 #include <Xm/ScrolledW.h>
 #include <Xm/SelectioB.h>
 
-#include "RegEdit.h"
 #include "man.h"
 
 extern Display *dpy;
@@ -52,7 +52,8 @@ man(char *page)
 
     /* build dialog */
     dlg = XmCreatePromptDialog(app_shell,"man",NULL,0);
-    XmdRegisterEditres(XtParent(dlg));
+    XtAddEventHandler(XtParent(dlg), (EventMask) 0, True,
+                     (XtEventHandler) _XEditResCheckMessages, NULL);
     XtUnmanageChild(XmSelectionBoxGetChild(dlg,XmDIALOG_SELECTION_LABEL));
     XtUnmanageChild(XmSelectionBoxGetChild(dlg,XmDIALOG_HELP_BUTTON));
     XtUnmanageChild(XmSelectionBoxGetChild(dlg,XmDIALOG_CANCEL_BUTTON));

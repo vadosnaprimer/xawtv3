@@ -15,8 +15,6 @@ OBJS-common-input := \
 	common/joystick.o \
 	common/midictrl.o
 
-# RegEdit.c is good old K&R ...
-common/RegEdit.o: CFLAGS += -Wno-missing-prototypes -Wno-strict-prototypes
 common/channel-no-x11.o: CFLAGS += -DNO_X11=1
 
 ifeq ($(FOUND_ALSA)$(FOUND_V4L2UTIL),yesyes)

@@ -53,7 +53,6 @@ x11/motv: \
 	x11/complete-motif.o \
 	x11/vbi-x11.o \
 	jwz/remote.o \
-	common/RegEdit.o \
 	common/channel-no-x11.o \
 	common/vbi-data.o \
 	$(OBJS-common-alsa) \
@@ -70,7 +69,6 @@ x11/mtt: \
 	console/fbtools.o \
 	common/vbi-data.o \
 	common/channel-no-x11.o \
-	common/RegEdit.o \
 	$(OBJS-common-capture)
 
 x11/v4lctl: \
