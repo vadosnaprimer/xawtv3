@@ -363,7 +363,7 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 }
 
 static int alsa_stream(const char *pdevice, const char *cdevice,
-		       int enable_mmap)
+		       int enable_mmap, FILE *errdev)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -374,7 +374,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     int ret = 0;
     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
 
-    err = snd_output_stdio_attach(&output, stdout, 0);
+    err = snd_output_stdio_attach(&output, errdev, 0);
     if (err < 0) {
 	printf("Output failed: %s\n", snd_strerror(err));
 	return 0;
@@ -487,7 +487,7 @@ static void *alsa_thread_entry(void *whatever)
     struct input_params *inputs = (struct input_params *) whatever;
 
     printf("Starting copying alsa stream from %s to %s\n", inputs->cdevice, inputs->pdevice);
-    alsa_stream(inputs->pdevice, inputs->cdevice, 1);
+    alsa_stream(inputs->pdevice, inputs->cdevice, 1, stderr);
     printf("Alsa stream stopped\n");
 
     return whatever;
