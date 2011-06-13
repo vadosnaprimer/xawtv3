@@ -60,21 +60,14 @@ static int setparams_stream(snd_pcm_t *handle,
 			    snd_pcm_hw_params_t *params,
 			    snd_pcm_format_t format,
 			    int channels,
-			    int rate,
 			    int mmap_flag,
 			    const char *id)
 {
     int err;
-    unsigned int rrate;
 
     err = snd_pcm_hw_params_any(handle, params);
     if (err < 0) {
 	printf("Broken configuration for %s PCM: no configurations available: %s\n", snd_strerror(err), id);
-	return err;
-    }
-    err = snd_pcm_hw_params_set_rate_resample(handle, params, 1);
-    if (err < 0) {
-	printf("Resample setup failed for %s: %s\n", id, snd_strerror(err));
 	return err;
     }
 
@@ -107,17 +100,6 @@ static int setparams_stream(snd_pcm_t *handle,
 	printf("Channels count (%i) not available for %s: %s\n", channels, id,
 	       snd_strerror(err));
 	return err;
-    }
-    rrate = rate;
-    err = snd_pcm_hw_params_set_rate_near(handle, params, &rrate, 0);
-    if (err < 0) {
-	printf("Rate %iHz not available for %s: %s\n", rate, id,
-	       snd_strerror(err));
-	return err;
-    }
-    if ((int)rrate != rate) {
-	printf("Rate doesn't match (requested %iHz, get %iHz)\n", rate, err);
-	return -EINVAL;
     }
 
     return 0;
@@ -193,11 +175,19 @@ static int setparams_set(snd_pcm_t *handle,
     return 0;
 }
 
+static int seek_rates[] = {
+    48000,
+    44100,
+    32000,
+};
+#define NUM_RATES (sizeof(seek_rates)/sizeof(seek_rates[0]))
+
 int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
-	      int mmap_flag,
+	      int mmap_flag, int allow_resample,
 	      struct final_params *negotiated)
 {
-    int rate = 48000;
+    int i;
+    unsigned ratep, ratec;
     int latency_min = 600;		/* in frames / 2 */
     int channels = 2;
     int latency = latency_min - 4;
@@ -215,33 +205,70 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     snd_pcm_hw_params_alloca(&ct_params);
     snd_pcm_sw_params_alloca(&p_swparams);
     snd_pcm_sw_params_alloca(&c_swparams);
-    if ((err = setparams_stream(phandle, pt_params, format, channels, rate,
-				mmap_flag, "playback")) < 0) {
-	printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
+
+    if ((err = setparams_stream(phandle, pt_params, format, channels,
+				    mmap_flag, "playback")) < 0) {
+	    printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
 	return 1;
     }
-    if ((err = setparams_stream(chandle, ct_params, format, channels, rate,
+    if ((err = setparams_stream(chandle, ct_params, format, channels,
 				mmap_flag, "capture")) < 0) {
 	printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
 	return 1;
     }
 
-  __again:
+    if (allow_resample) {
+	err = snd_pcm_hw_params_set_rate_resample(chandle, ct_params, 1);
+	if (err < 0) {
+	    printf("Resample setup failed: %s\n", snd_strerror(err));
+	    return 1;
+	}
+    }
+
+    for (i = 0; i < NUM_RATES; i++) {
+	ratec = seek_rates[i];
+	err = snd_pcm_hw_params_set_rate_near(chandle, ct_params, &ratec, 0);
+	if (err)
+	    continue;
+	ratep = ratec;
+	err = snd_pcm_hw_params_set_rate_near(phandle, pt_params, &ratep, 0);
+	if (err)
+	    continue;
+	if (ratep == ratec)
+	    break;
+	printf ("Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
+		seek_rates[i], ratec, ratep,
+		allow_resample ? " with resample enabled": "");
+    }
+
+    if (err < 0) {
+	printf("Failed to set a supported rate: %s\n", snd_strerror(err));
+	return 1;
+    }
+    if (ratep != ratec) {
+	printf("Couldn't find a rate that it is supported by both playback and capture\n");
+	return 2;
+    }
+
+__again:
     if (last_bufsize == bufsize)
 	bufsize += 4;
     last_bufsize = bufsize;
+
+    if (bufsize > 10240)
+	return 1;
 
     if ((err = setparams_bufsize(phandle, p_params, pt_params, bufsize, 0,
 				 "playback")) < 0) {
 	printf("Unable to set sw parameters for playback stream: %s\n",
 	       snd_strerror(err));
-	return -1;
+	goto __again;
     }
     if ((err = setparams_bufsize(chandle, c_params, ct_params, bufsize, 0,
 				 "capture")) < 0) {
 	printf("Unable to set sw parameters for playback stream: %s\n",
 	       snd_strerror(err));
-	return -1;
+	goto __again;
     }
 
     snd_pcm_hw_params_get_period_size(p_params, &p_psize, NULL);
@@ -268,12 +295,12 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     if ((err = setparams_set(phandle, p_params, p_swparams, "playback")) < 0) {
 	printf("Unable to set sw parameters for playback stream: %s\n",
 	       snd_strerror(err));
-	return -1;
+	goto __again;
     }
     if ((err = setparams_set(chandle, c_params, c_swparams, "capture")) < 0) {
 	printf("Unable to set sw parameters for playback stream: %s\n",
 	       snd_strerror(err));
-	return -1;
+	goto __again;
     }
 
     if ((err = snd_pcm_prepare(phandle)) < 0) {
@@ -285,13 +312,17 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     printf("final config\n");
     snd_pcm_dump_setup(phandle, output);
     snd_pcm_dump_setup(chandle, output);
-    printf("Parameters are %iHz, %s, %i channels\n", rate,
+    printf("Parameters are %iHz, %s, %i channels\n", ratep,
 	   snd_pcm_format_name(format), channels);
     fflush(stdout);
 #endif
 
+    printf ("Set bitrate to %u%s, buffer size is %u\n", ratec,
+	    allow_resample ? " with resample enabled at playback": "",
+	    bufsize * 2);
+
     negotiated->bufsize = bufsize;
-    negotiated->rate = rate;
+    negotiated->rate = ratep;
     negotiated->channels = channels;
     negotiated->latency = bufsize;
     return 0;
@@ -323,6 +354,23 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
 
     while (len > 0) {
 	r = writei_func(handle, buf, len);
+	if (r == -EAGAIN || (r >= 0 && (size_t)r < len))
+	    snd_pcm_wait(handle, 100);
+        else if (r == -EPIPE) {
+	    snd_pcm_status_t *status;
+
+	    snd_pcm_status_alloca(&status);
+	    if ((r = snd_pcm_status(handle, status)) < 0)
+		return r;
+
+	    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_XRUN) {
+		if ((r = snd_pcm_prepare(handle)) < 0)
+		    return r;
+		if ((r = snd_pcm_start(handle)) < 0)
+		    return r;
+	    }
+	    r = 0;
+	}
 	if (r < 0) {
 	    return r;
 	}
@@ -336,22 +384,25 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
 
 int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		    snd_pcm_format_t format, char *buffer, int latency,
-		    int channels)
+		    int channels, int link_is_supported)
 {
     size_t frames_out;
     int err;
 
     frames_out = 0;
-    if (snd_pcm_format_set_silence(format, buffer, latency*channels) < 0) {
+    err = snd_pcm_format_set_silence(format, buffer, latency*channels);
+    if (err < 0) {
 	fprintf(stderr, "silence error\n");
 	return 1;
     }
-    if (writebuf(phandle, buffer, latency, &frames_out) < 0) {
-	fprintf(stderr, "write error\n");
+    err = writebuf(phandle, buffer, latency, &frames_out);
+    if (err < 0) {
+	fprintf(stderr, "write error: %s\n", snd_strerror(err));
 	return 1;
     }
-    if (writebuf(phandle, buffer, latency, &frames_out) < 0) {
-	fprintf(stderr, "write error\n");
+    err = writebuf(phandle, buffer, latency, &frames_out);
+    if (err < 0) {
+	fprintf(stderr, "write error: %s\n", snd_strerror(err));
 	return 1;
     }
 
@@ -359,6 +410,15 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	printf("Go error: %s\n", snd_strerror(err));
 	return 1;
     }
+
+    if (link_is_supported)
+	return 0;
+
+    if ((err = snd_pcm_start(phandle)) < 0) {
+	printf("Go error: %s\n", snd_strerror(err));
+	return 1;
+    }
+
     return 0;
 }
 
@@ -371,7 +431,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     ssize_t r;
     size_t frames_in, frames_out, in_max;
     struct final_params negotiated;
-    int ret = 0;
+    int ret = 0, link_is_supported = 1;
     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
 
     err = snd_output_stdio_attach(&output, errdev, 0);
@@ -379,11 +439,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	printf("Output failed: %s\n", snd_strerror(err));
 	return 0;
     }
-
-//    setscheduler();
-
-    printf("Playback device is %s\n", pdevice);
-    printf("Capture device is %s\n", cdevice);
 
     /* Open the devices */
     if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
@@ -408,10 +463,40 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     }
 
     frames_in = frames_out = 0;
-    if (setparams(phandle, chandle, format, enable_mmap, &negotiated) < 0) {
+
+    err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
+    if (err < 0) {
 	printf("setparams failed\n");
 	return 1;
     }
+
+    /* Try to use plughw instead, as it allows emulating speed */
+    if (err == 2) {
+	if (strncmp(pdevice, "plug", 4)) {
+	    char pdevice_new[32];
+
+	    snd_pcm_close(phandle);
+
+	    sprintf(pdevice_new, "plug%s", pdevice);
+	    pdevice = pdevice_new;
+	    printf("Trying %s for playback\n", pdevice);
+	    if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
+				    0)) < 0) {
+		printf("Cannot open ALSA Playback device %s: %s\n", pdevice,
+		    snd_strerror(err));
+	    }
+	}
+
+	err = setparams(phandle, chandle, format, enable_mmap, 1, &negotiated);
+	if (err < 0) {
+	    printf("setparams failed\n");
+	    return 1;
+	}
+    }
+
+    printf("Playback device is %s\n", pdevice);
+    printf("Capture device is %s\n", cdevice);
+
 
     buffer = malloc((negotiated.bufsize * snd_pcm_format_width(format) / 8)
 		    * negotiated.channels);
@@ -422,12 +507,12 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     }
     if ((err = snd_pcm_link(chandle, phandle)) < 0) {
 	printf("Streams link error: %d %s\n", err, snd_strerror(err));
-	return 1;
+        link_is_supported = 0;
     }
 
     alsa_is_running = 1;
     startup_capture(phandle, chandle, format, buffer, negotiated.latency,
-		    negotiated.channels);
+		    negotiated.channels, link_is_supported);
 
     while (!stop_alsa) {
 	in_max = 0;
@@ -443,7 +528,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 
 	    /* Restart capture */
 	    startup_capture(phandle, chandle, format, buffer,
-			    negotiated.latency, negotiated.channels);
+			    negotiated.latency, negotiated.channels,
+			    link_is_supported);
 	    continue;
 	} else if (ret == 0) {
 	    /* Timed out */
@@ -453,12 +539,12 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	if ((r = readbuf(chandle, buffer, negotiated.latency, &frames_in,
 			 &in_max)) > 0) {
 	    if (writebuf(phandle, buffer, r, &frames_out) < 0) {
-		startup_capture(phandle, chandle, format, buffer,
-				negotiated.latency, negotiated.channels);
+		fprintf(stderr, "write error: %s\n", snd_strerror(err));
 	    }
 	} else if (r < 0) {
 	    startup_capture(phandle, chandle, format, buffer,
-			    negotiated.latency, negotiated.channels);
+			    negotiated.latency, negotiated.channels,
+			    link_is_supported);
 	}
     }
 
