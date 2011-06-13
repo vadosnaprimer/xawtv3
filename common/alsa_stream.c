@@ -387,13 +387,13 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 
     /* Open the devices */
     if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
-			    SND_PCM_NONBLOCK)) < 0) {
+			    0)) < 0) {
 	printf("Cannot open ALSA Playback device %s: %s\n", pdevice,
 	       snd_strerror(err));
 	return 0;
     }
     if ((err = snd_pcm_open(&chandle, cdevice, SND_PCM_STREAM_CAPTURE,
-			    SND_PCM_NONBLOCK)) < 0) {
+			    0)) < 0) {
 	printf("Cannot open ALSA Capture device %s: %s\n",
 	       cdevice, snd_strerror(err));
 	return 0;
