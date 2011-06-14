@@ -1,11 +1,14 @@
 /*
- *  tvtime ALSA device support
+ *  ALSA streaming support
  *
- *  Copyright (c) by Devin Heitmueller <dheitmueller@kernellabs.com>
- *
+ *  Originally written by:
+ *      Copyright (c) by Devin Heitmueller <dheitmueller@kernellabs.com>
+ *	for usage at tvtime
  *  Derived from the alsa-driver test tool latency.c:
  *    Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
+ *  Copyright (c) 2011 - Mauro Carvalho Chehab <mchehab@redhat.com>
+ *	Ported to xawtv, with bug fixes and improvements
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +50,10 @@ static int stop_alsa = 0;
 static snd_pcm_sframes_t (*readi_func)(snd_pcm_t *handle, void *buffer, snd_pcm_uframes_t size);
 static snd_pcm_sframes_t (*writei_func)(snd_pcm_t *handle, const void *buffer, snd_pcm_uframes_t size);
 
+/* Error handlers */
 snd_output_t *output = NULL;
+FILE *error_fp;
+int verbose = 0;
 
 struct final_params {
     int bufsize;
@@ -67,7 +73,9 @@ static int setparams_stream(snd_pcm_t *handle,
 
     err = snd_pcm_hw_params_any(handle, params);
     if (err < 0) {
-	printf("Broken configuration for %s PCM: no configurations available: %s\n", snd_strerror(err), id);
+	fprintf(error_fp,
+		"Broken configuration for %s PCM: no configurations available: %s\n",
+		snd_strerror(err), id);
 	return err;
     }
 
@@ -84,28 +92,28 @@ static int setparams_stream(snd_pcm_t *handle,
     }
 
     if (err < 0) {
-	printf("Access type not available for %s: %s\n", id,
-	       snd_strerror(err));
+	fprintf(error_fp, "Access type not available for %s: %s\n", id,
+		snd_strerror(err));
 	return err;
     }
 
     err = snd_pcm_hw_params_set_format(handle, params, format);
     if (err < 0) {
-	printf("Sample format not available for %s: %s\n", id,
+	fprintf(error_fp, "Sample format not available for %s: %s\n", id,
 	       snd_strerror(err));
 	return err;
     }
     err = snd_pcm_hw_params_set_channels(handle, params, channels);
     if (err < 0) {
-	printf("Channels count (%i) not available for %s: %s\n", channels, id,
-	       snd_strerror(err));
+	fprintf(error_fp, "Channels count (%i) not available for %s: %s\n",
+		channels, id, snd_strerror(err));
 	return err;
     }
 
     return 0;
 }
 
-int setparams_bufsize(snd_pcm_t *handle,
+static int setparams_bufsize(snd_pcm_t *handle,
 		      snd_pcm_hw_params_t *params,
 		      snd_pcm_hw_params_t *tparams,
 		      snd_pcm_uframes_t bufsize,
@@ -119,8 +127,9 @@ int setparams_bufsize(snd_pcm_t *handle,
     periodsize = bufsize * 2;
     err = snd_pcm_hw_params_set_buffer_size_near(handle, params, &periodsize);
     if (err < 0) {
-	printf("Unable to set buffer size %li for %s: %s\n",
-	       bufsize * 2, id, snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp, "Unable to set buffer size %li for %s: %s\n",
+		    bufsize * 2, id, snd_strerror(err));
 	return err;
     }
     if (period_size > 0)
@@ -130,8 +139,9 @@ int setparams_bufsize(snd_pcm_t *handle,
     err = snd_pcm_hw_params_set_period_size_near(handle, params, &periodsize,
 						 0);
     if (err < 0) {
-	printf("Unable to set period size %li for %s: %s\n", periodsize, id,
-	       snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp, "Unable to set period size %li for %s: %s\n",
+		    periodsize, id, snd_strerror(err));
 	return err;
     }
     return 0;
@@ -146,30 +156,33 @@ static int setparams_set(snd_pcm_t *handle,
 
     err = snd_pcm_hw_params(handle, params);
     if (err < 0) {
-	printf("Unable to set hw params for %s: %s\n", id, snd_strerror(err));
+	fprintf(error_fp, "Unable to set hw params for %s: %s\n",
+		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params_current(handle, swparams);
     if (err < 0) {
-	printf("Unable to determine current swparams for %s: %s\n", id,
-	       snd_strerror(err));
+	fprintf(error_fp, "Unable to determine current swparams for %s: %s\n",
+		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params_set_start_threshold(handle, swparams, 0x7fffffff);
     if (err < 0) {
-	printf("Unable to set start threshold mode for %s: %s\n", id,
-	       snd_strerror(err));
+	fprintf(error_fp, "Unable to set start threshold mode for %s: %s\n",
+		id, snd_strerror(err));
 	return err;
     }
 
     err = snd_pcm_sw_params_set_avail_min(handle, swparams, 4);
     if (err < 0) {
-	printf("Unable to set avail min for %s: %s\n", id, snd_strerror(err));
+	fprintf(error_fp, "Unable to set avail min for %s: %s\n",
+		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params(handle, swparams);
     if (err < 0) {
-	printf("Unable to set sw params for %s: %s\n", id, snd_strerror(err));
+	fprintf(error_fp, "Unable to set sw params for %s: %s\n",
+		id, snd_strerror(err));
 	return err;
     }
     return 0;
@@ -182,9 +195,10 @@ static int seek_rates[] = {
 };
 #define NUM_RATES (sizeof(seek_rates)/sizeof(seek_rates[0]))
 
-int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
-	      int mmap_flag, int allow_resample,
-	      struct final_params *negotiated)
+static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
+		     snd_pcm_format_t format, int mmap_flag,
+		     int allow_resample,
+		     struct final_params *negotiated)
 {
     int i;
     unsigned ratep, ratec;
@@ -208,19 +222,21 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
 
     if ((err = setparams_stream(phandle, pt_params, format, channels,
 				    mmap_flag, "playback")) < 0) {
-	    printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Unable to set parameters for playback stream: %s\n",
+		snd_strerror(err));
 	return 1;
     }
     if ((err = setparams_stream(chandle, ct_params, format, channels,
 				mmap_flag, "capture")) < 0) {
-	printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Unable to set parameters for playback stream: %s\n",
+		snd_strerror(err));
 	return 1;
     }
 
     if (allow_resample) {
 	err = snd_pcm_hw_params_set_rate_resample(chandle, ct_params, 1);
 	if (err < 0) {
-	    printf("Resample setup failed: %s\n", snd_strerror(err));
+	    fprintf(error_fp, "Resample setup failed: %s\n", snd_strerror(err));
 	    return 1;
 	}
     }
@@ -236,17 +252,23 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
 	    continue;
 	if (ratep == ratec)
 	    break;
-	printf ("Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
-		seek_rates[i], ratec, ratep,
-		allow_resample ? " with resample enabled": "");
+	if (verbose)
+	    fprintf(error_fp,
+		    "Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
+		    seek_rates[i], ratec, ratep,
+		    allow_resample ? " with resample enabled": "");
     }
 
     if (err < 0) {
-	printf("Failed to set a supported rate: %s\n", snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp, "Failed to set a supported rate: %s\n",
+		    snd_strerror(err));
 	return 1;
     }
     if (ratep != ratec) {
-	printf("Couldn't find a rate that it is supported by both playback and capture\n");
+	if (verbose)
+	    fprintf(error_fp,
+		    "Couldn't find a rate that it is supported by both playback and capture\n");
 	return 2;
     }
 
@@ -260,14 +282,18 @@ __again:
 
     if ((err = setparams_bufsize(phandle, p_params, pt_params, bufsize, 0,
 				 "playback")) < 0) {
-	printf("Unable to set sw parameters for playback stream: %s\n",
-	       snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp,
+		    "Unable to set sw parameters for playback stream: %s\n",
+		    snd_strerror(err));
 	goto __again;
     }
     if ((err = setparams_bufsize(chandle, c_params, ct_params, bufsize, 0,
 				 "capture")) < 0) {
-	printf("Unable to set sw parameters for playback stream: %s\n",
-	       snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp,
+		    "Unable to set sw parameters for playback stream: %s\n",
+		    snd_strerror(err));
 	goto __again;
     }
 
@@ -293,33 +319,38 @@ __again:
 	goto __again;
 
     if ((err = setparams_set(phandle, p_params, p_swparams, "playback")) < 0) {
-	printf("Unable to set sw parameters for playback stream: %s\n",
-	       snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp,
+		    "Unable to set sw parameters for playback stream: %s\n",
+		    snd_strerror(err));
 	goto __again;
     }
     if ((err = setparams_set(chandle, c_params, c_swparams, "capture")) < 0) {
-	printf("Unable to set sw parameters for playback stream: %s\n",
-	       snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp,
+		    "Unable to set sw parameters for playback stream: %s\n",
+		    snd_strerror(err));
 	goto __again;
     }
 
     if ((err = snd_pcm_prepare(phandle)) < 0) {
-	printf("Prepare error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Prepare error: %s\n", snd_strerror(err));
 	return -1;
     }
 
-#ifdef SHOW_ALSA_DEBUG
-    printf("final config\n");
-    snd_pcm_dump_setup(phandle, output);
-    snd_pcm_dump_setup(chandle, output);
-    printf("Parameters are %iHz, %s, %i channels\n", ratep,
-	   snd_pcm_format_name(format), channels);
-    fflush(stdout);
-#endif
+    if (verbose > 1) {
+	fprintf(error_fp, "ALSA config:\n");
+	snd_pcm_dump_setup(phandle, output);
+	snd_pcm_dump_setup(chandle, output);
+	fprintf(error_fp, "Parameters are %iHz, %s, %i channels\n",
+		ratep, snd_pcm_format_name(format), channels);
+	fflush(error_fp);
+    }
 
-    printf ("Set bitrate to %u%s, buffer size is %u\n", ratec,
-	    allow_resample ? " with resample enabled at playback": "",
-	    bufsize * 2);
+    if (verbose)
+	fprintf(error_fp, "Set bitrate to %u%s, buffer size is %u\n", ratec,
+		allow_resample ? " with resample enabled at playback": "",
+		bufsize * 2);
 
     negotiated->bufsize = bufsize;
     negotiated->rate = ratep;
@@ -364,6 +395,8 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
 		return r;
 
 	    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_XRUN) {
+		if (verbose > 1)
+		    fprintf(error_fp, "overrun\n");
 		if ((r = snd_pcm_prepare(handle)) < 0)
 		    return r;
 		if ((r = snd_pcm_start(handle)) < 0)
@@ -382,9 +415,9 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
     return 0;
 }
 
-int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
-		    snd_pcm_format_t format, char *buffer, int latency,
-		    int channels, int link_is_supported)
+static int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
+			   snd_pcm_format_t format, char *buffer, int latency,
+			   int channels, int link_is_supported)
 {
     size_t frames_out;
     int err;
@@ -392,22 +425,22 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
     frames_out = 0;
     err = snd_pcm_format_set_silence(format, buffer, latency*channels);
     if (err < 0) {
-	fprintf(stderr, "silence error\n");
+	fprintf(error_fp, "silence error: %s\n", snd_strerror(err));
 	return 1;
     }
     err = writebuf(phandle, buffer, latency, &frames_out);
     if (err < 0) {
-	fprintf(stderr, "write error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	return 1;
     }
     err = writebuf(phandle, buffer, latency, &frames_out);
     if (err < 0) {
-	fprintf(stderr, "write error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	return 1;
     }
 
     if ((err = snd_pcm_start(chandle)) < 0) {
-	printf("Go error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Go error: %s\n", snd_strerror(err));
 	return 1;
     }
 
@@ -415,7 +448,7 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	return 0;
 
     if ((err = snd_pcm_start(phandle)) < 0) {
-	printf("Go error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Go error: %s\n", snd_strerror(err));
 	return 1;
     }
 
@@ -423,7 +456,7 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 }
 
 static int alsa_stream(const char *pdevice, const char *cdevice,
-		       int enable_mmap, FILE *errdev)
+		       int enable_mmap)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -434,23 +467,23 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     int ret = 0, link_is_supported = 1;
     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
 
-    err = snd_output_stdio_attach(&output, errdev, 0);
+    err = snd_output_stdio_attach(&output, error_fp, 0);
     if (err < 0) {
-	printf("Output failed: %s\n", snd_strerror(err));
+	fprintf(error_fp, "Output failed: %s\n", snd_strerror(err));
 	return 0;
     }
 
     /* Open the devices */
     if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
 			    0)) < 0) {
-	printf("Cannot open ALSA Playback device %s: %s\n", pdevice,
-	       snd_strerror(err));
+	fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
+		pdevice, snd_strerror(err));
 	return 0;
     }
     if ((err = snd_pcm_open(&chandle, cdevice, SND_PCM_STREAM_CAPTURE,
 			    0)) < 0) {
-	printf("Cannot open ALSA Capture device %s: %s\n",
-	       cdevice, snd_strerror(err));
+	fprintf(error_fp, "Cannot open ALSA Capture device %s: %s\n",
+		cdevice, snd_strerror(err));
 	return 0;
     }
 
@@ -466,7 +499,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 
     err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
     if (err < 0) {
-	printf("setparams failed\n");
+	fprintf(error_fp, "setparams failed\n");
 	return 1;
     }
 
@@ -479,36 +512,39 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 
 	    sprintf(pdevice_new, "plug%s", pdevice);
 	    pdevice = pdevice_new;
-	    printf("Trying %s for playback\n", pdevice);
+	    if (verbose)
+		fprintf(error_fp, "Trying %s for playback\n", pdevice);
 	    if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
 				    0)) < 0) {
-		printf("Cannot open ALSA Playback device %s: %s\n", pdevice,
-		    snd_strerror(err));
+		fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
+			pdevice, snd_strerror(err));
 	    }
 	}
 
 	err = setparams(phandle, chandle, format, enable_mmap, 1, &negotiated);
 	if (err < 0) {
-	    printf("setparams failed\n");
+	    fprintf(error_fp, "setparams failed\n");
 	    return 1;
 	}
     }
 
-    printf("Playback device is %s\n", pdevice);
-    printf("Capture device is %s\n", cdevice);
-
-
     buffer = malloc((negotiated.bufsize * snd_pcm_format_width(format) / 8)
 		    * negotiated.channels);
     if (buffer == NULL) {
-	printf("Failed allocating buffer for audio\n");
+	fprintf(error_fp, "Failed allocating buffer for audio\n");
 	return 0;
 
     }
     if ((err = snd_pcm_link(chandle, phandle)) < 0) {
-	printf("Streams link error: %d %s\n", err, snd_strerror(err));
+	if (verbose)
+	    fprintf(error_fp, "Streams link error: %d %s\n",
+		    err, snd_strerror(err));
 	link_is_supported = 0;
     }
+
+    fprintf(error_fp,
+	    "Alsa stream started, capturing from %s, playing back on %s at %i Hz\n",
+	    cdevice, pdevice, negotiated.rate);
 
     alsa_is_running = 1;
     startup_capture(phandle, chandle, format, buffer, negotiated.latency,
@@ -521,8 +557,9 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	ret = snd_pcm_wait(chandle, 1000);
 	if (ret < 0) {
 	    if ((err = snd_pcm_recover(chandle, ret, 0)) < 0) {
-		fprintf(stderr, "xrun: recover error: %s",
-			snd_strerror(err));
+		if (verbose)
+		    fprintf(error_fp, "xrun: recover error: %s",
+			    snd_strerror(err));
 		break;
 	    }
 
@@ -539,7 +576,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	if ((r = readbuf(chandle, buffer, negotiated.latency, &frames_in,
 			 &in_max)) > 0) {
 	    if (writebuf(phandle, buffer, r, &frames_out) < 0) {
-		fprintf(stderr, "write error: %s\n", snd_strerror(err));
+		if (verbose)
+		    fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	    }
 	} else if (r < 0) {
 	    startup_capture(phandle, chandle, format, buffer,
@@ -566,15 +604,19 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 struct input_params {
     const char *pdevice;
     const char *cdevice;
+    int mmap_enabled;
 };
 
 static void *alsa_thread_entry(void *whatever)
 {
     struct input_params *inputs = (struct input_params *) whatever;
 
-    printf("Starting copying alsa stream from %s to %s\n", inputs->cdevice, inputs->pdevice);
-    alsa_stream(inputs->pdevice, inputs->cdevice, 1, stderr);
-    printf("Alsa stream stopped\n");
+    if (verbose)
+	fprintf(error_fp, "Starting copying alsa stream from %s to %s%s\n",
+		inputs->cdevice, inputs->pdevice,
+		(inputs->mmap_enabled ? "with mmap enabled" : ""));
+    alsa_stream(inputs->pdevice, inputs->cdevice, inputs->mmap_enabled);
+    fprintf(error_fp, "Alsa stream stopped\n");
 
     return whatever;
 }
@@ -583,14 +625,22 @@ static void *alsa_thread_entry(void *whatever)
  Public functions
  *************************************************************************/
 
-int alsa_thread_startup(const char *pdevice, const char *cdevice)
+int alsa_thread_startup(const char *pdevice, const char *cdevice,
+			int mmap_enabled, FILE *__error_fp, int __verbose)
 {
     int ret;
     pthread_t thread;
     struct input_params *inputs = malloc(sizeof(struct input_params));
 
+    if (__error_fp)
+	error_fp = __error_fp;
+    else
+	error_fp = stderr;
+
+    verbose = __verbose;
+
     if (inputs == NULL) {
-	printf("failed allocating memory for ALSA inputs\n");
+	fprintf(error_fp, "failed allocating memory for ALSA inputs\n");
 	return 0;
     }
 
@@ -602,6 +652,7 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice)
 
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
+    inputs->mmap_enabled = mmap_enabled;
 
     if (alsa_is_running) {
        stop_alsa = 1;

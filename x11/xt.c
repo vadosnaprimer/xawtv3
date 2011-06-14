@@ -1446,7 +1446,7 @@ grabber_init()
 	printf("Alsa devices: cap: %s (%s), out: %s\n", alsa_cap, args.device, alsa_out);
 
 	if (alsa_cap && alsa_out)
-	    alsa_thread_startup(alsa_out, alsa_cap);
+	    alsa_thread_startup(alsa_out, alsa_cap, 1, stderr, 0);
 	free_media_devices(md, size);
     }
 #endif
