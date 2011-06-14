@@ -22,9 +22,6 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <pthread.h>
-#ifdef HAVE_LIBV42LUTIL
-# include <get_media_devices.h>
-#endif
 #if defined(__linux__)
 # include <sys/ioctl.h>
 #include <linux/types.h>
@@ -61,6 +58,7 @@
 #include "parseconfig.h"
 #include "event.h"
 #include "alsa_stream.h"
+#include "get_media_devices.h"
 
 /* jwz */
 #include "remote.h"
@@ -1380,7 +1378,7 @@ grabber_init()
 {
     struct ng_video_fmt screen;
     void *base = NULL;
-#if defined(HAVE_V4L2UTIL) && defined(HAVE_ALSA)
+#if defined(HAVE_ALSA)
     struct media_devices *md;
     unsigned int size = 0;
     char *alsa_cap, *alsa_out, *p;
@@ -1426,7 +1424,7 @@ grabber_init()
     f_drv = drv->capabilities(h_drv);
     add_attrs(drv->list_attrs(h_drv));
 
-#if defined(HAVE_V4L2UTIL) && defined(HAVE_ALSA)
+#if defined(HAVE_ALSA)
     /* Start audio capture thread */
     md = discover_media_devices(&size);
     p = strrchr(args.device, '/');

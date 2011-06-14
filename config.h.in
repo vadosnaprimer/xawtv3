@@ -111,9 +111,6 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* "have libv4l2util" */
-#undef HAVE_V4L2UTIL
-
 /* "have xft" */
 #undef HAVE_XFT
 

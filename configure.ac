@@ -56,7 +56,6 @@ AC_SUBST(FOUND_OS)
 AC_SUBST(FOUND_X11)
 AC_SUBST(FOUND_GL)
 AC_SUBST(FOUND_ZVBI)
-AC_SUBST(FOUND_V4L2UTIL)
 AC_SUBST(LIBV4L)
 FOUND_AALIB="no"
 FOUND_ALSA="no"
@@ -67,7 +66,6 @@ FOUND_OS="unknown"
 FOUND_X11="no"
 FOUND_GL="no"
 FOUND_ZVBI="no"
-FOUND_V4L2UTIL="no"
 LIBV4L="no"
 
 case "`uname -s`" in
@@ -178,18 +176,6 @@ if test "$LIBV4L" != "yes"; then
     echo "Oops:	libv4l library not found. This is needed to use most webcams."
     echo "Note:	to compile stuff just the library packages are not enough,"
     echo "	you need also the *-devel packages."
-fi
-
-AC_SUBST(LIBV4L2UTIL)
-V4L2UTILLIBS=""
-AC_CHECK_LIB(v4l2util, get_first_no_video_out_device, FOUND_V4L2UTIL="yes",,)
-if test "$FOUND_V4L2UTIL" != "yes"; then
-    echo "Oops:	libv4lutil library not found. This is needed to detect alsa inputs."
-    echo "Note:	to compile stuff just the library packages are not enough,"
-    echo "	you need also the *-devel packages."
-else
-    AC_DEFINE(HAVE_V4L2UTIL,1,"have libv4l2util")
-    LIBV4L2UTIL="-lv4l2util"
 fi
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
@@ -390,6 +376,5 @@ compile time options summary
     OpenGL       : $FOUND_GL
     zvbi         : $FOUND_ZVBI
     libv4l       : $LIBV4L
-    libv4l2util  : $FOUND_V4L2UTIL
 
 EOF

@@ -17,11 +17,7 @@ OBJS-common-input := \
 
 common/channel-no-x11.o: CFLAGS += -DNO_X11=1
 
-ifeq ($(FOUND_ALSA)$(FOUND_V4L2UTIL),yesyes)
-  OBJS-common-alsa := common/alsa_stream.o
-else
-  OBJS-common-alsa :=
-endif
+OBJS-common-alsa := common/alsa_stream.o common/get_media_devices.o
 
 common/channel-no-x11.o: common/channel.c
 	@$(echo_compile_c)
