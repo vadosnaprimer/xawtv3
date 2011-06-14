@@ -221,6 +221,12 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,gl),
 	XtRString, "1"
     },{
+	"alsa",
+	XtCBoolean, XtRBoolean, sizeof(int),
+	XtOffset(struct ARGS*,alsa),
+	XtRString, "1"
+    },{
+    },{
 	"vidmode",
 	XtCBoolean, XtRBoolean, sizeof(int),
 	XtOffset(struct ARGS*,vidmode),
@@ -288,6 +294,9 @@ XrmOptionDescRec opt_desc[] = {
     { "-noxv-image", "xvImage",     XrmoptionNoArg,  "0" },
     { "-gl",         "gl",          XrmoptionNoArg,  "1" },
     { "-nogl",       "gl",          XrmoptionNoArg,  "0" },
+
+    { "-alsa",       "alsa",          XrmoptionNoArg,  "1" },
+    { "-noalsa",     "alsa",          XrmoptionNoArg,  "0" },
 
     { "-vm",         "vidmode",     XrmoptionNoArg,  "1" },
     { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
@@ -1425,19 +1434,21 @@ grabber_init()
     add_attrs(drv->list_attrs(h_drv));
 
 #if defined(HAVE_ALSA)
-    /* Start audio capture thread */
-    md = discover_media_devices(&size);
-    p = strrchr(args.device, '/');
-    if (!p)
-	p = args.device;
-    alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
-    alsa_out = get_first_no_video_out_device(md, size);
+    if (args.alsa) {
+	/* Start audio capture thread */
+	md = discover_media_devices(&size);
+	p = strrchr(args.device, '/');
+	if (!p)
+	    p = args.device;
+	alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
+	alsa_out = get_first_no_video_out_device(md, size);
 
-    printf("Alsa devices: cap: %s (%s), out: %s\n", alsa_cap, args.device, alsa_out);
+	printf("Alsa devices: cap: %s (%s), out: %s\n", alsa_cap, args.device, alsa_out);
 
-    if (alsa_cap && alsa_out)
-        alsa_thread_startup(alsa_out, alsa_cap);
-    free_media_devices(md, size);
+	if (alsa_cap && alsa_out)
+	    alsa_thread_startup(alsa_out, alsa_cap);
+	free_media_devices(md, size);
+    }
 #endif
 }
 
@@ -1635,6 +1646,9 @@ usage(void)
 #endif
 #ifdef HAVE_GL
 	    "      -(no)gl         enable/disable OpenGL\n"
+#endif
+#ifdef HAVE_ALSA
+	    "      -(no)alsa       enable/disable alsa streaming\n"
 #endif
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"

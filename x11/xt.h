@@ -55,6 +55,7 @@ struct ARGS {
     int  xv_video;
     int  xv_image;
     int  gl;
+    int  alsa;
     int  vidmode;
     int  dga;
     int  randr;
