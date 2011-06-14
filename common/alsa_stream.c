@@ -43,6 +43,10 @@
 static int alsa_is_running = 0;
 static int stop_alsa = 0;
 
+/* Pointers to either mmap or non-mmap functions */
+static snd_pcm_sframes_t (*readi_func)(snd_pcm_t *handle, void *buffer, snd_pcm_uframes_t size);
+static snd_pcm_sframes_t (*writei_func)(snd_pcm_t *handle, const void *buffer, snd_pcm_uframes_t size);
+
 snd_output_t *output = NULL;
 
 struct final_params {
@@ -57,6 +61,7 @@ static int setparams_stream(snd_pcm_t *handle,
 			    snd_pcm_format_t format,
 			    int channels,
 			    int rate,
+			    int mmap_flag,
 			    const char *id)
 {
     int err;
@@ -72,8 +77,19 @@ static int setparams_stream(snd_pcm_t *handle,
 	printf("Resample setup failed for %s: %s\n", id, snd_strerror(err));
 	return err;
     }
-    err = snd_pcm_hw_params_set_access(handle, params,
-				       SND_PCM_ACCESS_RW_INTERLEAVED);
+
+    if (mmap_flag) {
+	snd_pcm_access_mask_t *mask = alloca(snd_pcm_access_mask_sizeof());
+	snd_pcm_access_mask_none(mask);
+	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_INTERLEAVED);
+	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED);
+	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_COMPLEX);
+	err = snd_pcm_hw_params_set_access_mask(handle, params, mask);
+    } else {
+	err = snd_pcm_hw_params_set_access(handle, params,
+					   SND_PCM_ACCESS_RW_INTERLEAVED);
+    }
+
     if (err < 0) {
 	printf("Access type not available for %s: %s\n", id,
 	       snd_strerror(err));
@@ -103,6 +119,7 @@ static int setparams_stream(snd_pcm_t *handle,
 	printf("Rate doesn't match (requested %iHz, get %iHz)\n", rate, err);
 	return -EINVAL;
     }
+
     return 0;
 }
 
@@ -177,6 +194,7 @@ static int setparams_set(snd_pcm_t *handle,
 }
 
 int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
+	      int mmap_flag,
 	      struct final_params *negotiated)
 {
     int rate = 48000;
@@ -198,12 +216,12 @@ int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, snd_pcm_format_t format,
     snd_pcm_sw_params_alloca(&p_swparams);
     snd_pcm_sw_params_alloca(&c_swparams);
     if ((err = setparams_stream(phandle, pt_params, format, channels, rate,
-				"playback")) < 0) {
+				mmap_flag, "playback")) < 0) {
 	printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
 	return 1;
     }
     if ((err = setparams_stream(chandle, ct_params, format, channels, rate,
-				"capture")) < 0) {
+				mmap_flag, "capture")) < 0) {
 	printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
 	return 1;
     }
@@ -284,7 +302,7 @@ static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
 {
     snd_pcm_sframes_t r;
 
-    r = snd_pcm_readi(handle, buf, len);
+    r = readi_func(handle, buf, len);
     if (r < 0) {
 	return r;
     }
@@ -304,7 +322,7 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
     snd_pcm_sframes_t r;
 
     while (len > 0) {
-	r = snd_pcm_writei(handle, buf, len);
+	r = writei_func(handle, buf, len);
 	if (r < 0) {
 	    return r;
 	}
@@ -344,7 +362,8 @@ int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
     return 0;
 }
 
-static int alsa_stream(const char *pdevice, const char *cdevice)
+static int alsa_stream(const char *pdevice, const char *cdevice,
+		       int enable_mmap)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -380,8 +399,16 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
 	return 0;
     }
 
+    if (enable_mmap) {
+	writei_func = snd_pcm_mmap_writei;
+	readi_func = snd_pcm_mmap_readi;
+    } else {
+	writei_func = snd_pcm_writei;
+	readi_func = snd_pcm_readi;
+    }
+
     frames_in = frames_out = 0;
-    if (setparams(phandle, chandle, format, &negotiated) < 0) {
+    if (setparams(phandle, chandle, format, enable_mmap, &negotiated) < 0) {
 	printf("setparams failed\n");
 	return 1;
     }
@@ -460,7 +487,7 @@ static void *alsa_thread_entry(void *whatever)
     struct input_params *inputs = (struct input_params *) whatever;
 
     printf("Starting copying alsa stream from %s to %s\n", inputs->cdevice, inputs->pdevice);
-    alsa_stream(inputs->pdevice, inputs->cdevice);
+    alsa_stream(inputs->pdevice, inputs->cdevice, 1);
     printf("Alsa stream stopped\n");
 
     return whatever;
