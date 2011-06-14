@@ -37,6 +37,8 @@ struct ARGS {
     char *joydev;
     char *basename;
     char *conffile;
+    char *alsa_cap;
+    char *alsa_pb;
 
     /* int */
     int  debug;
@@ -56,6 +58,7 @@ struct ARGS {
     int  xv_image;
     int  gl;
     int  alsa;
+    int  alsa_mmap;
     int  vidmode;
     int  dga;
     int  randr;

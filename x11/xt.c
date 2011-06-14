@@ -149,6 +149,16 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,conffile),
 	XtRString, NULL
     },{
+	"alsa_cap",
+	XtCString, XtRString, sizeof(char*),
+	XtOffset(struct ARGS*,alsa_cap),
+	XtRString, NULL
+    },{
+	"alsa_pb",
+	XtCString, XtRString, sizeof(char*),
+	XtOffset(struct ARGS*,alsa_pb),
+	XtRString, NULL
+    },{
 	/* Integer */
 	"debug",
 	XtCValue, XtRInt, sizeof(int),
@@ -226,6 +236,10 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,alsa),
 	XtRString, "1"
     },{
+	"alsa_mmap",
+	XtCBoolean, XtRBoolean, sizeof(int),
+	XtOffset(struct ARGS*,alsa_mmap),
+	XtRString, "1"
     },{
 	"vidmode",
 	XtCBoolean, XtRBoolean, sizeof(int),
@@ -278,6 +292,9 @@ XrmOptionDescRec opt_desc[] = {
     { "-parallel",   "parallel",    XrmoptionSepArg, NULL },
     { "-bufcount",   "bufcount",    XrmoptionSepArg, NULL },
 
+    { "-alsa-cap",   "alsa_cap",    XrmoptionSepArg, NULL },
+    { "-alsa-pb",    "alsa_pb",     XrmoptionSepArg, NULL },
+
     { "-remote",     "remote",      XrmoptionNoArg,  "1" },
     { "-n",          "readconfig",  XrmoptionNoArg,  "0" },
     { "-noconf",     "readconfig",  XrmoptionNoArg,  "0" },
@@ -295,8 +312,10 @@ XrmOptionDescRec opt_desc[] = {
     { "-gl",         "gl",          XrmoptionNoArg,  "1" },
     { "-nogl",       "gl",          XrmoptionNoArg,  "0" },
 
-    { "-alsa",       "alsa",          XrmoptionNoArg,  "1" },
-    { "-noalsa",     "alsa",          XrmoptionNoArg,  "0" },
+    { "-alsa",       "alsa",        XrmoptionNoArg,  "1" },
+    { "-noalsa",     "alsa",        XrmoptionNoArg,  "0" },
+    { "-alsa-mmap",  "alsa_mmap",   XrmoptionNoArg,  "1" },
+    { "-noalsa-mmap","alsa_mmap",   XrmoptionNoArg,  "0" },
 
     { "-vm",         "vidmode",     XrmoptionNoArg,  "1" },
     { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
@@ -1442,11 +1461,16 @@ grabber_init()
 	    p = args.device;
 	alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
 	alsa_out = get_first_no_video_out_device(md, size);
+	if (args.alsa_cap)
+		alsa_cap = args.alsa_cap;
 
-	printf("Alsa devices: cap: %s (%s), out: %s\n", alsa_cap, args.device, alsa_out);
+	if (args.alsa_pb)
+		alsa_out = args.alsa_pb;
+	fprintf(stderr, "Alsa devices: cap: %s (%s), out: %s\n",
+		alsa_cap, args.device, alsa_out);
 
 	if (alsa_cap && alsa_out)
-	    alsa_thread_startup(alsa_out, alsa_cap, 1, stderr, 0);
+	    alsa_thread_startup(alsa_out, alsa_cap, args.alsa_mmap, stderr, debug);
 	free_media_devices(md, size);
     }
 #endif
@@ -1648,7 +1672,10 @@ usage(void)
 	    "      -(no)gl         enable/disable OpenGL\n"
 #endif
 #ifdef HAVE_ALSA
-	    "      -(no)alsa       enable/disable alsa streaming\n"
+	    "      -(no)alsa       enable/disable alsa streaming. Default: enabled\n"
+	    "      -(no)alsa-mmap  enable/disable alsa mmap while streaming\n"
+	    "      -(no)alsa-cap   manually specify an alsa capture interface\n"
+	    "      -(no)alsa-pb    manually specify an alsa playback interface\n"
 #endif
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"

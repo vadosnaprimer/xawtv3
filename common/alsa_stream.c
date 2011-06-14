@@ -543,8 +543,9 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     }
 
     fprintf(error_fp,
-	    "Alsa stream started, capturing from %s, playing back on %s at %i Hz\n",
-	    cdevice, pdevice, negotiated.rate);
+	    "Alsa stream started, capturing from %s, playing back on %s at %i Hz%s\n",
+	    cdevice, pdevice, negotiated.rate,
+	    enable_mmap ? " with mmap enabled" : "");
 
     alsa_is_running = 1;
     startup_capture(phandle, chandle, format, buffer, negotiated.latency,
