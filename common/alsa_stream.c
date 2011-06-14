@@ -356,7 +356,7 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
 	r = writei_func(handle, buf, len);
 	if (r == -EAGAIN || (r >= 0 && (size_t)r < len))
 	    snd_pcm_wait(handle, 100);
-        else if (r == -EPIPE) {
+	else if (r == -EPIPE) {
 	    snd_pcm_status_t *status;
 
 	    snd_pcm_status_alloca(&status);
@@ -507,7 +507,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     }
     if ((err = snd_pcm_link(chandle, phandle)) < 0) {
 	printf("Streams link error: %d %s\n", err, snd_strerror(err));
-        link_is_supported = 0;
+	link_is_supported = 0;
     }
 
     alsa_is_running = 1;
