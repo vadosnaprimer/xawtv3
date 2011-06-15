@@ -466,6 +466,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     struct final_params negotiated;
     int ret = 0, link_is_supported = 1;
     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
+    char pdevice_new[32];
 
     err = snd_output_stdio_attach(&output, error_fp, 0);
     if (err < 0) {
@@ -501,7 +502,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 
     /* Try to use plughw instead, as it allows emulating speed */
     if (err == 2 && strncmp(pdevice, "hw", 2) == 0) {
-        char pdevice_new[32];
 
         snd_pcm_close(phandle);
 
