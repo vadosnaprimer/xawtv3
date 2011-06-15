@@ -46,10 +46,6 @@
 static int alsa_is_running = 0;
 static int stop_alsa = 0;
 
-/* Pointers to either mmap or non-mmap functions */
-static snd_pcm_sframes_t (*readi_func)(snd_pcm_t *handle, void *buffer, snd_pcm_uframes_t size);
-static snd_pcm_sframes_t (*writei_func)(snd_pcm_t *handle, const void *buffer, snd_pcm_uframes_t size);
-
 /* Error handlers */
 snd_output_t *output = NULL;
 FILE *error_fp;
@@ -66,7 +62,6 @@ static int setparams_stream(snd_pcm_t *handle,
 			    snd_pcm_hw_params_t *params,
 			    snd_pcm_format_t format,
 			    int channels,
-			    int mmap_flag,
 			    const char *id)
 {
     int err;
@@ -79,18 +74,8 @@ static int setparams_stream(snd_pcm_t *handle,
 	return err;
     }
 
-    if (mmap_flag) {
-	snd_pcm_access_mask_t *mask = alloca(snd_pcm_access_mask_sizeof());
-	snd_pcm_access_mask_none(mask);
-	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_INTERLEAVED);
-	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED);
-	snd_pcm_access_mask_set(mask, SND_PCM_ACCESS_MMAP_COMPLEX);
-	err = snd_pcm_hw_params_set_access_mask(handle, params, mask);
-    } else {
-	err = snd_pcm_hw_params_set_access(handle, params,
-					   SND_PCM_ACCESS_RW_INTERLEAVED);
-    }
-
+    err = snd_pcm_hw_params_set_access(handle, params,
+				       SND_PCM_ACCESS_RW_INTERLEAVED);
     if (err < 0) {
 	fprintf(error_fp, "Access type not available for %s: %s\n", id,
 		snd_strerror(err));
@@ -196,7 +181,7 @@ static int seek_rates[] = {
 #define NUM_RATES (sizeof(seek_rates)/sizeof(seek_rates[0]))
 
 static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
-		     snd_pcm_format_t format, int mmap_flag,
+		     snd_pcm_format_t format,
 		     int allow_resample,
 		     struct final_params *negotiated)
 {
@@ -221,13 +206,13 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     snd_pcm_sw_params_alloca(&c_swparams);
 
     if ((err = setparams_stream(phandle, pt_params, format, channels,
-				    mmap_flag, "playback")) < 0) {
+				"playback")) < 0) {
 	fprintf(error_fp, "Unable to set parameters for playback stream: %s\n",
 		snd_strerror(err));
 	return 1;
     }
     if ((err = setparams_stream(chandle, ct_params, format, channels,
-				mmap_flag, "capture")) < 0) {
+				"capture")) < 0) {
 	fprintf(error_fp, "Unable to set parameters for playback stream: %s\n",
 		snd_strerror(err));
 	return 1;
@@ -361,7 +346,7 @@ __again:
 
 static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len)
 {
-    return readi_func(handle, buf, len);
+    return snd_pcm_readi(handle, buf, len);
 }
 
 static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len)
@@ -369,7 +354,7 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len)
     snd_pcm_sframes_t r;
 
     while (len > 0) {
-	r = writei_func(handle, buf, len);
+	r = snd_pcm_writei(handle, buf, len);
 	if (r == -EAGAIN || (r >= 0 && (size_t)r < len))
 	    snd_pcm_wait(handle, 100);
 	else if (r == -EPIPE) {
@@ -437,8 +422,7 @@ static int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
     return 0;
 }
 
-static int alsa_stream(const char *pdevice, const char *cdevice,
-		       int enable_mmap)
+static int alsa_stream(const char *pdevice, const char *cdevice)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -469,15 +453,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	return 0;
     }
 
-    if (enable_mmap) {
-	writei_func = snd_pcm_mmap_writei;
-	readi_func = snd_pcm_mmap_readi;
-    } else {
-	writei_func = snd_pcm_writei;
-	readi_func = snd_pcm_readi;
-    }
-
-    err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
+    err = setparams(phandle, chandle, format, 0, &negotiated);
 
     /* Try to use plughw instead, as it allows emulating speed */
     if (err == 2 && strncmp(pdevice, "hw", 2) == 0) {
@@ -494,7 +470,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
                     pdevice, snd_strerror(err));
         }
 
-	err = setparams(phandle, chandle, format, enable_mmap, 1, &negotiated);
+	err = setparams(phandle, chandle, format, 1, &negotiated);
     }
 
     if (err != 0) {
@@ -521,9 +497,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
      * need to multiply it by two.
      */
     fprintf(error_fp,
-	    "Alsa stream started from %s to %s (%i Hz%s, buffer delay = %.2f ms)\n",
+	    "Alsa stream started from %s to %s (%i Hz, buffer delay = %.2f ms)\n",
 	    cdevice, pdevice, negotiated.rate,
-	    enable_mmap ? ", mmap enabled" : "",
 	    2 * negotiated.latency * 1000.0 / negotiated.rate);
 
     alsa_is_running = 1;
@@ -581,7 +556,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 struct input_params {
     const char *pdevice;
     const char *cdevice;
-    int mmap_enabled;
 };
 
 static void *alsa_thread_entry(void *whatever)
@@ -589,10 +563,9 @@ static void *alsa_thread_entry(void *whatever)
     struct input_params *inputs = (struct input_params *) whatever;
 
     if (verbose)
-	fprintf(error_fp, "Starting copying alsa stream from %s to %s%s\n",
-		inputs->cdevice, inputs->pdevice,
-		(inputs->mmap_enabled ? "with mmap enabled" : ""));
-    alsa_stream(inputs->pdevice, inputs->cdevice, inputs->mmap_enabled);
+	fprintf(error_fp, "Starting copying alsa stream from %s to %s\n",
+		inputs->cdevice, inputs->pdevice);
+    alsa_stream(inputs->pdevice, inputs->cdevice);
     fprintf(error_fp, "Alsa stream stopped\n");
 
     return whatever;
@@ -603,7 +576,7 @@ static void *alsa_thread_entry(void *whatever)
  *************************************************************************/
 
 int alsa_thread_startup(const char *pdevice, const char *cdevice,
-			int mmap_enabled, FILE *__error_fp, int __verbose)
+			FILE *__error_fp, int __verbose)
 {
     int ret;
     pthread_t thread;
@@ -629,7 +602,6 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice,
 
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
-    inputs->mmap_enabled = mmap_enabled;
 
     if (alsa_is_running) {
        stop_alsa = 1;

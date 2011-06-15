@@ -236,11 +236,6 @@ XtResource args_desc[] = {
 	XtOffset(struct ARGS*,alsa),
 	XtRString, "1"
     },{
-	"alsa_mmap",
-	XtCBoolean, XtRBoolean, sizeof(int),
-	XtOffset(struct ARGS*,alsa_mmap),
-	XtRString, "1"
-    },{
 	"vidmode",
 	XtCBoolean, XtRBoolean, sizeof(int),
 	XtOffset(struct ARGS*,vidmode),
@@ -314,8 +309,6 @@ XrmOptionDescRec opt_desc[] = {
 
     { "-alsa",       "alsa",        XrmoptionNoArg,  "1" },
     { "-noalsa",     "alsa",        XrmoptionNoArg,  "0" },
-    { "-alsa-mmap",  "alsa_mmap",   XrmoptionNoArg,  "1" },
-    { "-noalsa-mmap","alsa_mmap",   XrmoptionNoArg,  "0" },
 
     { "-vm",         "vidmode",     XrmoptionNoArg,  "1" },
     { "-novm",       "vidmode",     XrmoptionNoArg,  "0" },
@@ -1470,7 +1463,7 @@ grabber_init()
 		alsa_cap, args.device, alsa_out);
 
 	if (alsa_cap && alsa_out)
-	    alsa_thread_startup(alsa_out, alsa_cap, args.alsa_mmap, stderr, debug);
+	    alsa_thread_startup(alsa_out, alsa_cap, stderr, debug);
 	free_media_devices(md, size);
     }
 #endif
@@ -1673,7 +1666,6 @@ usage(void)
 #endif
 #ifdef HAVE_ALSA
 	    "      -(no)alsa       enable/disable alsa streaming. Default: enabled\n"
-	    "      -(no)alsa-mmap  enable/disable alsa mmap while streaming\n"
 	    "      -(no)alsa-cap   manually specify an alsa capture interface\n"
 	    "      -(no)alsa-pb    manually specify an alsa playback interface\n"
 #endif
