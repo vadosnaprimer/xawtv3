@@ -292,7 +292,7 @@ __again:
 				 "capture")) < 0) {
 	if (verbose)
 	    fprintf(error_fp,
-		    "Unable to set sw parameters for playback stream: %s\n",
+		    "Unable to set sw parameters for capture stream: %s\n",
 		    snd_strerror(err));
 	goto __again;
     }
