@@ -335,7 +335,7 @@ __again:
 
     if ((err = snd_pcm_prepare(phandle)) < 0) {
 	fprintf(error_fp, "Prepare error: %s\n", snd_strerror(err));
-	return -1;
+	return 1;
     }
 
     if (verbose > 1) {
@@ -498,7 +498,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     frames_in = frames_out = 0;
 
     err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
-    if (err < 0) {
+    if (err == 1) {
 	fprintf(error_fp, "setparams failed\n");
 	return 1;
     }
@@ -522,7 +522,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	}
 
 	err = setparams(phandle, chandle, format, enable_mmap, 1, &negotiated);
-	if (err < 0) {
+	if (err != 0) {
 	    fprintf(error_fp, "setparams failed\n");
 	    return 1;
 	}
