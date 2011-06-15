@@ -498,34 +498,29 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     frames_in = frames_out = 0;
 
     err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
-    if (err == 1) {
-	fprintf(error_fp, "setparams failed\n");
-	return 1;
-    }
 
     /* Try to use plughw instead, as it allows emulating speed */
-    if (err == 2) {
-	if (strncmp(pdevice, "plug", 4)) {
-	    char pdevice_new[32];
+    if (err == 2 && strncmp(pdevice, "hw", 2) == 0) {
+        char pdevice_new[32];
 
-	    snd_pcm_close(phandle);
+        snd_pcm_close(phandle);
 
-	    sprintf(pdevice_new, "plug%s", pdevice);
-	    pdevice = pdevice_new;
-	    if (verbose)
-		fprintf(error_fp, "Trying %s for playback\n", pdevice);
-	    if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
-				    0)) < 0) {
-		fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
-			pdevice, snd_strerror(err));
-	    }
-	}
+        sprintf(pdevice_new, "plug%s", pdevice);
+        pdevice = pdevice_new;
+        if (verbose)
+            fprintf(error_fp, "Trying %s for playback\n", pdevice);
+        if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
+                                0)) < 0) {
+            fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
+                    pdevice, snd_strerror(err));
+        }
 
 	err = setparams(phandle, chandle, format, enable_mmap, 1, &negotiated);
-	if (err != 0) {
-	    fprintf(error_fp, "setparams failed\n");
-	    return 1;
-	}
+    }
+
+    if (err != 0) {
+        fprintf(error_fp, "setparams failed\n");
+        return 1;
     }
 
     buffer = malloc((negotiated.bufsize * snd_pcm_format_width(format) / 8)
