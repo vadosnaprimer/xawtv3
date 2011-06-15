@@ -359,27 +359,12 @@ __again:
     return 0;
 }
 
-static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len,
-				 size_t *frames, size_t *max)
+static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len)
 {
-    snd_pcm_sframes_t r;
-
-    r = readi_func(handle, buf, len);
-    if (r < 0) {
-	return r;
-    }
-
-    if (r > 0) {
-	*frames += r;
-	if ((long)*max < r)
-	    *max = r;
-    }
-
-    return r;
+    return readi_func(handle, buf, len);
 }
 
-static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
-				  size_t *frames)
+static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len)
 {
     snd_pcm_sframes_t r;
 
@@ -410,7 +395,6 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len,
 
 	buf += r * 4;
 	len -= r;
-	*frames += r;
     }
     return 0;
 }
@@ -419,21 +403,19 @@ static int startup_capture(snd_pcm_t *phandle, snd_pcm_t *chandle,
 			   snd_pcm_format_t format, char *buffer, int latency,
 			   int channels, int link_is_supported)
 {
-    size_t frames_out;
     int err;
 
-    frames_out = 0;
     err = snd_pcm_format_set_silence(format, buffer, latency*channels);
     if (err < 0) {
 	fprintf(error_fp, "silence error: %s\n", snd_strerror(err));
 	return 1;
     }
-    err = writebuf(phandle, buffer, latency, &frames_out);
+    err = writebuf(phandle, buffer, latency);
     if (err < 0) {
 	fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	return 1;
     }
-    err = writebuf(phandle, buffer, latency, &frames_out);
+    err = writebuf(phandle, buffer, latency);
     if (err < 0) {
 	fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	return 1;
@@ -462,7 +444,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
     char *buffer;
     int err;
     ssize_t r;
-    size_t frames_in, frames_out, in_max;
     struct final_params negotiated;
     int ret = 0, link_is_supported = 1;
     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
@@ -495,8 +476,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	writei_func = snd_pcm_writei;
 	readi_func = snd_pcm_readi;
     }
-
-    frames_in = frames_out = 0;
 
     err = setparams(phandle, chandle, format, enable_mmap, 0, &negotiated);
 
@@ -547,8 +526,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 		    negotiated.channels, link_is_supported);
 
     while (!stop_alsa) {
-	in_max = 0;
-
 	/* use poll to wait for next event */
 	ret = snd_pcm_wait(chandle, 1000);
 	if (ret < 0) {
@@ -569,9 +546,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	    continue;
 	}
 
-	if ((r = readbuf(chandle, buffer, negotiated.latency, &frames_in,
-			 &in_max)) > 0) {
-	    if (writebuf(phandle, buffer, r, &frames_out) < 0) {
+	if ((r = readbuf(chandle, buffer, negotiated.latency)) > 0) {
+	    if (writebuf(phandle, buffer, r) < 0) {
 		if (verbose)
 		    fprintf(error_fp, "write error: %s\n", snd_strerror(err));
 	    }
