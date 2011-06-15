@@ -516,10 +516,15 @@ static int alsa_stream(const char *pdevice, const char *cdevice,
 	link_is_supported = 0;
     }
 
+    /*
+     * Buffering delay is due for capture and for playback, so we
+     * need to multiply it by two.
+     */
     fprintf(error_fp,
-	    "Alsa stream started, capturing from %s, playing back on %s at %i Hz%s\n",
+	    "Alsa stream started from %s to %s (%i Hz%s, buffer delay = %.2f ms)\n",
 	    cdevice, pdevice, negotiated.rate,
-	    enable_mmap ? " with mmap enabled" : "");
+	    enable_mmap ? ", mmap enabled" : "",
+	    2 * negotiated.latency * 1000.0 / negotiated.rate);
 
     alsa_is_running = 1;
     startup_capture(phandle, chandle, format, buffer, negotiated.latency,
