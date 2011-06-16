@@ -1453,7 +1453,7 @@ grabber_init()
 	if (!p)
 	    p = args.device;
 	alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
-	alsa_out = get_first_no_video_out_device(md, size);
+	alsa_out = "default";
 	if (args.alsa_cap)
 		alsa_cap = args.alsa_cap;
 
