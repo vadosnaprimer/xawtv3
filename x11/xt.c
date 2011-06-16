@@ -160,6 +160,12 @@ XtResource args_desc[] = {
 	XtRString, NULL
     },{
 	/* Integer */
+	"alsa_latency",
+	XtCValue, XtRInt, sizeof(int),
+	XtOffset(struct ARGS*,alsa_latency),
+	XtRString, "30"
+    },{
+	/* Integer */
 	"debug",
 	XtCValue, XtRInt, sizeof(int),
 	XtOffset(struct ARGS*,debug),
@@ -289,6 +295,7 @@ XrmOptionDescRec opt_desc[] = {
 
     { "-alsa-cap",   "alsa_cap",    XrmoptionSepArg, NULL },
     { "-alsa-pb",    "alsa_pb",     XrmoptionSepArg, NULL },
+    { "-alsa-latency", "alsa_latency", XrmoptionSepArg, NULL },
 
     { "-remote",     "remote",      XrmoptionNoArg,  "1" },
     { "-n",          "readconfig",  XrmoptionNoArg,  "0" },
@@ -1463,7 +1470,7 @@ grabber_init()
 		alsa_cap, args.device, alsa_out);
 
 	if (alsa_cap && alsa_out)
-	    alsa_thread_startup(alsa_out, alsa_cap, stderr, debug);
+	    alsa_thread_startup(alsa_out, alsa_cap, args.alsa_latency, stderr, debug);
 	free_media_devices(md, size);
     }
 #endif

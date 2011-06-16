@@ -174,7 +174,7 @@ static int seek_rates[] = {
 
 static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		     snd_pcm_format_t format,
-		     int allow_resample,
+		     int latency, int allow_resample,
 		     struct final_params *negotiated)
 {
     int i;
@@ -182,7 +182,9 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     int err, channels = 2;
     snd_pcm_hw_params_t *p_hwparams, *c_hwparams;
     snd_pcm_sw_params_t *p_swparams, *c_swparams;
-    snd_pcm_uframes_t c_size, p_psize, c_psize, latency;
+    snd_pcm_uframes_t c_size, p_psize, c_psize;
+    /* Our latency is 2 periods (in usecs) */
+    unsigned int periodtime = latency * 1000 / 2;
 
     snd_pcm_hw_params_alloca(&p_hwparams);
     snd_pcm_hw_params_alloca(&c_hwparams);
@@ -233,8 +235,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	return 2;
     }
 
-    /* Aim for 15 ms periods / 30 ms latency, which is 1 frame at ~30 fps */
-    if (setparams_periods(phandle, c_hwparams, 15000, 2, "capture"))
+    if (setparams_periods(phandle, c_hwparams, periodtime, 2, "capture"))
 	return 1;
 
     /* Note we use twice as much periods for the playback buffer, since we
@@ -243,7 +244,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
        on writing to it. Note we will configure the playback dev to start
        playing as soon as it has 2 capture periods worth of data, so this
        won't influence latency */
-    if (setparams_periods(phandle, p_hwparams, 15000, 4, "playback"))
+    if (setparams_periods(phandle, p_hwparams, periodtime, 4, "playback"))
 	return 1;
 
     snd_pcm_hw_params_get_period_size(p_hwparams, &p_psize, NULL);
@@ -317,7 +318,7 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len)
     }
 }
 
-static int alsa_stream(const char *pdevice, const char *cdevice)
+static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 {
     snd_pcm_t *phandle, *chandle;
     char *buffer;
@@ -347,7 +348,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
 	return 0;
     }
 
-    err = setparams(phandle, chandle, format, 0, &negotiated);
+    err = setparams(phandle, chandle, format, latency, 0, &negotiated);
 
     /* Try to use plughw instead, as it allows emulating speed */
     if (err == 2 && strncmp(pdevice, "hw", 2) == 0) {
@@ -364,7 +365,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
                     pdevice, snd_strerror(err));
         }
 
-	err = setparams(phandle, chandle, format, 1, &negotiated);
+	err = setparams(phandle, chandle, format, latency, 1, &negotiated);
     }
 
     if (err != 0) {
@@ -419,6 +420,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice)
 struct input_params {
     const char *pdevice;
     const char *cdevice;
+    int latency;
 };
 
 static void *alsa_thread_entry(void *whatever)
@@ -428,7 +430,7 @@ static void *alsa_thread_entry(void *whatever)
     if (verbose)
 	fprintf(error_fp, "Starting copying alsa stream from %s to %s\n",
 		inputs->cdevice, inputs->pdevice);
-    alsa_stream(inputs->pdevice, inputs->cdevice);
+    alsa_stream(inputs->pdevice, inputs->cdevice, inputs->latency);
     fprintf(error_fp, "Alsa stream stopped\n");
 
     return whatever;
@@ -438,7 +440,7 @@ static void *alsa_thread_entry(void *whatever)
  Public functions
  *************************************************************************/
 
-int alsa_thread_startup(const char *pdevice, const char *cdevice,
+int alsa_thread_startup(const char *pdevice, const char *cdevice, int latency,
 			FILE *__error_fp, int __verbose)
 {
     int ret;
@@ -465,6 +467,7 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice,
 
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
+    inputs->latency = latency;
 
     if (alsa_is_running) {
        stop_alsa = 1;

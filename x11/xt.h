@@ -47,6 +47,7 @@ struct ARGS {
     int  xv_port;
     int  parallel;
     int  bufcount;
+    int  alsa_latency; /* In ms */
 
     /* boolean */
     int  remote;
