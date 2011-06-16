@@ -418,8 +418,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 }
 
 struct input_params {
-    const char *pdevice;
-    const char *cdevice;
+    char *pdevice;
+    char *cdevice;
     int latency;
 };
 
@@ -433,7 +433,11 @@ static void *alsa_thread_entry(void *whatever)
     alsa_stream(inputs->pdevice, inputs->cdevice, inputs->latency);
     fprintf(error_fp, "Alsa stream stopped\n");
 
-    return whatever;
+    free(inputs->pdevice);
+    free(inputs->cdevice);
+    free(inputs);
+
+    return NULL;
 }
 
 /*************************************************************************
