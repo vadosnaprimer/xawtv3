@@ -58,7 +58,6 @@ struct ARGS {
     int  xv_image;
     int  gl;
     int  alsa;
-    int  alsa_mmap;
     int  vidmode;
     int  dga;
     int  randr;
