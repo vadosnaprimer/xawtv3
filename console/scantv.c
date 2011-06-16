@@ -61,6 +61,9 @@ get_vbi_name(struct vbi_state *vbi)
 {
     int start;
 
+    if (!vbi)
+	return NULL;
+
     vbi_hasdata(vbi);
     if (NULL != tvname)
 	free(tvname);
@@ -238,11 +241,10 @@ main(int argc, char **argv)
 
     /* vbi */
     vbi = vbi_open(ng_dev.vbi,debug,0);
-    if (NULL == vbi) {
+    if (NULL == vbi)
 	fprintf(stderr,"open %s: %s\n",ng_dev.vbi,strerror(errno));
-	exit(1);
-    }
-    vbi_event_handler_add(vbi->dec,~0,event,vbi);
+    else
+	vbi_event_handler_add(vbi->dec,~0,event,vbi);
 
     if (!fullscan) {
 	/* scan channels */
