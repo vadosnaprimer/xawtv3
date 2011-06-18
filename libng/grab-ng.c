@@ -549,22 +549,6 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
     struct list_head *item;
     struct ng_vid_driver *drv;
 
-#ifdef __linux__
-    if (NULL != screen) {
-	switch (system(ng_v4l_conf)) {
-	case -1: /* can't run */
-	    fprintf(stderr,"could'nt start v4l-conf\n");
-	    break;
-	case 0: /* ok */
-	    break;
-	default: /* non-zero return */
-	    fprintf(stderr,"v4l-conf had some trouble, "
-		    "trying to continue anyway\n");
-	    break;
-	}
-    }
-#endif
-
     if (!driver) {
 	fprintf (stderr, "Video4linux driver is not specified\n");
 	return NULL;
@@ -599,8 +583,33 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
     if (ng_debug)
 	fprintf(stderr,"vid-open: ok: %s\n",drv->name);
 
-    if (NULL != screen && drv->capabilities(*handle) & CAN_OVERLAY)
+    if (NULL != screen && drv->capabilities(*handle) & CAN_OVERLAY) {
+#ifdef __linux__
+	if (ng_debug)
+	    fprintf(stderr,"vid-open: closing dev to run v4lconf\n");
+	drv->close(*handle);
+	switch (system(ng_v4l_conf)) {
+	case -1: /* can't run */
+	    fprintf(stderr,"could'nt start v4l-conf\n");
+	    break;
+	case 0: /* ok */
+	    break;
+	default: /* non-zero return */
+	    fprintf(stderr,"v4l-conf had some trouble, "
+		    "trying to continue anyway\n");
+	    break;
+	}
+	if (ng_debug)
+	    fprintf(stderr,"vid-open: re-opening dev after v4lconf\n");
+	if (!(*handle = (drv->open)(device))) {
+	    fprintf(stderr,"vid-open: failed: %s\n", drv->name);
+	    return NULL;
+	}
+	if (ng_debug)
+	    fprintf(stderr,"vid-open: re-open ok\n", drv->name);
+#endif
 	drv->setupfb(*handle,screen,base);
+    }
 
     return drv;
 }
