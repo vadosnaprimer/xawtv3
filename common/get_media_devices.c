@@ -17,6 +17,8 @@
    02110-1335 USA.
  */
 
+#ifdef __linux__ /* This depends on sysfs, so it is linux only */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -591,3 +593,5 @@ const char *get_not_associated_device(void *opaque,
 
 	return result;
 }
+
+#endif
