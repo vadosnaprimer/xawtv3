@@ -26,6 +26,7 @@
 # define RTLD_NOW RTLD_LAZY
 #endif
 
+#include "get_media_devices.h"
 #include "grab-ng.h"
 
 int  ng_debug          = 0;
@@ -542,8 +543,45 @@ ng_conv_find_match(unsigned int in, unsigned int out)
 
 /* --------------------------------------------------------------------- */
 
+#ifdef __linux__ /* Because this depends on get_media_devices.c */
+static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath)
+{
+    void *md, *handle = NULL;
+    const char *device = NULL;
+    int caps;
+
+    md = discover_media_devices();    
+    while (1) {
+	device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
+	if (!device)
+	    break; /* No more video devices to try */
+        snprintf(devpath, PATH_MAX, "/dev/%s", device);
+	if (ng_debug)
+	    fprintf(stderr,"vid-open-auto: trying: %s... \n", devpath);
+	if (!(handle = (drv->open)(devpath))) {
+	    fprintf(stderr,"vid-open-auto: failed to open: %s\n", devpath);
+	    continue;
+	}
+
+	/* Check caps return this device if it can capture and has a tuner */
+	caps = drv->capabilities(handle);
+	if ((caps & CAN_CAPTURE) && (caps & CAN_TUNE))
+	    break;
+
+	drv->close(handle);
+	handle = NULL;
+    }
+    free_media_devices(md);
+
+    if (handle && ng_debug)
+	fprintf(stderr,"vid-open-auto: success, using: %s\n", devpath);
+
+    return handle;
+}
+#endif
+
 const struct ng_vid_driver*
-ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
+ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
 	    void *base, void **handle)
 {
     struct list_head *item;
@@ -574,17 +612,34 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
 	return NULL;
     }
 
-    if (ng_debug)
-	fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
-    if (!(*handle = (drv->open)(device))) {
-	fprintf(stderr,"vid-open: failed: %s\n",drv->name);
-	return NULL;
+#ifdef __linux__
+    if (!strcmp(*device, "auto")) {
+        char devpath[PATH_MAX];
+	*handle = ng_vid_open_auto(drv, devpath);
+	if (*handle == NULL) {
+	    fprintf(stderr, "vid-open: could not find a suitable videodev\n");
+	    return NULL;
+	}
+	*device = strdup(devpath);
+    } else
+#endif
+    {
+	if (ng_debug)
+	    fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
+	if (!(*handle = (drv->open)(*device))) {
+	    fprintf(stderr,"vid-open: failed: %s\n", drv->name);
+	    return NULL;
+	}
+	if (ng_debug)
+	    fprintf(stderr,"vid-open: ok: %s\n", drv->name);
     }
-    if (ng_debug)
-	fprintf(stderr,"vid-open: ok: %s\n",drv->name);
 
     if (NULL != screen && drv->capabilities(*handle) & CAN_OVERLAY) {
 #ifdef __linux__
+	int l = strlen(ng_v4l_conf);
+
+	snprintf(ng_v4l_conf + l, sizeof(ng_v4l_conf) - l, " -c %s", *device);
+
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: closing dev to run v4lconf\n");
 	drv->close(*handle);
@@ -601,12 +656,12 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
 	}
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: re-opening dev after v4lconf\n");
-	if (!(*handle = (drv->open)(device))) {
+	if (!(*handle = (drv->open)(*device))) {
 	    fprintf(stderr,"vid-open: failed: %s\n", drv->name);
 	    return NULL;
 	}
 	if (ng_debug)
-	    fprintf(stderr,"vid-open: re-open ok\n", drv->name);
+	    fprintf(stderr,"vid-open: re-open ok\n");
 #endif
 	drv->setupfb(*handle,screen,base);
     }

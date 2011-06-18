@@ -526,7 +526,7 @@ grabber_init(void)
     screen.height       = fb_var.yres_virtual;
     screen.bytesperline = fb_fix.line_length;
 
-    drv = ng_vid_open(ng_dev.video, ng_dev.driver, &screen, 0, &h_drv);
+    drv = ng_vid_open(&ng_dev.video, ng_dev.driver, &screen, 0, &h_drv);
     if (NULL == drv) {
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
@@ -648,9 +648,6 @@ main(int argc, char *argv[])
 	    break;
 	case 'c':
 	    ng_dev.video = optarg;
-	    /* v4l-conf needs this too */
-	    strcat(ng_v4l_conf," -c ");
-	    strcat(ng_v4l_conf,ng_dev.video);
 	    break;
 	case 'D':
 	    ng_dev.driver = optarg;

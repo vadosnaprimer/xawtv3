@@ -445,7 +445,7 @@ struct ng_video_conv* ng_conv_find_to(unsigned int out, int *i);
 struct ng_video_conv* ng_conv_find_from(unsigned int out, int *i);
 struct ng_video_conv* ng_conv_find_match(unsigned int in, unsigned int out);
 
-const struct ng_vid_driver* ng_vid_open(char *device, char *driver,
+const struct ng_vid_driver* ng_vid_open(char **device, char *driver,
 					struct ng_video_fmt *screen,
 					void *base, void **handle);
 const struct ng_dsp_driver* ng_dsp_open(char *device, struct ng_audio_fmt *fmt,

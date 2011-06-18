@@ -1429,7 +1429,7 @@ grabber_init()
     if (!do_overlay) {
 	if (debug)
 	    fprintf(stderr,"x11: remote display (overlay disabled)\n");
-	drv = ng_vid_open(args.device, args.driver, NULL, base, &h_drv);
+	drv = ng_vid_open(&args.device, args.driver, NULL, base, &h_drv);
     } else {
 	screen.width  = XtScreen(app_shell)->width;
 	screen.height = XtScreen(app_shell)->height;
@@ -1442,7 +1442,7 @@ grabber_init()
 		    screen.bytesperline,
 		    have_dga ? ", DGA"     : "",
 		    have_vm  ? ", VidMode" : "");
-	drv = ng_vid_open(args.device, args.driver, &screen, base, &h_drv);
+	drv = ng_vid_open(&args.device, args.driver, &screen, base, &h_drv);
     }
     if (NULL == drv) {
 	fprintf(stderr,"no video grabber device available\n");
@@ -1502,7 +1502,7 @@ grabber_scan(void)
 	}
 	close(fh);
 
-	driver = ng_vid_open(ng_dev.video_scan[i], args.driver,
+	driver = ng_vid_open(&ng_dev.video_scan[i], args.driver,
 			     NULL, NULL, &handle);
 	if (NULL == driver) {
 	    fprintf(stderr,"%s: initialization failed\n",ng_dev.video_scan[i]);
@@ -1637,8 +1637,6 @@ v4lconf_init()
 	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -s %d",args.shift);
     if (args.bpp)
 	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -b %d",args.bpp);
-    if (args.device)
-	sprintf(ng_v4l_conf+strlen(ng_v4l_conf)," -c %s",args.device);
 }
 
 static void
