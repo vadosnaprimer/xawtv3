@@ -1407,8 +1407,7 @@ grabber_init()
     struct ng_video_fmt screen;
     void *base = NULL;
 #if defined(HAVE_ALSA)
-    struct media_devices *md;
-    unsigned int size = 0;
+    void *md;
     char *alsa_cap, *alsa_out, *p;
 #endif
 
@@ -1455,11 +1454,14 @@ grabber_init()
 #if defined(HAVE_ALSA)
     if (args.alsa) {
 	/* Start audio capture thread */
-	md = discover_media_devices(&size);
+	md = discover_media_devices();
 	p = strrchr(args.device, '/');
-	if (!p)
+	if (p)
+	    p++;
+	else
 	    p = args.device;
-	alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
+	alsa_cap = (char *)get_associated_device(md, NULL, MEDIA_SND_CAP,
+						 p, MEDIA_V4L_VIDEO);
 	alsa_out = "default";
 	if (args.alsa_cap)
 		alsa_cap = args.alsa_cap;
@@ -1471,7 +1473,7 @@ grabber_init()
 
 	if (alsa_cap && alsa_out)
 	    alsa_thread_startup(alsa_out, alsa_cap, args.alsa_latency, stderr, debug);
-	free_media_devices(md, size);
+	free_media_devices(md);
     }
 #endif
 }

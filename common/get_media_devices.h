@@ -13,52 +13,58 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the libv4l2util Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.
+   Software Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA
+   02110-1335 USA.
  */
 
 /*
  * Version of the API
  */
-#define GET_MEDIA_DEVICES_VERSION	0x0100
+#define GET_MEDIA_DEVICES_VERSION	0x0105
 
 /**
  * enum device_type - Enumerates the type for each device
  *
  * The device_type is used to sort the media devices array.
  * So, the order is relevant. The first device should be
- * V4L_VIDEO.
+ * MEDIA_V4L_VIDEO.
  */
 enum device_type {
 	UNKNOWN = 65535,
-	V4L_VIDEO = 0,
-	V4L_VBI,
-	DVB_FRONTEND,
-	DVB_DEMUX,
-	DVB_DVR,
-	DVB_NET,
-	DVB_CA,
-	/* TODO: Add dvb full-featured nodes */
-	SND_CARD,
-	SND_CAP,
-	SND_OUT,
-	SND_CONTROL,
-	SND_HW,
+	NONE    = 65534,
+	MEDIA_V4L_VIDEO = 0,
+	MEDIA_V4L_VBI,
+	MEDIA_V4L_RADIO,
+	MEDIA_V4L_SUBDEV,
+
+	MEDIA_DVB_VIDEO = 100,
+	MEDIA_DVB_AUDIO,
+	MEDIA_DVB_SEC,
+	MEDIA_DVB_FRONTEND,
+	MEDIA_DVB_DEMUX,
+	MEDIA_DVB_DVR,
+	MEDIA_DVB_CA,
+	MEDIA_DVB_NET,
+	MEDIA_DVB_OSD,
+
+	MEDIA_SND_CARD = 200,
+	MEDIA_SND_CAP,
+	MEDIA_SND_OUT,
+	MEDIA_SND_CONTROL,
+	MEDIA_SND_HW,
+	MEDIA_SND_TIMER,
+	MEDIA_SND_SEQ,
+	/*
+	 * FIXME: not all alsa devices were mapped. missing things like
+	 *	midi, midiC%iD%i and timer interfaces
+	 */
 };
 
-/**
- * struct media_devices - Describes all devices found
- *
- * @device:		sysfs name for a device.
- *			PCI devices are like: pci0000:00/0000:00:1b.0
- *			USB devices are like: pci0000:00/0000:00:1d.7/usb1/1-8
- * @node:		Device node, in sysfs or alsa hw identifier
- * @device_type:	Type of the device (V4L_*, DVB_*, SND_*)
- */
-struct media_devices {
-	char *device;
-	char *node;
-	enum device_type type;
+enum bus_type {
+	MEDIA_BUS_UNKNOWN,
+	MEDIA_BUS_VIRTUAL,
+	MEDIA_BUS_PCI,
+	MEDIA_BUS_USB,
 };
 
 /**
@@ -66,90 +72,97 @@ struct media_devices {
  * @md_size:	Returns the size of the media devices found
  *
  * This function reads the /sys/class nodes for V4L, DVB and sound,
- * and returns an ordered list of devices. The devices are ordered
- * by device, type and node. At return, md_size is updated.
+ * and returns an opaque desciptor that keeps a list of the devices.
+ * The fields on this list is opaque, as they can be changed on newer
+ * releases of this library. So, all access to it should be done via
+ * a function provided by the API. The devices are ordered by device,
+ * type and node. At return, md_size is updated.
  */
-struct media_devices *discover_media_devices(unsigned int *md_size);
+void *discover_media_devices(void);
 
 /**
  * free_media_devices() - Frees the media devices array
  *
- * @md:		media devices array
- * @md_size:	size of the array
+ * @opaque:	media devices opaque descriptor
  *
  * As discover_media_devices() dynamically allocate space for the
  * strings, feeing the list requires also to free those data. So,
  * the safest and recommended way is to call this function.
  */
-void free_media_devices(struct media_devices *md, unsigned int md_size);
+void free_media_devices(void *opaque);
+
+/**
+ * media_device_type() - returns a string with the name of a given type
+ *
+ * @type:	media device type
+ */
+const char *media_device_type(const enum device_type type);
 
 /**
  * display_media_devices() - prints a list of media devices
  *
- * @md:		media devices array
- * @size:	size of the list
+ * @opaque:	media devices opaque descriptor
  */
-void display_media_devices(struct media_devices *md, unsigned int size);
+void display_media_devices(void *opaque);
 
 /**
- * get_first_alsa_cap_device() - Gets the first alsa capture device for a
- *				 video node
+ * get_associated_device() - Return the next device associated with another one
  *
- * @md:		media devices array
- * @size:	size of the list
- * @v4l_device:	name of the video device
+ * @opaque:		media devices opaque descriptor
+ * @last_seek:		last seek result. Use NULL to get the first result
+ * @desired_type:	type of the desired device
+ * @seek_device:	name of the device with you want to get an association.
+ *@ seek_type:		type of the seek device. Using NONE produces the same
+ *			result of using NULL for the seek_device.
  *
- * This function seeks inside the media_devices struct for the first alsa
- * capture device (SND_CAP) that belongs to the same device where the video
- * node exists. The video node should belong to V4L_VIDEO type (video0,
- * video1, etc).
+ * This function seeks inside the media_devices struct for the next device
+ * that it is associated with a seek parameter.
+ * It can be used to get an alsa device associated with a video device. If
+ * the seek_device is NULL or seek_type is NONE, it will just search for
+ * devices of the desired_type.
  */
-char *get_first_alsa_cap_device(struct media_devices *md, unsigned int size,
-				char *v4l_device);
+const char *get_associated_device(void *opaque,
+				  const char *last_seek,
+				  const enum device_type desired_type,
+				  const char *seek_device,
+				  const enum device_type seek_type);
 
 /**
- * get_first_no_video_out_device() - Gets the first alsa playback device
- *				     that is not associated to a video device.
+ * fget_associated_device() - Return the next device associated with another one
  *
- * @md:		media devices array
- * @size:	size of the list
- * @v4l_device:	name of the video device
+ * @opaque:		media devices opaque descriptor
+ * @last_seek:		last seek result. Use NULL to get the first result
+ * @desired_type:	type of the desired device
+ * @fd_seek_device:	file handler for the device where the association will
+			be made
+ *@ seek_type:		type of the seek device. Using NONE produces the same
+ *			result of using NULL for the seek_device.
  *
- * This function seeks inside the media_devices struct for the first alsa
- * playback device (SND_OUT) that is not associated to a video device.
- * The returned value is at the format expected by alsa libraries (like hw:0,0)
- *
- * If there's no playback device that are not associated to a video device,
- * the routine falls back to any existing audio playback device. This is useful
- * in the cases where there's no audio sound device on a system, and an external
- * USB device that provides both video and audio playback is connected.
- *
- * Note that, as the devices are ordered by the devices ID, this routine
- * may not return hw:0,0. That's OK, as, if the media card is probed before
- * the audio card, the media card will receive the lowest address.
- *
- * In general, it will return the alsa device for the default audio playback
- * device.
+ * This function seeks inside the media_devices struct for the next device
+ * that it is associated with a seek parameter.
+ * It can be used to get an alsa device associated with an open file descriptor
  */
-char *get_first_no_video_out_device(struct media_devices *md,
-				    unsigned int size);
+const char *fget_associated_device(void *opaque,
+				   const char *last_seek,
+				   const enum device_type desired_type,
+				   const int fd_seek_device,
+				   const enum device_type seek_type);
 
-/*
- * A typical usecase for the above API is:
+/**
+ * get_not_associated_device() - Return the next device not associated with
+ *			     an specific device type.
  *
- *	struct media_devices *md;
- *	unsigned int size = 0;
- *	char *alsa_cap, *alsa_out, *p;
- *	char *video_dev = "/dev/video0";
+ * @opaque:		media devices opaque descriptor
+ * @last_seek:		last seek result. Use NULL to get the first result
+ * @desired_type:	type of the desired device
+ * @not_desired_type:	type of the seek device
  *
- *	md = discover_media_devices(&size);
- *	p = strrchr(video_dev, '/');
- *	alsa_cap = get_first_alsa_cap_device(md, size, p + 1);
- *	alsa_out = get_first_no_video_out_device(md, size);
- *	if (alsa_cap && alsa_out)
- *		alsa_handler(alsa_out, alsa_cap);
- *	free_media_devices(md, size);
- *
- * Where alsa_handler() is some function that will need to handle
- * both alsa capture and playback devices.
+ * This function seeks inside the media_devices struct for the next physical
+ * device that doesn't support a non_desired type.
+ * This method is useful for example to return the audio devices that are
+ * provided by the motherboard.
  */
+const char *get_not_associated_device(void *opaque,
+				      const char *last_seek,
+				      const enum device_type desired_type,
+				      const enum device_type not_desired_type);
