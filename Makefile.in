@@ -28,7 +28,7 @@ INSTALL_DIR	:= @INSTALL@ -d -m 755
 VERSION		:= @VERSION@
 
 # for CFLAGS
-WARN_FLAGS	:= -Wall -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith
+WARN_FLAGS	:= -Wall -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wno-pointer-sign
 LFS_FLAGS	:= -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
 X11_FLAGS	:= @X_CFLAGS@ @XFT_FLAGS@ -I/usr/include/X11/fonts
 LIB_FLAGS	:= -I. -I./vbistuff -I./x11 \

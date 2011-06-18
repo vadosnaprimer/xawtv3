@@ -65,7 +65,8 @@ static void avi_add_movi(struct avi_handle *h,  int level,
     h->movi_cnt++;
     if (ng_debug)
 	fprintf(stderr,"%*s[movie data list: 0x%llx+0x%llx]\n",
-		level, "", start, size);
+		level, "",
+		(unsigned long long)start, (unsigned long long)size);
 }
 
 static void avi_swap_strh(struct RIFF_strh *strh)
@@ -214,7 +215,7 @@ static uint32_t avi_find_chunk(struct avi_handle *h, uint32_t id, off_t *pos)
 	if (FCCS(chunk.id) == id) {
 	    if (ng_debug)
 		fprintf(stderr,"avi: chunk %4.4s: 0x%llx+0x%x\n",
-			chunk.id,*pos,chunk.size);
+			chunk.id,(unsigned long long)(*pos),chunk.size);
 	    return chunk.size;
 	}
     }

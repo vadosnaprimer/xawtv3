@@ -118,7 +118,8 @@ static void dv_fmt(struct dv_handle *h, int *vfmt, int vn)
     h->frames = len / h->dec->frame_size;
 
     if (ng_debug) {
-	fprintf(stderr,"dv: len=%lld => %d frames [%" PRId64 "]\n",len,h->frames,
+	fprintf(stderr,"dv: len=%lld => %d frames [%" PRId64 "]\n",
+		(unsigned long long)len, h->frames,
 		len - (off_t)h->frames * h->dec->frame_size);
 	fprintf(stderr,
 		"dv: quality=%d system=%d std=%d sampling=%d num_dif_seqs=%d\n"

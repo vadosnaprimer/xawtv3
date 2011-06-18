@@ -563,7 +563,7 @@ ng_vid_open(char *device, char *driver, struct ng_video_fmt *screen,
 
     if (item == &ng_vid_drivers) {
 	if (strcasecmp(driver, "help") != 0)
-	    fprintf (stderr, "Cannot find %s video driver\n", drv->name);
+	    fprintf (stderr, "Cannot find %s video driver\n", driver);
 	fprintf (stderr, "Available drivers:");
 	list_for_each(item,&ng_vid_drivers) {
 	    drv = list_entry(item, struct ng_vid_driver, list);
