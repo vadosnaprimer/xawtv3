@@ -1737,7 +1737,11 @@ handle_cmdline_args(void)
     if (args.device || args.driver)
 	args.xv_video = 0;
     if (NULL == args.device)
+#ifdef __linux__ /* "auto" depends on get_media_devices and thus sysfs */
+	args.device = "auto";
+#else
 	args.device = ng_dev.video;
+#endif
     if (NULL == args.driver)
 	args.driver = ng_dev.driver;
     if (0 != args.xv_port)
