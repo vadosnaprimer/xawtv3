@@ -355,6 +355,9 @@ set_volume(void)
 static void
 set_freqtab(int j)
 {
+    if (!(f_drv & CAN_TUNE))
+	return 0;
+
     freq_newtab(j);
 
     /* cur_channel might be invalid (>chancount) right now */
@@ -570,6 +573,9 @@ static int setstation_handler(char *name, int argc, char **argv)
     struct ng_attribute *attr,*mute;
     int i;
 
+    if (!(f_drv & CAN_TUNE))
+	return 0;
+
     if (0 == argc) {
 	set_title();
 	return 0;
@@ -668,6 +674,9 @@ static int setchannel_handler(char *name, int argc, char **argv)
     struct ng_attribute *mute;
     int c,i;
 
+    if (!(f_drv & CAN_TUNE))
+	return 0;
+
     if (0 == argc) {
 	set_title();
 	return 0;
@@ -761,6 +770,9 @@ print_choices(char *name, char *value, struct STRTAB *tab)
 static int setfreqtab_handler(char *name, int argc, char **argv)
 {
     int i;
+
+    if (!(f_drv & CAN_TUNE))
+	return 0;
 
     i = str_to_int(argv[0],chanlist_names);
     if (i != -1)

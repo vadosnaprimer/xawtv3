@@ -452,6 +452,8 @@ void
 ZapAction(Widget widget, XEvent *event,
 	  String *params, Cardinal *num_params)
 {
+    if (!(f_drv & CAN_TUNE))
+	return;
     if (zap_timer) {
 	XtRemoveTimeOut(zap_timer);
 	zap_timer = 0;
@@ -492,6 +494,8 @@ void
 ScanAction(Widget widget, XEvent *event,
 	   String *params, Cardinal *num_params)
 {
+    if (!(f_drv & CAN_TUNE))
+	return;
     if (channel_switch_hook)
 	channel_switch_hook();
     do_va_cmd(2,"setchannel","next");

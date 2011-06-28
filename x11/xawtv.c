@@ -165,15 +165,16 @@ void watch_audio(XtPointer data, XtIntervalId *id);
 static struct MY_TOPLEVELS {
     char        *name;
     Widget      *shell;
+    int         require_tune;
     int         *check;
     int          first;
     int          mapped;
 } my_toplevels [] = {
-    { "options",  &opt_shell              },
-    { "channels", &chan_shell,   &count   },
-    { "config",   &conf_shell,            },
-    { "streamer", &str_shell              },
-    { "launcher", &launch_shell, &nlaunch }
+    { "options",  &opt_shell,    0,          },
+    { "channels", &chan_shell,   1, &count   },
+    { "config",   &conf_shell,   1,          },
+    { "streamer", &str_shell,    0,          },
+    { "launcher", &launch_shell, 0, &nlaunch }
 };
 #define TOPLEVELS (sizeof(my_toplevels)/sizeof(struct MY_TOPLEVELS))
 
@@ -234,7 +235,9 @@ PopupAction(Widget widget, XEvent *event,
     Dimension h;
     unsigned int i;
     int mh;
-
+    if (debug)
+	fprintf(stderr,"PopupAction: %s\n",
+	        (*num_params > 0) ? params[0] : "-");
     /* which window we are talking about ? */
     if (*num_params > 0) {
 	for (i = 0; i < TOPLEVELS; i++) {
@@ -252,6 +255,10 @@ PopupAction(Widget widget, XEvent *event,
 		(*num_params > 0) ? params[0] : "-");
 	return;
     }
+
+    if (!(f_drv & CAN_TUNE) && my_toplevels[i].require_tune)
+	return;
+
 
     /* Message from WM ??? */
     if (NULL != event && event->type == ClientMessage) {
@@ -734,6 +741,9 @@ ChannelAction(Widget widget, XEvent *event,
 {
     int i;
 
+    if (!(f_drv & CAN_TUNE))
+	return;
+
     if (0 == count)
 	return;
     i = popup_menu(widget,"Stations",cmenu);
@@ -744,6 +754,9 @@ ChannelAction(Widget widget, XEvent *event,
 
 static void create_chanwin(void)
 {
+    if (!(f_drv & CAN_TUNE))
+	return;
+
     chan_shell = XtVaAppCreateShell("Channels", "Xawtv",
 				    topLevelShellWidgetClass,
 				    dpy,
@@ -772,6 +785,9 @@ void channel_menu(void)
 {
     int  i,max,len;
     char str[100];
+
+    if (!(f_drv & CAN_TUNE))
+	return;
 
     if (cmenu)
 	free(cmenu);
@@ -1158,18 +1174,20 @@ create_optwin(void)
     c = XtVaCreateManagedWidget("recavi", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_avi);
-    c = XtVaCreateManagedWidget("chanwin", commandWidgetClass, opt_paned,
-				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_chan);
-    c = XtVaCreateManagedWidget("confwin", commandWidgetClass, opt_paned,
-				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_conf);
+    if (f_drv & CAN_TUNE) {
+	c = XtVaCreateManagedWidget("chanwin", commandWidgetClass, opt_paned,
+				    PANED_FIX, NULL);
+	XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_chan);
+	c = XtVaCreateManagedWidget("confwin", commandWidgetClass, opt_paned,
+				    PANED_FIX, NULL);
+	XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_conf);
+	c = XtVaCreateManagedWidget("zap", commandWidgetClass, opt_paned,
+				    PANED_FIX, NULL);
+	XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_zap);
+    }
     c = XtVaCreateManagedWidget("launchwin", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
     XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_launch);
-    c = XtVaCreateManagedWidget("zap", commandWidgetClass, opt_paned,
-				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,action_cb,(XtPointer)&ac_zap);
     if (wm_stay_on_top) {
 	c = XtVaCreateManagedWidget("top", commandWidgetClass, opt_paned,
 				    PANED_FIX, NULL);
@@ -1648,9 +1666,12 @@ main(int argc, char *argv[])
 #endif
     attr_notify         = new_attr;
     volume_notify       = new_volume;
-    freqtab_notify      = new_freqtab;
-    setfreqtab_notify   = new_freqtab;
-    setstation_notify   = new_channel;
+    if (f_drv & CAN_TUNE) {
+	freqtab_notify      = new_freqtab;
+	setfreqtab_notify   = new_freqtab;
+	setstation_notify   = new_channel;
+	channel_switch_hook = pixit;
+    }
     set_capture_hook    = do_capture;
     fullscreen_hook     = do_fullscreen;
     movie_hook          = do_movie_record;
@@ -1658,7 +1679,6 @@ main(int argc, char *argv[])
     exit_hook           = do_exit;
     capture_get_hook    = video_gd_suspend;
     capture_rel_hook    = video_gd_restart;
-    channel_switch_hook = pixit;
 
     if (debug)
 	fprintf(stderr,"main: init main window...\n");
@@ -1686,7 +1706,8 @@ main(int argc, char *argv[])
     create_onscreen(labelWidgetClass);
     create_vtx();
     create_chanwin();
-    create_confwin();
+    if ((f_drv & CAN_TUNE))
+	create_confwin();
     create_strwin();
     create_launchwin();
 
@@ -1726,9 +1747,10 @@ main(int argc, char *argv[])
 		  XtNminWidth,  WIDTH_INC,
 		  XtNminHeight, HEIGHT_INC,
 		  NULL);
-    XtVaSetValues(chan_shell,
-		  XtNwidth,pix_width*pix_cols+30,
-		  NULL);
+    if (f_drv & CAN_TUNE)
+	XtVaSetValues(chan_shell,
+		      XtNwidth,pix_width*pix_cols+30,
+		      NULL);
 
     /* mouse pointer magic */
     XtAddEventHandler(tv, PointerMotionMask, True, mouse_event, NULL);
@@ -1742,21 +1764,22 @@ main(int argc, char *argv[])
     audio_init();
 
     /* build channel list */
-    if (args.readconfig) {
+    if (args.readconfig &&(f_drv & CAN_TUNE)) {
 	if (debug)
 	    fprintf(stderr,"main: parse channels from config file ...\n");
 	parse_config();
     }
+
     channel_menu();
 
     xt_handle_pending(dpy);
     init_overlay();
 
     set_property(0,NULL,NULL);
-    if (optind+1 == argc) {
+    if (optind+1 == argc && (f_drv & CAN_TUNE)) {
 	do_va_cmd(2,"setstation",argv[optind]);
-    } else {
-	if ((f_drv & CAN_TUNE) && 0 != (freq = drv->getfreq(h_drv))) {
+    } else if (f_drv & CAN_TUNE) {
+	if (0 != (freq = drv->getfreq(h_drv))) {
 	    for (i = 0; i < chancount; i++)
 		if (chanlist[i].freq == freq*1000/16) {
 		    do_va_cmd(2,"setchannel",chanlist[i].name);
