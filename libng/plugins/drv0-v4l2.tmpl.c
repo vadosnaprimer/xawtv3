@@ -407,7 +407,8 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 
     } else if (attr->id == ATTR_ID_AUDIO_MODE) {
 	memset(&tuner,0,sizeof(tuner));
-	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
+	if (h->cap.capabilities & V4L2_CAP_TUNER)
+	    xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
 	value = tuner.audmode;
 #if 1
 	if (ng_debug) {
@@ -449,7 +450,7 @@ static void v4l2_write_attr(struct ng_attribute *attr, int value)
     } else if (attr->id == ATTR_ID_INPUT) {
 	xioctl(h->fd,VIDIOC_S_INPUT,&value,0);
 
-    } else if (attr->id == ATTR_ID_AUDIO_MODE) {
+    } else if ((attr->id == ATTR_ID_AUDIO_MODE) && (h->cap.capabilities & V4L2_CAP_TUNER)) {
 	memset(&tuner,0,sizeof(tuner));
 	xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0);
 	tuner.audmode = value;
@@ -606,6 +607,8 @@ v4l2_getfreq(void *handle)
     struct v4l2_handle *h = handle;
     struct v4l2_frequency f;
 
+    if (!(h->cap.capabilities & V4L2_CAP_TUNER))
+	return 0;
     memset(&f,0,sizeof(f));
     xioctl(h->fd, VIDIOC_G_FREQUENCY, &f, 0);
     return f.frequency;
@@ -617,6 +620,8 @@ v4l2_setfreq(void *handle, unsigned long freq)
     struct v4l2_handle *h = handle;
     struct v4l2_frequency f;
 
+    if (!(h->cap.capabilities & V4L2_CAP_TUNER))
+	return;
     if (ng_debug)
 	fprintf(stderr,"v4l2: freq: %.3f\n",(float)freq/16);
     memset(&f,0,sizeof(f));
@@ -631,6 +636,8 @@ v4l2_tuned(void *handle)
     struct v4l2_handle *h = handle;
     struct v4l2_tuner tuner;
 
+    if (!(h->cap.capabilities & V4L2_CAP_TUNER))
+	return 0;
     usleep(10000);
     memset(&tuner,0,sizeof(tuner));
     if (-1 == xioctl(h->fd,VIDIOC_G_TUNER,&tuner,0))
