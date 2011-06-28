@@ -563,9 +563,9 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath)
 	    continue;
 	}
 
-	/* Check caps return this device if it can capture and has a tuner */
+	/* Check caps return this device if it can capture */
 	caps = drv->capabilities(handle);
-	if ((caps & CAN_CAPTURE) && (caps & CAN_TUNE))
+	if (caps & CAN_CAPTURE)
 	    break;
 
 	drv->close(handle);
