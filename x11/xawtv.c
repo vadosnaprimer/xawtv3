@@ -1671,6 +1671,8 @@ main(int argc, char *argv[])
 	setfreqtab_notify   = new_freqtab;
 	setstation_notify   = new_channel;
 	channel_switch_hook = pixit;
+    } else {
+	new_title("Capture");
     }
     set_capture_hook    = do_capture;
     fullscreen_hook     = do_fullscreen;
