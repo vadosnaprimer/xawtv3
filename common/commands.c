@@ -356,7 +356,7 @@ static void
 set_freqtab(int j)
 {
     if (!(f_drv & CAN_TUNE))
-	return 0;
+	return;
 
     freq_newtab(j);
 
