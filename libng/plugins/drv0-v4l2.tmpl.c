@@ -72,7 +72,7 @@ static int v4l2_tuned(void *handle);
 #define WANTED_BUFFERS 32
 
 #define MAX_INPUT   16
-#define MAX_NORM    16
+#define MAX_NORM    64
 #define MAX_FORMAT  32
 #define MAX_CTRL    32
 
@@ -307,6 +307,11 @@ v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
     struct v4l2_querymenu item;
     int i;
 
+    if (ng_debug >= 2)
+	fprintf(stderr, "v4l2:   menu with %i items\n", ctl->maximum - ctl->minimum);
+
+    if (ctl->maximum - ctl->minimum == 0)
+	return NULL;
     menu = malloc(sizeof(struct STRTAB) * (ctl->maximum-ctl->minimum+2));
     for (i = ctl->minimum; i <= ctl->maximum; i++) {
 	item.id = ctl->id;
@@ -317,6 +322,9 @@ v4l2_menu(int fd, const struct v4l2_queryctrl *ctl)
 	}
 	menu[i-ctl->minimum].nr  = i;
 	menu[i-ctl->minimum].str = strdup(item.name);
+	if (ng_debug >= 2)
+		fprintf(stderr, "v4l2:   menu item %li = %s\n",
+			menu[i-ctl->minimum].nr, menu[i-ctl->minimum].str);
     }
     menu[i-ctl->minimum].nr  = -1;
     menu[i-ctl->minimum].str = NULL;
@@ -333,6 +341,8 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
     h->attr = realloc(h->attr,(h->nattr+2) * sizeof(struct ng_attribute));
     memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
     if (ctl) {
+	if (ng_debug >= 2)
+		fprintf(stderr, "v4l2:   adding V4L2 control id 0x%08x, type %i\n", ctl->id, ctl->type);
 	for (i = 0; i < NUM_ATTR; i++)
 	    if (v4l2_attr[i].v4l2 == ctl->id)
 		break;
@@ -355,10 +365,20 @@ v4l2_add_attr(struct v4l2_handle *h, struct v4l2_queryctrl *ctl,
 	    h->attr[h->nattr].type    = ATTR_TYPE_BOOL;
 	    break;
 	case V4L2_CTRL_TYPE_MENU:
+	    choices = v4l2_menu(h->fd, ctl);
+	    if (NULL == choices) {
+		memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
+		return;
+	    }
+	    h->attr[h->nattr].choices = choices;
 	    h->attr[h->nattr].type    = ATTR_TYPE_CHOICE;
-	    h->attr[h->nattr].choices = v4l2_menu(h->fd, ctl);
 	    break;
+	case V4L2_CTRL_TYPE_STRING:
+	case V4L2_CTRL_TYPE_BUTTON:
+	case V4L2_CTRL_TYPE_INTEGER64:
+	case V4L2_CTRL_TYPE_CTRL_CLASS:
 	default:
+	    /* Currently unimplemented */
 	    memset(h->attr+h->nattr,0,sizeof(struct ng_attribute)*2);
 	    return;
 	}
@@ -386,7 +406,7 @@ static int v4l2_read_attr(struct ng_attribute *attr)
     const struct v4l2_queryctrl *ctl = attr->priv;
     struct v4l2_control c;
     struct v4l2_tuner tuner;
-    v4l2_std_id std;
+    v4l2_std_id std = 0;
     int value = 0;
     int i;
 
