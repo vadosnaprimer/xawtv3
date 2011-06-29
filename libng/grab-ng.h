@@ -285,7 +285,7 @@ struct ng_vid_driver {
     const char *name;
 
     /* open/close */
-    void*  (*open)(char *device);
+    void*  (*open)(char *device, int req_flags);
     int    (*close)(void *handle);
 
     /* attributes */

@@ -548,30 +548,47 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath)
 {
     void *md, *handle = NULL;
     const char *device = NULL;
-    int caps;
 
-    md = discover_media_devices();    
+    md = discover_media_devices();
+
+    /* Step 1: try TV cards first */
     while (1) {
 	device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
 	if (!device)
 	    break; /* No more video devices to try */
-        snprintf(devpath, PATH_MAX, "/dev/%s", device);
+	snprintf(devpath, PATH_MAX, "/dev/%s", device);
 	if (ng_debug)
 	    fprintf(stderr,"vid-open-auto: trying: %s... \n", devpath);
-	if (!(handle = (drv->open)(devpath))) {
-	    fprintf(stderr,"vid-open-auto: failed to open: %s\n", devpath);
-	    continue;
+	handle = (drv->open)(devpath, CAN_CAPTURE | CAN_TUNE);
+	if (handle) {
+		fprintf(stderr,"vid-open-auto: using analog TV device %s\n", devpath);
+		break;
 	}
+    }
 
-	/* Check caps return this device if it can capture */
-	caps = drv->capabilities(handle);
-	if (caps & CAN_CAPTURE)
-	    break;
-
-	drv->close(handle);
-	handle = NULL;
+    /* Step 2: try grabber devices and webcams */
+    if (!handle) {
+	device = NULL;
+	while (1) {
+	    device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
+	    if (!device)
+		break; /* No more video devices to try */
+	    snprintf(devpath, PATH_MAX, "/dev/%s", device);
+	    if (ng_debug)
+		fprintf(stderr,"vid-open-auto: trying: %s... \n", devpath);
+	    handle = (drv->open)(devpath, CAN_CAPTURE);
+	    if (handle) {
+		fprintf(stderr,"vid-open-auto: using grabber/webcam device %s\n", devpath);
+		break;
+	    }
+	}
     }
     free_media_devices(md);
+
+    if (!handle) {
+	    fprintf(stderr,"vid-open-auto: failed to open a capture device at %s\n", devpath);
+	    return NULL;
+    }
 
     if (handle && ng_debug)
 	fprintf(stderr,"vid-open-auto: success, using: %s\n", devpath);
@@ -614,7 +631,7 @@ ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
 
 #ifdef __linux__
     if (!strcmp(*device, "auto")) {
-        char devpath[PATH_MAX];
+	char devpath[PATH_MAX];
 	*handle = ng_vid_open_auto(drv, devpath);
 	if (*handle == NULL) {
 	    fprintf(stderr, "vid-open: could not find a suitable videodev\n");
@@ -626,7 +643,7 @@ ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
     {
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: trying: %s... \n", drv->name);
-	if (!(*handle = (drv->open)(*device))) {
+	if (!(*handle = (drv->open)(*device, 0))) {
 	    fprintf(stderr,"vid-open: failed: %s\n", drv->name);
 	    return NULL;
 	}
@@ -656,7 +673,7 @@ ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
 	}
 	if (ng_debug)
 	    fprintf(stderr,"vid-open: re-opening dev after v4lconf\n");
-	if (!(*handle = (drv->open)(*device))) {
+	if (!(*handle = (drv->open)(*device, 0))) {
 	    fprintf(stderr,"vid-open: failed: %s\n", drv->name);
 	    return NULL;
 	}

@@ -40,7 +40,7 @@
 /* ---------------------------------------------------------------------- */
 
 /* open+close */
-static void*   v4l2_open_handle(char *device);
+static void*   v4l2_open_handle(char *device, int req_flags);
 static int     v4l2_close_handle(void *handle);
 
 /* attributes */
@@ -482,10 +482,10 @@ static void v4l2_write_attr(struct ng_attribute *attr, int value)
 /* ---------------------------------------------------------------------- */
 
 static void*
-v4l2_open_handle(char *device)
+v4l2_open_handle(char *device, int req_flags)
 {
     struct v4l2_handle *h;
-    int i;
+    int i, caps;
 #ifdef USE_LIBV4L
     int libv4l2_fd;
 #endif /* USE_LIBV4L */
@@ -516,6 +516,16 @@ v4l2_open_handle(char *device)
 #endif /* USE_LIBV4L */
     if (-1 == xioctl(h->fd,VIDIOC_QUERYCAP,&h->cap,1))
 	goto err;
+    caps = v4l2_flags(h);
+    if (ng_debug)
+	fprintf(stderr, "v4l2: device caps: %d, required %d\n", caps, req_flags);
+    if (req_flags && ((caps & req_flags) != req_flags)) {
+	if (ng_debug)
+		fprintf(stderr,
+			"v4l2: device doesn't support %d capabilities\n",
+			req_flags);
+	goto err;
+    }
     if (ng_debug)
 	fprintf(stderr, "v4l2: open\n");
     fcntl(h->fd,F_SETFD,FD_CLOEXEC);

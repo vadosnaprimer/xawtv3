@@ -69,7 +69,7 @@ struct bsd_handle {
 /* prototypes                                                             */
 
 /* open/close */
-static void*   bsd_open(char *device);
+static void*   bsd_open(char *device, int req_flags);
 static int     bsd_close(void *handle);
 
 /* attributes */
@@ -333,7 +333,7 @@ bsd_print_format(struct meteor_pixfmt *pf, int format)
 /* ---------------------------------------------------------------------- */
 
 static void*
-bsd_open(char *filename)
+bsd_open(char *filename, int req_flags)
 {
     struct bsd_handle *h;
     int format,i;
