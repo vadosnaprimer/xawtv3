@@ -418,7 +418,7 @@ set_msg_bool(const char *name, int val)
 }
 
 static void
-set_msg_str(char *name, char *val)
+set_msg_str(const char *name, const char *val)
 {
     static char  title[256];
 
@@ -885,6 +885,7 @@ static int attr_handler(char *name, int argc, char **argv)
 		ng_attr_listchoices(attr);
 	    } else {
 		set_attr(attr,val);
+		set_msg_str(attr->name,attr->choices[val].str);
 	    }
 	}
 	break;
