@@ -181,7 +181,7 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
 #endif /* USE_LIBV4L */
     if (rc >= 0 && ng_debug < 2)
 	return rc;
-    if (mayfail && errno == mayfail && ng_debug < 2)
+    if (mayfail && ((errno == EINVAL) || (errno == ENOTTY)) && ng_debug < 2)
 	return rc;
     print_ioctl(stderr,ioctls_v4l2,PREFIX,cmd,arg);
     fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : strerror(errno));
@@ -216,18 +216,18 @@ get_device_capabilities(struct v4l2_handle *h)
 
     for (h->ninputs = 0; h->ninputs < MAX_INPUT; h->ninputs++) {
 	h->inp[h->ninputs].index = h->ninputs;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs], EINVAL))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMINPUT, &h->inp[h->ninputs], 1))
 	    break;
     }
     for (h->nstds = 0; h->nstds < MAX_NORM; h->nstds++) {
 	h->std[h->nstds].index = h->nstds;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUMSTD, &h->std[h->nstds], EINVAL))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUMSTD, &h->std[h->nstds], 1))
 	    break;
     }
     for (h->nfmts = 0; h->nfmts < MAX_FORMAT; h->nfmts++) {
 	h->fmt[h->nfmts].index = h->nfmts;
 	h->fmt[h->nfmts].type  = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if (-1 == xioctl(h->fd, VIDIOC_ENUM_FMT, &h->fmt[h->nfmts], EINVAL))
+	if (-1 == xioctl(h->fd, VIDIOC_ENUM_FMT, &h->fmt[h->nfmts], 1))
 	    break;
     }
 
@@ -241,13 +241,13 @@ get_device_capabilities(struct v4l2_handle *h)
     /* controls */
     for (i = 0; i < MAX_CTRL; i++) {
 	h->ctl[i].id = V4L2_CID_BASE+i;
-	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i], EINVAL) ||
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i], 1) ||
 	    (h->ctl[i].flags & V4L2_CTRL_FLAG_DISABLED))
 	    h->ctl[i].id = -1;
     }
     for (i = 0; i < MAX_CTRL; i++) {
 	h->ctl[i+MAX_CTRL].id = V4L2_CID_PRIVATE_BASE+i;
-	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL], EINVAL) ||
+	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL], 1) ||
 	    (h->ctl[i+MAX_CTRL].flags & V4L2_CTRL_FLAG_DISABLED))
 	    h->ctl[i+MAX_CTRL].id = -1;
     }
@@ -513,7 +513,7 @@ v4l2_open_handle(char *device)
     if (libv4l2_fd != -1)
 	h->fd = libv4l2_fd;
 #endif /* USE_LIBV4L */
-    if (-1 == xioctl(h->fd,VIDIOC_QUERYCAP,&h->cap,EINVAL))
+    if (-1 == xioctl(h->fd,VIDIOC_QUERYCAP,&h->cap,1))
 	goto err;
     if (ng_debug)
 	fprintf(stderr, "v4l2: open\n");
@@ -972,7 +972,7 @@ v4l2_stop_streaming(struct v4l2_handle *h)
 
     /* unrequest buffers (only needed for some drivers) */
     h->reqbufs.count = 0;
-    xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, EINVAL);
+    xioctl(h->fd, VIDIOC_REQBUFS, &h->reqbufs, 1);
 
     /* turn on preview (if needed) */
     if (h->ov_on != h->ov_enabled) {
@@ -1003,7 +1003,7 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     else
 	h->fmt_v4l2.fmt.pix.bytesperline = 0;
 
-    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, EINVAL))
+    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, 1))
 	return -1;
     if (h->fmt_v4l2.fmt.pix.pixelformat != xawtv_pixelformat[fmt->fmtid])
 	return -1;
