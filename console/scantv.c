@@ -36,7 +36,7 @@ grabber_init(void)
 {
     drv = ng_vid_open(&ng_dev.video,ng_dev.driver,NULL,0,&h_drv);
     if (NULL == drv) {
-	fprintf(stderr,"no grabber device available\n");
+	fprintf(stderr,"no analog TV device available\n");
 	exit(1);
     }
     f_drv = drv->capabilities(h_drv);
@@ -149,6 +149,9 @@ main(int argc, char **argv)
 
     /* parse options */
     ng_init();
+    /* Autodetect devices */
+    ng_dev.video = "auto_tv";
+
     for (;;) {
 	if (-1 == (c = getopt(argc, argv, "hsadi:n:f:o:c:C:D:")))
 	    break;

@@ -544,7 +544,8 @@ ng_conv_find_match(unsigned int in, unsigned int out)
 /* --------------------------------------------------------------------- */
 
 #ifdef __linux__ /* Because this depends on get_media_devices.c */
-static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath)
+static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath,
+			      int allow_grabber)
 {
     void *md, *handle = NULL;
     const char *device = NULL;
@@ -568,6 +569,8 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath)
 
     /* Step 2: try grabber devices and webcams */
     if (!handle) {
+	if (!allow_grabber)
+	    return NULL;
 	device = NULL;
 	while (1) {
 	    device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
@@ -630,9 +633,10 @@ ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
     }
 
 #ifdef __linux__
-    if (!strcmp(*device, "auto")) {
+    if (!strcmp(*device, "auto") || !strcmp(*device, "auto_tv")) {
 	char devpath[PATH_MAX];
-	*handle = ng_vid_open_auto(drv, devpath);
+	*handle = ng_vid_open_auto(drv, devpath,
+				   !strcmp(*device, "auto_tv") ? 0 : 1);
 	if (*handle == NULL) {
 	    fprintf(stderr, "vid-open: could not find a suitable videodev\n");
 	    return NULL;
