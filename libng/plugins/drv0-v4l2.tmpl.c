@@ -417,7 +417,8 @@ static int v4l2_read_attr(struct ng_attribute *attr)
 
     } else if (attr->id == ATTR_ID_NORM) {
 	value = -1;
-	xioctl(h->fd,VIDIOC_G_STD,&std,0);
+	xioctl(h->fd,VIDIOC_G_STD,&std,
+	       (h->cap.capabilities & V4L2_CAP_TUNER)?0:1);
 	for (i = 0; i < h->nstds; i++)
 	    if (std & h->std[i].id)
 		value = i;
