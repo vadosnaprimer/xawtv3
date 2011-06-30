@@ -632,7 +632,10 @@ ng_vid_open(char **device, char *driver, struct ng_video_fmt *screen,
 	return NULL;
     }
 
-#ifdef __linux__
+#ifndef __linux__
+    if (!strcmp(*device, "auto") || !strcmp(*device, "auto_tv"))
+	*device = "/dev/bktr0";
+#else
     if (!strcmp(*device, "auto") || !strcmp(*device, "auto_tv")) {
 	char devpath[PATH_MAX];
 	*handle = ng_vid_open_auto(drv, devpath,
