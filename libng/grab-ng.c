@@ -569,8 +569,10 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath,
 
     /* Step 2: try grabber devices and webcams */
     if (!handle) {
-	if (!allow_grabber)
+	if (!allow_grabber) {
+	    fprintf(stderr,"vid-open-auto: failed to open an analog TV device at %s\n", devpath);
 	    return NULL;
+	}
 	device = NULL;
 	while (1) {
 	    device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
