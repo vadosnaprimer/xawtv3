@@ -57,6 +57,7 @@ AC_SUBST(FOUND_X11)
 AC_SUBST(FOUND_GL)
 AC_SUBST(FOUND_ZVBI)
 AC_SUBST(LIBV4L)
+AC_SUBST(FOUND_EXPLAIN)
 FOUND_AALIB="no"
 FOUND_ALSA="no"
 FOUND_DV="no"
@@ -67,6 +68,7 @@ FOUND_X11="no"
 FOUND_GL="no"
 FOUND_ZVBI="no"
 LIBV4L="no"
+FOUND_EXPLAIN="no"
 
 case "`uname -s`" in
 	Linux)
@@ -177,6 +179,8 @@ if test "$LIBV4L" != "yes"; then
     echo "Note:	to compile stuff just the library packages are not enough,"
     echo "	you need also the *-devel packages."
 fi
+
+AC_CHECK_LIB(explain, explain_open, FOUND_EXPLAIN="yes",,)
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then
@@ -376,5 +380,6 @@ compile time options summary
     OpenGL       : $FOUND_GL
     zvbi         : $FOUND_ZVBI
     libv4l       : $LIBV4L
+    libexplain   : $FOUND_EXPLAIN
 
 EOF

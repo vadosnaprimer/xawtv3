@@ -43,7 +43,12 @@ libng/plugins/read-qt.so  : LDLIBS := $(QT_LIBS)
 libng/plugins/write-qt.so : LDLIBS := $(QT_LIBS)
 libng/plugins/read-dv.so  : LDLIBS := $(DV_LIBS)
 libng/plugins/write-dv.so : LDLIBS := $(DV_LIBS)
+ifeq ($(FOUND_EXPLAIN),yes)
+libng/plugins/drv0-libv4l.so: LDLIBS := -lv4l2 -lexplain
+libng/plugins/drv0-v4l2.so: LDLIBS := -lv4l2 -lexplain
+else
 libng/plugins/drv0-libv4l.so: LDLIBS := -lv4l2
+endif
 
 # global targets
 all:: $(TARGETS-plugins)

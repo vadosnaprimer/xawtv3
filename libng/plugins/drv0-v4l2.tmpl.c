@@ -37,6 +37,11 @@
 #else
 #define PLUGIN_NAME "v4l2"
 #endif /* USE_LIBV4L */
+
+#ifdef FOUND_EXPLAIN
+#include <libexplain/libexplain.h>
+#endif
+
 /* ---------------------------------------------------------------------- */
 
 /* open+close */
@@ -71,6 +76,7 @@ static int v4l2_tuned(void *handle);
 
 #define WANTED_BUFFERS 32
 
+#undef MAX_INPUT	/* To avoid conficts with limits.h */
 #define MAX_INPUT   16
 #define MAX_NORM    64
 #define MAX_FORMAT  32
@@ -184,7 +190,11 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
     if (mayfail && ((errno == EINVAL) || (errno == ENOTTY)) && ng_debug < 2)
 	return rc;
     print_ioctl(stderr,ioctls_v4l2,PREFIX,cmd,arg);
+#ifdef FOUND_EXPLAIN
+    fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : explain_ioctl(fd,cmd,arg));
+#else
     fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : strerror(errno));
+#endif
     return rc;
 }
 
@@ -491,7 +501,7 @@ v4l2_open_handle(char *device, int req_flags)
 #endif /* USE_LIBV4L */
 
     if (ng_debug)
-    fprintf(stderr, "Using %s plugin\n", PLUGIN_NAME);
+	fprintf(stderr, "Using %s plugin\n", PLUGIN_NAME);
 
     h = malloc(sizeof(*h));
     if (NULL == h)
@@ -499,7 +509,11 @@ v4l2_open_handle(char *device, int req_flags)
     memset(h,0,sizeof(*h));
 
     if (-1 == (h->fd = open(device, O_RDWR))) {
+#ifdef FOUND_EXPLAIN
+	fprintf(stderr,"v4l2: open: %s\n",explain_open(device, O_RDWR, 0));
+#else
 	fprintf(stderr,"v4l2: open %s: %s\n",device,strerror(errno));
+#endif
 	goto err;
     }
 
@@ -1103,7 +1117,11 @@ v4l2_nextframe(void *handle)
 #endif /* USE_LIBV4L */
 	if (rc != size) {
 	    if (-1 == rc) {
+#ifdef FOUND_EXPLAIN
+		fprintf(stderr,"v4l2: read: %s\n",explain_read(h->fd, buf->data, size));
+#else
 		perror("v4l2: read");
+#endif
 	    } else {
 		fprintf(stderr, "v4l2: read: rc=%d/size=%d\n",rc,size);
 	    }
