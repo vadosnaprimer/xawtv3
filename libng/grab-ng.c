@@ -549,8 +549,12 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath,
 {
     void *md, *handle = NULL;
     const char *device = NULL;
+    const char *scan_type = "an analog TV";
 
+    *devpath = 0;
     md = discover_media_devices();
+    if (!md)
+	goto error;
 
     /* Step 1: try TV cards first */
     while (1) {
@@ -569,10 +573,9 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath,
 
     /* Step 2: try grabber devices and webcams */
     if (!handle) {
-	if (!allow_grabber) {
-	    fprintf(stderr,"vid-open-auto: failed to open an analog TV device at %s\n", devpath);
-	    return NULL;
-	}
+	if (!allow_grabber)
+	    goto error;
+	scan_type = "a capture";
 	device = NULL;
 	while (1) {
 	    device = get_associated_device(md, device, MEDIA_V4L_VIDEO, NULL, NONE);
@@ -590,8 +593,15 @@ static void *ng_vid_open_auto(struct ng_vid_driver *drv, char *devpath,
     }
     free_media_devices(md);
 
+error:
     if (!handle) {
-	    fprintf(stderr,"vid-open-auto: failed to open a capture device at %s\n", devpath);
+	    fprintf(stderr, "vid-open-auto: failed to open %s device",
+		    scan_type);
+	    if (*devpath)
+		    fprintf(stderr, " at %s\n", devpath);
+	    else
+		    fprintf(stderr, "\n");
+
 	    return NULL;
     }
 
