@@ -38,7 +38,7 @@
 #define PLUGIN_NAME "v4l2"
 #endif /* USE_LIBV4L */
 
-#ifdef FOUND_EXPLAIN
+#ifdef HAVE_EXPLAIN
 #include <libexplain/libexplain.h>
 #endif
 
@@ -189,10 +189,10 @@ xioctl(int fd, int cmd, void *arg, int mayfail)
 	return rc;
     if (mayfail && ((errno == EINVAL) || (errno == ENOTTY)) && ng_debug < 2)
 	return rc;
-    print_ioctl(stderr,ioctls_v4l2,PREFIX,cmd,arg);
-#ifdef FOUND_EXPLAIN
-    fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : explain_ioctl(fd,cmd,arg));
+#ifdef HAVE_EXPLAIN
+    fprintf(stderr,"v4l2: %s\n",(rc >= 0) ? "ok" : explain_ioctl(fd,cmd,arg));
 #else
+    print_ioctl(stderr,ioctls_v4l2,PREFIX,cmd,arg);
     fprintf(stderr,": %s\n",(rc >= 0) ? "ok" : strerror(errno));
 #endif
     return rc;
@@ -509,7 +509,7 @@ v4l2_open_handle(char *device, int req_flags)
     memset(h,0,sizeof(*h));
 
     if (-1 == (h->fd = open(device, O_RDWR))) {
-#ifdef FOUND_EXPLAIN
+#ifdef HAVE_EXPLAIN
 	fprintf(stderr,"v4l2: open: %s\n",explain_open(device, O_RDWR, 0));
 #else
 	fprintf(stderr,"v4l2: open %s: %s\n",device,strerror(errno));
@@ -1117,7 +1117,7 @@ v4l2_nextframe(void *handle)
 #endif /* USE_LIBV4L */
 	if (rc != size) {
 	    if (-1 == rc) {
-#ifdef FOUND_EXPLAIN
+#ifdef HAVE_EXPLAIN
 		fprintf(stderr,"v4l2: read: %s\n",explain_read(h->fd, buf->data, size));
 #else
 		perror("v4l2: read");

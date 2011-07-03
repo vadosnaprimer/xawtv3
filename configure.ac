@@ -180,7 +180,9 @@ if test "$LIBV4L" != "yes"; then
     echo "	you need also the *-devel packages."
 fi
 
-AC_CHECK_LIB(explain, explain_open, FOUND_EXPLAIN="yes",,)
+AC_CHECK_LIB(explain, explain_open, 
+	 AC_DEFINE(HAVE_EXPLAIN,1,"have libexplain") FOUND_EXPLAIN="yes",,)
+
 
 AC_CHECK_LIB(jpeg, jpeg_start_compress, JPEG="found",,)
 if test "$JPEG" != "found"; then
