@@ -1,3 +1,24 @@
+3.101
+=====
+
+* Man fix to remove mention of v4l1, and describe libv4l instead
+* Fixes at fr/es manuals
+* Warning fixes
+* Addition of alsa streaming at xawtv: now, for devices with video
+  associated with audio inputs.
+* Use X11 editres, instead of its on version, based on a port from
+  a motif library released under a licence that is not GPL compatible
+* Add auto-detection logic for xawtv: by default, it will now seek for
+  the first TV device. If not available, fall back to the first grabber
+  device.
+* Add auto-detection logic for scanv: by default, it will now seek for
+  the first TV device. If not available, fails.
+* Add optional support for libexplain at the v4l2/libv4l driver.
+  Libexplain provides a  more complete explanation for the error codes,
+  helping developers to better track what's happened.
+* Don't expose tuner commands, on devices that are grabber or  webcams
+  at xawtv.
+
 3.100
 =====
 
