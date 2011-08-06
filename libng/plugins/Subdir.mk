@@ -49,6 +49,9 @@ libng/plugins/drv0-v4l2.so: LDLIBS := -lv4l2 -lexplain
 else
 libng/plugins/drv0-libv4l.so: LDLIBS := -lv4l2
 endif
+libng/plugins/flt-disor.so: LDLIBS := -lm
+libng/plugins/flt-gamma.so: LDLIBS := -lm
+libng/plugins/conv-mjpeg.so: LDLIBS := -ljpeg
 
 # global targets
 all:: $(TARGETS-plugins)

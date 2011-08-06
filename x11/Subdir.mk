@@ -98,13 +98,13 @@ x11/propwatch:    x11/propwatch.o
 # libraries to link
 x11/xawtv        : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
+	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm -ldl -lfontconfig
 x11/motv         : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
 	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
 x11/mtt          : LDLIBS  += $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS) -ljpeg
-x11/v4lctl       : LDLIBS  += $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm
-x11/pia          : LDLIBS  += $(ATHENA_LIBS) $(GL_LIBS) -ljpeg -lm
+x11/v4lctl       : LDLIBS  += $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm -ldl
+x11/pia          : LDLIBS  += $(ATHENA_LIBS) $(GL_LIBS) -ljpeg -lm -ldl
 x11/rootv        : LDLIBS  += $(ATHENA_LIBS)
 x11/xawtv-remote : LDLIBS  += $(ATHENA_LIBS)
 x11/propwatch    : LDLIBS  += $(ATHENA_LIBS)

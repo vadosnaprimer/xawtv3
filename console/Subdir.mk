@@ -73,11 +73,11 @@ console/v4l-conf: console/v4l-conf.o
 # libraries to link
 console/fbtv     : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(FS_LIBS) -ljpeg -lm
-console/ttv      : LDLIBS  += $(THREAD_LIBS) $(AA_LIBS) -ljpeg -lm
-console/scantv   : LDLIBS  += $(THREAD_LIBS) $(VBI_LIBS) -ljpeg
-console/streamer : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm
-console/webcam   : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm
+	$(FS_LIBS) -ljpeg -lm -ldl
+console/ttv      : LDLIBS  += $(THREAD_LIBS) $(AA_LIBS) -ljpeg -lm -ldl
+console/scantv   : LDLIBS  += $(THREAD_LIBS) $(VBI_LIBS) -ljpeg -ldl
+console/streamer : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm -ldl
+console/webcam   : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm -ldl
 console/radio    : LDLIBS  += $(CURSES_LIBS)
 console/record   : LDLIBS  += $(CURSES_LIBS)
 console/v4l-conf : LDLIBS  += $(ATHENA_LIBS)
