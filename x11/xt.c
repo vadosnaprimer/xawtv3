@@ -1679,6 +1679,7 @@ usage(void)
 	    "      -(no)alsa       enable/disable alsa streaming. Default: enabled\n"
 	    "      -(no)alsa-cap   manually specify an alsa capture interface\n"
 	    "      -(no)alsa-pb    manually specify an alsa playback interface\n"
+	    "      -alsa-latency   manually specify an alsa latency in ms. Default: 30\n"
 #endif
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"
