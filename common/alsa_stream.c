@@ -69,7 +69,7 @@ static int setparams_stream(snd_pcm_t *handle,
     err = snd_pcm_hw_params_any(handle, params);
     if (err < 0) {
 	fprintf(error_fp,
-		"Broken configuration for %s PCM: no configurations available: %s\n",
+		"alsa: Broken configuration for %s PCM: no configurations available: %s\n",
 		snd_strerror(err), id);
 	return err;
     }
@@ -77,20 +77,20 @@ static int setparams_stream(snd_pcm_t *handle,
     err = snd_pcm_hw_params_set_access(handle, params,
 				       SND_PCM_ACCESS_RW_INTERLEAVED);
     if (err < 0) {
-	fprintf(error_fp, "Access type not available for %s: %s\n", id,
+	fprintf(error_fp, "alsa: Access type not available for %s: %s\n", id,
 		snd_strerror(err));
 	return err;
     }
 
     err = snd_pcm_hw_params_set_format(handle, params, format);
     if (err < 0) {
-	fprintf(error_fp, "Sample format not available for %s: %s\n", id,
+	fprintf(error_fp, "alsa: Sample format not available for %s: %s\n", id,
 	       snd_strerror(err));
 	return err;
     }
     err = snd_pcm_hw_params_set_channels(handle, params, channels);
     if (err < 0) {
-	fprintf(error_fp, "Channels count (%i) not available for %s: %s\n",
+	fprintf(error_fp, "alsa: Channels count (%i) not available for %s: %s\n",
 		channels, id, snd_strerror(err));
 	return err;
     }
@@ -111,7 +111,7 @@ static int setparams_periods(snd_pcm_t *handle,
     snd_pcm_hw_params_get_periods_max(params, &max, 0);
     if (min && max) {
 	if (verbose)
-	    fprintf(error_fp, "%s periods range between %d and %d\n", id, min, max);
+	    fprintf(error_fp, "alsa: %s periods range between %d and %d\n", id, min, max);
 	if (*count < min)
 	    *count = min;
 	if (*count > max)
@@ -123,7 +123,7 @@ static int setparams_periods(snd_pcm_t *handle,
     snd_pcm_hw_params_get_period_time_max(params, &max, 0);
     if (min && max) {
 	if (verbose)
-	    fprintf(error_fp, "%s period time range between %d and %d\n", id, min, max);
+	    fprintf(error_fp, "alsa: %s period time range between %d and %d\n", id, min, max);
 	if (*usecs < min)
 	    *usecs = min;
 	if (*usecs > max)
@@ -132,14 +132,14 @@ static int setparams_periods(snd_pcm_t *handle,
 
     err = snd_pcm_hw_params_set_period_time_near(handle, params, usecs, 0);
     if (err < 0) {
-	    fprintf(error_fp, "Unable to set period time %u for %s: %s\n",
+	    fprintf(error_fp, "alsa: Unable to set period time %u for %s: %s\n",
 		    *usecs, id, snd_strerror(err));
 	    return err;
     }
 
     err = snd_pcm_hw_params_set_periods_near(handle, params, count, 0);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set %u periods for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to set %u periods for %s: %s\n",
 		*count, id, snd_strerror(err));
 	return err;
     }
@@ -157,33 +157,33 @@ static int setparams_set(snd_pcm_t *handle,
 
     err = snd_pcm_hw_params(handle, params);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set hw params for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to set hw params for %s: %s\n",
 		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params_current(handle, swparams);
     if (err < 0) {
-	fprintf(error_fp, "Unable to determine current swparams for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to determine current swparams for %s: %s\n",
 		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params_set_start_threshold(handle, swparams,
 						start_treshold);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set start threshold mode for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to set start threshold mode for %s: %s\n",
 		id, snd_strerror(err));
 	return err;
     }
 
     err = snd_pcm_sw_params_set_avail_min(handle, swparams, 4);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set avail min for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to set avail min for %s: %s\n",
 		id, snd_strerror(err));
 	return err;
     }
     err = snd_pcm_sw_params(handle, swparams);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set sw params for %s: %s\n",
+	fprintf(error_fp, "alsa: Unable to set sw params for %s: %s\n",
 		id, snd_strerror(err));
 	return err;
     }
@@ -220,36 +220,36 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     if (allow_resample) {
 	err = snd_pcm_hw_params_set_rate_resample(chandle, c_hwparams, 1);
 	if (err < 0) {
-	    fprintf(error_fp, "Resample setup failed: %s\n", snd_strerror(err));
+	    fprintf(error_fp, "alsa: Resample setup failed: %s\n", snd_strerror(err));
 	    return 1;
 	} else if (verbose)
-	   fprintf(error_fp, "Resample enabled.\n");
+	   fprintf(error_fp, "alsa: Resample enabled.\n");
     }
 
     err = snd_pcm_hw_params_get_rate_min(c_hwparams, &ratemin, 0);
     if (err >= 0 && verbose)
-	fprintf(error_fp, "Capture min rate is %d\n", ratemin);
+	fprintf(error_fp, "alsa: Capture min rate is %d\n", ratemin);
     err = snd_pcm_hw_params_get_rate_max(c_hwparams, &ratemax, 0);
     if (err >= 0 && verbose)
-	fprintf(error_fp, "Capture max rate is %u\n", ratemax);
+	fprintf(error_fp, "alsa: Capture max rate is %u\n", ratemax);
 
     err = snd_pcm_hw_params_get_rate_min(p_hwparams, &val, 0);
     if (err >= 0) {
 	if (verbose)
-	    fprintf(error_fp, "Playback min rate is %u\n", val);
+	    fprintf(error_fp, "alsa: Playback min rate is %u\n", val);
 	if (val > ratemin)
 		ratemin = val;
     }
     err = snd_pcm_hw_params_get_rate_max(p_hwparams, &val, 0);
     if (err >= 0) {
 	if (verbose)
-	    fprintf(error_fp, "Playback max rate is %u\n", val);
+	    fprintf(error_fp, "alsa: Playback max rate is %u\n", val);
 	if (val < ratemax)
 		ratemax = val;
     }
 
     if (verbose)
-	fprintf(error_fp, "Will search a common rate between %u and %u\n",
+	fprintf(error_fp, "alsa: Will search a common rate between %u and %u\n",
 		ratemin, ratemax);
 
     for (i = ratemin; i <= ratemax; i+= 100) {
@@ -265,24 +265,24 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	    break;
 	if (verbose)
 	    fprintf(error_fp,
-		    "Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
+		    "alsa: Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
 		    i, ratec, ratep,
 		    allow_resample ? " with resample enabled": "");
     }
 
     if (err < 0) {
-	fprintf(error_fp, "Failed to set a supported rate: %s\n",
+	fprintf(error_fp, "alsa: Failed to set a supported rate: %s\n",
 		snd_strerror(err));
 	return 1;
     }
     if (ratep != ratec) {
 	if (verbose || allow_resample)
 	    fprintf(error_fp,
-		    "Couldn't find a rate that it is supported by both playback and capture\n");
+		    "alsa: Couldn't find a rate that it is supported by both playback and capture\n");
 	return 2;
     }
     if (verbose)
-	fprintf(error_fp, "Using Rate %d\n", ratec);
+	fprintf(error_fp, "alsa: Using Rate %d\n", ratec);
 
     if (setparams_periods(phandle, c_hwparams, &periodtime, &c_periods, "capture"))
 	return 1;
@@ -310,17 +310,17 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	return 1;
 
     if ((err = snd_pcm_prepare(phandle)) < 0) {
-	fprintf(error_fp, "Prepare error: %s\n", snd_strerror(err));
+	fprintf(error_fp, "alsa: Prepare error: %s\n", snd_strerror(err));
 	return 1;
     }
 
     if (verbose) {
-	fprintf(error_fp, "ALSA config:\n");
+	fprintf(error_fp, "alsa: Negociated configuration:\n");
 	snd_pcm_dump_setup(phandle, output);
 	snd_pcm_dump_setup(chandle, output);
-	fprintf(error_fp, "Parameters are %iHz, %s, %i channels\n",
+	fprintf(error_fp, "alsa: Parameters are %iHz, %s, %i channels\n",
 		ratep, snd_pcm_format_name(format), channels);
-	fprintf(error_fp, "Set bitrate to %u%s, buffer size is %u\n", ratec,
+	fprintf(error_fp, "alsa: Set bitrate to %u%s, buffer size is %u\n", ratec,
 		allow_resample ? " with resample enabled at playback": "",
 		(unsigned int)c_size);
     }
@@ -341,7 +341,7 @@ static snd_pcm_sframes_t readbuf(snd_pcm_t *handle, char *buf, long len)
     if (r < 0 && r != -EAGAIN) {
 	r = snd_pcm_recover(handle, r, 0);
 	if (r < 0)
-	    fprintf(error_fp, "overrun recover error: %s\n", snd_strerror(r));
+	    fprintf(error_fp, "alsa: overrun recover error: %s\n", snd_strerror(r));
     }
     return r;
 }
@@ -358,7 +358,7 @@ static snd_pcm_sframes_t writebuf(snd_pcm_t *handle, char *buf, long len)
 	if (r < 0) {
 	    r = snd_pcm_recover(handle, r, 0);
 	    if (r < 0) {
-		fprintf(error_fp, "underrun recover error: %s\n",
+		fprintf(error_fp, "alsa: underrun recover error: %s\n",
 			snd_strerror(r));
 		return r;
 	    }
@@ -381,20 +381,20 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 
     err = snd_output_stdio_attach(&output, error_fp, 0);
     if (err < 0) {
-	fprintf(error_fp, "Output failed: %s\n", snd_strerror(err));
+	fprintf(error_fp, "alsa: Output failed: %s\n", snd_strerror(err));
 	return 0;
     }
 
     /* Open the devices */
     if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
 			    0)) < 0) {
-	fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
+	fprintf(error_fp, "alsa: Cannot open playback device %s: %s\n",
 		pdevice, snd_strerror(err));
 	return 0;
     }
     if ((err = snd_pcm_open(&chandle, cdevice, SND_PCM_STREAM_CAPTURE,
 			    SND_PCM_NONBLOCK)) < 0) {
-	fprintf(error_fp, "Cannot open ALSA Capture device %s: %s\n",
+	fprintf(error_fp, "alsa: Cannot open capture device %s: %s\n",
 		cdevice, snd_strerror(err));
 	return 0;
     }
@@ -409,10 +409,10 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
         sprintf(pdevice_new, "plug%s", pdevice);
         pdevice = pdevice_new;
         if (verbose)
-            fprintf(error_fp, "Trying %s for playback\n", pdevice);
+            fprintf(error_fp, "alsa: Trying %s for playback\n", pdevice);
         if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
                                 0)) < 0) {
-            fprintf(error_fp, "Cannot open ALSA Playback device %s: %s\n",
+            fprintf(error_fp, "alsa: Cannot open playback device %s: %s\n",
                     pdevice, snd_strerror(err));
         }
 
@@ -420,14 +420,14 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
     }
 
     if (err != 0) {
-        fprintf(error_fp, "setparams failed\n");
+        fprintf(error_fp, "alsa: setparams failed\n");
         return 1;
     }
 
     buffer = malloc((negotiated.bufsize * snd_pcm_format_width(format) / 8)
 		    * negotiated.channels);
     if (buffer == NULL) {
-	fprintf(error_fp, "Failed allocating buffer for audio\n");
+	fprintf(error_fp, "alsa: Failed allocating buffer for audio\n");
 	return 0;
     }
 
@@ -436,7 +436,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
      * need to multiply it by two.
      */
     fprintf(error_fp,
-	    "Alsa stream started from %s to %s (%i Hz, buffer delay = %.2f ms)\n",
+	    "alsa: stream started from %s to %s (%i Hz, buffer delay = %.2f ms)\n",
 	    cdevice, pdevice, negotiated.rate,
 	    negotiated.latency * 1000.0 / negotiated.rate);
 
@@ -479,10 +479,10 @@ static void *alsa_thread_entry(void *whatever)
     struct input_params *inputs = (struct input_params *) whatever;
 
     if (verbose)
-	fprintf(error_fp, "Starting copying alsa stream from %s to %s\n",
+	fprintf(error_fp, "alsa: starting copying alsa stream from %s to %s\n",
 		inputs->cdevice, inputs->pdevice);
     alsa_stream(inputs->pdevice, inputs->cdevice, inputs->latency);
-    fprintf(error_fp, "Alsa stream stopped\n");
+    fprintf(error_fp, "alsa: stream stopped\n");
 
     free(inputs->pdevice);
     free(inputs->cdevice);
@@ -509,8 +509,9 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice, int latency,
 
     verbose = __verbose;
 
+
     if (inputs == NULL) {
-	fprintf(error_fp, "failed allocating memory for ALSA inputs\n");
+	fprintf(error_fp, "alsa: failed allocating memory for inputs\n");
 	return 0;
     }
 
