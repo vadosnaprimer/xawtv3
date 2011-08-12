@@ -98,20 +98,20 @@ static int setparams_stream(snd_pcm_t *handle,
     return 0;
 }
 
-static int setparams_periods(snd_pcm_t *handle,
+static void getparams_periods(snd_pcm_t *handle,
 		      snd_pcm_hw_params_t *params,
 		      unsigned int *usecs,
 		      unsigned int *count,
 		      const char *id)
 {
-    int err;
     unsigned min = 0, max = 0;
 
     snd_pcm_hw_params_get_periods_min(params, &min, 0);
     snd_pcm_hw_params_get_periods_max(params, &max, 0);
     if (min && max) {
 	if (verbose)
-	    fprintf(error_fp, "alsa: %s periods range between %d and %d\n", id, min, max);
+	    fprintf(error_fp, "alsa: %s periods range between %u and %u. Want: %u\n",
+		    id, min, max, *count);
 	if (*count < min)
 	    *count = min;
 	if (*count > max)
@@ -123,12 +123,22 @@ static int setparams_periods(snd_pcm_t *handle,
     snd_pcm_hw_params_get_period_time_max(params, &max, 0);
     if (min && max) {
 	if (verbose)
-	    fprintf(error_fp, "alsa: %s period time range between %d and %d\n", id, min, max);
+	    fprintf(error_fp, "alsa: %s period time range between %u and %u. Want: %u\n",
+		    id, min, max, *usecs);
 	if (*usecs < min)
 	    *usecs = min;
 	if (*usecs > max)
 	    *usecs = max;
     }
+}
+
+static int setparams_periods(snd_pcm_t *handle,
+		      snd_pcm_hw_params_t *params,
+		      unsigned int *usecs,
+		      unsigned int *count,
+		      const char *id)
+{
+    int err;
 
     err = snd_pcm_hw_params_set_period_time_near(handle, params, usecs, 0);
     if (err < 0) {
@@ -143,6 +153,10 @@ static int setparams_periods(snd_pcm_t *handle,
 		*count, id, snd_strerror(err));
 	return err;
     }
+
+    if (verbose)
+	fprintf(error_fp, "alsa: %s period set to %u periods of %u time\n",
+		id, *count, *usecs);
 
     return 0;
 }
@@ -204,7 +218,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     snd_pcm_uframes_t c_size, p_psize, c_psize;
     /* Our latency is 2 periods (in usecs) */
     unsigned int c_periods = 2, p_periods;
-    unsigned int periodtime = latency * 1000;
+    unsigned int c_periodtime, p_periodtime;
 
     snd_pcm_hw_params_alloca(&p_hwparams);
     snd_pcm_hw_params_alloca(&c_hwparams);
@@ -284,10 +298,32 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     if (verbose)
 	fprintf(error_fp, "alsa: Using Rate %d\n", ratec);
 
-    if (setparams_periods(chandle, c_hwparams, &periodtime, &c_periods, "capture"))
-	return 1;
+    /* Negociate period parameters */
 
+    c_periodtime = latency * 1000 / c_periods;
+    getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture");
     p_periods = c_periods * 2;
+    p_periodtime = c_periodtime;
+    getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, "playback");
+    c_periods = p_periods / 2;
+
+    /*
+     * Some playback devices support a very limited periodtime range. If the user needs to
+     * use a higher latency to avoid overrun/underrun, use an alternate algorithm of incresing
+     * the number of periods, to archive the needed latency
+     */
+    if (p_periodtime < c_periodtime) {
+	c_periodtime = p_periodtime;
+	c_periods = round (latency * 1000.0 / c_periodtime + 0.5);
+	getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture");
+	p_periods = c_periods * 2;
+	p_periodtime = c_periodtime;
+	getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, "playback");
+	c_periods = p_periods / 2;
+    }
+
+    if (setparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture"))
+	return 1;
 
     /* Note we use twice as much periods for the playback buffer, since we
        will get a period size near the requested time and we don't want it to
@@ -295,7 +331,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
        on writing to it. Note we will configure the playback dev to start
        playing as soon as it has 2 capture periods worth of data, so this
        won't influence latency */
-    if (setparams_periods(phandle, p_hwparams, &periodtime, &p_periods, "playback"))
+    if (setparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, "playback"))
 	return 1;
 
     snd_pcm_hw_params_get_period_size(p_hwparams, &p_psize, NULL);
@@ -404,24 +440,24 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
     /* Try to use plughw instead, as it allows emulating speed */
     if (err == 2 && strncmp(pdevice, "hw", 2) == 0) {
 
-        snd_pcm_close(phandle);
+	snd_pcm_close(phandle);
 
-        sprintf(pdevice_new, "plug%s", pdevice);
-        pdevice = pdevice_new;
-        if (verbose)
-            fprintf(error_fp, "alsa: Trying %s for playback\n", pdevice);
-        if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
-                                0)) < 0) {
-            fprintf(error_fp, "alsa: Cannot open playback device %s: %s\n",
-                    pdevice, snd_strerror(err));
-        }
+	sprintf(pdevice_new, "plug%s", pdevice);
+	pdevice = pdevice_new;
+	if (verbose)
+	    fprintf(error_fp, "alsa: Trying %s for playback\n", pdevice);
+	if ((err = snd_pcm_open(&phandle, pdevice, SND_PCM_STREAM_PLAYBACK,
+				0)) < 0) {
+	    fprintf(error_fp, "alsa: Cannot open playback device %s: %s\n",
+		    pdevice, snd_strerror(err));
+	}
 
 	err = setparams(phandle, chandle, format, latency, 1, &negotiated);
     }
 
     if (err != 0) {
-        fprintf(error_fp, "alsa: setparams failed\n");
-        return 1;
+	fprintf(error_fp, "alsa: setparams failed\n");
+	return 1;
     }
 
     buffer = malloc((negotiated.bufsize * snd_pcm_format_width(format) / 8)
