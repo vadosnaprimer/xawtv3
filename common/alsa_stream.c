@@ -284,7 +284,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     if (verbose)
 	fprintf(error_fp, "alsa: Using Rate %d\n", ratec);
 
-    if (setparams_periods(phandle, c_hwparams, &periodtime, &c_periods, "capture"))
+    if (setparams_periods(chandle, c_hwparams, &periodtime, &c_periods, "capture"))
 	return 1;
 
     p_periods = c_periods * 2;
