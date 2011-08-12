@@ -100,25 +100,50 @@ static int setparams_stream(snd_pcm_t *handle,
 
 static int setparams_periods(snd_pcm_t *handle,
 		      snd_pcm_hw_params_t *params,
-		      unsigned int usecs,
-		      unsigned int count,
+		      unsigned int *usecs,
+		      unsigned int *count,
 		      const char *id)
 {
     int err;
+    unsigned min = 0, max = 0;
 
-    err = snd_pcm_hw_params_set_period_time_near(handle, params, &usecs, 0);
+    snd_pcm_hw_params_get_periods_min(params, &min, 0);
+    snd_pcm_hw_params_get_periods_max(params, &max, 0);
+    if (min && max) {
+	if (verbose)
+	    fprintf(error_fp, "%s periods range between %d and %d\n", id, min, max);
+	if (*count < min)
+	    *count = min;
+	if (*count > max)
+	    *count = max;
+    }
+
+    min = max = 0;
+    snd_pcm_hw_params_get_period_time_min(params, &min, 0);
+    snd_pcm_hw_params_get_period_time_max(params, &max, 0);
+    if (min && max) {
+	if (verbose)
+	    fprintf(error_fp, "%s period time range between %d and %d\n", id, min, max);
+	if (*usecs < min)
+	    *usecs = min;
+	if (*usecs > max)
+	    *usecs = max;
+    }
+
+    err = snd_pcm_hw_params_set_period_time_near(handle, params, usecs, 0);
     if (err < 0) {
-	fprintf(error_fp, "Unable to set period time %u for %s: %s\n",
-		usecs, id, snd_strerror(err));
+	    fprintf(error_fp, "Unable to set period time %u for %s: %s\n",
+		    *usecs, id, snd_strerror(err));
+	    return err;
+    }
+
+    err = snd_pcm_hw_params_set_periods_near(handle, params, count, 0);
+    if (err < 0) {
+	fprintf(error_fp, "Unable to set %u periods for %s: %s\n",
+		*count, id, snd_strerror(err));
 	return err;
     }
 
-    err = snd_pcm_hw_params_set_periods_near(handle, params, &count, 0);
-    if (err < 0) {
-	fprintf(error_fp, "Unable to set periods %u for %s: %s\n",
-		count, id, snd_strerror(err));
-	return err;
-    }
     return 0;
 }
 
@@ -165,26 +190,21 @@ static int setparams_set(snd_pcm_t *handle,
     return 0;
 }
 
-static int seek_rates[] = {
-    48000,
-    44100,
-    32000,
-};
-#define NUM_RATES (sizeof(seek_rates)/sizeof(seek_rates[0]))
-
 static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		     snd_pcm_format_t format,
 		     int latency, int allow_resample,
 		     struct final_params *negotiated)
 {
     int i;
-    unsigned ratep, ratec;
+    unsigned ratep, ratec = 0;
+    unsigned ratemin = 32000, ratemax = 96000, val;
     int err, channels = 2;
     snd_pcm_hw_params_t *p_hwparams, *c_hwparams;
     snd_pcm_sw_params_t *p_swparams, *c_swparams;
     snd_pcm_uframes_t c_size, p_psize, c_psize;
     /* Our latency is 2 periods (in usecs) */
-    unsigned int periodtime = latency * 1000 / 2;
+    unsigned int c_periods = 2, p_periods;
+    unsigned int periodtime = latency * 1000;
 
     snd_pcm_hw_params_alloca(&p_hwparams);
     snd_pcm_hw_params_alloca(&c_hwparams);
@@ -202,15 +222,42 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	if (err < 0) {
 	    fprintf(error_fp, "Resample setup failed: %s\n", snd_strerror(err));
 	    return 1;
-	}
+	} else if (verbose)
+	   fprintf(error_fp, "Resample enabled.\n");
     }
 
-    for (i = 0; i < NUM_RATES; i++) {
-	ratec = seek_rates[i];
-	err = snd_pcm_hw_params_set_rate_near(chandle, c_hwparams, &ratec, 0);
+    err = snd_pcm_hw_params_get_rate_min(c_hwparams, &ratemin, 0);
+    if (err >= 0 && verbose)
+	fprintf(error_fp, "Capture min rate is %d\n", ratemin);
+    err = snd_pcm_hw_params_get_rate_max(c_hwparams, &ratemax, 0);
+    if (err >= 0 && verbose)
+	fprintf(error_fp, "Capture max rate is %u\n", ratemax);
+
+    err = snd_pcm_hw_params_get_rate_min(p_hwparams, &val, 0);
+    if (err >= 0) {
+	if (verbose)
+	    fprintf(error_fp, "Playback min rate is %u\n", val);
+	if (val > ratemin)
+		ratemin = val;
+    }
+    err = snd_pcm_hw_params_get_rate_max(p_hwparams, &val, 0);
+    if (err >= 0) {
+	if (verbose)
+	    fprintf(error_fp, "Playback max rate is %u\n", val);
+	if (val < ratemax)
+		ratemax = val;
+    }
+
+    if (verbose)
+	fprintf(error_fp, "Will search a common rate between %u and %u\n",
+		ratemin, ratemax);
+
+    for (i = ratemin; i <= ratemax; i+= 100) {
+	err = snd_pcm_hw_params_set_rate_near(chandle, c_hwparams, &i, 0);
 	if (err)
 	    continue;
-	ratep = ratec;
+	ratec = i;
+	ratep = i;
 	err = snd_pcm_hw_params_set_rate_near(phandle, p_hwparams, &ratep, 0);
 	if (err)
 	    continue;
@@ -219,7 +266,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 	if (verbose)
 	    fprintf(error_fp,
 		    "Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
-		    seek_rates[i], ratec, ratep,
+		    i, ratec, ratep,
 		    allow_resample ? " with resample enabled": "");
     }
 
@@ -234,9 +281,13 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		    "Couldn't find a rate that it is supported by both playback and capture\n");
 	return 2;
     }
+    if (verbose)
+	fprintf(error_fp, "Using Rate %d\n", ratec);
 
-    if (setparams_periods(phandle, c_hwparams, periodtime, 2, "capture"))
+    if (setparams_periods(phandle, c_hwparams, &periodtime, &c_periods, "capture"))
 	return 1;
+
+    p_periods = c_periods * 2;
 
     /* Note we use twice as much periods for the playback buffer, since we
        will get a period size near the requested time and we don't want it to
@@ -244,14 +295,14 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
        on writing to it. Note we will configure the playback dev to start
        playing as soon as it has 2 capture periods worth of data, so this
        won't influence latency */
-    if (setparams_periods(phandle, p_hwparams, periodtime, 4, "playback"))
+    if (setparams_periods(phandle, p_hwparams, &periodtime, &p_periods, "playback"))
 	return 1;
 
     snd_pcm_hw_params_get_period_size(p_hwparams, &p_psize, NULL);
     snd_pcm_hw_params_get_period_size(c_hwparams, &c_psize, NULL);
     snd_pcm_hw_params_get_buffer_size(c_hwparams, &c_size);
 
-    latency = 2 * c_psize;
+    latency = c_periods * c_psize;
     if (setparams_set(phandle, p_hwparams, p_swparams, latency, "playback"))
 	return 1;
 
