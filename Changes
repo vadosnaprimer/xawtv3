@@ -1,3 +1,12 @@
+3.102
+=====
+
+* Improve alsa latency handler and document the -alsa-latency parameter
+* Improve alsa handling, fixing a cut and past error that causes
+  breakages with some cards
+* Improve audio parameters detection
+* fix build with ld --as-needed --no-copy-dt-needed
+
 3.101
 =====
 
