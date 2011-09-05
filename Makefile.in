@@ -162,7 +162,7 @@ include $(srcdir)/x11/Subdir.mk
 # just for me, some maintaining jobs.  Don't use them
 
 tag:
-	@git tag -a -m "Tag as xawtv-@VERSION@" xawtv-@VERSION@
+	@git tag -a -m -s "Tag as xawtv-@VERSION@" xawtv-@VERSION@
 	@echo "Tagged as xawtv-@VERSION@"
 
 archive:
