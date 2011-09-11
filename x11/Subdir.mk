@@ -101,8 +101,8 @@ x11/xawtv        : LDLIBS  += \
 	$(ATHENA_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm -ldl -lfontconfig
 x11/motv         : LDLIBS  += \
 	$(THREAD_LIBS) $(CURSES_LIBS) $(LIRC_LIBS) $(ALSA_LIBS) \
-	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm
-x11/mtt          : LDLIBS  += $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS) -ljpeg
+	$(MOTIF_LIBS) $(VBI_LIBS) $(GL_LIBS) -ljpeg -lm -ldl
+x11/mtt          : LDLIBS  += $(THREAD_LIBS) $(MOTIF_LIBS) $(VBI_LIBS) -ljpeg -ldl
 x11/v4lctl       : LDLIBS  += $(THREAD_LIBS) $(ATHENA_LIBS) -ljpeg -lm -ldl
 x11/pia          : LDLIBS  += $(ATHENA_LIBS) $(GL_LIBS) -ljpeg -lm -ldl
 x11/rootv        : LDLIBS  += $(ATHENA_LIBS)
