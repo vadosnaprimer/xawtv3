@@ -229,7 +229,9 @@ mjpg_yuv_init(struct ng_video_fmt *out, void *priv)
     jpeg_set_quality(&h->mjpg_cinfo, ng_jpeg_quality, TRUE);
 
     h->mjpg_cinfo.raw_data_in = TRUE;
+#if JPEG_LIB_VERSION >= 70
     h->mjpg_cinfo.do_fancy_downsampling = FALSE;  // fix segfaulst with libjpeg v7++
+#endif
     jpeg_set_colorspace(&h->mjpg_cinfo,JCS_YCbCr);
 
     h->mjpg_ptrs[0] = malloc(h->fmt.height*sizeof(char*));
