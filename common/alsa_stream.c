@@ -501,11 +501,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 	return 0;
     }
 
-    /*
-     * Buffering delay is due for capture and for playback, so we
-     * need to multiply it by two.
-     */
-    fprintf(error_fp,
+    if (verbose)
+        fprintf(error_fp,
 	    "alsa: stream started from %s to %s (%i Hz, buffer delay = %.2f ms)\n",
 	    cdevice, pdevice, negotiated.rate,
 	    negotiated.latency * 1000.0 / negotiated.rate);
