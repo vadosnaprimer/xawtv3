@@ -42,6 +42,8 @@
 #include <math.h>
 #include "alsa_stream.h"
 
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
+
 /* Private vars to control alsa thread status */
 static int alsa_is_running = 0;
 static int stop_alsa = 0;
@@ -204,6 +206,33 @@ static int setparams_set(snd_pcm_t *handle,
     return 0;
 }
 
+static int alsa_try_rate(snd_pcm_t *phandle, snd_pcm_t *chandle,
+                        snd_pcm_hw_params_t *p_hwparams,
+                        snd_pcm_hw_params_t *c_hwparams,
+                        int allow_resample, unsigned *ratep, unsigned *ratec)
+{
+    int err;
+
+    err = snd_pcm_hw_params_set_rate_near(chandle, c_hwparams, ratec, 0);
+    if (err)
+        return err;
+
+    *ratep = *ratec;
+    err = snd_pcm_hw_params_set_rate_near(phandle, p_hwparams, ratep, 0);
+    if (err)
+        return err;
+
+    if (*ratep == *ratec)
+        return 0;
+
+    if (verbose)
+        fprintf(error_fp,
+                "alsa_try_rate: capture wanted %u, playback wanted %u%s\n",
+                *ratec, *ratep, allow_resample ? " with resample enabled": "");
+
+    return 1; /* No error, but also no match */
+}
+
 static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		     snd_pcm_format_t format,
 		     int latency, int allow_resample,
@@ -219,6 +248,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     /* Our latency is 2 periods (in usecs) */
     unsigned int c_periods = 2, p_periods;
     unsigned int c_periodtime, p_periodtime;
+    const unsigned int prefered_rates[] = { 44100, 48000, 32000 };
 
     snd_pcm_hw_params_alloca(&p_hwparams);
     snd_pcm_hw_params_alloca(&c_hwparams);
@@ -263,25 +293,29 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     }
 
     if (verbose)
-	fprintf(error_fp, "alsa: Will search a common rate between %u and %u\n",
+	fprintf(error_fp,
+	        "alsa: Will search a common rate between %u and %u\n",
 		ratemin, ratemax);
 
-    for (i = ratemin; i <= ratemax; i+= 100) {
-	err = snd_pcm_hw_params_set_rate_near(chandle, c_hwparams, &i, 0);
-	if (err)
-	    continue;
-	ratec = i;
-	ratep = i;
-	err = snd_pcm_hw_params_set_rate_near(phandle, p_hwparams, &ratep, 0);
-	if (err)
-	    continue;
-	if (ratep == ratec)
-	    break;
-	if (verbose)
-	    fprintf(error_fp,
-		    "alsa: Failed to set to %u: capture wanted %u, playback wanted %u%s\n",
-		    i, ratec, ratep,
-		    allow_resample ? " with resample enabled": "");
+    /* First try a set of common rates */
+    for (i = 0; i < ARRAY_SIZE(prefered_rates); i++) {
+        if (prefered_rates[i] < ratemin || prefered_rates[i] > ratemax)
+            continue;
+        ratep = ratec = prefered_rates[i];
+        err = alsa_try_rate(phandle, chandle, p_hwparams, c_hwparams,
+                            allow_resample, &ratep, &ratec);
+        if (err == 0)
+            break;
+    }
+
+    if (err != 0) {
+        for (i = ratemax; i >= ratemin; i -= 100) {
+            ratep = ratec = i;
+            err = alsa_try_rate(phandle, chandle, p_hwparams, c_hwparams,
+                                allow_resample, &ratep, &ratec);
+            if (err == 0)
+                break;
+        }
     }
 
     if (err < 0) {
@@ -298,7 +332,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     if (verbose)
 	fprintf(error_fp, "alsa: Using Rate %d\n", ratec);
 
-    /* Negociate period parameters */
+    /* Negotiate period parameters */
 
     c_periodtime = latency * 1000 / c_periods;
     getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture");
