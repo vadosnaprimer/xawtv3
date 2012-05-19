@@ -1,5 +1,6 @@
 /*
  * radio.c - (c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>
+ *           (c) 2012 Hans de Goede <hdegoede@redhat.com>
  *
  * test tool for bttv + WinTV/Radio
  *
@@ -15,7 +16,10 @@
  *             a Samsung TPI8PSB02P misses two stations below 90MHz,
  *             which are received fine, but the tuner doesn't indicate
  *             signal strength.
+ * 19 May 2012 - Hans de Goede - Add support for looping back sound using alsa
  */
+
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +35,8 @@
 #include <linux/types.h>
 
 #include "videodev2.h"
+#include "alsa_stream.h"
+#include "get_media_devices.h"
 
 #define FREQ_MIN    87500000
 #define FREQ_MAX   108000000
@@ -39,6 +45,17 @@
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
+
+/* Latency is not a big problem for radio (no video to sync with), and
+   USB radio devices benefit from a larger default latency */
+#define DEFAULT_LATENCY 500
+
+#if defined(HAVE_ALSA)
+int alsa_loopback = 1;
+char *alsa_playback = NULL;
+char *alsa_capture = NULL;
+int alsa_latency = DEFAULT_LATENCY;
+#endif
 
 /* JMMV: WINDOWS for radio */
 int ncurses = 0;
@@ -81,13 +98,25 @@ static void
 radio_mute(int fd, int mute)
 {
     struct v4l2_control ctrl;
+    int res;
 
     memset (&ctrl, 0, sizeof(ctrl));
     ctrl.id = V4L2_CID_AUDIO_MUTE;
     ctrl.value = mute;
 
-    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1)
+    res = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+    if (res == -1 && errno != EINVAL && errno != ENOTTY)
 	perror("VIDIOC_S_CTRL");
+
+#if defined(HAVE_ALSA)
+    if (alsa_loopback) {
+	if (mute)
+	    alsa_thread_stop();
+	else
+	    alsa_thread_startup(alsa_playback, alsa_capture,
+				alsa_latency, stderr, debug);
+    }
+#endif
 }
 
 static void
@@ -389,6 +418,12 @@ usage(FILE *out)
 	    "  -S       scan + write radio.fmmap\n"
 	    "  -i       scan, write initial ~/.radio config file to\n"
 	    "           stdout and quit\n"
+#if defined(HAVE_ALSA)
+            "  -l 0/1	loopback digital audio from radio  [default: 1]\n"
+	    "  -r dev   record/capture device for loopback  [default: auto]\n"
+	    "  -p dev   playback device for loopback  [default: default]\n"
+	    "  -L ms    latency for loopback in ms [default: %d]\n"
+#endif
 	    "  -q       quit.  Useful with other options to control the\n"
 	    "           radio device without entering interactive mode,\n"
 	    "           i.e. \"radio -qf 91.4\"\n"
@@ -396,7 +431,11 @@ usage(FILE *out)
 	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n"
 	    "interface by Juli Merino <jmmv@mail.com>\n"
 	    "channel scan by Gunther Mayer <Gunther.Mayer@t-online.de>\n",
-	    device);
+	    device
+#if defined(HAVE_ALSA)
+	    , DEFAULT_LATENCY
+#endif
+	    );
 }
 
 int
@@ -415,7 +454,11 @@ main(int argc, char *argv[])
 
     /* parse args */
     for (;;) {
+#if defined(HAVE_ALSA)
+	c = getopt(argc, argv, "mhiqdsSf:c:l:r:p:L:");
+#else
 	c = getopt(argc, argv, "mhiqdsSf:c:");
+#endif
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -452,6 +495,20 @@ main(int argc, char *argv[])
 	case 'h':
 	    usage(stdout);
 	    exit(0);
+#if defined(HAVE_ALSA)
+	case 'l':
+	    alsa_loopback = atoi(optarg);
+	    break;
+	case 'r':
+	    alsa_capture = optarg;
+	    break;
+	case 'p':
+	    alsa_playback = optarg;
+	    break;
+	case 'L':
+	    alsa_latency = atoi(optarg);
+	    break;
+#endif
 	default:
 	    usage(stderr);
 	    exit(1);
@@ -462,6 +519,35 @@ main(int argc, char *argv[])
 	fprintf(stderr,"open %s: %s\n",device,strerror(errno));
 	exit(1);
     }
+
+#if defined(HAVE_ALSA)
+    if (alsa_loopback && alsa_capture == NULL) {
+	void *md = discover_media_devices();
+	char *p = strrchr(device, '/');
+	if (p)
+	    p++;
+	else
+	    p = device;
+	alsa_capture = strdup(get_associated_device(md, NULL,
+						    MEDIA_SND_CAP, p,
+						    MEDIA_V4L_RADIO));
+	if (alsa_capture == NULL)
+	    alsa_loopback = 0;
+
+	free_media_devices(md);
+    }
+    
+    if (alsa_playback == NULL)
+	alsa_playback = "default";
+
+    /* Don't bother starting the loopback thread if we're going to quit */
+    if (quit)
+        alsa_loopback = 0;
+
+    if (alsa_loopback)
+	fprintf(stderr, "Using alsa loopback: cap: %s (%s), out: %s\n",
+		alsa_capture, device, alsa_playback);
+#endif
 
     memset(&tuner, 0, sizeof(tuner));
     if ((-1 != ioctl(fd, VIDIOC_G_TUNER, &tuner)) &&

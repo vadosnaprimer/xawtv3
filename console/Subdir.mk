@@ -63,10 +63,13 @@ console/v4l-info: \
 	structs/struct-dump.o \
 	structs/struct-v4l2.o
 
+console/radio: \
+	console/radio.o \
+	$(OBJS-common-alsa)
+
 console/dump-mixers: console/dump-mixers.o
 console/showriff: console/showriff.o
 console/showqt: console/showqt.o
-console/radio: console/radio.o
 console/record: console/record.o
 console/v4l-conf: console/v4l-conf.o
 
@@ -78,7 +81,7 @@ console/ttv      : LDLIBS  += $(THREAD_LIBS) $(AA_LIBS) -ljpeg -lm -ldl
 console/scantv   : LDLIBS  += $(THREAD_LIBS) $(VBI_LIBS) -ljpeg -ldl
 console/streamer : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm -ldl
 console/webcam   : LDLIBS  += $(THREAD_LIBS) -ljpeg -lm -ldl
-console/radio    : LDLIBS  += $(CURSES_LIBS)
+console/radio    : LDLIBS  += $(CURSES_LIBS) $(ALSA_LIBS) $(THREAD_LIBS) -lm
 console/record   : LDLIBS  += $(CURSES_LIBS)
 console/v4l-conf : LDLIBS  += $(ATHENA_LIBS)
 
