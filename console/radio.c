@@ -438,6 +438,20 @@ usage(FILE *out)
 	    );
 }
 
+static void redraw(void)
+{
+    redrawwin(stdscr);
+    redrawwin(wfreq);
+    redrawwin(woptions);
+    redrawwin(wstations);
+    redrawwin(wcommand);
+    wrefresh(stdscr);
+    wrefresh(wfreq);
+    wrefresh(woptions);
+    wrefresh(wstations);
+    wrefresh(wcommand);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -757,16 +771,7 @@ main(int argc, char *argv[])
 	    }
 	    break;
 	case 'L' & 0x1f:  /* Ctrl-L */
-	    redrawwin(stdscr);
-	    redrawwin(wfreq);
-	    redrawwin(woptions);
-	    redrawwin(wstations);
-	    redrawwin(wcommand);
-	    wrefresh(stdscr);
-	    wrefresh(wfreq);
-	    wrefresh(woptions);
-	    wrefresh(wstations);
-	    wrefresh(wcommand);
+	    redraw();
 	    break;
 	}
     }
