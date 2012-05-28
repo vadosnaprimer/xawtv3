@@ -61,7 +61,7 @@ int alsa_latency = DEFAULT_LATENCY;
 int ncurses = 0;
 int debug = 0;
 char *device = "/dev/radio0";
-WINDOW *wfreq, *woptions, *wstations, *wcommand;
+WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
 int freqfact = 16;
 
 static int
@@ -637,11 +637,15 @@ main(int argc, char *argv[])
     wrefresh(wcommand);
 
     /* JMMV: Added key information and windows division */
-    mvwprintw(woptions, 1, 1, "Up/Down     - inc/dec frequency");
-    mvwprintw(woptions, 2, 1, "PgUp/PgDown - next/prev station");
-    mvwprintw(woptions, 3, 1, "g           - go to frequency...");
-    mvwprintw(woptions, 4, 1, "x           - exit");
-    mvwprintw(woptions, 5, 1, "ESC, q, e   - mute and exit");
+    i = 1;
+    mvwprintw(woptions, i++, 1, "Up/Down     - inc/dec frequency");
+    if (max_astation || stations)
+	mvwprintw(woptions, i++, 1, "PgUp/PgDown - next/prev preset");
+    mvwprintw(woptions, i++, 1, "g           - go to frequency...");
+    mvwprintw(woptions, i++, 1, "ESC, q, e   - mute and exit");
+    if (i <= 4)
+	    mvwprintw(woptions, i++, 1, "x           - exit (no mute)");
+    mvwprintw(woptions, i++, 1, "h, ?        - help (more options)");
     wrefresh(woptions);
     for (i = 0, c = 1; i < 8; i++) {
 	if (fkeys[i]) {
@@ -683,6 +687,14 @@ main(int argc, char *argv[])
 	    continue;
 	}
 	key = getch();
+
+	if (whelp) {
+	    delwin(whelp);
+	    whelp = NULL;
+	    redraw();
+	    continue;
+	}
+
 	switch (key) {
 	case EOF:
 	case 'x':
@@ -772,6 +784,22 @@ main(int argc, char *argv[])
 	    break;
 	case 'L' & 0x1f:  /* Ctrl-L */
 	    redraw();
+	    break;
+	case 'h':
+	case 'H':
+	case '?':
+	    whelp = newwin(12, 40, (LINES-12)/2, (COLS-40)/2);
+	    box(whelp, 0, 0);
+	    i = 0;
+	    mvwprintw(whelp, i++, 1, " Help ");
+	    mvwprintw(whelp, i++, 1, "Up/Down     - inc/dec frequency");
+	    mvwprintw(whelp, i++, 1, "PgUp/PgDown - next/prev station");
+	    mvwprintw(whelp, i++, 1, "F1-F8, 1-8  - select preset 1 - 8");
+	    mvwprintw(whelp, i++, 1, "g           - go to frequency...");
+	    mvwprintw(whelp, i++, 1, "ESC, q, e   - mute and exit");
+	    mvwprintw(whelp, i++, 1, "x           - exit (no mute)");
+	    mvwprintw(whelp, i++, 1, "h, ?        - this help screen");
+	    wrefresh(whelp);
 	    break;
 	}
     }
