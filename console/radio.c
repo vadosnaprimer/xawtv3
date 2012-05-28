@@ -234,6 +234,7 @@ read_kradioconfig(void)
 	    stations++;
 	}
     }
+    fclose(fp);
 }
 
 static char*
