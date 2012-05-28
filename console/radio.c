@@ -120,33 +120,18 @@ radio_mute(int fd, int mute)
 #endif
 }
 
-static void
-radio_getstereo(int fd)
-{
-    struct v4l2_tuner tuner;
-
-    if (!ncurses)
-	return;
-
-    memset (&tuner, 0, sizeof(tuner));
-    if (ioctl (fd, VIDIOC_G_TUNER, &tuner) == -1) {
-	mvwprintw(wfreq,2,1,"     ");
-	perror("VIDIOC_G_TUNER");
-	return;
-    }
-
-    mvwprintw(wfreq,2,1,"%s", (tuner.rxsubchans & V4L2_TUNER_SUB_STEREO)?
-	      "STEREO":" MONO ");
-}
-
 static int
-radio_getsignal(int fd)
+radio_getsignal_n_stereo(int fd)
 {
     struct v4l2_tuner tuner;
     int signal, i;
 
     memset (&tuner, 0, sizeof(tuner));
     if (ioctl (fd, VIDIOC_G_TUNER, &tuner) == -1) {
+	if (ncurses) {
+	    mvwprintw(wfreq, 2, 1, "      ");
+	    mvwprintw(wfreq, 3, 1, "      ");
+	}
 	perror("VIDIOC_G_TUNER");
 	return 0;
     }
@@ -154,11 +139,12 @@ radio_getsignal(int fd)
     /* Signal will range from 0 to 6 */
     signal = (tuner.signal * 6 + 32767) / 65535;
 
-    if (!ncurses)
-	return signal;
-
-    for (i = 0; i < 6; i++)
-	mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
+    if (ncurses) {
+	mvwprintw(wfreq, 2, 1, (tuner.rxsubchans & V4L2_TUNER_SUB_STEREO) ?
+		  "STEREO" : " MONO ");
+	for (i = 0; i < 6; i++)
+  	    mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
+    }
 
     return signal;
 }
@@ -393,8 +379,7 @@ static void do_scan(int fd,int scan)
 	radio_setfreq(fd,freq);
 	usleep(10000); /* give the tuner some time to settle */
 	for(j=0;j<5;j++) {
-	    s+=radio_getsignal(fd);
-	    radio_getstereo(fd);
+	    s+=radio_getsignal_n_stereo(fd);
 	    usleep(1000);
 	}
 	g[i]=s/5; // average
@@ -686,8 +671,7 @@ main(int argc, char *argv[])
 	    else
 		mvwprintw(wfreq,5,2,"%-20.20s","");
 	}
-	radio_getstereo(fd);
-	radio_getsignal(fd);
+	radio_getsignal_n_stereo(fd);
 	wrefresh(wfreq);
 	wrefresh(wcommand);
 
