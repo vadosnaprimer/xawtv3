@@ -17,6 +17,7 @@
  *             which are received fine, but the tuner doesn't indicate
  *             signal strength.
  * 19 May 2012 - Hans de Goede - Add support for looping back sound using alsa
+ * 28 May 2012 - Hans de Goede - Various UI improvements
  */
 
 #include "config.h"
@@ -150,15 +151,14 @@ radio_getsignal(int fd)
 	return 0;
     }
 
-    /* Signal will range from 0 to 7 */
-    signal = (tuner.signal * 7) / 65535;
+    /* Signal will range from 0 to 6 */
+    signal = (tuner.signal * 6 + 32767) / 65535;
 
     if (!ncurses)
 	return signal;
 
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < 6; i++)
 	mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
-    mvwprintw(wfreq, 3, i + 1, "|");
 
     return signal;
 }
