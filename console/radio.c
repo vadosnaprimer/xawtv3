@@ -216,7 +216,7 @@ static void
 read_kradioconfig(void)
 {
     char   name[80],file[256],n;
-    int    ifreq;
+    int    i, ifreq;
     FILE   *fp;
 
     sprintf(file,"%.225s/.kde/share/config/kradiorc",getenv("HOME"));
@@ -235,6 +235,15 @@ read_kradioconfig(void)
 	}
     }
     fclose(fp);
+
+    /* If no hotkeys were specified, bind the first 8 presets to 1 - 8 */
+    for (i = 0; i < 8; i++)
+	if (fkeys[i])
+	    break;
+    if (i == 8) {
+	for (i = 0; i < 8 && i < stations; i++)
+	    fkeys[i] = freqs[i];
+    }
 }
 
 static char*
