@@ -764,7 +764,9 @@ main(int argc, char *argv[])
 		}
 		if (i != stations) {
 		    i += (key == KEY_NPAGE) ? -1 : 1;
-		    if (i < 0 || i >= stations)
+		    if (i < 0)
+			i = stations - 1;
+		    if (i >= stations)
 			i = 0;
 		    ifreq = freqs[i];
 		}
