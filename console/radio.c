@@ -124,7 +124,7 @@ static int
 radio_getsignal_n_stereo(int fd)
 {
     struct v4l2_tuner tuner;
-    int signal, i;
+    int i, asterisks;
 
     memset (&tuner, 0, sizeof(tuner));
     if (ioctl (fd, VIDIOC_G_TUNER, &tuner) == -1) {
@@ -136,17 +136,16 @@ radio_getsignal_n_stereo(int fd)
 	return 0;
     }
 
-    /* Signal will range from 0 to 6 */
-    signal = (tuner.signal * 6 + 32767) / 65535;
-
     if (ncurses) {
 	mvwprintw(wfreq, 2, 1, (tuner.rxsubchans & V4L2_TUNER_SUB_STEREO) ?
 		  "STEREO" : " MONO ");
+	/* Draw 0 - 6 asterisks for signal strength */
+	asterisks = (tuner.signal * 6 + 32767) / 65535;
 	for (i = 0; i < 6; i++)
-  	    mvwprintw(wfreq, 3, i + 1, "%s", signal>i ? "*" : "");
+	    mvwprintw(wfreq, 3, i + 1, "%s", i < asterisks ? "*" : " ");
     }
 
-    return signal;
+    return tuner.signal;
 }
 
 static int
@@ -326,24 +325,24 @@ findmax(void)
 static float
 get_baseline(float ming, float maxg)
 {
-    int unt,i,nullfound=0;
-    float nullinie=0,u;
+    int unt, i;
+    float nullinie = 0, u;
 
     if (debug)
-	fprintf(stderr,"get_baseline:  min=%f max=%f\n",ming,maxg);
-    for(u=ming;u<maxg; u+=0.1) {
-	unt=0;
-	for (i=0; i< ARRAY_SIZE(g); i++)
+	fprintf(stderr, "get_baseline:  min=%f max=%f\n", ming, maxg);
+    for (u = ming; u < maxg; u += 0.1) {
+	unt = 0;
+	for (i =0; i < ARRAY_SIZE(g); i++)
 	    if (g[i] < u) {
 		unt++;
 	    }
-	if(unt>300 && !nullfound) {
-	    fprintf(stderr,"baseline at %.2f\n",u);
-	    nullinie=u;
-	    nullfound=1;
+	if (unt > 300) {
+	    fprintf(stderr, "baseline at %.2f\n", u);
+	    nullinie = u;
+	    break;
 	}
 	if (debug)
-	    fprintf(stderr,"%f %d\n",u,unt);
+	    fprintf(stderr, "%f %d\n", u, unt);
     }
     return nullinie;
 }
@@ -351,17 +350,17 @@ get_baseline(float ming, float maxg)
 static void
 findstations(void)
 {
-    float maxg=0,ming=8;
+    float maxg = 0, ming = 65536;
     int i;
 
-    for (i=0; i< ARRAY_SIZE(g); i++) {
-	if (g[i]<ming) ming=g[i];
-	if (g[i]>maxg) maxg=g[i];
+    for (i = 0; i < ARRAY_SIZE(g); i++) {
+	if (g[i] < ming) ming = g[i];
+	if (g[i] > maxg) maxg = g[i];
     }
 
     if (write_config)
 	printf("[Stations]\n");
-    baseline=get_baseline(ming,maxg);
+    baseline = get_baseline(ming, maxg);
     findmax();
 }
 
