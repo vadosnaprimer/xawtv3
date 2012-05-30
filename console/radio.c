@@ -68,16 +68,6 @@ WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
 struct v4l2_tuner tuner;
 int freqfact = 16; /* ffreq-in-Mhz * freqfact == v4l2-freq */
 
-static int radio_setfreq(int fd, int ifreq)
-{
-    struct v4l2_frequency frequency;
-
-    memset (&frequency, 0, sizeof(frequency));
-    frequency.type = V4L2_TUNER_RADIO;
-    frequency.frequency = ifreq * (freqfact / 1e6);
-    return (ioctl(fd, VIDIOC_S_FREQUENCY, &frequency) == -1);
-}
-
 static int radio_getfreq(int fd, int *ifreq)
 {
     struct v4l2_frequency frequency;
@@ -91,6 +81,22 @@ static int radio_getfreq(int fd, int *ifreq)
     }
 
     *ifreq = frequency.frequency * (1e6 / freqfact);
+    return 0;
+}
+
+static int radio_setfreq(int fd, int *ifreq)
+{
+    struct v4l2_frequency frequency;
+
+    memset (&frequency, 0, sizeof(frequency));
+    frequency.type = V4L2_TUNER_RADIO;
+    frequency.frequency = *ifreq * (freqfact / 1e6);
+    if (ioctl(fd, VIDIOC_S_FREQUENCY, &frequency) == -1) {
+	perror("VIDIOC_S_FREQUENCY");
+	return errno;
+    }
+
+    radio_getfreq(fd, ifreq);
     return 0;
 }
 
@@ -391,7 +397,7 @@ static void do_scan(int fd,int scan)
     for (i = 0; i < g_len; i++) {
 	ifreq = FREQ_MIN + i * FREQ_STEP;
 	s = 0;
-	radio_setfreq(fd, ifreq);
+	radio_setfreq(fd, &ifreq);
 	usleep(10000); /* give the tuner some time to settle */
 	for(j = 0; j < 5; j++) {
 	    s += radio_getsignal_n_stereo(fd);
@@ -586,7 +592,7 @@ main(int argc, char *argv[])
 	}
     }
     if (ifreq) {
-	if (!radio_setfreq(fd, ifreq))
+	if (!radio_setfreq(fd, &ifreq))
 	    fprintf(stderr, "tuned %.2f MHz\n", ifreq / 1e6);
 	radio_mute(fd, 0);
     }
@@ -672,7 +678,7 @@ main(int argc, char *argv[])
     radio_mute(fd, 0);
     for (done = 0; done == 0;) {
 	if (ifreq != lastfreq) {
-	    if (!radio_setfreq(fd, ifreq)) {
+	    if (!radio_setfreq(fd, &ifreq)) {
 		print_freq(ifreq);
 		lastfreq = ifreq;
 	    } else
