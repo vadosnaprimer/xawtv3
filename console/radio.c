@@ -100,6 +100,32 @@ static int radio_setfreq(int fd, int *ifreq)
     return 0;
 }
 
+/*
+ * Perform a hw_seek, dir = 0 = down, 1 = up, Returns 0 and the new freq
+ * in ifreq on a successful seek. Returns non 0 and leaves ifreq untouched
+ * if the seek fails.
+ */
+static int radio_seek(int fd, int dir, int *ifreq)
+{
+    struct v4l2_hw_freq_seek seek;
+
+    memset(&seek, 0, sizeof(seek));
+    seek.type = V4L2_TUNER_RADIO;
+    seek.seek_upward = dir;
+    if (tuner.capability & V4L2_TUNER_CAP_HWSEEK_WRAP)
+	seek.wrap_around = 1;
+    seek.spacing = FREQ_STEP_MHZ * freqfact;
+    if (seek.spacing < 1)
+	seek.spacing = 1;
+    if (-1  == ioctl(fd, VIDIOC_S_HW_FREQ_SEEK, &seek)) {
+	if (errno != ENODATA)
+	    perror("VIDIOC_G_FREQUENCY");
+	return errno;
+    }
+
+    return radio_getfreq(fd, ifreq);
+}
+
 static void
 radio_mute(int fd, int mute)
 {
@@ -653,10 +679,14 @@ main(int argc, char *argv[])
     /* JMMV: Added key information and windows division */
     i = 1;
     mvwprintw(woptions, i++, 1, "Up/Down     - inc/dec frequency");
+    if (tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
+			    V4L2_TUNER_CAP_HWSEEK_WRAP))
+	mvwprintw(woptions, i++, 1, "Right/Left  - seek up/down");
     if (max_astation || stations)
 	mvwprintw(woptions, i++, 1, "PgUp/PgDown - next/prev preset");
     mvwprintw(woptions, i++, 1, "g           - go to frequency...");
-    mvwprintw(woptions, i++, 1, "ESC, q, e   - mute and exit");
+    if (i <= 4)
+	    mvwprintw(woptions, i++, 1, "ESC, q, e   - mute and exit");
     if (i <= 4)
 	    mvwprintw(woptions, i++, 1, "x           - exit (no mute)");
     mvwprintw(woptions, i++, 1, "h, ?        - help (more options)");
@@ -745,6 +775,26 @@ main(int argc, char *argv[])
 		ifreq = FREQ_MAX;
 	    mvwprintw(wcommand, 1, 2, "Decrease frequency");
 	    break;
+	case KEY_LEFT:
+	    if (!(tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
+				      V4L2_TUNER_CAP_HWSEEK_WRAP)))
+		break;
+	    mvwprintw(wcommand, 1, 2, "Seek down");
+	    if (!radio_seek(fd, 0, &ifreq)) {
+		print_freq(ifreq);
+		lastfreq = ifreq;
+	    }
+	    break;
+	case KEY_RIGHT:
+	    if (!(tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
+				      V4L2_TUNER_CAP_HWSEEK_WRAP)))
+		break;
+	    mvwprintw(wcommand, 1, 2, "Seek up");
+	    if (!radio_seek(fd, 1, &ifreq)) {
+		print_freq(ifreq);
+		lastfreq = ifreq;
+	    }
+	    break;
 	case KEY_PPAGE:
 	case KEY_NPAGE:
 	case ' ':
@@ -803,6 +853,9 @@ main(int argc, char *argv[])
 	    i = 0;
 	    mvwprintw(whelp, i++, 1, " Help ");
 	    mvwprintw(whelp, i++, 1, "Up/Down     - inc/dec frequency");
+	    if (tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
+				    V4L2_TUNER_CAP_HWSEEK_WRAP))
+		mvwprintw(whelp, i++, 1, "Right/Left  - seek up/down");
 	    mvwprintw(whelp, i++, 1, "PgUp/PgDown - next/prev station");
 	    mvwprintw(whelp, i++, 1, "F1-F8, 1-8  - select preset 1 - 8");
 	    mvwprintw(whelp, i++, 1, "g           - go to frequency...");
