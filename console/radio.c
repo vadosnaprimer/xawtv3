@@ -303,12 +303,12 @@ make_label(int ifreq)
 
 float *g, baseline;
 int g_len, astation[MAX_STATIONS];
-int write_config;
 
 static void
 foundone(int m)
 {
-    int i, freq = FREQ_MIN + m * FREQ_STEP;
+    float freq = FREQ_MIN_MHZ + m * FREQ_STEP_MHZ;
+    int i;
 
     for (i = 0; i < stations; i++) {
 	/* Assume stations less then 5 steps apart are the same station */
@@ -318,7 +318,7 @@ foundone(int m)
     if (i == MAX_STATIONS) {
 	fprintf(stderr,
 		"Station limit (%d) exceeded, ignoring station at %6.2f MHz\n",
-		MAX_STATIONS, freq / 1e6);
+		MAX_STATIONS, freq);
 	return;
     }
     /* If new or bigger signal add the found station */
@@ -326,9 +326,7 @@ foundone(int m)
 	if (i == stations)
 	    stations = i + 1;
 	astation[i] = m;
-	fprintf(stderr, "Station %2d: %6.2f MHz - %.2f\n", i, freq/1e6, g[m]);
-	if (write_config)
-	    printf("%d=scan-%d\n", freq, i);
+	fprintf(stderr, "Station %2d: %6.2f MHz - %.2f\n", i, freq, g[m]);
     }
 }
 
@@ -419,13 +417,11 @@ findstations(void)
 	if (g[i] > maxg) maxg = g[i];
     }
 
-    if (write_config)
-	printf("[Stations]\n");
     baseline = get_baseline(ming, maxg);
     findmax();
 }
 
-static void do_scan(int fd,int scan)
+static void do_scan(int fd, int scan, int write_config)
 {
     FILE * fmap=NULL;
     int i, j, s, ifreq;
@@ -454,6 +450,10 @@ static void do_scan(int fd,int scan)
     if (scan > 1)
 	fclose(fmap);
     findstations();
+
+    if (write_config)
+	printf("[Stations]\n");
+
     for (i = 0; i < stations; i++) {
 	ifreq = FREQ_MIN + astation[i] * FREQ_STEP;
 	freqs[i] = ifreq;
@@ -461,6 +461,8 @@ static void do_scan(int fd,int scan)
 	labels[i] = strdup(name);
 	if (i < 8)
 	    fkeys[i] = ifreq;
+	if (write_config)
+	    printf("%d=scan-%d\n", ifreq, i + 1);
     }
 }
 
@@ -526,7 +528,7 @@ main(int argc, char *argv[])
     /* Variables set by JMMV */
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
-    int    quit=0, scan=0, arg_mute=0;
+    int    quit = 0, scan = 0, write_config = 0, arg_mute = 0;
 
     setlocale(LC_ALL,"");
 
@@ -635,7 +637,7 @@ main(int argc, char *argv[])
 
     /* non-interactive stuff */
     if (scan)
-	do_scan(fd, scan);
+	do_scan(fd, scan, write_config);
 
     if (ifreq) {
 	if (!radio_setfreq(fd, &ifreq))
