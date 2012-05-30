@@ -49,6 +49,8 @@
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+#define MAX_STATIONS 100
+
 /* Latency is not a big problem for radio (no video to sync with), and
    USB radio devices benefit from a larger default latency */
 #define DEFAULT_LATENCY 500
@@ -194,10 +196,10 @@ select_wait(int sec)
 
 /* ---------------------------------------------------------------------- */
 
-int   fkeys[8];   /* Hotkey preset frequencies in Hz! */
-int   freqs[99];  /* Preset frequencies in Hz! */
-char *labels[99]; /* Preset labels */
-int   stations;   /* Number of valid presets */
+int   fkeys[8];             /* Hotkey preset frequencies in Hz! */
+int   freqs[MAX_STATIONS];  /* Preset frequencies in Hz! */
+char *labels[MAX_STATIONS]; /* Preset labels */
+int   stations;             /* Number of valid presets */
 
 static char *find_label(int ifreq)
 {
@@ -261,10 +263,16 @@ read_kradioconfig(void)
     while (NULL != fgets(file,255,fp)) {
 	if (2 == sscanf(file,"%c=%d",&n,&ifreq) && n >= '1' && n <= '8') {
 	    fkeys[n - '1'] = ifreq;
-	} else if (2 == sscanf(file,"%d=%30[^\n]",&ifreq,name) && stations < 99) {
-	    freqs[stations]  = ifreq;
-	    labels[stations] = strdup(name);
-	    stations++;
+	} else if (2 == sscanf(file,"%d=%30[^\n]",&ifreq,name)) {
+	    if (stations < MAX_STATIONS) {
+		freqs[stations]  = ifreq;
+		labels[stations] = strdup(name);
+		stations++;
+	    } else {
+		fprintf(stderr,
+			"Station limit (%d) exceeded, ignoring station '%s'\n",
+			MAX_STATIONS, name);
+	    }
 	}
     }
     fclose(fp);
@@ -294,7 +302,7 @@ make_label(int ifreq)
 /* autoscan                                                               */
 
 float *g, baseline;
-int g_len, astation[100], max_astation = 0, current_astation = -1;
+int g_len, astation[MAX_STATIONS], max_astation = 0, current_astation = -1;
 int write_config;
 
 static void
@@ -302,7 +310,7 @@ foundone(int m)
 {
     int i, freq;
 
-    for (i = 0; i < 100 && astation[i]; i++) {
+    for (i = 0; i < MAX_STATIONS && astation[i]; i++) {
 	/* Assume stations less then 5 steps apart are the same station */
 	if (abs(astation[i] - m) < 5)
 	    break;
