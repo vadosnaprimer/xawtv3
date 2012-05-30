@@ -302,7 +302,7 @@ make_label(int ifreq)
 /* autoscan                                                               */
 
 float *g, baseline;
-int g_len, astation[MAX_STATIONS], astations = 0;
+int g_len, astation[MAX_STATIONS];
 int write_config;
 
 static void
@@ -310,7 +310,7 @@ foundone(int m)
 {
     int i, freq = FREQ_MIN + m * FREQ_STEP;
 
-    for (i = 0; i < astations; i++) {
+    for (i = 0; i < stations; i++) {
 	/* Assume stations less then 5 steps apart are the same station */
 	if (abs(astation[i] - m) < 5)
 	    break;
@@ -322,9 +322,9 @@ foundone(int m)
 	return;
     }
     /* If new or bigger signal add the found station */
-    if (i == astations || g[m] > g[astation[i]]) {
-	if (i == astations)
-	    astations = i + 1;
+    if (i == stations || g[m] > g[astation[i]]) {
+	if (i == stations)
+	    stations = i + 1;
 	astation[i] = m;
 	fprintf(stderr, "Station %2d: %6.2f MHz - %.2f\n", i, freq/1e6, g[m]);
 	if (write_config)
@@ -454,7 +454,7 @@ static void do_scan(int fd,int scan)
     if (scan > 1)
 	fclose(fmap);
     findstations();
-    for (i = 0; i < astations; i++) {
+    for (i = 0; i < stations; i++) {
 	ifreq = FREQ_MIN + astation[i] * FREQ_STEP;
 	freqs[i] = ifreq;
 	snprintf(name, sizeof(name), "scan-%d", i + 1);
@@ -462,7 +462,6 @@ static void do_scan(int fd,int scan)
 	if (i < 8)
 	    fkeys[i] = ifreq;
     }
-    stations = astations;
 }
 
 /* ---------------------------------------------------------------------- */
