@@ -168,39 +168,56 @@ select_wait(int sec)
 
 /* ---------------------------------------------------------------------- */
 
+int   fkeys[8];   /* Hotkey preset frequencies in Hz! */
+int   freqs[99];  /* Preset frequencies in Hz! */
+char *labels[99]; /* Preset labels */
+int   stations;   /* Number of valid presets */
+
+static char *find_label(int ifreq)
+{
+    int i;
+
+    for (i = 0; i < stations; i++) {
+	if (ifreq == freqs[i])
+	    return labels[i];
+    }
+    return NULL;
+}
+
 char *digit[3][10] = {
    { " _ ", "   ", " _ ", " _ ", "   ", " _ ", " _ ", " _ ", " _ ", " _ " },
    { "| |", " | ", " _|", " _|", "|_|", "|_ ", "|_ ", "  |", "|_|", "|_|" },
    { "|_|", " | ", "|_ ", " _|", "  |", " _|", "|_|", "  |", "|_|", " _|" }
 };
 
-static void print_freq(float freq)
+static void print_freq(int ifreq)
 {
     int x,y,i;
-    char text[10];
-    sprintf(text,"%6.2f",freq);
+    char *name, text[10];
+    float ffreq;
+
+    ffreq = ifreq / 1e6;
+    sprintf(text, "%6.2f", ffreq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
 	    for (y = 0; y < 3; y++)
-		mvwprintw(wfreq,y+1,x,"%s",digit[y][text[i]-'0']);
+		mvwprintw(wfreq, y + 1, x, "%s", digit[y][text[i] - '0']);
 	} else if (text[i] == '.') {
-	    mvwprintw(wfreq,3,x,".");
+	    mvwprintw(wfreq, 3, x, ".");
 	    x -= 2;
 	} else {
 	    for (y = 0; y < 3; y++)
-		mvwprintw(wfreq,y+1,x,"   ");
+		mvwprintw(wfreq, y + 1, x, "   ");
 	}
     }
+    if (NULL != (name = find_label(ifreq)))
+	mvwprintw(wfreq, 5, 2, "%-20.20s", name);
+    else
+	mvwprintw(wfreq, 5, 2, "%-20.20s", "");
     wrefresh(wfreq);
 }
 
 /* ---------------------------------------------------------------------- */
-
-int   fkeys[8];   /* Hotkey preset frequencies in Hz! */
-
-int   freqs[99];  /* Preset frequencies in Hz! */
-char *labels[99]; /* Preset labels */
-int   stations;   /* Number of valid presets */
 
 static void
 read_kradioconfig(void)
@@ -234,18 +251,6 @@ read_kradioconfig(void)
 	for (i = 0; i < 8 && i < stations; i++)
 	    fkeys[i] = freqs[i];
     }
-}
-
-static char*
-find_label(int ifreq)
-{
-    int i;
-
-    for (i = 0; i < stations; i++) {
-	if (ifreq == freqs[i])
-	    return labels[i];
-    }
-    return NULL;
 }
 
 static char *
@@ -469,7 +474,6 @@ main(int argc, char *argv[])
 {
     /* JMMV: lastfreq set to 1 to start radio at 0.0 */
     int    fd,key=0,done,i,ifreq = 0,lastfreq = 1, mute=1;
-    char   *name;
     /* Variables set by JMMV */
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
@@ -679,14 +683,11 @@ main(int argc, char *argv[])
     radio_mute(fd, 0);
     for (done = 0; done == 0;) {
 	if (ifreq != lastfreq) {
-	    lastfreq = ifreq;
-	    ffreq = ifreq / 1e6;
-	    radio_setfreq(fd,ffreq);
-	    print_freq(ffreq);
-	    if (NULL != (name = find_label(ifreq)))
-		mvwprintw(wfreq,5,2,"%-20.20s",name);
-	    else
-		mvwprintw(wfreq,5,2,"%-20.20s","");
+	    if (!radio_setfreq(fd, ifreq / 1e6)) {
+		print_freq(ifreq);
+		lastfreq = ifreq;
+	    } else
+		ifreq = lastfreq;
 	}
 	radio_getsignal_n_stereo(fd);
 	wrefresh(wfreq);
