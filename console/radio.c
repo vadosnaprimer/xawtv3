@@ -302,23 +302,30 @@ make_label(int ifreq)
 /* autoscan                                                               */
 
 float *g, baseline;
-int g_len, astation[MAX_STATIONS], max_astation = 0, current_astation = -1;
+int g_len, astation[MAX_STATIONS], astations = 0, current_astation = -1;
 int write_config;
 
 static void
 foundone(int m)
 {
-    int i, freq;
+    int i, freq = FREQ_MIN + m * FREQ_STEP;
 
-    for (i = 0; i < MAX_STATIONS && astation[i]; i++) {
+    for (i = 0; i < astations; i++) {
 	/* Assume stations less then 5 steps apart are the same station */
 	if (abs(astation[i] - m) < 5)
 	    break;
     }
-    if (g[m] > g[astation[i]]) {  //  select bigger signal
+    if (i == MAX_STATIONS) {
+	fprintf(stderr,
+		"Station limit (%d) exceeded, ignoring station at %6.2f MHz\n",
+		MAX_STATIONS, freq / 1e6);
+	return;
+    }
+    /* If new or bigger signal add the found station */
+    if (i == astations || g[m] > g[astation[i]]) {
+	if (i == astations)
+	    astations = i + 1;
 	astation[i] = m;
-	max_astation = i;
-	freq = FREQ_MIN + m * FREQ_STEP;
 	fprintf(stderr, "Station %2d: %6.2f MHz - %.2f\n", i, freq/1e6, g[m]);
 	if (write_config)
 	    printf("%d=scan-%d\n", freq, i);
@@ -620,7 +627,7 @@ main(int argc, char *argv[])
     /* non-interactive stuff */
     if (scan) {
 	do_scan(fd, scan);
-	if (!ifreq && max_astation) {
+	if (!ifreq && astations) {
 	    current_astation = 0;
 	    ifreq = FREQ_MIN + astation[current_astation] * FREQ_STEP;
 	}
@@ -690,7 +697,7 @@ main(int argc, char *argv[])
     if (tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
 			    V4L2_TUNER_CAP_HWSEEK_WRAP))
 	mvwprintw(woptions, i++, 1, "Right/Left  - seek up/down");
-    if (max_astation || stations)
+    if (astations || stations)
 	mvwprintw(woptions, i++, 1, "PgUp/PgDown - next/prev preset");
     mvwprintw(woptions, i++, 1, "g           - go to frequency...");
     if (i <= 4)
@@ -806,12 +813,12 @@ main(int argc, char *argv[])
 	case KEY_PPAGE:
 	case KEY_NPAGE:
 	case ' ':
-	    if (max_astation) {
+	    if (astations) {
 		current_astation += (key == KEY_NPAGE) ? -1 : 1;
-		if(current_astation<0)
-		    current_astation=max_astation;
-		if(current_astation>max_astation)
-		    current_astation=0;
+		if (current_astation < 0)
+		    current_astation = astations - 1;
+		if (current_astation == astations)
+		    current_astation = 0;
 		ifreq = FREQ_MIN + astation[current_astation] * FREQ_STEP;
 	    } else {
 		for (i = 0; i < stations; i++) {
