@@ -68,23 +68,18 @@ WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
 struct v4l2_tuner tuner;
 int freqfact = 16; /* ffreq-in-Mhz * freqfact == v4l2-freq */
 
-/* Set frequency, freq == Mhz */
-static int
-radio_setfreq(int fd, float freq)
+static int radio_setfreq(int fd, int ifreq)
 {
-    int ifreq = (freq + .5/freqfact) * freqfact;
     struct v4l2_frequency frequency;
 
     memset (&frequency, 0, sizeof(frequency));
     frequency.type = V4L2_TUNER_RADIO;
-    frequency.frequency = ifreq;
+    frequency.frequency = ifreq * (freqfact / 1e6);
     return (ioctl(fd, VIDIOC_S_FREQUENCY, &frequency) == -1);
 }
 
-/* Get frequency, freq is in Mhz */
-static int radio_getfreq(int fd, float *freq)
+static int radio_getfreq(int fd, int *ifreq)
 {
-    int ifreq;
     struct v4l2_frequency frequency;
 
     memset (&frequency, 0, sizeof(frequency));
@@ -95,8 +90,7 @@ static int radio_getfreq(int fd, float *freq)
 	return errno;
     }
 
-    ifreq = frequency.frequency;
-    *freq = (float) ifreq / freqfact;
+    *ifreq = frequency.frequency * (1e6 / freqfact);
     return 0;
 }
 
@@ -387,8 +381,7 @@ findstations(void)
 static void do_scan(int fd,int scan)
 {
     FILE * fmap=NULL;
-    int i, j, s;
-    float freq;
+    int i, j, s, ifreq;
 
     if (scan > 1)
 	fmap = fopen("radio.fmmap","w");
@@ -396,9 +389,9 @@ static void do_scan(int fd,int scan)
     g_len = (FREQ_MAX - FREQ_MIN) / FREQ_STEP + 1;
     g = malloc(g_len * sizeof(float));
     for (i = 0; i < g_len; i++) {
-	freq = FREQ_MIN_MHZ + i * FREQ_STEP_MHZ;
+	ifreq = FREQ_MIN + i * FREQ_STEP;
 	s = 0;
-	radio_setfreq(fd, freq);
+	radio_setfreq(fd, ifreq);
 	usleep(10000); /* give the tuner some time to settle */
 	for(j = 0; j < 5; j++) {
 	    s += radio_getsignal_n_stereo(fd);
@@ -406,8 +399,8 @@ static void do_scan(int fd,int scan)
 	}
 	g[i] = s / 5.0; // average
 	if (scan > 1)
-	    fprintf(fmap, "%f %d\n", freq, s);
-	fprintf(stderr, "scanning: %6.2f MHz - %6d\r", freq, s);
+	    fprintf(fmap, "%f %d\n", ifreq / 1e6, s);
+	fprintf(stderr, "scanning: %6.2f MHz - %6d\r", ifreq / 1e6, s);
     }
     fprintf(stderr, "%40s\r", "");
     if (scan > 1)
@@ -586,20 +579,19 @@ main(int argc, char *argv[])
 
     /* non-interactive stuff */
     if (scan) {
-	do_scan(fd,scan);
+	do_scan(fd, scan);
 	if (!ifreq && max_astation) {
 	    current_astation = 0;
 	    ifreq = FREQ_MIN + astation[current_astation] * FREQ_STEP;
 	}
     }
     if (ifreq) {
-	ffreq = ifreq / 1e6;
-	fprintf(stderr,"tuned %.2f MHz\n",ffreq);
-	radio_setfreq(fd,ffreq);
+	if (!radio_setfreq(fd, ifreq))
+	    fprintf(stderr, "tuned %.2f MHz\n", ifreq / 1e6);
 	radio_mute(fd, 0);
     }
     if (arg_mute) {
-	fprintf(stderr,"muted radio\n");
+	fprintf(stderr, "muted radio\n");
 	radio_mute(fd, 1);
     }
     if (quit)
@@ -674,16 +666,13 @@ main(int argc, char *argv[])
 	mvwprintw(wstations,1,1,"[none]");
     wrefresh(wstations);
 
-    if (!ifreq) {
-	float ffreq = 0;
-	if (!radio_getfreq(fd,&ffreq))
-		ifreq = ffreq * 1e6;
-    }
+    if (!ifreq)
+	radio_getfreq(fd, &ifreq);
 
     radio_mute(fd, 0);
     for (done = 0; done == 0;) {
 	if (ifreq != lastfreq) {
-	    if (!radio_setfreq(fd, ifreq / 1e6)) {
+	    if (!radio_setfreq(fd, ifreq)) {
 		print_freq(ifreq);
 		lastfreq = ifreq;
 	    } else
