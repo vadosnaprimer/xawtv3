@@ -734,7 +734,8 @@ main(int argc, char *argv[])
 		ifreq = newfreq * 1e6;
 	    else
 		mvwprintw(wcommand, 1, 2,
-			  "Frequency out of range (87.5-108 MHz)");
+			  "Frequency out of range (%.2f-%.2f MHz)",
+			  FREQ_MIN_MHZ, FREQ_MAX_MHZ);
 	    break;
 	case KEY_UP:
 	    ifreq += FREQ_STEP;
