@@ -302,7 +302,7 @@ make_label(int ifreq)
 /* autoscan                                                               */
 
 float *g, baseline;
-int g_len, astation[MAX_STATIONS], astations = 0, current_astation = -1;
+int g_len, astation[MAX_STATIONS], astations = 0;
 int write_config;
 
 static void
@@ -429,6 +429,7 @@ static void do_scan(int fd,int scan)
 {
     FILE * fmap=NULL;
     int i, j, s, ifreq;
+    char name[80];
 
     if (scan > 1)
 	fmap = fopen("radio.fmmap","w");
@@ -453,6 +454,15 @@ static void do_scan(int fd,int scan)
     if (scan > 1)
 	fclose(fmap);
     findstations();
+    for (i = 0; i < astations; i++) {
+	ifreq = FREQ_MIN + astation[i] * FREQ_STEP;
+	freqs[i] = ifreq;
+	snprintf(name, sizeof(name), "scan-%d", i + 1);
+	labels[i] = strdup(name);
+	if (i < 8)
+	    fkeys[i] = ifreq;
+    }
+    stations = astations;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -625,13 +635,9 @@ main(int argc, char *argv[])
 	freqfact = 16000;
 
     /* non-interactive stuff */
-    if (scan) {
+    if (scan)
 	do_scan(fd, scan);
-	if (!ifreq && astations) {
-	    current_astation = 0;
-	    ifreq = FREQ_MIN + astation[current_astation] * FREQ_STEP;
-	}
-    }
+
     if (ifreq) {
 	if (!radio_setfreq(fd, &ifreq))
 	    fprintf(stderr, "tuned %.2f MHz\n", ifreq / 1e6);
@@ -644,7 +650,9 @@ main(int argc, char *argv[])
     if (quit)
 	exit(0);
 
-    read_kradioconfig();
+    if (!scan)
+	read_kradioconfig();
+
     if (!ifreq && fkeys[0])
 	ifreq = fkeys[0];
 
@@ -697,7 +705,7 @@ main(int argc, char *argv[])
     if (tuner.capability & (V4L2_TUNER_CAP_HWSEEK_BOUNDED |
 			    V4L2_TUNER_CAP_HWSEEK_WRAP))
 	mvwprintw(woptions, i++, 1, "Right/Left  - seek up/down");
-    if (astations || stations)
+    if (stations)
 	mvwprintw(woptions, i++, 1, "PgUp/PgDown - next/prev preset");
     mvwprintw(woptions, i++, 1, "g           - go to frequency...");
     if (i <= 4)
@@ -813,27 +821,19 @@ main(int argc, char *argv[])
 	case KEY_PPAGE:
 	case KEY_NPAGE:
 	case ' ':
-	    if (astations) {
-		current_astation += (key == KEY_NPAGE) ? -1 : 1;
-		if (current_astation < 0)
-		    current_astation = astations - 1;
-		if (current_astation == astations)
-		    current_astation = 0;
-		ifreq = FREQ_MIN + astation[current_astation] * FREQ_STEP;
-	    } else {
-		for (i = 0; i < stations; i++) {
-		    if (ifreq == freqs[i])
-			break;
-		}
-		if (i != stations) {
-		    i += (key == KEY_NPAGE) ? -1 : 1;
-		    if (i < 0)
-			i = stations - 1;
-		    if (i >= stations)
-			i = 0;
-		    ifreq = freqs[i];
-		}
+	    for (i = 0; i < stations; i++) {
+		if (ifreq == freqs[i])
+		    break;
 	    }
+	    if (i != stations) {
+		i += (key == KEY_NPAGE) ? -1 : 1;
+		if (i < 0)
+		    i = stations - 1;
+		if (i == stations)
+		    i = 0;
+		ifreq = freqs[i];
+	    } else if (stations)
+		ifreq = freqs[0];
 	    break;
 	case '1':
 	case '2':
