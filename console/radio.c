@@ -246,26 +246,28 @@ select_wait(int sec)
 /* ---------------------------------------------------------------------- */
 
 int   fkeys[8];             /* Hotkey preset frequencies in Hz! */
+int   fkeybands[8];         /* Hotkey preset bands */
+int   bands[MAX_STATIONS];  /* Preset stations bands */
 int   freqs[MAX_STATIONS];  /* Preset frequencies in Hz! */
 char *labels[MAX_STATIONS]; /* Preset labels */
 int   stations;             /* Number of valid presets */
 
-static char *find_label(int ifreq)
+static char *find_label(int band, int ifreq)
 {
     int i;
 
     for (i = 0; i < stations; i++) {
-	if (ifreq == freqs[i])
+	if (band == bands[i] && ifreq == freqs[i])
 	    return labels[i];
     }
     return NULL;
 }
 
-static char *make_label(int ifreq)
+static char *make_label(int band, int ifreq)
 {
     static char text[20];
 
-    if (tuner.band == V4L2_TUNER_BAND_AM_MW)
+    if (band == V4L2_TUNER_BAND_AM_MW)
 	sprintf(text, "%6.1f", ifreq / 1e3);
     else
 	sprintf(text, "%6.2f", ifreq / 1e6);
@@ -279,25 +281,27 @@ char *digit[3][10] = {
    { "|_|", " | ", "|_ ", " _|", "  |", " _|", "|_|", "  |", "|_|", " _|" }
 };
 
-static void print_freq(int ifreq)
+static void print_freq(int band, int ifreq)
 {
     int x,y,i;
     char *name, *text;
 
-    text = make_label(ifreq);
+    text = make_label(band, ifreq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
 	    for (y = 0; y < 3; y++)
 		mvwprintw(wfreq, y + 1, x, "%s", digit[y][text[i] - '0']);
 	} else if (text[i] == '.') {
-	    mvwprintw(wfreq, 3, x, ".");
-	    x -= 2;
+	    x--;
+	    for (y = 0; y < 3; y++)
+		mvwprintw(wfreq, y + 1, x, (y == 2) ? " . " : "   ");
+	    x--;
 	} else {
 	    for (y = 0; y < 3; y++)
 		mvwprintw(wfreq, y + 1, x, "   ");
 	}
     }
-    if (NULL != (name = find_label(ifreq)))
+    if (NULL != (name = find_label(band, ifreq)))
 	mvwprintw(wfreq, 5, 2, "%-20.20s", name);
     else
 	mvwprintw(wfreq, 5, 2, "%-20.20s", "");
@@ -306,33 +310,60 @@ static void print_freq(int ifreq)
 
 /* ---------------------------------------------------------------------- */
 
-static void
-read_kradioconfig(void)
+static void add_fkey(int band, int ifreq, char n)
 {
-    char   name[80],file[256],n;
-    int    i, ifreq;
+    if (n < '1' || n > '8') {
+	fprintf(stderr,
+	    "Invalid function key char in config file: '%c', ignoring\n", n);
+	return;
+    }
+    if (band < 0 || band > V4L2_TUNER_BAND_AM_MW) {
+	fprintf(stderr, "Invalid band '%d' in config file, ignoring\n", band);
+	return;
+    }
+    fkeys[n - '1'] = ifreq;
+    fkeybands[n - '1'] = band;
+}
+
+static void add_station(int band, int ifreq, const char *name)
+{
+    if (band < 0 || band > V4L2_TUNER_BAND_AM_MW) {
+	fprintf(stderr, "Invalid band '%d' in config file, ignoring\n", band);
+	return;
+    }
+    if (stations < MAX_STATIONS) {
+	bands[stations]  = band;
+	freqs[stations]  = ifreq;
+	labels[stations] = strdup(name);
+	stations++;
+    } else {
+	fprintf(stderr,
+		"Station limit (%d) exceeded, ignoring station '%s'\n",
+		MAX_STATIONS, name);
+    }
+}
+
+static void read_kradioconfig(void)
+{
+    char   name[80], file[256], n;
+    int    i, band, ifreq;
     FILE   *fp;
 
-    sprintf(file,"%.225s/.kde/share/config/kradiorc",getenv("HOME"));
+    sprintf(file, "%.225s/.kde/share/config/kradiorc", getenv("HOME"));
     if (NULL == (fp = fopen(file,"r"))) {
-	sprintf(file,"%.225s/.radio",getenv("HOME"));
+	sprintf(file, "%.225s/.radio", getenv("HOME"));
 	if (NULL == (fp = fopen(file,"r")))
 	    return;
     }
-    while (NULL != fgets(file,255,fp)) {
-	if (2 == sscanf(file,"%c=%d",&n,&ifreq) && n >= '1' && n <= '8') {
-	    fkeys[n - '1'] = ifreq;
-	} else if (2 == sscanf(file,"%d=%30[^\n]",&ifreq,name)) {
-	    if (stations < MAX_STATIONS) {
-		freqs[stations]  = ifreq;
-		labels[stations] = strdup(name);
-		stations++;
-	    } else {
-		fprintf(stderr,
-			"Station limit (%d) exceeded, ignoring station '%s'\n",
-			MAX_STATIONS, name);
-	    }
-	}
+    while (fgets(file, sizeof(file), fp) != NULL) {
+	if (sscanf(file,"%c=%d:%d", &n, &band, &ifreq) == 3)
+	    add_fkey(band, ifreq, n);
+	else if (sscanf(file,"%c=%d", &n, &ifreq) == 2)
+	    add_fkey(0, ifreq, n);
+	else if (sscanf(file,"%d:%d=%30[^\n]", &band, &ifreq, name) == 3)
+	    add_station(band, ifreq, name);
+	else if (sscanf(file,"%d=%30[^\n]", &ifreq, name) == 2)
+	    add_station(0, ifreq, name);
     }
     fclose(fp);
 
@@ -343,6 +374,7 @@ read_kradioconfig(void)
     if (i == 8) {
 	for (i = 0; i < 8 && i < stations; i++)
 	    fkeys[i] = freqs[i];
+	    fkeybands[i] = bands[i];
     }
 }
 
@@ -504,13 +536,16 @@ static void do_scan(int fd, int scan, int write_config)
 
     for (i = 0; i < stations; i++) {
 	ifreq = FREQ_MIN + astation[i] * FREQ_STEP;
+	bands[i] = tuner.band;
 	freqs[i] = ifreq;
 	snprintf(name, sizeof(name), "scan-%d", i + 1);
 	labels[i] = strdup(name);
-	if (i < 8)
+	if (i < 8) {
+	    fkeybands[i] = tuner.band;
 	    fkeys[i] = ifreq;
+	}
 	if (write_config)
-	    printf("%d=scan-%d\n", ifreq, i + 1);
+	    printf("%d:%d=scan-%d\n", tuner.band, ifreq, i + 1);
     }
 }
 
@@ -813,12 +848,12 @@ int main(int argc, char *argv[])
     wrefresh(woptions);
     for (i = 0, c = 1; i < 8; i++) {
 	if (fkeys[i]) {
-	    char *l = find_label(fkeys[i]);
+	    char *l = find_label(fkeybands[i], fkeys[i]);
 	    if (l)
 		mvwprintw(wstations, c, 2, "F%d: %s", i + 1, l);
 	    else
 		mvwprintw(wstations, c, 2, "F%d: %s", i + 1,
-			  make_label(fkeys[i]));
+			  make_label(fkeybands[i], fkeys[i]));
 	    c++;
 	}
     }
@@ -828,19 +863,30 @@ int main(int argc, char *argv[])
 
     if (ifreq == -1) {
 	radio_getfreq(fd, &ifreq);
-	if (!find_label(ifreq) && fkeys[0]) {
+	if (!find_label(band, ifreq) && fkeys[0]) {
+	    band = fkeybands[0];
 	    ifreq = fkeys[0];
 	} else
 	    lastfreq = ifreq;
     }
 
     if (lastfreq != -1)
-	print_freq(lastfreq);
+	print_freq(band, lastfreq);
 
     for (quit = 0; quit == 0;) {
+	if (band != tuner.band) {
+	    if (!radio_setband(fd, &band)) {
+		if (ifreq == lastfreq) {
+		    radio_getfreq(fd, &ifreq);
+		    print_freq(band, ifreq);
+		    lastfreq = ifreq;
+		}
+	    } else
+		band = tuner.band;
+	}
 	if (ifreq != lastfreq) {
 	    if (!radio_setfreq(fd, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq);
 		lastfreq = ifreq;
 	    } else
 		ifreq = lastfreq;
@@ -922,7 +968,7 @@ int main(int argc, char *argv[])
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek down");
 	    if (!radio_seek(fd, 0, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq);
 		lastfreq = ifreq;
 	    }
 	    break;
@@ -932,7 +978,7 @@ int main(int argc, char *argv[])
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek up");
 	    if (!radio_seek(fd, 1, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq);
 		lastfreq = ifreq;
 	    }
 	    break;
@@ -940,7 +986,7 @@ int main(int argc, char *argv[])
 	case KEY_NPAGE:
 	case ' ':
 	    for (i = 0; i < stations; i++) {
-		if (ifreq == freqs[i])
+		if (band == bands[i] && ifreq == freqs[i])
 		    break;
 	    }
 	    if (i != stations) {
@@ -949,9 +995,12 @@ int main(int argc, char *argv[])
 		    i = stations - 1;
 		if (i == stations)
 		    i = 0;
+		band = bands[i];
 		ifreq = freqs[i];
-	    } else if (stations)
+	    } else if (stations) {
+		band = bands[0];
 		ifreq = freqs[0];
+	    }
 	    break;
 	case '1':
 	case '2':
@@ -971,6 +1020,7 @@ int main(int argc, char *argv[])
 	case KEY_F(8):
 	    i = (c >= '1' && c <= '8')  ?  c - '1' : c - KEY_F(1);
 	    if (fkeys[i]) {
+		band = fkeybands[i];
 		ifreq = fkeys[i];
 		mvwprintw(wcommand, 1, 2, "Go to preset station %d", i+1);
 	    }
