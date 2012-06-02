@@ -583,8 +583,8 @@ static void redraw(void)
 
 int main(int argc, char *argv[])
 {
-    int    fd, key = 0, done, i, band = -1, ifreq = 0, lastfreq = 1, mute = 1;
-    int    c, quit = 0, scan = 0, write_config = 0, arg_mute = 0;
+    int    band = -1, ifreq = -1, lastfreq = -1, mute = 0;
+    int    i, c, fd, quit = 0, scan = 0, write_config = 0;
     float  newfreq = 0;
 
     setlocale(LC_ALL,"");
@@ -600,7 +600,7 @@ int main(int argc, char *argv[])
 	    break;
 	switch (c) {
 	case 'm':
-	    arg_mute = 1;
+	    mute = 1;
 	    break;
 	case 'q':
 	    quit = 1;
@@ -622,7 +622,6 @@ int main(int argc, char *argv[])
 	case 'b':
 	    if (!strcmp(optarg, "?")) {
 		band = -2;
-		quit = 1;
 		break;
 	    }
 
@@ -630,7 +629,6 @@ int main(int argc, char *argv[])
 	    if (band == -1) {
 		fprintf(stderr, "Invalid band: '%s'\n", optarg);
 		band = -3;
-		quit = 1;
 	    }
 	    break;
 	case 'f':
@@ -688,7 +686,7 @@ int main(int argc, char *argv[])
 	alsa_playback = "default";
 
     /* Don't bother starting the loopback thread if we're going to quit */
-    if (quit)
+    if (quit || band <= -2)
         alsa_loopback = 0;
 
     if (alsa_loopback)
@@ -710,6 +708,7 @@ int main(int argc, char *argv[])
     } else if (band >= 0) {
 	if (radio_setband(fd, &band) != 0)
 	    return 1;
+	ifreq = 0;
     } else {
 	fprintf(stderr, "Possible band values:\n");
 	c = 0;
@@ -741,19 +740,20 @@ int main(int argc, char *argv[])
 	}
 	if (radio_setfreq(fd, &ifreq) != 0)
 	    return 1;
-	radio_mute(fd, 0);
+	lastfreq = ifreq;
     }
-    if (arg_mute) {
-	fprintf(stderr, "muted radio\n");
-	radio_mute(fd, 1);
-    }
+
+    if (mute)
+	fprintf(stderr, "Muting radio\n");
+    radio_mute(fd, mute);
+
     if (quit)
-	exit(0);
+	return 0;
 
     if (!scan)
 	read_kradioconfig();
 
-    if (!ifreq && fkeys[0])
+    if (ifreq == -1 && fkeys[0])
 	ifreq = fkeys[0];
 
     /* enter interactive mode -- init ncurses */
@@ -829,11 +829,15 @@ int main(int argc, char *argv[])
 	mvwprintw(wstations, 1, 1, "[none]");
     wrefresh(wstations);
 
-    if (!ifreq)
+    if (ifreq == -1) {
 	radio_getfreq(fd, &ifreq);
+	lastfreq = ifreq;
+    }
 
-    radio_mute(fd, 0);
-    for (done = 0; done == 0;) {
+    if (lastfreq != -1)
+	print_freq(lastfreq);
+
+    for (quit = 0; quit == 0;) {
 	if (ifreq != lastfreq) {
 	    if (!radio_setfreq(fd, &ifreq)) {
 		print_freq(ifreq);
@@ -850,7 +854,7 @@ int main(int argc, char *argv[])
 	    wrefresh(wcommand);
 	    continue;
 	}
-	key = getch();
+	c = getch();
 
 	if (whelp) {
 	    delwin(whelp);
@@ -859,18 +863,19 @@ int main(int argc, char *argv[])
 	    continue;
 	}
 
-	switch (key) {
-	case EOF:
-	case 'x':
-	case 'X':
-	    mute = 0;
-	    /* fall throuth */
+	switch (c) {
 	case 27: /* ESC */
 	case 'q':
 	case 'Q':
 	case 'e':
 	case 'E':
-	    done = 1;
+	    if (!mute)
+		radio_mute(fd, 1);
+	    /* fall through */
+	case EOF:
+	case 'x':
+	case 'X':
+	    quit = 1;
 	    break;
 	case 'g':
 	case 'G':
@@ -939,7 +944,7 @@ int main(int argc, char *argv[])
 		    break;
 	    }
 	    if (i != stations) {
-		i += (key == KEY_NPAGE) ? -1 : 1;
+		i += (c == KEY_NPAGE) ? -1 : 1;
 		if (i < 0)
 		    i = stations - 1;
 		if (i == stations)
@@ -964,7 +969,7 @@ int main(int argc, char *argv[])
 	case KEY_F(6):
 	case KEY_F(7):
 	case KEY_F(8):
-	    i = (key >= '1' && key <= '8')  ?  key - '1' : key - KEY_F(1);
+	    i = (c >= '1' && c <= '8')  ?  c - '1' : c - KEY_F(1);
 	    if (fkeys[i]) {
 		ifreq = fkeys[i];
 		mvwprintw(wcommand, 1, 2, "Go to preset station %d", i+1);
@@ -994,8 +999,6 @@ int main(int argc, char *argv[])
 	    break;
 	}
     }
-    if (mute)
-	radio_mute(fd, 1);
     close(fd);
 
     bkgd(0);
