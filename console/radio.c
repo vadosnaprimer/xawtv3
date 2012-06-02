@@ -753,9 +753,6 @@ int main(int argc, char *argv[])
     if (!scan)
 	read_kradioconfig();
 
-    if (ifreq == -1 && fkeys[0])
-	ifreq = fkeys[0];
-
     /* enter interactive mode -- init ncurses */
     ncurses=1;
     initscr();
@@ -831,7 +828,10 @@ int main(int argc, char *argv[])
 
     if (ifreq == -1) {
 	radio_getfreq(fd, &ifreq);
-	lastfreq = ifreq;
+	if (!find_label(ifreq) && fkeys[0]) {
+	    ifreq = fkeys[0];
+	} else
+	    lastfreq = ifreq;
     }
 
     if (lastfreq != -1)
