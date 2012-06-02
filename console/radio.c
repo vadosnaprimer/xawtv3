@@ -42,7 +42,10 @@
 
 #define FREQ_MIN       (tuner.rangelow * (1e6 / freqfact))
 #define FREQ_MAX       (tuner.rangehigh * (1e6 / freqfact))
-#define FREQ_STEP      50000
+#define FREQ_STEP      ((tuner.band == V4L2_TUNER_BAND_AM_MW) ? 1000 : 50000)
+#define FREQ_MIN_KHZ   (tuner.rangelow * (1e3 / freqfact))
+#define FREQ_MAX_KHZ   (tuner.rangehigh * (1e3 / freqfact))
+#define FREQ_STEP_KHZ  ((FREQ_STEP) / 1e3)
 #define FREQ_MIN_MHZ   ((float)tuner.rangelow / freqfact)
 #define FREQ_MAX_MHZ   ((float)tuner.rangehigh / freqfact)
 #define FREQ_STEP_MHZ  ((FREQ_STEP) / 1e6)
@@ -258,6 +261,18 @@ static char *find_label(int ifreq)
     return NULL;
 }
 
+static char *make_label(int ifreq)
+{
+    static char text[20];
+
+    if (tuner.band == V4L2_TUNER_BAND_AM_MW)
+	sprintf(text, "%6.1f", ifreq / 1e3);
+    else
+	sprintf(text, "%6.2f", ifreq / 1e6);
+
+    return text;
+}
+
 char *digit[3][10] = {
    { " _ ", "   ", " _ ", " _ ", "   ", " _ ", " _ ", " _ ", " _ ", " _ " },
    { "| |", " | ", " _|", " _|", "|_|", "|_ ", "|_ ", "  |", "|_|", "|_|" },
@@ -267,11 +282,9 @@ char *digit[3][10] = {
 static void print_freq(int ifreq)
 {
     int x,y,i;
-    char *name, text[10];
-    float ffreq;
+    char *name, *text;
 
-    ffreq = ifreq / 1e6;
-    sprintf(text, "%6.2f", ffreq);
+    text = make_label(ifreq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
 	    for (y = 0; y < 3; y++)
@@ -331,17 +344,6 @@ read_kradioconfig(void)
 	for (i = 0; i < 8 && i < stations; i++)
 	    fkeys[i] = freqs[i];
     }
-}
-
-static char *
-make_label(int ifreq)
-{
-    static char text[20],*l;
-
-    if (NULL != (l = find_label(ifreq)))
-	return l;
-    sprintf(text, "%6.2f MHz", ifreq / 1e6);
-    return text;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -582,9 +584,8 @@ static void redraw(void)
 int main(int argc, char *argv[])
 {
     int    fd, key = 0, done, i, band = -1, ifreq = 0, lastfreq = 1, mute = 1;
-    float  ffreq, newfreq = 0;
-    int    stset = 0, c;
-    int    quit = 0, scan = 0, write_config = 0, arg_mute = 0;
+    int    c, quit = 0, scan = 0, write_config = 0, arg_mute = 0;
+    float  newfreq = 0;
 
     setlocale(LC_ALL,"");
 
@@ -633,8 +634,7 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 'f':
-	    if (1 == sscanf(optarg, "%f", &ffreq))
-		ifreq = ffreq * 1e6;
+	    sscanf(optarg, "%f", &newfreq);
 	    break;
 	case 'c':
 	    device = optarg;
@@ -731,9 +731,16 @@ int main(int argc, char *argv[])
     if (scan)
 	do_scan(fd, scan, write_config);
 
-    if (ifreq) {
-	if (!radio_setfreq(fd, &ifreq))
-	    fprintf(stderr, "tuned %.2f MHz\n", ifreq / 1e6);
+    if (newfreq) {
+	if (band == V4L2_TUNER_BAND_AM_MW) {
+	    fprintf(stderr, "Tuning to %.2f kHz\n", newfreq);
+    	    ifreq = newfreq * 1e3;
+	} else {
+	    fprintf(stderr, "Tuning to %.2f MHz\n", newfreq);
+    	    ifreq = newfreq * 1e6;
+	}
+	if (radio_setfreq(fd, &ifreq) != 0)
+	    return 1;
 	radio_mute(fd, 0);
     }
     if (arg_mute) {
@@ -809,13 +816,17 @@ int main(int argc, char *argv[])
     wrefresh(woptions);
     for (i = 0, c = 1; i < 8; i++) {
 	if (fkeys[i]) {
-	    mvwprintw(wstations,c,2,"F%d: %s",i+1,make_label(fkeys[i]));
+	    char *l = find_label(fkeys[i]);
+	    if (l)
+		mvwprintw(wstations, c, 2, "F%d: %s", i + 1, l);
+	    else
+		mvwprintw(wstations, c, 2, "F%d: %s", i + 1,
+			  make_label(fkeys[i]));
 	    c++;
-	    stset = 1;
 	}
     }
-    if (!stset)
-	mvwprintw(wstations,1,1,"[none]");
+    if (c == 1)
+	mvwprintw(wstations, 1, 1, "[none]");
     wrefresh(wstations);
 
     if (!ifreq)
@@ -863,21 +874,30 @@ int main(int argc, char *argv[])
 	    break;
 	case 'g':
 	case 'G':
-	    /* JMMV: Added 'go to frequency' function */
-	    mvwprintw(wcommand,1,2,"GO: Enter frequency: ");
+	    mvwprintw(wcommand, 1, 2, "GO: Enter frequency (%s): ",
+		      (band == V4L2_TUNER_BAND_AM_MW) ? "kHz" : "MHz");
 	    curs_set(1);
 	    echo();
 	    wrefresh(wcommand);
-	    wscanw(wcommand,"%f",&newfreq);
+	    wscanw(wcommand, "%f", &newfreq);
 	    noecho();
 	    curs_set(0);
 	    wrefresh(wcommand);
-	    if (newfreq >= FREQ_MIN_MHZ && newfreq <= FREQ_MAX_MHZ)
-		ifreq = newfreq * 1e6;
-	    else
-		mvwprintw(wcommand, 1, 2,
-			  "Frequency out of range (%.2f-%.2f MHz)",
-			  FREQ_MIN_MHZ, FREQ_MAX_MHZ);
+	    if (band == V4L2_TUNER_BAND_AM_MW) {
+		if (newfreq >= FREQ_MIN_KHZ && newfreq <= FREQ_MAX_KHZ)
+		    ifreq = newfreq * 1e3;
+		else
+		    mvwprintw(wcommand, 1, 2,
+			      "Frequency out of range (%.1f-%.1f kHz)",
+			      FREQ_MIN_KHZ, FREQ_MAX_KHZ);
+	    } else {
+		if (newfreq >= FREQ_MIN_MHZ && newfreq <= FREQ_MAX_MHZ)
+		    ifreq = newfreq * 1e6;
+		else
+		    mvwprintw(wcommand, 1, 2,
+			      "Frequency out of range (%.2f-%.2f MHz)",
+			      FREQ_MIN_MHZ, FREQ_MAX_MHZ);
+	    }
 	    break;
 	case KEY_UP:
 	    ifreq += FREQ_STEP;
