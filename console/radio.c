@@ -18,6 +18,7 @@
  *             signal strength.
  * 19 May 2012 - Hans de Goede - Add support for looping back sound using alsa
  * 28 May 2012 - Hans de Goede - Various UI improvements
+ *  2 Jun 2012 - Hans de Goede - Add band (AM/FM) selection support
  */
 
 #include "config.h"
@@ -55,6 +56,8 @@
    USB radio devices benefit from a larger default latency */
 #define DEFAULT_LATENCY 500
 
+#define ARRAY_SIZE(arr) ((int)(sizeof(arr) / sizeof((arr)[0])))
+
 #if defined(HAVE_ALSA)
 int alsa_loopback = 1;
 char *alsa_playback = NULL;
@@ -69,6 +72,49 @@ char *device = "/dev/radio0";
 WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
 struct v4l2_tuner tuner;
 int freqfact = 16; /* ffreq-in-Mhz * freqfact == v4l2-freq */
+
+static const char *band_names[] = {
+	"default",
+	"fm-eur-us",
+	"fm-japan",
+	"fm-russian",
+	"fm-weather",
+	"am-mw",
+};
+
+static int radio_setband(int fd, int *band)
+{
+    struct v4l2_tuner _tuner;
+
+    if (*band > 0 && !(tuner.capability &
+			   (V4L2_TUNER_CAP_BAND_FM_EUROPE_US << (*band - 1))))
+	goto not_available;
+
+    memset(&_tuner, 0, sizeof(_tuner));
+    _tuner.band = *band;
+    _tuner.audmode = V4L2_TUNER_MODE_STEREO;
+    if (ioctl(fd, VIDIOC_S_TUNER, &_tuner) != 0) {
+	if (errno == EINVAL)
+	    goto not_available;
+	perror("S_TUNER");
+	return errno;
+    }
+
+    memset(&_tuner, 0, sizeof(_tuner));
+    if (ioctl(fd, VIDIOC_G_TUNER, &_tuner) != 0) {
+	perror("G_TUNER");
+	return errno;
+    }
+
+    tuner = _tuner;
+    *band = _tuner.band;
+    return 0;
+
+not_available:
+    fprintf(stderr, "Error band '%s' not available on '%s'\n",
+	    band_names[*band], device);
+    return EINVAL;
+}
 
 static int radio_getfreq(int fd, int *ifreq)
 {
@@ -480,6 +526,7 @@ usage(FILE *out)
 	    "  -h       print this text\n"
 	    "  -d       enable debug output\n"
 	    "  -m       mute radio\n"
+	    "  -b band  select tuner band (? lists available bands)\n"
 	    "  -f freq  tune given frequency (also unmutes)\n"
 	    "  -c dev   use given device        [default: %s]\n"
 	    "  -s       scan\n"
@@ -497,6 +544,7 @@ usage(FILE *out)
 	    "           i.e. \"radio -qf 91.4\"\n"
 	    "\n"
 	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n"
+	    "(c) 2012 Hans de Goede <hdegoede@redhat.com>\n"
 	    "interface by Juli Merino <jmmv@mail.com>\n"
 	    "channel scan by Gunther Mayer <Gunther.Mayer@t-online.de>\n",
 	    device
@@ -504,6 +552,17 @@ usage(FILE *out)
 	    , DEFAULT_LATENCY
 #endif
 	    );
+}
+
+static int s2band(const char *s) {
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(band_names); i++) {
+		if (!strcmp(s, band_names[i]))
+			return i;
+	}
+
+	return -1;
 }
 
 static void redraw(void)
@@ -520,12 +579,9 @@ static void redraw(void)
     wrefresh(wcommand);
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    /* JMMV: lastfreq set to 1 to start radio at 0.0 */
-    int    fd,key=0,done,i,ifreq = 0,lastfreq = 1, mute=1;
-    /* Variables set by JMMV */
+    int    fd, key = 0, done, i, band = -1, ifreq = 0, lastfreq = 1, mute = 1;
     float  ffreq, newfreq = 0;
     int    stset = 0, c;
     int    quit = 0, scan = 0, write_config = 0, arg_mute = 0;
@@ -535,9 +591,9 @@ main(int argc, char *argv[])
     /* parse args */
     for (;;) {
 #if defined(HAVE_ALSA)
-	c = getopt(argc, argv, "mhiqdsSf:c:l:r:p:L:");
+	c = getopt(argc, argv, "mhiqdsSb:f:c:l:r:p:L:");
 #else
-	c = getopt(argc, argv, "mhiqdsSf:c:");
+	c = getopt(argc, argv, "mhiqdsSb:f:c:");
 #endif
 	if (c == -1)
 	    break;
@@ -561,6 +617,20 @@ main(int argc, char *argv[])
 	    write_config = 1;
 	    scan = 1;
 	    quit = 1;
+	    break;
+	case 'b':
+	    if (!strcmp(optarg, "?")) {
+		band = -2;
+		quit = 1;
+		break;
+	    }
+
+	    band = s2band(optarg);
+	    if (band == -1) {
+		fprintf(stderr, "Invalid band: '%s'\n", optarg);
+		band = -3;
+		quit = 1;
+	    }
 	    break;
 	case 'f':
 	    if (1 == sscanf(optarg, "%f", &ffreq))
@@ -634,6 +704,28 @@ main(int argc, char *argv[])
 
     if (tuner.capability & V4L2_TUNER_CAP_LOW)
 	freqfact = 16000;
+
+    if (band == -1) {
+	band = tuner.band;
+    } else if (band >= 0) {
+	if (radio_setband(fd, &band) != 0)
+	    return 1;
+    } else {
+	fprintf(stderr, "Possible band values:\n");
+	c = 0;
+	for (i = 0; i < ARRAY_SIZE(band_names); i++) {
+		fprintf(stderr, "%s", band_names[i]);
+		if (i && !(tuner.capability &
+			    (V4L2_TUNER_CAP_BAND_FM_EUROPE_US << (i - 1)))) {
+		    fprintf(stderr, " (*)");
+		    c = 1;
+		}
+		fprintf(stderr, "\n");
+	}
+	if (c)
+	    fprintf(stderr, "\n(*) Not available on '%s'\n", device);
+	return (band == -2) ? 0 : 1;
+    }
 
     /* non-interactive stuff */
     if (scan)
