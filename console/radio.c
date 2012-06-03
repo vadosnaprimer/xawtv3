@@ -72,7 +72,7 @@ int alsa_latency = DEFAULT_LATENCY;
 int ncurses = 0;
 int debug = 0;
 char *device = "/dev/radio0";
-WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
+WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp, *wbands;
 struct v4l2_tuner tuner;
 int freqfact = 16; /* ffreq-in-Mhz * freqfact == v4l2-freq */
 
@@ -83,6 +83,15 @@ static const char *band_names[] = {
 	"fm-russian",
 	"fm-weather",
 	"am-mw",
+};
+
+static const char *long_band_names[] = {
+	"Default band",
+	"FM Europe/US band",
+	"FM Japanese band",
+	"FM Russian band",
+	"FM Weather band",
+	"AM Medium Wave band",
 };
 
 static int radio_setband(int fd, int *band)
@@ -301,6 +310,10 @@ static void print_freq(int band, int ifreq)
 		mvwprintw(wfreq, y + 1, x, "   ");
 	}
     }
+    if (band)
+	mvwprintw(wfreq, 4, 2, "%28.28s", band_names[band]);
+    else
+	mvwprintw(wfreq, 4, 2, "%28.28s", "");
     if (NULL != (name = find_label(band, ifreq)))
 	mvwprintw(wfreq, 5, 2, "%-20.20s", name);
     else
@@ -616,6 +629,78 @@ static void redraw(void)
     wrefresh(wcommand);
 }
 
+/* ---------------------------------------------------------------------- */
+
+int key2band[ARRAY_SIZE(long_band_names)];
+int key2band_count;
+
+static void draw_wbands(void)
+{
+    int i;
+
+    wbands = newwin(12, 40, (LINES - 12) / 2, (COLS - 40) / 2);
+    box(wbands, 0, 0);
+
+    mvwprintw(wbands, 0, 1, " Select Tuner Band ");
+
+    key2band_count = 0;
+    for (i = 0; i < ARRAY_SIZE(long_band_names); i++) {
+	if (i && !(tuner.capability &
+			     (V4L2_TUNER_CAP_BAND_FM_EUROPE_US << (i - 1))))
+	    continue;
+	mvwprintw(wbands, key2band_count + 1, 2, "%d. %s%s",
+		  key2band_count + 1, long_band_names[i],
+		  (i == tuner.band) ? " (*)" : "");
+	key2band[key2band_count] = i;
+	key2band_count++;
+    }
+    mvwprintw(wbands, key2band_count + 2, 2, "(*) Current band");
+    wrefresh(wbands);
+}
+
+static void handle_wbands_keypress(int c, int *band)
+{
+    int i;
+
+    switch (c) {
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case KEY_F(1):
+    case KEY_F(2):
+    case KEY_F(3):
+    case KEY_F(4):
+    case KEY_F(5):
+    case KEY_F(6):
+    case KEY_F(7):
+    case KEY_F(8):
+	i = (c >= '1' && c <= '8')  ?  c - '1' : c - KEY_F(1);
+	if (i >= key2band_count)
+	    break;
+	*band = key2band[i];
+	/* fall through */
+    case 27: /* ESC */
+    case 'q':
+    case 'Q':
+    case 'e':
+    case 'E':
+    case EOF:
+    case 'x':
+    case 'X':
+	delwin(wbands);
+	wbands = NULL;
+	redraw();
+	break;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
 int main(int argc, char *argv[])
 {
     int    band = -1, ifreq = -1, lastfreq = -1, mute = 0;
@@ -902,6 +987,11 @@ int main(int argc, char *argv[])
 	}
 	c = getch();
 
+	if (wbands) {
+	    handle_wbands_keypress(c, &band);
+	    continue;
+	}
+
 	if (whelp) {
 	    delwin(whelp);
 	    whelp = NULL;
@@ -1028,6 +1118,10 @@ int main(int argc, char *argv[])
 	case 'L' & 0x1f:  /* Ctrl-L */
 	    redraw();
 	    break;
+	case 'b':
+	case 'B':
+	    draw_wbands();
+	    break;
 	case 'h':
 	case 'H':
 	case '?':
@@ -1042,6 +1136,7 @@ int main(int argc, char *argv[])
 	    mvwprintw(whelp, i++, 1, "PgUp/PgDown - next/prev station");
 	    mvwprintw(whelp, i++, 1, "F1-F8, 1-8  - select preset 1 - 8");
 	    mvwprintw(whelp, i++, 1, "g           - go to frequency...");
+	    mvwprintw(whelp, i++, 1, "b           - select tuner band");
 	    mvwprintw(whelp, i++, 1, "ESC, q, e   - mute and exit");
 	    mvwprintw(whelp, i++, 1, "x           - exit (no mute)");
 	    mvwprintw(whelp, i++, 1, "h, ?        - this help screen");
