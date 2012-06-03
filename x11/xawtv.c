@@ -1666,14 +1666,6 @@ main(int argc, char *argv[])
 #endif
     attr_notify         = new_attr;
     volume_notify       = new_volume;
-    if (f_drv & CAN_TUNE) {
-	freqtab_notify      = new_freqtab;
-	setfreqtab_notify   = new_freqtab;
-	setstation_notify   = new_channel;
-	channel_switch_hook = pixit;
-    } else {
-	new_title("Capture");
-    }
     set_capture_hook    = do_capture;
     fullscreen_hook     = do_fullscreen;
     movie_hook          = do_movie_record;
@@ -1695,6 +1687,15 @@ main(int argc, char *argv[])
 	if (debug)
 	    fprintf(stderr,"main: open grabber device...\n");
 	grabber_init();
+    }
+
+    if (f_drv & CAN_TUNE) {
+	freqtab_notify      = new_freqtab;
+	setfreqtab_notify   = new_freqtab;
+	setstation_notify   = new_channel;
+	channel_switch_hook = pixit;
+    } else {
+	new_title("Capture");
     }
 
     /* create windows */
