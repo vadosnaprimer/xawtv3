@@ -99,6 +99,10 @@ XRRScreenSize      *randr;
 int                nrandr;
 int                randr_evbase;
 #endif
+#if defined(HAVE_ALSA)
+static char        *alsa_cap;
+static char        *alsa_out;
+#endif
 
 static Widget on_label;
 static XtIntervalId title_timer, on_timer;
@@ -1405,15 +1409,22 @@ static int xfree_dga_error_handler(Display *d, XErrorEvent *e)
 }
 #endif
 
+#if defined(HAVE_ALSA)
+static void x11_mute_notify(int val)
+{
+    if (val)
+	alsa_thread_stop();
+    else if (!alsa_thread_is_running())
+	alsa_thread_startup(alsa_out, alsa_cap, args.alsa_latency,
+			    stderr, debug);
+}
+#endif
+
 void
 grabber_init()
 {
     struct ng_video_fmt screen;
     void *base = NULL;
-#if defined(HAVE_ALSA)
-    void *md;
-    char *alsa_cap, *alsa_out, *p;
-#endif
 
     memset(&screen,0,sizeof(screen));
 #ifdef HAVE_LIBXXF86DGA
@@ -1458,25 +1469,30 @@ grabber_init()
 #if defined(HAVE_ALSA)
     if (args.alsa) {
 	/* Start audio capture thread */
-	md = discover_media_devices();
-	p = strrchr(args.device, '/');
+	void *md = discover_media_devices();
+	char *p = strrchr(args.device, '/');
 	if (p)
 	    p++;
 	else
 	    p = args.device;
-	alsa_cap = (char *)get_associated_device(md, NULL, MEDIA_SND_CAP,
-						 p, MEDIA_V4L_VIDEO);
-	alsa_out = "default";
+
 	if (args.alsa_cap)
-		alsa_cap = args.alsa_cap;
+	    alsa_cap = args.alsa_cap;
+	else
+	    alsa_cap = strdup(get_associated_device(md, NULL, MEDIA_SND_CAP,
+						    p, MEDIA_V4L_VIDEO));
 
 	if (args.alsa_pb)
-		alsa_out = args.alsa_pb;
-	fprintf(stderr, "Alsa devices: cap: %s (%s), out: %s\n",
-		alsa_cap, args.device, alsa_out);
+	    alsa_out = args.alsa_pb;
+	else
+	    alsa_out = "default";
 
-	if (alsa_cap && alsa_out)
-	    alsa_thread_startup(alsa_out, alsa_cap, args.alsa_latency, stderr, debug);
+	if (alsa_cap && alsa_out) {
+	    fprintf(stderr, "Alsa devices: cap: %s (%s), out: %s\n",
+		    alsa_cap, args.device, alsa_out);
+	    mute_notify = x11_mute_notify;
+	}
+
 	free_media_devices(md);
     }
 #endif
