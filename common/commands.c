@@ -784,15 +784,17 @@ static int setfreqtab_handler(char *name, int argc, char **argv)
 
 static int capture_handler(char *name, int argc, char **argv)
 {
-    int i;
+    int i, temp = 0;
 
     if (0 == strcasecmp(argv[0],"toggle")) {
 	i = (cur_capture == CAPTURE_OFF) ? CAPTURE_ON : CAPTURE_OFF;
     } else {
 	i = str_to_int(argv[0],captab);
     }
+    if (argc == 2 && !strcasecmp(argv[1], "temp"))
+	temp = 1;
     if (i != -1)
-	set_capture(i,0);
+	set_capture(i, temp);
     return 0;
 }
 

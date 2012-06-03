@@ -634,7 +634,8 @@ do_capture(int from, int to, int tmp_switch)
 	break;
     case CAPTURE_GRABDISPLAY:
 	video_gd_stop();
-	XClearArea(XtDisplay(tv), XtWindow(tv), 0,0,0,0, True);
+	if (!tmp_switch)
+	    XClearArea(XtDisplay(tv), XtWindow(tv), 0,0,0,0, True);
 	break;
     case CAPTURE_OVERLAY:
 	video_overlay(0);

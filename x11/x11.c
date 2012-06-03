@@ -238,7 +238,7 @@ video_gd_suspend(void)
     h->suspend = 1;
     if (cur_capture != CAPTURE_GRABDISPLAY)
 	return;
-    do_va_cmd(2, "capture", "off");
+    do_va_cmd(3, "capture", "off", "temp");
 }
 
 void
@@ -256,7 +256,7 @@ video_gd_restart(void)
     }
     if (cur_capture != CAPTURE_OFF)
 	return;
-    do_va_cmd(2, "capture", "grab");
+    do_va_cmd(3, "capture", "grab", "temp");
 }
 
 void
