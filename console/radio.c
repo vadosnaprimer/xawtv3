@@ -1120,6 +1120,10 @@ int main(int argc, char *argv[])
 	case 'L' & 0x1f:  /* Ctrl-L */
 	    redraw();
 	    break;
+	case 'm':
+	    mute ^= 1;
+	    radio_mute(fd, mute);
+	    break;
 	case 'b':
 	case 'B':
 	    draw_wbands();
@@ -1139,6 +1143,7 @@ int main(int argc, char *argv[])
 	    mvwprintw(whelp, i++, 1, "F1-F8, 1-8  - select preset 1 - 8");
 	    mvwprintw(whelp, i++, 1, "g           - go to frequency...");
 	    mvwprintw(whelp, i++, 1, "b           - select tuner band");
+	    mvwprintw(whelp, i++, 1, "m           - toggle mute on/off");
 	    mvwprintw(whelp, i++, 1, "ESC, q, e   - mute and exit");
 	    mvwprintw(whelp, i++, 1, "x           - exit (no mute)");
 	    mvwprintw(whelp, i++, 1, "h, ?        - this help screen");
