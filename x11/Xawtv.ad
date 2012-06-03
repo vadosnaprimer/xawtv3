@@ -142,8 +142,8 @@ xawtv.tv.translations:		#override			\n\
 	<Key>Q:			CloseMain()			\n\
 	<Key>KP_Add:		Command(volume,inc)		\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
-	<Key>KP_Enter:		Command(volume,mute)		\n\
-	<Key>A:			Command(volume,mute)		\n\
+	<Key>KP_Enter:		Mute()				\n\
+	<Key>A:			Mute()				\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -167,7 +167,7 @@ xawtv.tv.translations:		#override			\n\
 	\
 	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
 	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
-	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioMute:	Mute()				\n\
 	<Key>XF86AudioNext:	Command(setstation,next)	\n\
 	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
 	<Key>XF86AudioPlay:	Command(capture,on)		\n\
@@ -211,8 +211,8 @@ Options.paned.translations:	#override\n\
 	<Key>Q:			CloseMain()			\n\
 	<Key>KP_Add:		Command(volume,inc)		\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
-	<Key>KP_Enter:		Command(volume,mute)		\n\
-	<Key>A:			Command(volume,mute)		\n\
+	<Key>KP_Enter:		Mute()				\n\
+	<Key>A:			Mute()				\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -234,7 +234,7 @@ Options.paned.translations:	#override\n\
 	\
 	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
 	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
-	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioMute:	Mute()				\n\
 	<Key>XF86AudioNext:	Command(setstation,next)	\n\
 	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
 	<Key>XF86AudioPlay:	Command(capture,on)		\n\
@@ -333,8 +333,8 @@ Channels.viewport.translations:	#override\n\
 	<Key>Q:			CloseMain()			\n\
 	<Key>KP_Add:		Command(volume,inc)		\n\
 	<Key>KP_Subtract:	Command(volume,dec)		\n\
-	<Key>KP_Enter:		Command(volume,mute)		\n\
-	<Key>A:			Command(volume,mute)		\n\
+	<Key>KP_Enter:		Mute()				\n\
+	<Key>A:			Mute()				\n\
 	<Key>F:			Command(fullscreen)		\n\
 	Ctrl<Key>Z:		Zap(fast)			\n\
 	<Key>Z:			Zap()				\n\
@@ -356,7 +356,7 @@ Channels.viewport.translations:	#override\n\
 	\
 	<Key>XF86AudioRaiseVolume: Command(volume,inc)		\n\
 	<Key>XF86AudioLowerVolume: Command(volume,dec)		\n\
-	<Key>XF86AudioMute:	Command(volume,mute)		\n\
+	<Key>XF86AudioMute:	Mute()				\n\
 	<Key>XF86AudioNext:	Command(setstation,next)	\n\
 	<Key>XF86AudioPrev:	Command(setstation,prev)	\n\
 	<Key>XF86AudioPlay:	Command(capture,on)		\n\

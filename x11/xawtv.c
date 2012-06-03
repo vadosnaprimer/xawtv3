@@ -84,6 +84,8 @@ struct vbi_window *vtx;
 
 int               have_config = 0;
 XtIntervalId      audio_timer;
+XtIntervalId      unmute_timer;
+int               unmute_pending = 0;
 int               debug = 0;
 
 char              modename[64];
@@ -159,6 +161,7 @@ static struct xaw_attribute *xaw_attrs;
 /* fwd decl */
 void change_audio(int mode);
 void watch_audio(XtPointer data, XtIntervalId *id);
+void unmute_audio(XtPointer data, XtIntervalId *id);
 
 /*-------------------------------------------------------------------------*/
 
@@ -198,6 +201,7 @@ void ScanAction(Widget, XEvent*, String*, Cardinal*);
 void ChannelAction(Widget, XEvent*, String*, Cardinal*);
 void StayOnTop(Widget, XEvent*, String*, Cardinal*);
 void PopupAction(Widget, XEvent*, String*, Cardinal*);
+void MuteAction(Widget, XEvent*, String*, Cardinal*);
 
 static XtActionsRec actionTable[] = {
     { "CloseMain",   CloseMainAction  },
@@ -217,6 +221,7 @@ static XtActionsRec actionTable[] = {
     { "Vtx",         VtxAction },
 #endif
     { "Event",       EventAction },
+    { "Mute",        MuteAction },
 };
 
 static struct STRTAB cap_list[] = {
@@ -305,6 +310,21 @@ PopupAction(Widget widget, XEvent *event,
 	    my_toplevels[i].first = 1;
 	}
     }
+}
+
+void MuteAction(Widget w, XEvent *e, String *s, Cardinal *c)
+{
+    /*
+     * If we're muted because we're changing channels, stay muted. We still do
+     * a "volume mute on" command to show the muted msg in the title bar.
+     */
+    if (unmute_pending) {
+        do_va_cmd(3, "volume", "mute", "on");
+        unmute_pending = 0;
+        return;
+    }
+
+    do_va_cmd(2, "volume", "mute"); /* Toggle mute */
 }
 
 static void
@@ -605,7 +625,13 @@ new_channel(void)
 	XtRemoveTimeOut(audio_timer);
 	audio_timer = 0;
     }
+    if (unmute_timer) {
+	XtRemoveTimeOut(unmute_timer);
+	unmute_timer = 0;
+    }
     audio_timer = XtAppAddTimeOut(app_context, 5000, watch_audio, NULL);
+    if (unmute_pending)
+        unmute_timer = XtAppAddTimeOut(app_context, 800, unmute_audio, NULL);
 }
 
 void
@@ -614,6 +640,15 @@ watch_audio(XtPointer data, XtIntervalId *id)
     if (-1 != cur_sender)
 	change_audio(channels[cur_sender]->audio);
     audio_timer = 0;
+}
+
+void unmute_audio(XtPointer data, XtIntervalId *id)
+{
+    if (unmute_pending) {
+        audio_on();
+        unmute_pending = 0;
+    }
+    unmute_timer = 0;
 }
 
 /*------------------------------------------------------------------------*/
@@ -668,12 +703,16 @@ do_capture(int from, int to, int tmp_switch)
 }
 
 /* gets called before switching away from a channel */
-static void
-pixit(void)
+static void leaving_channel(void)
 {
     Pixmap pix;
     struct ng_video_fmt fmt;
     struct ng_video_buf *buf;
+
+    if (!cur_attrs[ATTR_ID_MUTE]) {
+        audio_off();
+        unmute_pending = 1;
+    }
 
     if (cur_sender == -1)
 	return;
@@ -937,7 +976,6 @@ init_movie_menus(void)
 	XtNskipAdjust,  True
 
 struct DO_CMD cmd_fs   = { 1, { "fullscreen",        NULL }};
-struct DO_CMD cmd_mute = { 2, { "volume",  "mute",   NULL }};
 struct DO_CMD cmd_cap  = { 2, { "capture", "toggle", NULL }};
 struct DO_CMD cmd_jpeg = { 2, { "snap",    "jpeg",   NULL }};
 struct DO_CMD cmd_ppm  = { 2, { "snap",    "ppm",    NULL }};
@@ -950,6 +988,7 @@ struct DO_AC  ac_chan  = { 1, "Popup",      { "channels", NULL }};
 struct DO_AC  ac_conf  = { 1, "Popup",      { "config",   NULL }};
 struct DO_AC  ac_launch = { 1, "Popup",      { "launcher",  NULL }};
 struct DO_AC  ac_zap   = { 0, "Zap",        { NULL }};
+struct DO_AC  ac_mute  = { 0, "Mute",       { NULL }};
 
 static void
 menu_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
@@ -1160,7 +1199,7 @@ create_optwin(void)
 
     c = XtVaCreateManagedWidget("mute", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
-    XtAddCallback(c,XtNcallback,command_cb,(XtPointer)&cmd_mute);
+    XtAddCallback(c, XtNcallback, action_cb, (XtPointer)&ac_mute);
 
     c = XtVaCreateManagedWidget("fs", commandWidgetClass, opt_paned,
 				PANED_FIX, NULL);
@@ -1694,7 +1733,7 @@ main(int argc, char *argv[])
 	freqtab_notify      = new_freqtab;
 	setfreqtab_notify   = new_freqtab;
 	setstation_notify   = new_channel;
-	channel_switch_hook = pixit;
+	channel_switch_hook = leaving_channel;
     } else {
 	new_title("Capture");
     }
