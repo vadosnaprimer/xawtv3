@@ -290,10 +290,10 @@ char *digit[3][10] = {
    { "|_|", " | ", "|_ ", " _|", "  |", " _|", "|_|", "  |", "|_|", " _|" }
 };
 
-static void print_freq(int band, int ifreq)
+static void print_freq(int band, int ifreq, int muted)
 {
     int x,y,i;
-    char *name, *text;
+    char *name, *text, status[20] = "";
 
     text = make_label(band, ifreq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
@@ -310,10 +310,11 @@ static void print_freq(int band, int ifreq)
 		mvwprintw(wfreq, y + 1, x, "   ");
 	}
     }
-    if (band)
-	mvwprintw(wfreq, 4, 2, "%28.28s", band_names[band]);
-    else
-	mvwprintw(wfreq, 4, 2, "%28.28s", "");
+    snprintf(status, sizeof(status), "%s%s%s",
+             muted ? "muted" : "",
+             (muted && band) ? " " : "",
+             band ? band_names[band] : "");
+    mvwprintw(wfreq, 4, 2, "%28.28s", status);
     if (NULL != (name = find_label(band, ifreq)))
 	mvwprintw(wfreq, 5, 2, "%-20.20s", name);
     else
@@ -956,14 +957,14 @@ int main(int argc, char *argv[])
     }
 
     if (lastfreq != -1)
-	print_freq(band, lastfreq);
+	print_freq(band, lastfreq, mute);
 
     for (quit = 0; quit == 0;) {
 	if (band != tuner.band) {
 	    if (!radio_setband(fd, &band)) {
 		if (ifreq == lastfreq) {
 		    radio_getfreq(fd, &ifreq);
-		    print_freq(band, ifreq);
+		    print_freq(band, ifreq, mute);
 		    lastfreq = ifreq;
 		}
 	    } else
@@ -971,7 +972,7 @@ int main(int argc, char *argv[])
 	}
 	if (ifreq != lastfreq) {
 	    if (!radio_setfreq(fd, &ifreq)) {
-		print_freq(band, ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    } else
 		ifreq = lastfreq;
@@ -1060,7 +1061,7 @@ int main(int argc, char *argv[])
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek down");
 	    if (!radio_seek(fd, 0, &ifreq)) {
-		print_freq(band, ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    }
 	    break;
@@ -1070,7 +1071,7 @@ int main(int argc, char *argv[])
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek up");
 	    if (!radio_seek(fd, 1, &ifreq)) {
-		print_freq(band, ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    }
 	    break;
@@ -1123,6 +1124,7 @@ int main(int argc, char *argv[])
 	case 'm':
 	    mute ^= 1;
 	    radio_mute(fd, mute);
+	    print_freq(band, ifreq, mute);
 	    break;
 	case 'b':
 	case 'B':
