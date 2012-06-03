@@ -514,12 +514,12 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 	if (r > 0)
 	    writebuf(phandle, buffer, r);
 	/* use poll to wait for next event */
-	snd_pcm_wait(chandle, 1000);
+	while (!stop_alsa && !snd_pcm_wait(chandle, 50))
+	    ;
     }
 
     snd_pcm_drop(chandle);
-    snd_pcm_nonblock(phandle, 0);
-    snd_pcm_drain(phandle);
+    snd_pcm_drop(phandle);
 
     snd_pcm_unlink(chandle);
     snd_pcm_hw_free(phandle);
