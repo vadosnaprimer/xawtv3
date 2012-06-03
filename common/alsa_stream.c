@@ -45,7 +45,6 @@
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 
 /* Private vars to control alsa thread status */
-static int alsa_is_running = 0;
 static int stop_alsa = 0;
 
 /* Error handlers */
@@ -507,8 +506,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 	    cdevice, pdevice, negotiated.rate,
 	    negotiated.latency * 1000.0 / negotiated.rate);
 
-    alsa_is_running = 1;
-
     while (!stop_alsa) {
 	/* We start with a read and not a wait to auto(re)start the capture */
 	r = readbuf(chandle, buffer, negotiated.bufsize);
@@ -531,7 +528,6 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
     snd_pcm_close(phandle);
     snd_pcm_close(chandle);
 
-    alsa_is_running = 0;
     return 0;
 }
 
@@ -549,7 +545,8 @@ static void *alsa_thread_entry(void *whatever)
 	fprintf(error_fp, "alsa: starting copying alsa stream from %s to %s\n",
 		inputs->cdevice, inputs->pdevice);
     alsa_stream(inputs->pdevice, inputs->cdevice, inputs->latency);
-    fprintf(error_fp, "alsa: stream stopped\n");
+    if (verbose)
+        fprintf(error_fp, "alsa: stream stopped\n");
 
     free(inputs->pdevice);
     free(inputs->cdevice);
@@ -562,12 +559,18 @@ static void *alsa_thread_entry(void *whatever)
  Public functions
  *************************************************************************/
 
+static int alsa_is_running = 0;
+static pthread_t alsa_thread;
+
 int alsa_thread_startup(const char *pdevice, const char *cdevice, int latency,
 			FILE *__error_fp, int __verbose)
 {
     int ret;
-    pthread_t thread;
-    struct input_params *inputs = malloc(sizeof(struct input_params));
+    struct input_params *inputs;
+
+    if ((strcasecmp(pdevice, "disabled") == 0) ||
+	(strcasecmp(cdevice, "disabled") == 0))
+	return 0;
 
     if (__error_fp)
 	error_fp = __error_fp;
@@ -576,43 +579,43 @@ int alsa_thread_startup(const char *pdevice, const char *cdevice, int latency,
 
     verbose = __verbose;
 
-
-    if (inputs == NULL) {
-	fprintf(error_fp, "alsa: failed allocating memory for inputs\n");
-	return 0;
+    if (alsa_is_running) {
+        fprintf(error_fp, "alsa: Already running\n");
+        return EBUSY;
     }
 
-    if ((strcasecmp(pdevice, "disabled") == 0) ||
-	(strcasecmp(cdevice, "disabled") == 0)) {
-	free(inputs);
-	return 0;
+    inputs = malloc(sizeof(struct input_params));
+    if (inputs == NULL) {
+	fprintf(error_fp, "alsa: failed allocating memory for inputs\n");
+	return ENOMEM;
     }
 
     inputs->pdevice = strdup(pdevice);
     inputs->cdevice = strdup(cdevice);
     inputs->latency = latency;
 
-    if (alsa_is_running) {
-       stop_alsa = 1;
-       while ((volatile int)alsa_is_running)
-	       usleep(10);
-    }
-
     stop_alsa = 0;
-
-    ret = pthread_create(&thread, NULL,
+    ret = pthread_create(&alsa_thread, NULL,
 			 &alsa_thread_entry, (void *) inputs);
+    if (ret == 0)
+        alsa_is_running = 1;
+
     return ret;
 }
 
 void alsa_thread_stop(void)
 {
-	stop_alsa = 1;
+    if (!alsa_is_running)
+        return;
+
+    stop_alsa = 1;
+    pthread_join(alsa_thread, NULL);
+    alsa_is_running = 0;
 }
 
 int alsa_thread_is_running(void)
 {
-	return alsa_is_running;
+    return alsa_is_running;
 }
 
 #endif
