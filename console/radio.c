@@ -1021,7 +1021,9 @@ int main(int argc, char *argv[])
 	    echo();
 	    wrefresh(wcommand);
 	    wscanw(wcommand, "%f", &newfreq);
+	    cbreak();
 	    noecho();
+	    keypad(stdscr, 1);
 	    curs_set(0);
 	    wrefresh(wcommand);
 	    if (band == V4L2_TUNER_BAND_AM_MW) {
