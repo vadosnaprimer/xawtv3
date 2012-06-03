@@ -44,6 +44,7 @@ void (*vtx_subtitle)(struct vbi_page *pg, struct vbi_rect *rect);
 
 /* for updating GUI elements / whatever */
 void (*attr_notify)(struct ng_attribute *attr, int val);
+void (*mute_notify)(int val);
 void (*volume_notify)(void);
 void (*freqtab_notify)(void);
 void (*setfreqtab_notify)(void);
@@ -338,18 +339,25 @@ set_attr(struct ng_attribute *attr, int val)
 	attr_notify(attr,val);
 }
 
-static void
-set_volume(void)
+static void set_volume(int val)
 {
     struct ng_attribute *attr;
 
-    if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_VOLUME)))
-	attr->write(attr,cur_attrs[ATTR_ID_VOLUME]);
-    if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_MUTE)))
-	attr->write(attr,cur_attrs[ATTR_ID_MUTE]);
+    cur_attrs[ATTR_ID_VOLUME] = val;
+    if ((attr = ng_attr_byid(attrs, ATTR_ID_VOLUME)) != NULL)
+	attr->write(attr, val);
+}
 
-    if (volume_notify)
-	volume_notify();
+static void set_mute(int val)
+{
+    struct ng_attribute *attr;
+
+    cur_attrs[ATTR_ID_MUTE] = val;
+    if ((attr = ng_attr_byid(attrs, ATTR_ID_MUTE)) != NULL)
+	attr->write(attr, val);
+
+    if (mute_notify)
+        mute_notify(val);
 }
 
 static void
@@ -503,26 +511,14 @@ audio_init(void)
 	volume_notify();
 }
 
-void
-audio_on(void)
+void audio_on(void)
 {
-    struct ng_attribute *attr,*list;
-
-    list = drv->list_attrs(h_drv);
-    attr = ng_attr_byid(list,ATTR_ID_MUTE);
-    if (NULL != attr)
-	attr->write(attr,0);
+    set_mute(0);
 }
 
-void
-audio_off(void)
+void audio_off(void)
 {
-    struct ng_attribute *attr,*list;
-
-    list = drv->list_attrs(h_drv);
-    attr = ng_attr_byid(list,ATTR_ID_MUTE);
-    if (NULL != attr)
-	attr->write(attr,1);
+    set_mute(1);
 }
 
 void
@@ -570,8 +566,8 @@ static char* strcasestr(char *haystack, char *needle)
 
 static int setstation_handler(char *name, int argc, char **argv)
 {
-    struct ng_attribute *attr,*mute;
-    int i;
+    struct ng_attribute *attr;
+    int i, orig_mute;
 
     if (!(f_drv & CAN_TUNE))
 	return 0;
@@ -624,13 +620,12 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (channel_switch_hook)
 	channel_switch_hook();
     set_capture(CAPTURE_OFF,1);
+    orig_mute = cur_attrs[ATTR_ID_MUTE];
+    if (!orig_mute)
+	set_mute(1);
 
     last_sender = cur_sender;
     cur_sender = i;
-
-    mute = ng_attr_byid(attrs,ATTR_ID_MUTE);
-    if (mute && !cur_attrs[ATTR_ID_MUTE])
-	mute->write(mute,1);
 
     /* image parameters */
     if (NULL != (attr = ng_attr_byid(attrs,ATTR_ID_COLOR)))
@@ -662,17 +657,16 @@ static int setstation_handler(char *name, int argc, char **argv)
     if (setstation_notify)
 	setstation_notify();
 
-    if (mute && !cur_attrs[ATTR_ID_MUTE]) {
+    if (!orig_mute) {
 	usleep(20000);
-	mute->write(mute,0);
+	set_mute(0);
     }
     return 0;
 }
 
 static int setchannel_handler(char *name, int argc, char **argv)
 {
-    struct ng_attribute *mute;
-    int c,i;
+    int i, c, orig_mute;
 
     if (!(f_drv & CAN_TUNE))
 	return 0;
@@ -734,10 +728,9 @@ static int setchannel_handler(char *name, int argc, char **argv)
     if (channel_switch_hook)
 	channel_switch_hook();
     set_capture(CAPTURE_OFF,1);
-
-    mute = ng_attr_byid(attrs,ATTR_ID_MUTE);
-    if (mute && !cur_attrs[ATTR_ID_MUTE])
-	mute->write(mute,1);
+    orig_mute = cur_attrs[ATTR_ID_MUTE];
+    if (!orig_mute)
+	set_mute(1);
 
     if (f_drv & CAN_TUNE)
 	drv->setfreq(h_drv,cur_freq);
@@ -747,9 +740,9 @@ static int setchannel_handler(char *name, int argc, char **argv)
     if (setstation_notify)
 	setstation_notify();
 
-    if (mute && !cur_attrs[ATTR_ID_MUTE]) {
+    if (!orig_mute) {
 	usleep(20000);
-	mute->write(mute,0);
+	set_mute(0);
     }
     return 0;
 }
@@ -811,22 +804,19 @@ static int volume_handler(char *name, int argc, char **argv)
 	/* mute on/off/toggle */
 	if (argc > 1) {
 	    switch (str_to_int(argv[1],booltab)) {
-	    case 0:  cur_attrs[ATTR_ID_MUTE] = 0; break;
-	    case 1:  cur_attrs[ATTR_ID_MUTE] = 1; break;
-	    default: cur_attrs[ATTR_ID_MUTE] = !cur_attrs[ATTR_ID_MUTE]; break;
+	    case 0:  set_mute(0); break;
+	    case 1:  set_mute(1); break;
+	    default: set_mute(!cur_attrs[ATTR_ID_MUTE]);
 	    }
 	} else {
-	    cur_attrs[ATTR_ID_MUTE] = !cur_attrs[ATTR_ID_MUTE];
+	    set_mute(!cur_attrs[ATTR_ID_MUTE]);
 	}
-    } else {
+    } else if (vol) {
 	/* volume */
-	if (NULL != vol) {
-	    cur_attrs[ATTR_ID_VOLUME] = vol->read(vol);
-	    cur_attrs[ATTR_ID_VOLUME] =
-		update_int(vol,cur_attrs[ATTR_ID_VOLUME],argv[0]);
-	}
+	set_volume(update_int(vol, vol->read(vol), argv[0]));
     }
-    set_volume();
+    if (volume_notify)
+	volume_notify();
 
  display:
     if (cur_attrs[ATTR_ID_MUTE])

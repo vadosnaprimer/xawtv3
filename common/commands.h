@@ -30,6 +30,7 @@ extern void (*vtx_subtitle)(struct vbi_page *pg, struct vbi_rect *rect);
 
 /* for updating GUI elements / whatever */
 extern void (*attr_notify)(struct ng_attribute *attr, int val);
+extern void (*mute_notify)(int val);
 extern void (*volume_notify)(void);
 extern void (*freqtab_notify)(void);
 extern void (*setfreqtab_notify)(void);
