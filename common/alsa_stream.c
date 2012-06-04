@@ -315,12 +315,22 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     }
 
     if (err != 0) {
-        for (i = ratemax; i >= ratemin; i -= 100) {
-            ratep = ratec = i;
-            err = alsa_try_rate(phandle, chandle, p_hwparams, c_hwparams,
-                                allow_resample, &ratep, &ratec);
-            if (err == 0)
-                break;
+        if (ratemin >= 44100) {
+            for (i = ratemin; i <= ratemax; i += 100) {
+                ratep = ratec = i;
+                err = alsa_try_rate(phandle, chandle, p_hwparams, c_hwparams,
+                                    allow_resample, &ratep, &ratec);
+                if (err == 0)
+                    break;
+            }
+        } else {
+            for (i = ratemax; i >= ratemin; i -= 100) {
+                ratep = ratec = i;
+                err = alsa_try_rate(phandle, chandle, p_hwparams, c_hwparams,
+                                    allow_resample, &ratep, &ratec);
+                if (err == 0)
+                    break;
+            }
         }
     }
 
