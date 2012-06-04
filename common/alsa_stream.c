@@ -62,7 +62,7 @@ struct final_params {
 static int setparams_stream(snd_pcm_t *handle,
 			    snd_pcm_hw_params_t *params,
 			    snd_pcm_format_t format,
-			    int channels,
+			    int *channels,
 			    const char *id)
 {
     int err;
@@ -89,10 +89,16 @@ static int setparams_stream(snd_pcm_t *handle,
 	       snd_strerror(err));
 	return err;
     }
-    err = snd_pcm_hw_params_set_channels(handle, params, channels);
+
+retry:
+    err = snd_pcm_hw_params_set_channels(handle, params, *channels);
     if (err < 0) {
+	if (strcmp(id, "capture") == 0 && *channels == 2) {
+	    *channels = 1;
+	    goto retry; /* Retry with mono capture */
+	}
 	fprintf(error_fp, "alsa: Channels count (%i) not available for %s: %s\n",
-		channels, id, snd_strerror(err));
+		*channels, id, snd_strerror(err));
 	return err;
     }
 
@@ -254,10 +260,10 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     snd_pcm_sw_params_alloca(&p_swparams);
     snd_pcm_sw_params_alloca(&c_swparams);
 
-    if (setparams_stream(phandle, p_hwparams, format, channels, "playback"))
+    if (setparams_stream(chandle, c_hwparams, format, &channels, "capture"))
 	return 1;
 
-    if (setparams_stream(chandle, c_hwparams, format, channels, "capture"))
+    if (setparams_stream(phandle, p_hwparams, format, &channels, "playback"))
 	return 1;
 
     if (allow_resample) {
@@ -297,6 +303,7 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
 		ratemin, ratemax);
 
     /* First try a set of common rates */
+    err = -1;
     for (i = 0; i < ARRAY_SIZE(prefered_rates); i++) {
         if (prefered_rates[i] < ratemin || prefered_rates[i] > ratemax)
             continue;
