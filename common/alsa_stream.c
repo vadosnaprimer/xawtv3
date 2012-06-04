@@ -482,6 +482,7 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 			    SND_PCM_NONBLOCK)) < 0) {
 	fprintf(error_fp, "alsa: Cannot open capture device %s: %s\n",
 		cdevice, snd_strerror(err));
+	snd_pcm_close(phandle);
 	return 0;
     }
 
@@ -500,6 +501,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 				0)) < 0) {
 	    fprintf(error_fp, "alsa: Cannot open playback device %s: %s\n",
 		    pdevice, snd_strerror(err));
+	    snd_pcm_close(chandle);
+	    return 0;
 	}
 
 	err = setparams(phandle, chandle, format, latency, 1, &negotiated);
@@ -507,6 +510,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 
     if (err != 0) {
 	fprintf(error_fp, "alsa: setparams failed\n");
+	snd_pcm_close(phandle);
+	snd_pcm_close(chandle);
 	return 1;
     }
 
@@ -514,6 +519,8 @@ static int alsa_stream(const char *pdevice, const char *cdevice, int latency)
 		    * negotiated.channels);
     if (buffer == NULL) {
 	fprintf(error_fp, "alsa: Failed allocating buffer for audio\n");
+	snd_pcm_close(phandle);
+	snd_pcm_close(chandle);
 	return 0;
     }
 
