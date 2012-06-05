@@ -15,7 +15,7 @@ ifeq ($(FOUND_MOTIF),yes)
 TARGETS-x11 += \
 	x11/motv
 endif
-ifeq ($(FOUND_MOTIF)$(FOUND_ZVBI),yesyes)
+ifeq ($(FOUND_OS)$(FOUND_MOTIF)$(FOUND_ZVBI),linuxyesyes)
 TARGETS-x11 += \
 	x11/mtt
 endif
