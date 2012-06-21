@@ -1470,7 +1470,7 @@ grabber_init()
     if (args.alsa) {
 	/* Start audio capture thread */
 	void *md = discover_media_devices();
-	char *p = strrchr(args.device, '/');
+	const char *p = strrchr(args.device, '/');
 	if (p)
 	    p++;
 	else
@@ -1478,9 +1478,12 @@ grabber_init()
 
 	if (args.alsa_cap)
 	    alsa_cap = args.alsa_cap;
-	else
-	    alsa_cap = strdup(get_associated_device(md, NULL, MEDIA_SND_CAP,
-						    p, MEDIA_V4L_VIDEO));
+	else {
+	    p = get_associated_device(md, NULL, MEDIA_SND_CAP,
+				      p, MEDIA_V4L_VIDEO);
+	    if (p)
+		alsa_cap = strdup(p);
+	}
 
 	if (args.alsa_pb)
 	    alsa_out = args.alsa_pb;

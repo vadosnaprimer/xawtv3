@@ -789,20 +789,21 @@ int main(int argc, char *argv[])
 #if defined(HAVE_ALSA)
     if (alsa_loopback && alsa_capture == NULL) {
 	void *md = discover_media_devices();
-	char *p = strrchr(device, '/');
+	const char *p = strrchr(device, '/');
 	if (p)
 	    p++;
 	else
 	    p = device;
-	alsa_capture = strdup(get_associated_device(md, NULL,
-						    MEDIA_SND_CAP, p,
-						    MEDIA_V4L_RADIO));
-	if (alsa_capture == NULL)
+
+	p = get_associated_device(md, NULL, MEDIA_SND_CAP, p, MEDIA_V4L_RADIO);
+	if (p)
+	    alsa_capture = strdup(p);
+	else
 	    alsa_loopback = 0;
 
 	free_media_devices(md);
     }
-    
+
     if (alsa_playback == NULL)
 	alsa_playback = "default";
 
