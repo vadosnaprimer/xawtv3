@@ -18,6 +18,7 @@
  *             signal strength.
  * 19 May 2012 - Hans de Goede - Add support for looping back sound using alsa
  * 28 May 2012 - Hans de Goede - Various UI improvements
+ *  8 Jul 2012 - Hans de Goede - Add support for multi-band tuners
  */
 
 #include "config.h"
@@ -39,17 +40,23 @@
 #include "alsa_stream.h"
 #include "get_media_devices.h"
 
-#define FREQ_MIN       (tuner.rangelow * (1e6 / freqfact))
-#define FREQ_MAX       (tuner.rangehigh * (1e6 / freqfact))
-#define FREQ_STEP      50000
-#define FREQ_MIN_MHZ   ((float)tuner.rangelow / freqfact)
-#define FREQ_MAX_MHZ   ((float)tuner.rangehigh / freqfact)
+#define FREQ_MIN       (bands[band].rangelow * (1e6 / freqfact))
+#define FREQ_MAX       (bands[band].rangehigh * (1e6 / freqfact))
+#define FREQ_STEP      ((bands[band].rangelow > (50 * freqfact)) ? \
+                        50000 : ((bands[band].rangelow > (10 * freqfact)) ? \
+                        10000 : 1000))
+#define FREQ_MIN_KHZ   (bands[band].rangelow * (1e3 / freqfact))
+#define FREQ_MAX_KHZ   (bands[band].rangehigh * (1e3 / freqfact))
+#define FREQ_STEP_KHZ  ((FREQ_STEP) / 1e3)
+#define FREQ_MIN_MHZ   ((float)bands[band].rangelow / freqfact)
+#define FREQ_MAX_MHZ   ((float)bands[band].rangehigh / freqfact)
 #define FREQ_STEP_MHZ  ((FREQ_STEP) / 1e6)
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
 #define MAX_STATIONS 100
+#define MAX_BANDS 32
 
 /* Latency is not a big problem for radio (no video to sync with), and
    USB radio devices benefit from a larger default latency */
@@ -66,8 +73,11 @@ int alsa_latency = DEFAULT_LATENCY;
 int ncurses = 0;
 int debug = 0;
 char *device = "/dev/radio0";
-WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp;
+WINDOW *wfreq, *woptions, *wstations, *wcommand, *whelp, *wbands;
 struct v4l2_tuner tuner;
+struct v4l2_frequency_band bands[MAX_BANDS];
+int band = -1;
+int no_bands;
 int freqfact = 16; /* ffreq-in-Mhz * freqfact == v4l2-freq */
 
 static int radio_getfreq(int fd, int *ifreq)
@@ -114,6 +124,8 @@ static int radio_seek(int fd, int dir, int *ifreq)
     memset(&seek, 0, sizeof(seek));
     seek.type = V4L2_TUNER_RADIO;
     seek.seek_upward = dir;
+    seek.rangelow = bands[band].rangelow;
+    seek.rangehigh = bands[band].rangehigh;
     if (tuner.capability & V4L2_TUNER_CAP_HWSEEK_WRAP)
 	seek.wrap_around = 1;
     seek.spacing = FREQ_STEP_MHZ * freqfact;
@@ -129,7 +141,7 @@ static int radio_seek(int fd, int dir, int *ifreq)
 }
 
 static void
-radio_mute(int fd, int mute)
+radio_mute(int fd, int mute, int alsa_loopback)
 {
     struct v4l2_control ctrl;
     int res;
@@ -197,19 +209,55 @@ select_wait(int sec)
 /* ---------------------------------------------------------------------- */
 
 int   fkeys[8];             /* Hotkey preset frequencies in Hz! */
-int   freqs[MAX_STATIONS];  /* Preset frequencies in Hz! */
+int   fkeybands[8];         /* Hotkey preset bands */
+int   p_bands[MAX_STATIONS];/* Preset stations bands */
+int   p_freqs[MAX_STATIONS];/* Preset frequencies in Hz! */
 char *labels[MAX_STATIONS]; /* Preset labels */
 int   stations;             /* Number of valid presets */
 
-static char *find_label(int ifreq)
+static int find_station(int ifreq)
 {
     int i;
 
     for (i = 0; i < stations; i++) {
-	if (ifreq == freqs[i])
-	    return labels[i];
+	if (ifreq == p_freqs[i])
+	    return i;
     }
-    return NULL;
+    return -1;
+}
+
+static char *find_label(int ifreq)
+{
+    int i = find_station(ifreq);
+    return (i == -1) ? NULL : labels[i];
+}
+
+static char *make_label(int band, int ifreq)
+{
+    static char text[20];
+
+    /* We show bands < 2 MHz in kHz */
+    if (bands[band].rangehigh < (2 * freqfact))
+	sprintf(text, "%6.1f", ifreq / 1e3);
+    else
+	sprintf(text, "%6.2f", ifreq / 1e6);
+
+    return text;
+}
+
+static char *modulation_label(int band)
+{
+    static char buf[20];
+
+    buf[0] = 0;
+    if (bands[band].modulation & V4L2_BAND_MODULATION_VSB)
+        strcat(buf, " VSB"); /* Note this would be really funky for radio */
+    if (bands[band].modulation & V4L2_BAND_MODULATION_FM)
+        strcat(buf, " FM");
+    if (bands[band].modulation & V4L2_BAND_MODULATION_AM)
+        strcat(buf, " AM");
+
+    return buf;
 }
 
 char *digit[3][10] = {
@@ -218,26 +266,31 @@ char *digit[3][10] = {
    { "|_|", " | ", "|_ ", " _|", "  |", " _|", "|_|", "  |", "|_|", " _|" }
 };
 
-static void print_freq(int ifreq)
+static void print_freq(int band, int ifreq, int muted)
 {
     int x,y,i;
-    char *name, text[10];
-    float ffreq;
+    char *name, *text, status[20] = "";
 
-    ffreq = ifreq / 1e6;
-    sprintf(text, "%6.2f", ffreq);
+    text = make_label(band, ifreq);
     for (i = 0, x = 8; i < 6; i++, x+=4) {
 	if (text[i] >= '0' && text[i] <= '9') {
 	    for (y = 0; y < 3; y++)
 		mvwprintw(wfreq, y + 1, x, "%s", digit[y][text[i] - '0']);
 	} else if (text[i] == '.') {
-	    mvwprintw(wfreq, 3, x, ".");
-	    x -= 2;
+	    x--;
+	    for (y = 0; y < 3; y++)
+		mvwprintw(wfreq, y + 1, x, (y == 2) ? " . " : "   ");
+	    x--;
 	} else {
 	    for (y = 0; y < 3; y++)
 		mvwprintw(wfreq, y + 1, x, "   ");
 	}
     }
+    if (muted)
+        snprintf(status, sizeof(status), "muted%s", modulation_label(band));
+    else
+        snprintf(status, sizeof(status), "%s", modulation_label(band));
+    mvwprintw(wfreq, 4, 2, "%28.28s", status);
     if (NULL != (name = find_label(ifreq)))
 	mvwprintw(wfreq, 5, 2, "%-20.20s", name);
     else
@@ -247,33 +300,82 @@ static void print_freq(int ifreq)
 
 /* ---------------------------------------------------------------------- */
 
-static void
-read_kradioconfig(void)
+static int check_band_n_freq(int *band, int ifreq, const char *extra_msg)
 {
-    char   name[80],file[256],n;
-    int    i, ifreq;
+    unsigned int v4l2_f = ifreq * (freqfact / 1e6);
+    int i, largest_band = 0;
+
+    if (*band == -1) {
+        *band = 0;
+        for (i = 0; i < no_bands; i++) {
+            if (v4l2_f >= bands[i].rangelow && v4l2_f <= bands[i].rangehigh) {
+                if ((bands[i].rangehigh - bands[i].rangelow) > largest_band) {
+                    largest_band = bands[i].rangehigh - bands[i].rangelow;
+                    *band = i;
+                }
+            }
+        }
+    } else if (*band < 0 || *band >= no_bands) {
+	fprintf(stderr, "Invalid band '%d'%s\n", *band, extra_msg);
+	return -1;
+    }
+    if (v4l2_f < bands[*band].rangelow || v4l2_f > bands[*band].rangehigh) {
+	fprintf(stderr, "Invalid freq '%d'%s\n", ifreq, extra_msg);
+	return -1;
+    }
+    return 0;
+}
+
+static void add_fkey(int band, int ifreq, char n)
+{
+    if (check_band_n_freq(&band, ifreq, " in config file, ignoring"))
+	return;
+    if (n < '1' || n > '8') {
+	fprintf(stderr,
+	    "Invalid function key char '%c' in config file, ignoring\n", n);
+	return;
+    }
+    fkeys[n - '1'] = ifreq;
+    fkeybands[n - '1'] = band;
+}
+
+static void add_station(int band, int ifreq, const char *name)
+{
+    if (check_band_n_freq(&band, ifreq, " in config file, ignoring"))
+	return;
+    if (stations < MAX_STATIONS) {
+	p_bands[stations] = band;
+	p_freqs[stations] = ifreq;
+	labels[stations] = strdup(name);
+	stations++;
+    } else {
+	fprintf(stderr,
+		"Station limit (%d) exceeded, ignoring station '%s'\n",
+		MAX_STATIONS, name);
+    }
+}
+
+static void read_kradioconfig(void)
+{
+    char   name[80], file[256], n;
+    int    i, band, ifreq;
     FILE   *fp;
 
-    sprintf(file,"%.225s/.kde/share/config/kradiorc",getenv("HOME"));
+    sprintf(file, "%.225s/.kde/share/config/kradiorc", getenv("HOME"));
     if (NULL == (fp = fopen(file,"r"))) {
-	sprintf(file,"%.225s/.radio",getenv("HOME"));
+	sprintf(file, "%.225s/.radio", getenv("HOME"));
 	if (NULL == (fp = fopen(file,"r")))
 	    return;
     }
-    while (NULL != fgets(file,255,fp)) {
-	if (2 == sscanf(file,"%c=%d",&n,&ifreq) && n >= '1' && n <= '8') {
-	    fkeys[n - '1'] = ifreq;
-	} else if (2 == sscanf(file,"%d=%30[^\n]",&ifreq,name)) {
-	    if (stations < MAX_STATIONS) {
-		freqs[stations]  = ifreq;
-		labels[stations] = strdup(name);
-		stations++;
-	    } else {
-		fprintf(stderr,
-			"Station limit (%d) exceeded, ignoring station '%s'\n",
-			MAX_STATIONS, name);
-	    }
-	}
+    while (fgets(file, sizeof(file), fp) != NULL) {
+	if (sscanf(file,"%c=%d:%d", &n, &band, &ifreq) == 3)
+	    add_fkey(band - 1, ifreq, n);
+	else if (sscanf(file,"%c=%d", &n, &ifreq) == 2)
+	    add_fkey(-1, ifreq, n);
+	else if (sscanf(file,"%d:%d=%30[^\n]", &band, &ifreq, name) == 3)
+	    add_station(band - 1, ifreq, name);
+	else if (sscanf(file,"%d=%30[^\n]", &ifreq, name) == 2)
+	    add_station(-1, ifreq, name);
     }
     fclose(fp);
 
@@ -282,20 +384,11 @@ read_kradioconfig(void)
 	if (fkeys[i])
 	    break;
     if (i == 8) {
-	for (i = 0; i < 8 && i < stations; i++)
-	    fkeys[i] = freqs[i];
+	for (i = 0; i < 8 && i < stations; i++) {
+	    fkeys[i] = p_freqs[i];
+	    fkeybands[i] = p_bands[i];
+        }
     }
-}
-
-static char *
-make_label(int ifreq)
-{
-    static char text[20],*l;
-
-    if (NULL != (l = find_label(ifreq)))
-	return l;
-    sprintf(text, "%6.2f MHz", ifreq / 1e6);
-    return text;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -456,13 +549,16 @@ static void do_scan(int fd, int scan, int write_config)
 
     for (i = 0; i < stations; i++) {
 	ifreq = FREQ_MIN + astation[i] * FREQ_STEP;
-	freqs[i] = ifreq;
+	p_bands[i] = band;
+	p_freqs[i] = ifreq;
 	snprintf(name, sizeof(name), "scan-%d", i + 1);
 	labels[i] = strdup(name);
-	if (i < 8)
+	if (i < 8) {
+	    fkeybands[i] = band;
 	    fkeys[i] = ifreq;
+	}
 	if (write_config)
-	    printf("%d=scan-%d\n", ifreq, i + 1);
+	    printf("%d:%d=scan-%d\n", band + 1, ifreq, i + 1);
     }
 }
 
@@ -480,6 +576,7 @@ usage(FILE *out)
 	    "  -h       print this text\n"
 	    "  -d       enable debug output\n"
 	    "  -m       mute radio\n"
+	    "  -b 1-#   select tuner band (? lists available bands)\n"
 	    "  -f freq  tune given frequency (also unmutes)\n"
 	    "  -c dev   use given device        [default: %s]\n"
 	    "  -s       scan\n"
@@ -497,6 +594,7 @@ usage(FILE *out)
 	    "           i.e. \"radio -qf 91.4\"\n"
 	    "\n"
 	    "(c) 1998-2001 Gerd Knorr <kraxel@bytesex.org>\n"
+	    "(c) 2012 Hans de Goede <hdegoede@redhat.com>\n"
 	    "interface by Juli Merino <jmmv@mail.com>\n"
 	    "channel scan by Gunther Mayer <Gunther.Mayer@t-online.de>\n",
 	    device
@@ -520,21 +618,89 @@ static void redraw(void)
     wrefresh(wcommand);
 }
 
-int
-main(int argc, char *argv[])
+/* ---------------------------------------------------------------------- */
+
+static void draw_wbands(void)
 {
-    int    ifreq = -1, lastfreq = -1, mute = 0;
-    int    i, c, fd, quit = 0, scan = 0, write_config = 0, stset = 0;
-    float  ffreq, newfreq = 0;
+    int i;
+
+    wbands = newwin(12, 40, (LINES - 12) / 2, (COLS - 40) / 2);
+    box(wbands, 0, 0);
+
+    mvwprintw(wbands, 0, 1, " Select Tuner Band ");
+
+    for (i = 0; i < no_bands; i++) {
+        if (bands[i].rangehigh < (2 * freqfact))
+	    mvwprintw(wbands, i + 1, 2, "%d.%10.10s %6.1f - %6.1f kHz%s",
+	              i + 1, modulation_label(i),
+	              bands[i].rangelow * (1e3 / freqfact),
+	              bands[i].rangehigh * (1e3 / freqfact),
+		      (i == band) ? " (*)" : "");
+        else
+	    mvwprintw(wbands, i + 1, 2, "%d.%10.10s %6.2f - %6.2f MHz%s",
+	              i + 1, modulation_label(i),
+	              (float)bands[i].rangelow / freqfact,
+	              (float)bands[i].rangehigh / freqfact,
+		      (i == band) ? " (*)" : "");
+    }
+    mvwprintw(wbands, i + 2, 2, "(*) Current band");
+    wrefresh(wbands);
+}
+
+static void handle_wbands_keypress(int c)
+{
+    switch (c) {
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case KEY_F(1):
+    case KEY_F(2):
+    case KEY_F(3):
+    case KEY_F(4):
+    case KEY_F(5):
+    case KEY_F(6):
+    case KEY_F(7):
+    case KEY_F(8):
+	band = (c >= '1' && c <= '8')  ?  c - '1' : c - KEY_F(1);
+	/* fall through */
+    case 27: /* ESC */
+    case EOF:
+    case 'b':
+    case 'B':
+    case 'e':
+    case 'E':
+    case 'q':
+    case 'Q':
+    case 'x':
+    case 'X':
+	delwin(wbands);
+	wbands = NULL;
+	redraw();
+	break;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+int main(int argc, char *argv[])
+{
+    int    lastband = -1, ifreq = -1, lastfreq = -1, mute = 0;
+    int    i, c, fd, quit = 0, scan = 0, write_config = 0;
+    float  newfreq = 0;
 
     setlocale(LC_ALL,"");
 
     /* parse args */
     for (;;) {
 #if defined(HAVE_ALSA)
-	c = getopt(argc, argv, "mhiqdsSf:c:l:r:p:L:");
+	c = getopt(argc, argv, "mhiqdsSb:f:c:l:r:p:L:");
 #else
-	c = getopt(argc, argv, "mhiqdsSf:c:");
+	c = getopt(argc, argv, "mhiqdsSb:f:c:");
 #endif
 	if (c == -1)
 	    break;
@@ -559,9 +725,21 @@ main(int argc, char *argv[])
 	    scan = 1;
 	    quit = 1;
 	    break;
+	case 'b':
+	    if (!strcmp(optarg, "?")) {
+		band = -2;
+		break;
+	    }
+	    sscanf(optarg, "%d", &band);
+	    if (band >= 1) {
+	        band--; /* user 1-# => array index 0-#*/
+	    } else {
+		fprintf(stderr, "Invalid band: '%s'\n", optarg);
+		band = -3;
+            }
+	    break;
 	case 'f':
-	    if (1 == sscanf(optarg, "%f", &ffreq))
-		ifreq = ffreq * 1e6;
+	    sscanf(optarg, "%f", &newfreq);
 	    break;
 	case 'c':
 	    device = optarg;
@@ -614,14 +792,6 @@ main(int argc, char *argv[])
 
     if (alsa_playback == NULL)
 	alsa_playback = "default";
-
-    /* Don't bother starting the loopback thread if we're going to quit */
-    if (quit)
-        alsa_loopback = 0;
-
-    if (alsa_loopback)
-	fprintf(stderr, "Using alsa loopback: cap: %s (%s), out: %s\n",
-		alsa_capture, device, alsa_playback);
 #endif
 
     memset(&tuner, 0, sizeof(tuner));
@@ -633,25 +803,113 @@ main(int argc, char *argv[])
     if (tuner.capability & V4L2_TUNER_CAP_LOW)
 	freqfact = 16000;
 
-    /* non-interactive stuff */
-    if (scan)
-	do_scan(fd, scan, write_config);
+    if (tuner.capability & V4L2_TUNER_CAP_FREQ_BANDS) {
+        for (i = 0; i < MAX_BANDS; i++) {
+            bands[i].tuner = 0;
+            bands[i].type  = V4L2_TUNER_RADIO;
+            bands[i].index = i;
+            if (ioctl(fd, VIDIOC_ENUM_FREQ_BANDS, &bands[i]) != 0) {
+                if (i > 0 && errno == EINVAL)
+                    break;
+	        perror("ENUM_FREQ_BANDS");
+	        return 1;
+            }
+        }
+        no_bands = i;
+    } else {
+        bands[0].tuner      = 0;
+        bands[0].type       = V4L2_TUNER_RADIO;
+        bands[0].index      = 0;
+        bands[0].capability = tuner.capability;
+        bands[0].rangelow   = tuner.rangelow;
+        bands[0].rangehigh  = tuner.rangehigh;
+        bands[0].modulation = V4L2_BAND_MODULATION_FM;
+        no_bands = 1;
+    }
 
-    if (ifreq) {
-	if (!radio_setfreq(fd, &ifreq))
-	    fprintf(stderr, "tuned %.2f MHz\n", ifreq / 1e6);
-	radio_mute(fd, 0);
+    if (band >= no_bands) {
+        fprintf(stderr, "Invalid band: '%d'\n", band);
+        band = -3;
+    }
+    if (band <= -2) {
+	fprintf(stderr, "Possible band values:\n");
+	for (i = 0; i < no_bands; i++) {
+            if (bands[i].rangehigh < (2 * freqfact))
+                fprintf(stderr, "%d.%10.10s %6.1f - %6.1f kHz\n",
+                          i + 1, modulation_label(i),
+                          bands[i].rangelow * (1e3 / freqfact),
+                          bands[i].rangehigh * (1e3 / freqfact));
+            else
+                fprintf(stderr, "%d.%10.10s %6.2f - %6.2f MHz\n",
+                          i + 1, modulation_label(i),
+                          (float)bands[i].rangelow / freqfact,
+                          (float)bands[i].rangehigh / freqfact);
+        }
+	return (band == -2) ? 0 : 1;
+    }
+
+    /* non-interactive stuff */
+    if (scan) {
+        if (band == -1) {
+            if (no_bands > 1)
+                fprintf(stderr,
+                        "Warning no band specified, scanning band 1.\n");
+            band = 0;
+        }
+	do_scan(fd, scan, write_config);
+    }
+
+    if (newfreq) {
+        if (band >= 0 && bands[band].rangehigh < (2 * freqfact)) {
+	    fprintf(stderr, "Tuning to %.2f kHz\n", newfreq);
+    	    ifreq = newfreq * 1e3;
+        } else {
+	    fprintf(stderr, "Tuning to %.2f MHz\n", newfreq);
+    	    ifreq = newfreq * 1e6;
+        }
+	if (radio_setfreq(fd, &ifreq) != 0)
+	    return 1;
+	lastfreq = ifreq;
     }
 
     if (mute)
 	fprintf(stderr, "Muting radio\n");
-    radio_mute(fd, mute);
+    radio_mute(fd, mute, alsa_loopback && !quit);
 
     if (quit)
 	return 0;
 
     if (!scan)
 	read_kradioconfig();
+
+    /* If not specified, get current freq/band from device and/or presets */
+    if (ifreq == -1) {
+	if (radio_getfreq(fd, &ifreq))
+	    return 1;
+        lastfreq = ifreq;
+    }
+
+    if (band == -1) {
+        if ((i = find_station(ifreq)) != -1)
+            band = p_bands[i];
+    }
+
+    if (band == -1 && !newfreq && fkeys[0]) {
+	band = fkeybands[0];
+	ifreq = fkeys[0];
+	lastfreq = -1;
+    }
+
+    if (band == -1) {
+        if (check_band_n_freq(&band, ifreq, ". Current freq out of range?"))
+            return 1;
+    }
+
+#if defined(HAVE_ALSA)
+    if (alsa_loopback)
+	fprintf(stderr, "Using alsa loopback: cap: %s (%s), out: %s\n",
+		alsa_capture, device, alsa_playback);
+#endif
 
     /* enter interactive mode -- init ncurses */
     ncurses=1;
@@ -713,30 +971,31 @@ main(int argc, char *argv[])
     wrefresh(woptions);
     for (i = 0, c = 1; i < 8; i++) {
 	if (fkeys[i]) {
-	    mvwprintw(wstations,c,2,"F%d: %s",i+1,make_label(fkeys[i]));
+	    char *l = find_label(fkeys[i]);
+	    if (l)
+		mvwprintw(wstations, c, 2, "F%d: %s", i + 1, l);
+	    else
+		mvwprintw(wstations, c, 2, "F%d: %s", i + 1,
+			  make_label(fkeybands[i], fkeys[i]));
 	    c++;
-	    stset = 1;
 	}
     }
-    if (!stset)
-	mvwprintw(wstations,1,1,"[none]");
+    if (c == 1)
+	mvwprintw(wstations, 1, 1, "[none]");
     wrefresh(wstations);
 
-    if (ifreq == -1) {
-	radio_getfreq(fd, &ifreq);
-	if (!find_label(ifreq) && fkeys[0]) {
-	    ifreq = fkeys[0];
-	} else
-	    lastfreq = ifreq;
-    }
-
     if (lastfreq != -1)
-	print_freq(lastfreq);
+	print_freq(band, lastfreq, mute);
 
     for (quit = 0; quit == 0;) {
+	if (band != lastband) {
+            if (ifreq < (bands[band].rangelow * (1e6 / freqfact)) ||
+                    ifreq > (bands[band].rangehigh * (1e6 / freqfact)))
+                ifreq = bands[band].rangelow * (1e6 / freqfact);
+	}
 	if (ifreq != lastfreq) {
 	    if (!radio_setfreq(fd, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    } else
 		ifreq = lastfreq;
@@ -752,6 +1011,11 @@ main(int argc, char *argv[])
 	}
 	c = getch();
 
+	if (wbands) {
+	    handle_wbands_keypress(c);
+	    continue;
+	}
+
 	if (whelp) {
 	    delwin(whelp);
 	    whelp = NULL;
@@ -766,7 +1030,7 @@ main(int argc, char *argv[])
 	case 'e':
 	case 'E':
 	    if (!mute)
-		radio_mute(fd, 1);
+		radio_mute(fd, 1, alsa_loopback);
 	    /* fall through */
 	case EOF:
 	case 'x':
@@ -775,8 +1039,8 @@ main(int argc, char *argv[])
 	    break;
 	case 'g':
 	case 'G':
-	    /* JMMV: Added 'go to frequency' function */
-	    mvwprintw(wcommand,1,2,"GO: Enter frequency: ");
+	    mvwprintw(wcommand, 1, 2, "GO: Enter frequency (%s): ",
+		      (bands[band].rangehigh < (2*freqfact)) ? "kHz" : "MHz");
 	    curs_set(1);
 	    echo();
 	    wrefresh(wcommand);
@@ -786,12 +1050,21 @@ main(int argc, char *argv[])
 	    keypad(stdscr, 1);
 	    curs_set(0);
 	    wrefresh(wcommand);
-	    if (newfreq >= FREQ_MIN_MHZ && newfreq <= FREQ_MAX_MHZ)
-		ifreq = newfreq * 1e6;
-	    else
-		mvwprintw(wcommand, 1, 2,
-			  "Frequency out of range (%.2f-%.2f MHz)",
-			  FREQ_MIN_MHZ, FREQ_MAX_MHZ);
+	    if (bands[band].rangehigh < (2 * freqfact)) {
+		if (newfreq >= FREQ_MIN_KHZ && newfreq <= FREQ_MAX_KHZ)
+		    ifreq = newfreq * 1e3;
+		else
+		    mvwprintw(wcommand, 1, 2,
+			      "Frequency out of range (%.1f-%.1f kHz)",
+			      FREQ_MIN_KHZ, FREQ_MAX_KHZ);
+	    } else {
+		if (newfreq >= FREQ_MIN_MHZ && newfreq <= FREQ_MAX_MHZ)
+		    ifreq = newfreq * 1e6;
+		else
+		    mvwprintw(wcommand, 1, 2,
+			      "Frequency out of range (%.2f-%.2f MHz)",
+			      FREQ_MIN_MHZ, FREQ_MAX_MHZ);
+	    }
 	    break;
 	case KEY_UP:
 	    ifreq += FREQ_STEP;
@@ -810,8 +1083,9 @@ main(int argc, char *argv[])
 				      V4L2_TUNER_CAP_HWSEEK_WRAP)))
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek down");
+	    wrefresh(wcommand);
 	    if (!radio_seek(fd, 0, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    }
 	    break;
@@ -820,27 +1094,28 @@ main(int argc, char *argv[])
 				      V4L2_TUNER_CAP_HWSEEK_WRAP)))
 		break;
 	    mvwprintw(wcommand, 1, 2, "Seek up");
+	    wrefresh(wcommand);
 	    if (!radio_seek(fd, 1, &ifreq)) {
-		print_freq(ifreq);
+		print_freq(band, ifreq, mute);
 		lastfreq = ifreq;
 	    }
 	    break;
 	case KEY_PPAGE:
 	case KEY_NPAGE:
 	case ' ':
-	    for (i = 0; i < stations; i++) {
-		if (ifreq == freqs[i])
-		    break;
-	    }
-	    if (i != stations) {
+            i = find_station(ifreq);
+	    if (i != -1) {
 		i += (c == KEY_NPAGE) ? -1 : 1;
 		if (i < 0)
 		    i = stations - 1;
 		if (i == stations)
 		    i = 0;
-		ifreq = freqs[i];
-	    } else if (stations)
-		ifreq = freqs[0];
+		band = p_bands[i];
+		ifreq = p_freqs[i];
+	    } else if (stations) {
+		band = p_bands[0];
+		ifreq = p_freqs[0];
+	    }
 	    break;
 	case '1':
 	case '2':
@@ -860,6 +1135,7 @@ main(int argc, char *argv[])
 	case KEY_F(8):
 	    i = (c >= '1' && c <= '8')  ?  c - '1' : c - KEY_F(1);
 	    if (fkeys[i]) {
+		band = fkeybands[i];
 		ifreq = fkeys[i];
 		mvwprintw(wcommand, 1, 2, "Go to preset station %d", i+1);
 	    }
@@ -869,7 +1145,12 @@ main(int argc, char *argv[])
 	    break;
 	case 'm':
 	    mute ^= 1;
-	    radio_mute(fd, mute);
+	    radio_mute(fd, mute, alsa_loopback);
+	    print_freq(band, ifreq, mute);
+	    break;
+	case 'b':
+	case 'B':
+	    draw_wbands();
 	    break;
 	case 'h':
 	case 'H':
@@ -885,6 +1166,7 @@ main(int argc, char *argv[])
 	    mvwprintw(whelp, i++, 1, "PgUp/PgDown - next/prev station");
 	    mvwprintw(whelp, i++, 1, "F1-F8, 1-8  - select preset 1 - 8");
 	    mvwprintw(whelp, i++, 1, "g           - go to frequency...");
+	    mvwprintw(whelp, i++, 1, "b           - select tuner band");
 	    mvwprintw(whelp, i++, 1, "m           - toggle mute on/off");
 	    mvwprintw(whelp, i++, 1, "ESC, q, e   - mute and exit");
 	    mvwprintw(whelp, i++, 1, "x           - exit (no mute)");
