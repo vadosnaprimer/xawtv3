@@ -1807,10 +1807,10 @@ main(int argc, char *argv[])
     audio_init();
 
     /* build channel list */
-    if (args.readconfig &&(f_drv & CAN_TUNE)) {
+    if (args.readconfig) {
 	if (debug)
-	    fprintf(stderr,"main: parse channels from config file ...\n");
-	parse_config();
+	    fprintf(stderr,"main: parse config file ...\n");
+	parse_config(f_drv & CAN_TUNE);
     }
 
     channel_menu();

@@ -498,7 +498,7 @@ read_config(char *conffile, int *argc, char **argv)
 }
 
 void
-parse_config(void)
+parse_config(int parse_channels)
 {
     char key[16], cmdline[128];
     char **list,*val;
@@ -529,6 +529,9 @@ parse_config(void)
 
     /* events */
     event_readconfig();
+
+    if (!parse_channels)
+        return;
 
     /* channels */
     init_channel("defaults",&defaults);

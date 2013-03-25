@@ -232,7 +232,7 @@ main(int argc, char **argv)
 
     freq_init();
     read_config(NULL, &argc, argv);
-    parse_config();
+    parse_config(1);
     do_va_cmd(2,"setfreqtab",(-1 != chantab)
 	      ? chanlist_names[chantab].str : "europe-west");
 

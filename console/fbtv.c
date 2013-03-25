@@ -709,7 +709,7 @@ main(int argc, char *argv[])
     audio_init();
 
     /* build channel list */
-    parse_config();
+    parse_config(1);
     channel_menu();
 
     init_overlay();

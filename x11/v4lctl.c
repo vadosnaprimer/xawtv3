@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     audio_init();
     audio_init();
 
-    parse_config();
+    parse_config(1);
 
     do_command(argc-optind,argv+optind);
     drv->close(h_drv);

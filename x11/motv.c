@@ -3427,7 +3427,7 @@ main(int argc, char *argv[])
     if (args.readconfig) {
 	if (debug)
 	    fprintf(stderr,"main: parse channels from config file ...\n");
-	parse_config();
+	parse_config(1);
     }
     channel_menu();
 

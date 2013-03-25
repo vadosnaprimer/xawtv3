@@ -236,7 +236,7 @@ main(int argc, char **argv)
     audio_init();
 
     /* build channel list */
-    parse_config();
+    parse_config(1);
     do_va_cmd(2,"setfreqtab",(-1 != chantab)
 	      ? chanlist_names[chantab].str : "europe-west");
     cur_capture = 0;
