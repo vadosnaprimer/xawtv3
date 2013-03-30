@@ -152,8 +152,10 @@ int
 video_gd_blitframe(struct video_handle *h, struct ng_video_buf *buf)
 {
     if (buf->fmt.width  > cur_tv_width ||
-	buf->fmt.height > cur_tv_height)
+	buf->fmt.height > cur_tv_height) {
+	ng_release_video_buf(buf);
 	return -1;
+    }
 
     if (cur_filter)
 	buf = video_gd_filter(h,buf);
