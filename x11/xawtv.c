@@ -1636,7 +1636,7 @@ create_launchwin(void)
 int
 main(int argc, char *argv[])
 {
-    int            i;
+    int            i, min_width, min_height;
     unsigned long  freq;
 
     hello_world("xawtv");
@@ -1784,11 +1784,18 @@ main(int argc, char *argv[])
     XSetWMProtocols(XtDisplay(app_shell), XtWindow(app_shell),
 		    &WM_DELETE_WINDOW, 1);
 
+    drv->get_min_size(h_drv, &min_width, &min_height);
+    ng_ratio_fixup2(&min_width, &min_height, NULL, NULL,
+                    ng_ratio_x, ng_ratio_y, True);
+    min_width  = ((min_width + (WIDTH_INC - 1)) / WIDTH_INC) * WIDTH_INC;
+    min_height = ((min_height + (HEIGHT_INC - 1)) / HEIGHT_INC) * HEIGHT_INC;
+    if (debug)
+	fprintf(stderr,"main: window min size %dx%d\n", min_width, min_height);
     XtVaSetValues(app_shell,
 		  XtNwidthInc,  WIDTH_INC,
 		  XtNheightInc, HEIGHT_INC,
-		  XtNminWidth,  WIDTH_INC,
-		  XtNminHeight, HEIGHT_INC,
+		  XtNminWidth,  min_width,
+		  XtNminHeight, min_height,
 		  NULL);
     if (f_drv & CAN_TUNE)
 	XtVaSetValues(chan_shell,
