@@ -54,6 +54,7 @@ static int     v4l2_flags(void *handle);
 static struct ng_attribute* v4l2_attrs(void *handle);
 static int     v4l2_read_attr(struct ng_attribute*);
 static void    v4l2_write_attr(struct ng_attribute*, int val);
+static void    v4l2_get_min_size(void *hdl, int *min_width, int *min_height);
 
 /* overlay */
 static int   v4l2_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
@@ -87,6 +88,7 @@ struct v4l2_handle {
 
     /* device descriptions */
     int                         ninputs,nstds,nfmts;
+    unsigned int                min_width, min_height;
     struct v4l2_capability	cap;
     struct v4l2_streamparm	streamparm;
     struct v4l2_input		inp[MAX_INPUT];
@@ -131,6 +133,7 @@ struct ng_vid_driver v4l2_driver = {
     get_devname:   v4l2_devname,
     capabilities:  v4l2_flags,
     list_attrs:    v4l2_attrs,
+    get_min_size:  v4l2_get_min_size,
 
     setupfb:       v4l2_setupfb,
     overlay:       v4l2_overlay,
@@ -260,6 +263,41 @@ get_device_capabilities(struct v4l2_handle *h)
 	if (-1 == xioctl(h->fd, VIDIOC_QUERYCTRL, &h->ctl[i+MAX_CTRL], 1) ||
 	    (h->ctl[i+MAX_CTRL].flags & V4L2_CTRL_FLAG_DISABLED))
 	    h->ctl[i+MAX_CTRL].id = -1;
+    }
+}
+
+static void
+find_min_size(struct v4l2_handle *h)
+{
+    int i;
+    struct v4l2_fmtdesc fmtdesc = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
+    struct v4l2_format fmt = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
+
+    if (xioctl(h->fd, VIDIOC_G_FMT, &fmt, 0)) {
+        h->min_width  = 32;
+        h->min_height = 24;
+        return;
+    }
+
+    h->min_width = -1;
+    h->min_height = -1;
+
+    for (i = 0; ; i++) {
+        fmtdesc.index = i;
+
+        if (xioctl(h->fd, VIDIOC_ENUM_FMT, &fmtdesc, 1))
+            break;
+
+        fmt.fmt.pix.pixelformat = fmtdesc.pixelformat;
+        fmt.fmt.pix.width = 32;
+        fmt.fmt.pix.height = 24;
+
+        if (xioctl(h->fd, VIDIOC_TRY_FMT, &fmt, 0) == 0) {
+            if (fmt.fmt.pix.width < h->min_width)
+                h->min_width = fmt.fmt.pix.width;
+            if (fmt.fmt.pix.height < h->min_height)
+                h->min_height = fmt.fmt.pix.height;
+        }
     }
 }
 
@@ -552,6 +590,10 @@ v4l2_open_handle(char *device, int req_flags)
 		h->cap.version         & 0xff,
 		h->cap.card,h->cap.bus_info);
     get_device_capabilities(h);
+    find_min_size(h);
+    if (ng_debug)
+	fprintf(stderr,"v4l2: device min size %ux%u\n",
+	        h->min_width, h->min_height);
 
     /* attributes */
     v4l2_add_attr(h, NULL, ATTR_ID_NORM,  build_norms(h));
@@ -642,6 +684,13 @@ static struct ng_attribute* v4l2_attrs(void *handle)
 {
     struct v4l2_handle *h = handle;
     return h->attr;
+}
+
+static void v4l2_get_min_size(void *handle, int *min_width, int *min_height)
+{
+    struct v4l2_handle *h = handle;
+    *min_width = h->min_width;
+    *min_height = h->min_height;
 }
 
 /* ---------------------------------------------------------------------- */

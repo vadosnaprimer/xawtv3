@@ -77,6 +77,7 @@ static int     bsd_flags(void *handle);
 static struct ng_attribute* bsd_attrs(void *handle);
 static int     bsd_read_attr(struct ng_attribute*);
 static void    bsd_write_attr(struct ng_attribute*, int val);
+static void    bsd_get_min_size(void *hdl, int *min_width, int *min_height);
 
 static int   bsd_setupfb(void *handle, struct ng_video_fmt *fmt, void *base);
 static int   bsd_overlay(void *handle, struct ng_video_fmt *fmt, int x, int y,
@@ -103,6 +104,7 @@ struct ng_vid_driver bsd_driver = {
 
     capabilities:  bsd_flags,
     list_attrs:    bsd_attrs,
+    get_min_size:  bsd_get_min_size,
 
     setupfb:       bsd_setupfb,
     overlay:       bsd_overlay,
@@ -469,6 +471,12 @@ static struct ng_attribute* bsd_attrs(void *handle)
     struct bsd_handle *h = handle;
 
     return h->attr;
+}
+
+static void bsd_get_min_size(void *handle, int *min_width, int *min_height)
+{
+    *min_width = 32;
+    *min_height = 24;
 }
 
 /* ---------------------------------------------------------------------- */

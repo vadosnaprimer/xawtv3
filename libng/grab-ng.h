@@ -292,6 +292,7 @@ struct ng_vid_driver {
     char* (*get_devname)(void *handle);
     int   (*capabilities)(void *handle);
     struct ng_attribute* (*list_attrs)(void *handle);
+    void (*get_min_size)(void *handle, int *min_width, int *min_height);
 
     /* overlay */
     int   (*setupfb)(void *handle, struct ng_video_fmt *fmt, void *base);
