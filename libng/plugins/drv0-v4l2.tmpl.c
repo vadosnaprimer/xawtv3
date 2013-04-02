@@ -87,7 +87,8 @@ struct v4l2_handle {
     int                         fd;
 
     /* device descriptions */
-    int                         ninputs,nstds,nfmts;
+    char                        *device;
+    int                         ninputs, nstds, nfmts, read_done;
     unsigned int                min_width, min_height;
     struct v4l2_capability	cap;
     struct v4l2_streamparm	streamparm;
@@ -545,6 +546,11 @@ v4l2_open_handle(char *device, int req_flags)
     if (NULL == h)
 	return NULL;
     memset(h,0,sizeof(*h));
+    h->device = strdup(device);
+    if (!h->device) {
+        free(h);
+	return NULL;
+    }
 
     if (-1 == (h->fd = open(device, O_RDWR))) {
 #ifdef HAVE_EXPLAIN
@@ -653,6 +659,7 @@ v4l2_close_handle(void *handle)
 	h->attr = NULL;
     }
 
+    free(h->device);
     free(h);
     h = NULL;
 
@@ -1065,7 +1072,9 @@ static int
 v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
 {
     struct v4l2_handle *h = handle;
+    int rc, fd;
 
+retry:
     h->fmt_v4l2.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     h->fmt_v4l2.fmt.pix.pixelformat  = xawtv_pixelformat[fmt->fmtid];
     h->fmt_v4l2.fmt.pix.width        = fmt->width;
@@ -1077,8 +1086,40 @@ v4l2_setformat(void *handle, struct ng_video_fmt *fmt)
     else
 	h->fmt_v4l2.fmt.pix.bytesperline = 0;
 
-    if (-1 == xioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2, 1))
-	return -1;
+#ifdef USE_LIBV4L
+    rc = v4l2_ioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2);
+#else
+    rc = ioctl(h->fd, VIDIOC_S_FMT, &h->fmt_v4l2);
+#endif
+    /* Some devices do not like mixing read and mmap, they give EBUSY
+       here after the first read */
+    if (rc < 0 && errno == EBUSY && h->read_done) {
+        fprintf(stderr, "v4l2: %s does not support switching between "
+                        "read and mmap, reopening\n", h->device);
+        /* HACK only way to recover is to close and re-open the fd */
+        fd = open(h->device, O_RDWR);
+        if (fd == -1) {
+            fprintf(stderr, "v4l2: open %s: %s\n", h->device, strerror(errno));
+            return -1;
+        }
+#ifdef USE_LIBV4L
+        rc = v4l2_fd_open(fd, 0);
+        if (rc != -1)
+	    fd = rc;
+        v4l2_close(h->fd);
+#else
+        close(h->fd);
+#endif
+        h->fd = fd;
+        h->cap.capabilities &= ~V4L2_CAP_READWRITE;
+        h->read_done = 0;
+        goto retry;
+    }
+    if (rc < 0) {
+        print_ioctl(stderr, ioctls_v4l2, PREFIX, VIDIOC_S_FMT, &h->fmt_v4l2);
+        fprintf(stderr,": %s\n", strerror(errno));
+        return -1;
+    }
     if (h->fmt_v4l2.fmt.pix.pixelformat != xawtv_pixelformat[fmt->fmtid])
 	return -1;
     fmt->width        = h->fmt_v4l2.fmt.pix.width;
@@ -1217,6 +1258,8 @@ v4l2_getimage(void *handle)
 	    h->ov_on = 1;
 	    xioctl(h->fd, VIDIOC_OVERLAY, &h->ov_on, 0);
 	}
+        if (rc >= 0)
+            h->read_done = 1;
 	if (rc != size) {
 	    if (-1 == rc) {
 		perror("v4l2: read");
