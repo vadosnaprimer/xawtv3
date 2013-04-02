@@ -87,6 +87,7 @@ XtIntervalId      audio_timer;
 XtIntervalId      unmute_timer;
 int               unmute_pending = 0;
 int               debug = 0;
+int               window_configured = 0;
 
 char              modename[64];
 char              *progname;
@@ -493,14 +494,14 @@ display_subtitle(struct vbi_page *pg, struct vbi_rect *rect)
 static void
 resize_event(Widget widget, XtPointer client_data, XEvent *event, Boolean *d)
 {
-    static int width = 0, height = 0, first = 1;
+    static int width = 0, height = 0;
     char label[64];
 
     switch(event->type) {
     case ConfigureNotify:
-	if (first) {
+	if (!window_configured) {
 	    video_gd_init(tv,args.gl);
-	    first = 0;
+	    window_configured = 1;
 	}
 	if (width  != event->xconfigure.width ||
 	    height != event->xconfigure.height) {
@@ -1822,7 +1823,8 @@ main(int argc, char *argv[])
 
     channel_menu();
 
-    xt_handle_pending(dpy);
+    while (!window_configured)
+        xt_handle_pending(dpy);
     init_overlay();
 
     set_property(0,NULL,NULL);
