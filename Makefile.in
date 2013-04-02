@@ -166,6 +166,9 @@ tag:
 	@echo "Tagged as xawtv-@VERSION@"
 
 archive:
-	@git archive --format=tar --prefix=xawtv-@VERSION@/ xawtv-@VERSION@ > xawtv-@VERSION@.tar
+	@(cd $(srcdir) && git archive --format=tar --prefix=xawtv-@VERSION@/ xawtv-@VERSION@) > xawtv-@VERSION@.tar
+	# Ensure these are newer then configure.in
+	@touch $(srcdir)/configure $(srcdir)/config.h.in
+	@tar --transform='s#config#xawtv-@VERSION@/config#' -rf xawtv-@VERSION@.tar $(srcdir)/configure $(srcdir)/config.h.in
 	@bzip2 -f xawtv-@VERSION@.tar
 

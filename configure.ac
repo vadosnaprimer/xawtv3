@@ -310,7 +310,7 @@ else
     echo "*** OpenGL disabled"
 fi
 
-VERSION="`head -1 Changes`"
+VERSION="`head -1 $srcdir/Changes`"
 AC_SUBST(VERSION)
 
 dnl ---------------------------------------------------------------------
