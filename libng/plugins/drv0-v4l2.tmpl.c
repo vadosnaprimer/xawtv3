@@ -1241,7 +1241,19 @@ v4l2_getimage(void *handle)
 
     size = h->fmt_me.bytesperline * h->fmt_me.height;
     buf = ng_malloc_video_buf(&h->fmt_me,size);
-    if (h->cap.capabilities & V4L2_CAP_READWRITE) {
+    if (h->cap.capabilities & V4L2_CAP_STREAMING) {
+	if (-1 == v4l2_start_streaming(h,1)) {
+	    v4l2_stop_streaming(h);
+	    return NULL;
+	}
+	frame = v4l2_waiton(h);
+	if (-1 == frame) {
+	    v4l2_stop_streaming(h);
+	    return NULL;
+	}
+	memcpy(buf->data,h->buf_me[0].data,size);
+	v4l2_stop_streaming(h);
+    } else {
 #ifndef USE_LIBV4L
 	rc = read(h->fd,buf->data,size);
 #else /* USE_LIBV4L */
@@ -1269,18 +1281,6 @@ v4l2_getimage(void *handle)
 	    ng_release_video_buf(buf);
 	    return NULL;
 	}
-    } else {
-	if (-1 == v4l2_start_streaming(h,1)) {
-	    v4l2_stop_streaming(h);
-	    return NULL;
-	}
-	frame = v4l2_waiton(h);
-	if (-1 == frame) {
-	    v4l2_stop_streaming(h);
-	    return NULL;
-	}
-	memcpy(buf->data,h->buf_me[0].data,size);
-	v4l2_stop_streaming(h);
     }
     return buf;
 }
