@@ -109,9 +109,10 @@ static void getparams_periods(snd_pcm_t *handle,
 		      snd_pcm_hw_params_t *params,
 		      unsigned int *usecs,
 		      unsigned int *count,
-		      const char *id)
+		      int allow_adjust, const char *id)
 {
     unsigned min = 0, max = 0;
+    unsigned desired = *usecs * *count;
 
     snd_pcm_hw_params_get_periods_min(params, &min, 0);
     snd_pcm_hw_params_get_periods_max(params, &max, 0);
@@ -136,6 +137,13 @@ static void getparams_periods(snd_pcm_t *handle,
 	    *usecs = min;
 	if (*usecs > max)
 	    *usecs = max;
+    }
+
+    /* If we deviate from the desired size by more then 20% adjust count */
+    if (allow_adjust && (((*usecs * *count) < (desired *  8 / 10)) ||
+                         ((*usecs * *count) > (desired * 12 / 10)))) {
+        *count = (desired + *usecs / 2) / *usecs;
+        getparams_periods(handle, params, usecs, count, 0, id);
     }
 }
 
@@ -351,11 +359,15 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     /* Negotiate period parameters */
 
     c_periodtime = latency * 1000 / c_periods;
-    getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture");
+    getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, 1, "capture");
     p_periods = c_periods * 2;
     p_periodtime = c_periodtime;
-    getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, "playback");
+    getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, 0, "playback");
     c_periods = p_periods / 2;
+
+    if (verbose)
+	fprintf(error_fp, "alsa: Capture %u periods of %u usecs, Playback %u periods of %u usecs\n",
+		c_periods, c_periodtime, p_periods, p_periodtime);
 
     /*
      * Some playback devices support a very limited periodtime range. If the user needs to
@@ -365,10 +377,10 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle,
     if (p_periodtime < c_periodtime) {
 	c_periodtime = p_periodtime;
 	c_periods = round (latency * 1000.0 / c_periodtime + 0.5);
-	getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, "capture");
+	getparams_periods(chandle, c_hwparams, &c_periodtime, &c_periods, 0, "capture");
 	p_periods = c_periods * 2;
 	p_periodtime = c_periodtime;
-	getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, "playback");
+	getparams_periods(phandle, p_hwparams, &p_periodtime, &p_periods, 0, "playback");
 	c_periods = p_periods / 2;
     }
 
