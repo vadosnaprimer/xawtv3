@@ -209,6 +209,11 @@ details.
 .TP
 .B filter = name
 Enable the specified filter.
+.TP
+.B alsa_latency = time_in_ms
+This can be used to specify the latency for the ALSA digital sound loopback
+which xawtv does. The default is 30ms if you're getting sound dropouts on your
+system try increasing this setting.
 .SS The [launch] section
 You can start other programs from within xawtv.  This is configured
 with entries in the "[launch]" section:

@@ -65,6 +65,10 @@
 
 /*----------------------------------------------------------------------*/
 
+#define ALSA_LATENCY_DEFAULT 30
+#define STR(X) __STR(X)
+#define __STR(X) #X
+
 XtAppContext      app_context;
 Widget            app_shell, tv;
 Widget            on_shell;
@@ -167,7 +171,7 @@ XtResource args_desc[] = {
 	"alsa_latency",
 	XtCValue, XtRInt, sizeof(int),
 	XtOffset(struct ARGS*,alsa_latency),
-	XtRString, "30"
+	XtRString, STR(ALSA_LATENCY_DEFAULT)
     },{
 	/* Integer */
 	"debug",
@@ -1414,9 +1418,15 @@ static void x11_mute_notify(int val)
 {
     if (val)
 	alsa_thread_stop();
-    else if (!alsa_thread_is_running())
+    else if (!alsa_thread_is_running()) {
+        if (args.readconfig && args.alsa_latency == ALSA_LATENCY_DEFAULT) {
+            int val = cfg_get_int("global", "alsa_latency");
+            if (val > 0)
+                args.alsa_latency = val;
+        }
 	alsa_thread_startup(alsa_out, alsa_cap, args.alsa_latency,
 			    stderr, debug);
+    }
 }
 #endif
 
@@ -1698,7 +1708,7 @@ usage(void)
 	    "      -(no)alsa       enable/disable alsa streaming. Default: enabled\n"
 	    "      -(no)alsa-cap   manually specify an alsa capture interface\n"
 	    "      -(no)alsa-pb    manually specify an alsa playback interface\n"
-	    "      -alsa-latency   manually specify an alsa latency in ms. Default: 30\n"
+	    "      -alsa-latency   manually specify an alsa latency in ms. Default: " STR(ALSA_LATENCY_DEFAULT) "\n"
 #endif
 	    "  -b  -bpp n          color depth of the display is n (n=24,32)\n"
 	    "  -o  -outfile file   filename base for snapshots\n"
