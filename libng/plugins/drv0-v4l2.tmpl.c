@@ -1122,6 +1122,22 @@ retry:
     }
     if (h->fmt_v4l2.fmt.pix.pixelformat != xawtv_pixelformat[fmt->fmtid])
 	return -1;
+
+    /*
+     * The bttv driver has a bug where it will return a width which is not
+     * a multiple of 16 for planar formats, while it cannot handle this,
+     * fix this up.
+     *
+     * A kernel fix has been send upstream for this for 4.5 / 4.6, so
+     * eventually this workaround should be removed.
+     */
+    if (!strcmp(h->cap.driver, "bttv") &&
+            (fmt->fmtid == VIDEO_YUV422P || fmt->fmtid == VIDEO_YUV420P) &&
+            h->fmt_v4l2.fmt.pix.width % 16) {
+        fmt->width = h->fmt_v4l2.fmt.pix.width & ~15;
+        goto retry;
+    }
+
     fmt->width        = h->fmt_v4l2.fmt.pix.width;
     fmt->height       = h->fmt_v4l2.fmt.pix.height;
     fmt->bytesperline = h->fmt_v4l2.fmt.pix.bytesperline;
