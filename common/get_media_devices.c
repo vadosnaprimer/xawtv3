@@ -227,7 +227,7 @@ static int add_v4l_class(struct media_device_entry *md)
 		md->type = MEDIA_V4L_SUBDEV;
 
 	return 0;
-};
+}
 
 static int add_snd_class(struct media_device_entry *md)
 {
@@ -270,7 +270,7 @@ static int add_snd_class(struct media_device_entry *md)
 	md->node = strdup(node);
 
 	return 0;
-};
+}
 
 static int add_dvb_class(struct media_device_entry *md)
 {
@@ -294,7 +294,7 @@ static int add_dvb_class(struct media_device_entry *md)
 		md->type = MEDIA_DVB_OSD;
 
 	return 0;
-};
+}
 
 static int sort_media_device_entry(const void *a, const void *b)
 {
