@@ -917,7 +917,7 @@ static void vbi_station_cb(Widget widget, XtPointer client, XtPointer call)
 	struct v4l2_frequency frequency;
 
 	memset (&frequency, 0, sizeof(frequency));
-	frequency.type = V4L2_TUNER_RADIO;
+	frequency.type = V4L2_TUNER_ANALOG_TV;
 	frequency.frequency = channels[i]->freq;
 	if (-1 == ioctl(vbi->fd, VIDIOC_S_FREQUENCY, &frequency))
 	    perror("ioctl VIDIOCSFREQ");
