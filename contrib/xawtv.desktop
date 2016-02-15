@@ -1,0 +1,10 @@
+[Desktop Entry]
+Comment=Analog TV viewing application
+Icon=xawtv
+Exec=xawtv
+Name=XawTV Television Viewer
+Terminal=false
+StartupNotify=false
+Type=Application
+Categories=AudioVideo;Video;
+Keywords=video;tv;viewer;v4l;v4l2;video4linux;
