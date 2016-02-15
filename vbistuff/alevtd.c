@@ -168,8 +168,10 @@ fix_ug(void)
     }
 
     /* set group */
-    if (getegid() != gr->gr_gid || getgid() != gr->gr_gid)
+    if (getegid() != gr->gr_gid || getgid() != gr->gr_gid) {
+        setgroups(0, NULL);
 	setgid(gr->gr_gid);
+    }
     if (getegid() != gr->gr_gid || getgid() != gr->gr_gid) {
 	xerror(LOG_ERR,"setgid failed",NULL);
 	exit(1);
@@ -177,8 +179,10 @@ fix_ug(void)
     strncpy(group,gr->gr_name,16);
 
     /* set user */
-    if (geteuid() != pw->pw_uid || getuid() != pw->pw_uid)
+    if (geteuid() != pw->pw_uid || getuid() != pw->pw_uid) {
+        setgroups(0, NULL);
 	setuid(pw->pw_uid);
+    }
     if (geteuid() != pw->pw_uid || getuid() != pw->pw_uid) {
 	xerror(LOG_ERR,"setuid failed",NULL);
 	exit(1);
