@@ -197,6 +197,7 @@ static const struct ng_format_list dv_vformats[] = {
     }
 };
 
+#if 0
 static const struct ng_format_list dv_aformats[] = {
     {
 	name:  "stereo16",
@@ -206,6 +207,7 @@ static const struct ng_format_list dv_aformats[] = {
 	/* EOF */
     }
 };
+#endif
 
 struct ng_writer dv_writer = {
     name:      "dv",
