@@ -1300,25 +1300,45 @@ FilterAction(Widget widget, XEvent *event,
 static int xfree_dga_error_base;
 #endif
 
+#ifdef HAVE_LIBXXF86DGA
+static int (*orig_xfree_error_handler)(Display *, XErrorEvent *);
+
+static int xfree_dga_error_handler(Display *d, XErrorEvent *e)
+{
+  if (e->error_code == (xfree_dga_error_base + XF86DGANoDirectVideoMode) ||
+      e->error_code == (xfree_dga_error_base + XF86DGAClientNotLocal)) {
+    have_dga = 0;
+    return 0;
+  }
+  return orig_xfree_error_handler(d, e);
+}
+#endif
+
 void
 xfree_dga_init(Display *dpy)
 {
 #ifdef HAVE_LIBXXF86DGA
-    int  flags,foo,ma,mi;
+    int  flags = 0,foo, ma, mi;
 
     if (!do_overlay)
 	return;
 
     if (args.dga) {
+	have_dga = 1;
+	orig_xfree_error_handler = XSetErrorHandler(xfree_dga_error_handler);
 	if (XF86DGAQueryExtension(dpy,&foo,&xfree_dga_error_base)) {
+	    if (!have_dga)
+		return;
 	    XF86DGAQueryDirectVideo(dpy,XDefaultScreen(dpy),&flags);
 	    if (flags & XF86DGADirectPresent) {
 		XF86DGAQueryVersion(dpy,&ma,&mi);
 		if (debug)
 		    fprintf(stderr,"DGA version %d.%d\n",ma,mi);
-		have_dga = 1;
+	    } else {
+		have_dga = 0;
 	    }
 	}
+	XSetErrorHandler(orig_xfree_error_handler);
     }
 #endif
 }
@@ -1399,19 +1419,6 @@ xfree_xinerama_init(Display *dpy)
     }
 #endif
 }
-
-#ifdef HAVE_LIBXXF86DGA
-static int (*orig_xfree_error_handler)(Display *, XErrorEvent *);
-
-static int xfree_dga_error_handler(Display *d, XErrorEvent *e)
-{
-  if (e->error_code == (xfree_dga_error_base + XF86DGANoDirectVideoMode)) {
-    have_dga = 0;
-    return 0;
-  }
-  return orig_xfree_error_handler(d, e);
-}
-#endif
 
 #if defined(HAVE_ALSA)
 static void x11_mute_notify(int val)
