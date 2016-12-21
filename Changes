@@ -1,3 +1,18 @@
+3.104
+=====
+
+* disable DGA if client is not local, fixing usage over ssh
+* Drop supplementary group IDs when dropping privileges
+* Add desktop and appdata files for xawtv, motv and mtt
+* Fix mtt not being able to tune tv channels
+* Remove superfluous ; add end of functions
+* Add a workaround for bttv kernel driver planar fmt width bug
+* Allow setting alsa_latency from ~/.xawtv
+* Fix not being able to get a larger latency on capture devices with small
+  max period sizes
+* prefer CAP_STREAMING over CAP_READWRITE
+* Fix segfault under certain conditions
+
 3.103
 =====
 
