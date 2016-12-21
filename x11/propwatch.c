@@ -17,6 +17,7 @@
 #include <sys/types.h>
 
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -527,7 +528,7 @@ ProcessKeyPress(Display *dpy, XEvent* event)
 	    event->xkey.window,
 	    event->type == KeyPress ? "KeyPress" : "KeyRelease",
 	    event->xkey.keycode,
-	    XKeysymToString(XKeycodeToKeysym(dpy,event->xkey.keycode,0)));
+	    XKeysymToString(XkbKeycodeToKeysym(dpy,event->xkey.keycode,0,0)));
 }
 
 void

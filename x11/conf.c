@@ -24,6 +24,7 @@
 #include <X11/Xaw/Viewport.h>
 #include <X11/Xaw/List.h>
 #include <X11/Xaw/AsciiText.h>
+#include <X11/XKBlib.h>
 
 #include "grab-ng.h"
 #include "channel.h"
@@ -146,7 +147,7 @@ static void key_eh(Widget widget, XtPointer client_data,
     char *key;
     char line[64];
 
-    sym = XKeycodeToKeysym(dpy,ke->keycode,0);
+    sym = XkbKeycodeToKeysym(dpy,ke->keycode,0,0);
     if (NoSymbol == sym) {
 	fprintf(stderr,"can't translate keycode %d\n",ke->keycode);
 	return;

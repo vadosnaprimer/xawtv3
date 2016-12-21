@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Intrinsic.h>
 #include <X11/keysym.h>
@@ -396,7 +397,7 @@ vbi_kbd_eh(Widget widget, XtPointer clientdata, XEvent *event, Boolean *cont)
 
     switch (event->type) {
     case KeyPress:
-	sym = XKeycodeToKeysym(XtDisplay(widget),event->xkey.keycode,0);
+	sym = XkbKeycodeToKeysym(XtDisplay(widget),event->xkey.keycode,0,0);
 	digit = -1;
 	switch (sym) {
 	case XK_0:

@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>
 
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/Intrinsic.h>
 #include <Xm/Xm.h>
 #include <Xm/XmStrDefs.h>
@@ -661,7 +662,7 @@ chan_key_eh(Widget widget, XtPointer client_data, XEvent *event, Boolean *cont)
     char *key;
     char line[64];
 
-    sym = XKeycodeToKeysym(dpy,ke->keycode,0);
+    sym = XkbKeycodeToKeysym(dpy,ke->keycode,0,0);
     if (NoSymbol == sym) {
 	fprintf(stderr,"can't translate keycode %d\n",ke->keycode);
 	return;
