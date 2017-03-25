@@ -28,7 +28,7 @@
 
 #include "config.h"
 
-#ifdef HAVE_ALSA_ASOUNDLIB_H
+#if defined(HAVE_ALSA_ASOUNDLIB_H) && defined(HAVE_ALSA)
 
 #include <stdio.h>
 #include <stdlib.h>

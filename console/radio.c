@@ -62,8 +62,8 @@
    USB radio devices benefit from a larger default latency */
 #define DEFAULT_LATENCY 500
 
-#if defined(HAVE_ALSA)
 int alsa_loopback = 1;
+#if defined(HAVE_ALSA)
 char *alsa_playback = NULL;
 char *alsa_capture = NULL;
 int alsa_latency = DEFAULT_LATENCY;
