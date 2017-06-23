@@ -1014,7 +1014,7 @@ add_cmd_menuitem(const char *n, int nr, Widget parent, const char *l,
 		 char *k, char *a,  int toggle,
 		 char *c, const char *arg1, const char *arg2)
 {
-    char name[16];
+    char name[21];
     XmString label,accel;
     Widget w;
     WidgetClass class;
