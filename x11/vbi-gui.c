@@ -581,7 +581,7 @@ static void
 export_save_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     struct vbi_window *vw = clientdata;
-    Widget help,text,menu,option,push;
+    Widget help,text=text,menu,option,push;
     Arg args[2];
 
     if (NULL == vw->savebox) {

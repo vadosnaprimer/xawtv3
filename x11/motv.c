@@ -812,7 +812,7 @@ chan_tune_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void
 create_prop(void)
 {
-    Widget label,rowcol;
+    Widget label = label,rowcol;
 
     prop_dlg = XmCreatePromptDialog(control_shell,"prop",NULL,0);
     XtAddEventHandler(XtParent(prop_dlg), (EventMask) 0, True,
