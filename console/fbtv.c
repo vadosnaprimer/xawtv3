@@ -582,12 +582,12 @@ scaler_test(int off)
 int
 main(int argc, char *argv[])
 {
-    int             i,key,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax;
-    unsigned int    ui;
+    int             i,key,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax, linesize;
+    unsigned long   ui;
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
-    char            text[145],event[64],*env,*dst;
+    char            text[145],event[64],*env,*src,*dst;
     fd_set          set;
     struct sigaction act,old;
 
@@ -803,12 +803,17 @@ main(int argc, char *argv[])
 		if (ch)
 		    buf = ng_convert_frame(ch,NULL,buf);
 		/* blit frame */
+		src = buf->data;
+
 		dst = fb_mem +
 		    dy * fb_fix.line_length +
-		    dx * ((fb_var.bits_per_pixel+7)/8);
+		    dx * ((fb_var.bits_per_pixel + 7)/8);
+
+		linesize = buf->fmt.width * (ng_vfmt_to_depth[fmt.fmtid] / 8);
+
 		for (ui = 0; ui < buf->fmt.height; ui++) {
-		    memcpy(dst, buf->data + ui*buf->fmt.bytesperline,
-			   buf->fmt.bytesperline);
+		    memcpy(dst, src, linesize);
+		    src += buf->fmt.bytesperline;
 		    dst += fb_fix.line_length;
 		}
 		ng_release_video_buf(buf);
