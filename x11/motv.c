@@ -812,7 +812,7 @@ chan_tune_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 static void
 create_prop(void)
 {
-    Widget label = label,rowcol;
+    Widget rowcol;
 
     prop_dlg = XmCreatePromptDialog(control_shell,"prop",NULL,0);
     XtAddEventHandler(XtParent(prop_dlg), (EventMask) 0, True,
@@ -823,24 +823,20 @@ create_prop(void)
 
     rowcol = XtVaCreateManagedWidget("rc", xmRowColumnWidgetClass, prop_dlg,
 				     NULL);
-    label = XtVaCreateManagedWidget("nameL", xmLabelWidgetClass, rowcol,
-				    NULL);
+    XtVaCreateManagedWidget("nameL", xmLabelWidgetClass, rowcol, NULL);
     prop_name = XtVaCreateManagedWidget("name", xmTextWidgetClass, rowcol,
 					NULL);
 
-    label = XtVaCreateManagedWidget("keyL", xmLabelWidgetClass, rowcol,
-				    NULL);
+    XtVaCreateManagedWidget("keyL", xmLabelWidgetClass, rowcol, NULL);
     prop_key = XtVaCreateManagedWidget("key", xmTextWidgetClass, rowcol,
 				       NULL);
     XtAddEventHandler(prop_key, KeyPressMask, False, chan_key_eh, NULL);
 
-    label = XtVaCreateManagedWidget("groupL", xmLabelWidgetClass, rowcol,
-				    NULL);
+    XtVaCreateManagedWidget("groupL", xmLabelWidgetClass, rowcol, NULL);
     prop_group = XtVaCreateManagedWidget("group", xmTextWidgetClass, rowcol,
 					 NULL);
 
-    label = XtVaCreateManagedWidget("channelL", xmLabelWidgetClass, rowcol,
-				    NULL);
+    XtVaCreateManagedWidget("channelL", xmLabelWidgetClass, rowcol, NULL);
     prop_channel = XtVaCreateManagedWidget("channel",xmComboBoxWidgetClass,
 					   rowcol,NULL);
     XtAddCallback(prop_channel,XmNselectionCallback, chan_tune_cb, NULL);
