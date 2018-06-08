@@ -587,7 +587,7 @@ main(int argc, char *argv[])
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
-    char            text[80],event[64],*env,*dst;
+    char            text[145],event[64],*env,*dst;
     fd_set          set;
     struct sigaction act,old;
 
