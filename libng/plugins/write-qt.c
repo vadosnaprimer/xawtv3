@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#include <quicktime.h>
 #include <colormodels.h>
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
+#include <quicktime.h>
 #include <lqt.h>
+#pragma GCC diagnostic warning "-Wstrict-prototypes"
 
 #include "grab-ng.h"
 
