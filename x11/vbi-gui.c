@@ -587,7 +587,7 @@ export_save_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
     if (NULL == vw->savebox) {
 	vw->savebox = XmCreateFileSelectionDialog(vw->shell,"save",NULL,0);
 	help = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_HELP_BUTTON);
-	text = XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_TEXT);
+	XmFileSelectionBoxGetChild(vw->savebox,XmDIALOG_TEXT);
 	XtUnmanageChild(help);
 
 	menu = XmCreatePulldownMenu(vw->savebox,"formatM",NULL,0);
