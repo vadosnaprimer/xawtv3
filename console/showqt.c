@@ -402,7 +402,7 @@ static char* strfcc(uint32_t type)
 #define FIELD_NAME "\t%s%-20s = "
 static void dump_fields(int fh, off_t pos, struct field_list *list)
 {
-    char dummy[64],si[8];
+    char dummy[64],si[15];
     int  i,loop,cpos;
     int8_t   int8;
     int16_t  int16;
