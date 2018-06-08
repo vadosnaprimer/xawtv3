@@ -47,6 +47,8 @@ AC_CHECK_PROGS(DEPEND,gccmakedep makedepend,true)
 dnl ---------------------------------------------------------------------
 dnl do some OS specific stuff here
 
+AC_HEADER_MAJOR
+
 AC_SUBST(FOUND_AALIB)
 AC_SUBST(FOUND_ALSA)
 AC_SUBST(FOUND_DV)

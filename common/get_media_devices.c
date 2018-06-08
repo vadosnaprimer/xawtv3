@@ -19,6 +19,13 @@
 
 #ifdef __linux__ /* This depends on sysfs, so it is linux only */
 
+#ifdef MAJOR_IN_SYSMACROS
+# include <sys/sysmacros.h>
+#endif
+#ifdef MAJOR_IN_MKDEV
+# include <sys/mkdev.h>
+#endif
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>

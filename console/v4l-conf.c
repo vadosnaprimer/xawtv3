@@ -9,6 +9,13 @@
  */
 #include "config.h"
 
+#ifdef MAJOR_IN_SYSMACROS
+# include <sys/sysmacros.h>
+#endif
+#ifdef MAJOR_IN_MKDEV
+# include <sys/mkdev.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
