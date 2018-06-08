@@ -345,7 +345,7 @@ xscreensaver_command_response (Display *dpy, Window window,
   int fd = ConnectionNumber (dpy);
   int timeout = 10;
   int status;
-  fd_set fds;
+  fd_set fds, fds_except;
   struct timeval tv;
   char err[2048];
 
@@ -353,9 +353,10 @@ xscreensaver_command_response (Display *dpy, Window window,
     {
       FD_ZERO(&fds);
       FD_SET(fd, &fds);
+      fds_except = fds;
       memset(&tv, 0, sizeof(tv));
       tv.tv_sec = timeout;
-      status = select (fd+1, &fds, 0, &fds, &tv);
+      status = select (fd+1, &fds, 0, &fds_except, &tv);
 
       if (status < 0)
 	{
