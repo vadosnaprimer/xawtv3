@@ -1179,7 +1179,7 @@ change_audio(int mode)
 {
     struct ng_attribute *attr;
     const char *mname;
-    char label[64];
+    char label[262];
 
     attr = ng_attr_byid(attrs,ATTR_ID_AUDIO_MODE);
     if (NULL == attr)
