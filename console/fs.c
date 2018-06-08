@@ -215,10 +215,25 @@ static char *default_font[] = {
     NULL
 };
 
+static u_int32_t get_dword(FILE *fp, u_int32_t *dword)
+{
+    *dword = fgetc(fp);
+    *dword |= fgetc(fp) << 8;
+    *dword |= fgetc(fp) << 16;
+    if (feof(fp))
+	return 1;
+    *dword |= fgetc(fp) << 24;
+
+   return 0;
+}
+
+
 struct fs_font* fs_consolefont(char **filename)
 {
     int  i;
     char *h,command[256];
+    u_int32_t magic, nchars, width, charlen, height, flags;
+
     struct fs_font *f = NULL;
     FILE *fp;
 
@@ -247,41 +262,101 @@ struct fs_font* fs_consolefont(char **filename)
 	return NULL;
     }
 
-    if (fgetc(fp) != 0x36 ||
-	fgetc(fp) != 0x04) {
-	fprintf(stderr,"can't use font %s\n",filename[i]);
+    if (get_dword(fp, &magic)) {
+	fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
 	return NULL;
     }
-    fprintf(stderr,"using linux console font \"%s\"\n",filename[i]);
+    if ((magic & 0xffff) == 0x0436) {
+	flags = (magic & 0x020000L) ? 1 : 0;
+	nchars = (magic & 0x010000L) ? 512 : 256;
+	width = 8;
+	charlen = magic >> 24;
+	height = charlen;
+   } else {
+	u_int32_t psf_ver, hsize;
+	if (magic != 0x864ab572L) {
+		fprintf(stderr,"Can't use font %s: unknown psf version\n",filename[i]);
+		return NULL;
+	}
+
+        if (get_dword(fp, &psf_ver)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+	if (psf_ver > 0) {
+		fprintf(stderr,"Don't know how to handle psf version %d\n", psf_ver);
+		return NULL;
+	}
+        if (get_dword(fp, &hsize)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+        if (get_dword(fp, &flags)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+        if (get_dword(fp, &nchars)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+        if (get_dword(fp, &charlen)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+        if (get_dword(fp, &height)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+        if (get_dword(fp, &width)) {
+	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    return NULL;
+	}
+	/* Skip any extra header bits */
+        while (hsize > 32) {
+		fgetc(fp);
+                --hsize;
+        }
+    }
+
+    fprintf(stderr,"using linux console font \"%s\": %d gliphs %dx%d, char len %d%s\n",
+	    filename[i], nchars, width, height, charlen,
+	    flags & 1 ? " (unicode)" : "");
 
     f = malloc(sizeof(*f));
     memset(f,0,sizeof(*f));
 
-    fgetc(fp);
-    f->maxenc = 256;
-    f->width  = 8;
-    f->height = fgetc(fp);
+    f->maxenc  = nchars;
+    f->width   = width;
+    f->height  = height;
     f->fontHeader.min_bounds.left    = 0;
     f->fontHeader.max_bounds.right   = f->width;
     f->fontHeader.max_bounds.descent = 0;
     f->fontHeader.max_bounds.ascent  = f->height;
 
-    f->glyphs  = malloc(f->height * 256);
-    f->extents = malloc(sizeof(FSXCharInfo)*256);
-    fread(f->glyphs, 256, f->height, fp);
+    f->glyphs  = malloc(nchars * charlen);
+    f->extents = malloc(sizeof(FSXCharInfo) * nchars);
+
+    fread(f->glyphs, charlen, nchars, fp);
+
+    /*
+     * There is an unicode table at the end, for new PSF
+     * format, if flags == 1. For now, just ignore it.
+     */
+
     fclose(fp);
 
-    f->eindex  = malloc(sizeof(FSXCharInfo*)   * 256);
-    f->gindex  = malloc(sizeof(unsigned char*) * 256);
-    for (i = 0; i < 256; i++) {
-	f->eindex[i] = f->extents +i;
-	f->gindex[i] = f->glyphs  +i * f->height;
+    f->eindex  = malloc(sizeof(FSXCharInfo*)   * nchars);
+    f->gindex  = malloc(sizeof(unsigned char*) * nchars);
+    for (i = 0; i < nchars; i++) {
+	f->eindex[i] = f->extents + i;
+	f->gindex[i] = f->glyphs  + i * charlen;
 	f->eindex[i]->left    = 0;
-	f->eindex[i]->right   = 7;
-	f->eindex[i]->width   = 8;
+	f->eindex[i]->right   = width - 1;
+	f->eindex[i]->width   = width;
 	f->eindex[i]->descent = 0;
 	f->eindex[i]->ascent  = f->height;
     }
+
     return f;
 }
 
