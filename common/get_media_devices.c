@@ -19,6 +19,7 @@
 
 #ifdef __linux__ /* This depends on sysfs, so it is linux only */
 
+#include "config.h"
 #ifdef MAJOR_IN_SYSMACROS
 # include <sys/sysmacros.h>
 #endif
