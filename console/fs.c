@@ -207,15 +207,19 @@ static char *default_path[] = {
     "/usr/share/consolefonts/%s.psfu.gz",
     "/usr/share/consolefonts/%s.psf.gz",
     "/usr/share/consolefonts/%s.psf",
+    "/usr/share/consolefonts/%s",
     "/usr/share/kbd/consolefonts/%s.psfu.gz",
     "/usr/share/kbd/consolefonts/%s.psf.gz",
     "/usr/share/kbd/consolefonts/%s.psf",
+    "/usr/share/kbd/consolefonts/%s",
     "/usr/lib/kbd/consolefonts/%s.psfu.gz",
     "/usr/lib/kbd/consolefonts/%s.psf.gz",
     "/usr/lib/kbd/consolefonts/%s.psf",
+    "/usr/lib/kbd/consolefonts/%s",
     "/lib/kbd/consolefonts/%s.psfu.gz",
     "/lib/kbd/consolefonts/%s.psf.gz",
     "/lib/kbd/consolefonts/%s.psf",
+    "/lib/kbd/consolefonts/%s",
     NULL
 };
 
