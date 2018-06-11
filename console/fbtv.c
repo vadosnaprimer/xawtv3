@@ -279,8 +279,8 @@ fb_initcolors(int fd, int gray)
 #endif
 	break;
     default:
-	fprintf(stderr, "Oops: %i bit/pixel ???\n",
-		fb_var.bits_per_pixel);
+	fb_cleanup();
+	fprintf(stderr, "Oops: %i bit/pixel ???\n", fb_var.bits_per_pixel);
 	exit(1);
     }
 
@@ -404,6 +404,7 @@ static void do_capture(int from, int to, int tmp_switch)
 	if (0 != ng_grabber_setformat(&fmt,1)) {
 	    gfmt = fmt;
 	    if (NULL == (conv = ng_grabber_findconv(&gfmt,0))) {
+		fb_cleanup();
 		fprintf(stderr,"can't find useful capture format\n");
 		exit(1);
 	    }
@@ -528,6 +529,7 @@ grabber_init(void)
 
     drv = ng_vid_open(&ng_dev.video, ng_dev.driver, &screen, 0, &h_drv);
     if (NULL == drv) {
+	fb_cleanup();
 	fprintf(stderr,"no grabber device available\n");
 	exit(1);
     }
@@ -724,7 +726,6 @@ main(int argc, char *argv[])
     exit_hook         = do_exit;
     fullscreen_hook   = do_fullscreen;
 
-    tty_init();
     memset(&act,0,sizeof(act));
     act.sa_handler = ctrlc;
     sigemptyset(&act.sa_mask);
@@ -770,6 +771,7 @@ main(int argc, char *argv[])
     }
 #endif
 
+    tty_init();
     fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
     for (;!sig;) {
 	if ((fb_switch_state == FB_ACTIVE || keep_dma_on) && !quiet) {
@@ -824,6 +826,14 @@ main(int argc, char *argv[])
 		fps++;
 		/* grab + convert frame */
 		if (NULL == (buf = ng_grabber_grab_image(0))) {
+		    do_va_cmd(2,"capture","off");
+		    if (mute)
+			audio_off();
+		    drv->close(h_drv);
+		    if (fb_switch_state == FB_ACTIVE)
+			fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
+		    tty_cleanup();
+		    fb_cleanup();
 		    fprintf(stderr,"capturing image failed\n");
 		    exit(1);
 		}
