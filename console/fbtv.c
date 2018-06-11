@@ -316,10 +316,8 @@ tty_cleanup(void)
 static void
 text_init(char *font)
 {
-    char   *fonts[2] = { font, NULL };
-
     if (NULL == f)
-	f = fs_consolefont(font ? fonts : NULL);
+	f = fs_consolefont(font ? font : NULL);
     if (NULL == f) {
 	fprintf(stderr,"no font available\n");
 	exit(1);
@@ -406,7 +404,7 @@ static void do_capture(int from, int to, int tmp_switch)
 	if (0 != ng_grabber_setformat(&fmt,1)) {
 	    gfmt = fmt;
 	    if (NULL == (conv = ng_grabber_findconv(&gfmt,0))) {
-		fprintf(stderr,"can't fint useful capture format\n");
+		fprintf(stderr,"can't find useful capture format\n");
 		exit(1);
 	    }
 	    ch = ng_convert_alloc(conv,&gfmt,&fmt);

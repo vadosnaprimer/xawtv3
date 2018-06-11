@@ -42,5 +42,5 @@ void fs_render_tty(FSXCharInfo *charInfo, unsigned char *data);
 int fs_connect(char *servername);
 struct fs_font* fs_open(char *pattern);
 #endif
-struct fs_font* fs_consolefont(char **filename);
+struct fs_font* fs_consolefont(char *filename);
 void fs_free(struct fs_font *f);

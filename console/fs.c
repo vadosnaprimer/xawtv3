@@ -197,21 +197,25 @@ void fs_free(struct fs_font *f)
 /* ------------------------------------------------------------------ */
 /* load console font file                                             */
 
-static char *default_font[] = {
-    /* why the heck every f*cking distribution picks another
-       location for these fonts ??? */
-    "/usr/share/consolefonts/lat1-16.psf",
-    "/usr/share/consolefonts/lat1-16.psf.gz",
-    "/usr/share/consolefonts/lat1-16.psfu.gz",
-    "/usr/share/kbd/consolefonts/lat1-16.psf",
-    "/usr/share/kbd/consolefonts/lat1-16.psf.gz",
-    "/usr/share/kbd/consolefonts/lat1-16.psfu.gz",
-    "/usr/lib/kbd/consolefonts/lat1-16.psf",
-    "/usr/lib/kbd/consolefonts/lat1-16.psf.gz",
-    "/usr/lib/kbd/consolefonts/lat1-16.psfu.gz",
-    "/lib/kbd/consolefonts/lat1-16.psf",
-    "/lib/kbd/consolefonts/lat1-16.psf.gz",
-    "/lib/kbd/consolefonts/lat1-16.psfu.gz",
+static char *default_font = "lat1-16";
+
+/*
+ * Depending on the distro, the console font could be on different
+ * locations. Also, nowadays, they're typically gzipped to save some space.
+ */
+static char *default_path[] = {
+    "/usr/share/consolefonts/%s.psfu.gz",
+    "/usr/share/consolefonts/%s.psf.gz",
+    "/usr/share/consolefonts/%s.psf",
+    "/usr/share/kbd/consolefonts/%s.psfu.gz",
+    "/usr/share/kbd/consolefonts/%s.psf.gz",
+    "/usr/share/kbd/consolefonts/%s.psf",
+    "/usr/lib/kbd/consolefonts/%s.psfu.gz",
+    "/usr/lib/kbd/consolefonts/%s.psf.gz",
+    "/usr/lib/kbd/consolefonts/%s.psf",
+    "/lib/kbd/consolefonts/%s.psfu.gz",
+    "/lib/kbd/consolefonts/%s.psf.gz",
+    "/lib/kbd/consolefonts/%s.psf",
     NULL
 };
 
@@ -228,42 +232,47 @@ static u_int32_t get_dword(FILE *fp, u_int32_t *dword)
 }
 
 
-struct fs_font* fs_consolefont(char **filename)
+struct fs_font* fs_consolefont(char *filename)
 {
     int  i;
-    char *h,command[256];
+    char *h, command[256], fname[251] = "";
     u_int32_t magic, nchars, width, charlen, height, flags;
 
     struct fs_font *f = NULL;
     FILE *fp;
 
-    if (NULL == filename)
+    if (!filename)
 	filename = default_font;
 
-    for(i = 0; filename[i] != NULL; i++) {
-	if (-1 == access(filename[i],R_OK))
-	    continue;
-	break;
+    fprintf(stderr, "seeking for console font %s\n", filename);
+    if (!strchr(filename, '/')) {
+	for (i = 0; default_path[i] != NULL; i++) {
+	    snprintf(fname, sizeof(fname), default_path[i], filename);
+	    if (!access(fname, R_OK))
+	       break;
+	}
+    } else {
+       strcpy(fname, filename);
     }
-    if (NULL == filename[i]) {
+    if (!*fname || access(fname, R_OK)) {
 	fprintf(stderr,"can't find console font file\n");
 	return NULL;
     }
 
-    h = filename[i]+strlen(filename[i])-3;
+    h = fname + strlen(fname)-3;
     if (0 == strcmp(h,".gz")) {
-	sprintf(command,"zcat %s",filename[i]);
+	sprintf(command,"zcat %s", fname);
 	fp = popen(command,"r");
     } else {
-	fp = fopen(filename[i], "r");
+	fp = fopen(fname, "r");
     }
     if (NULL == fp) {
-	fprintf(stderr,"can't open %s: %s\n",filename[i],strerror(errno));
+	fprintf(stderr,"can't open %s: %s\n", fname, strerror(errno));
 	return NULL;
     }
 
     if (get_dword(fp, &magic)) {
-	fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	fprintf(stderr,"Can't use font %s: file truncated\n", fname);
 	return NULL;
     }
     if ((magic & 0xffff) == 0x0436) {
@@ -275,12 +284,12 @@ struct fs_font* fs_consolefont(char **filename)
    } else {
 	u_int32_t psf_ver, hsize;
 	if (magic != 0x864ab572L) {
-		fprintf(stderr,"Can't use font %s: unknown psf version\n",filename[i]);
+		fprintf(stderr, "Can't use font %s: unknown psf version\n", fname);
 		return NULL;
 	}
 
         if (get_dword(fp, &psf_ver)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
 	if (psf_ver > 0) {
@@ -288,27 +297,27 @@ struct fs_font* fs_consolefont(char **filename)
 		return NULL;
 	}
         if (get_dword(fp, &hsize)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
         if (get_dword(fp, &flags)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
         if (get_dword(fp, &nchars)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
         if (get_dword(fp, &charlen)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
         if (get_dword(fp, &height)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
         if (get_dword(fp, &width)) {
-	    fprintf(stderr,"Can't use font %s: file truncated\n",filename[i]);
+	    fprintf(stderr, "Can't use font %s: file truncated\n", fname);
 	    return NULL;
 	}
 	/* Skip any extra header bits */
@@ -318,8 +327,9 @@ struct fs_font* fs_consolefont(char **filename)
         }
     }
 
-    fprintf(stderr,"using linux console font \"%s\": %d gliphs %dx%d, char len %d%s\n",
-	    filename[i], nchars, width, height, charlen,
+    fprintf(stderr,
+	    "using linux console font \"%s\": %d gliphs %dx%d, char len %d%s\n",
+	    fname, nchars, width, height, charlen,
 	    flags & 1 ? " (unicode)" : "");
 
     f = malloc(sizeof(*f));
