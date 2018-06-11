@@ -604,7 +604,7 @@ main(int argc, char *argv[])
     unsigned long   freq;
     struct timeval  tv;
     time_t          t;
-    char            text[145],event[64],*env,*src,*dst;
+    char            text1[145], text2[145], event[64], *env, *src, *dst;
     fd_set          set;
     struct sigaction act,old;
 
@@ -790,26 +790,28 @@ main(int argc, char *argv[])
     fb_memset(fb_mem+fb_mem_offset,0,fb_fix.smem_len);
     for (;!sig;) {
 	if ((fb_switch_state == FB_ACTIVE || keep_dma_on) && !quiet) {
-	    /* clear first lines */
-	    fb_memset(fb_mem+fb_mem_offset,0,f->height*fb_fix.line_length);
 	    if (message[0] != '\0') {
-		strcpy(text,message);
+		strcpy(text1, message);
 	    } else {
-		sprintf(text,"Framebuffer TV - %s",default_title);
+		sprintf(text1, "Framebuffer TV - %s",default_title);
 	    }
 	    /* debugging + preformance monitoring */
 	    switch (cur_capture) {
 	    case CAPTURE_GRABDISPLAY:
-		sprintf(text+strlen(text), " - grab %d.%d fps",fps/5,(fps*2)%10);
+		sprintf(text1 + strlen(text1), " - grab %d.%d fps",
+			fps / 5, (fps * 2) % 10);
 		break;
 	    }
-	    text_out(0,0,text);
 
-	    if (dy > 0) {
-		/* display time */
-		time(&t);
-		strftime(text,16,"%H:%M",localtime(&t));
-		text_out(fb_var.xres - text_width(text) - f->width, 0, text);
+	    /* display time */
+	    time(&t);
+	    strftime(text2, 16, "%H:%M", localtime(&t));
+
+	    if (dy >= f->height) {
+		/* clear first lines */
+		fb_memset(fb_mem+fb_mem_offset,0,f->height*fb_fix.line_length);
+		text_out(0,0,text1);
+		text_out(fb_var.xres - text_width(text2) - f->width, 0, text2);
 	    }
 	}
 	if (switch_last != fb_switch_state)
@@ -883,6 +885,13 @@ main(int argc, char *argv[])
 		tv.tv_usec = 0;
 		rc = select(fdmax,&set,NULL,NULL,&tv);
 	    }
+
+	    /* If space is too short, overlay text at screen */
+	    if ((fb_switch_state == FB_ACTIVE || keep_dma_on) && !quiet && dy < f->height) {
+		text_out(0,0,text1);
+		text_out(fb_var.xres - text_width(text2) - f->width, 0, text2);
+	    }
+
 	    err = errno;
 	    if (switch_last != fb_switch_state)
 		console_switch();
