@@ -1,3 +1,18 @@
+3.105
+=====
+
+* add fbtv support for modern console fonts
+* fix fbtv output when byterperline is greater than the number of
+  filled bytes
+* add help for fbtv and improve its man page
+* allow using just the font name on fbtv
+* Cleanup most warnings when building it, fixing some potential bugs
+* Add support for AC_HEADER_MAJOR, in order to support upcoming
+  glibc versions
+* Allow ./configure --disable-alsa to compile when alsa is available
+* x11: get rid of deprecated XKeycodeToKeysym function
+* get rid of unused libXp at Makefile
+
 3.104
 =====
 
