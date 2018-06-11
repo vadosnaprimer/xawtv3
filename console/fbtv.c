@@ -580,7 +580,7 @@ scaler_test(int off)
 int
 main(int argc, char *argv[])
 {
-    int             i,key,c,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax, linesize;
+    int             i,key,c,help=0,gray=0,rc,vt=0,fps=0,t1,t2,lirc,js,err,mute=1,fdmax, linesize;
     unsigned long   ui;
     unsigned long   freq;
     struct timeval  tv;
@@ -600,7 +600,7 @@ main(int argc, char *argv[])
     ng_init();
     for (;;) {
 	double val;
-	c = getopt(argc, argv, "Mgvqxk2d:o:s:c:f:m:z:t:j:D:");
+	c = getopt(argc, argv, "hMgvqkd:o:s:c:f:m:z:t:j:D:");
 	if (c == -1)
 	    break;
 	switch (c) {
@@ -608,7 +608,7 @@ main(int argc, char *argv[])
 	    if(sscanf(optarg, "%lf", &val) == 1) {
 		if(val < 0.1 || val > 10)
 		    fprintf(stderr, "gamma value is out of range.  must be "
-			    "0.1 < value < 10.0\n");
+			    "0.1 <= value <= 10.0\n");
 		else
 		    fbgamma = 1.0 / val;
 	    }
@@ -659,9 +659,35 @@ main(int argc, char *argv[])
 	case 'j':
 	    joydev = optarg;
 	    break;
+	case 'h':
+	    help = 1;
+	    break;
 	default:
+	    fprintf(stderr, "Try '%s -h' for more information.\n", argv[0]);
 	    exit(1);
 	}
+    }
+
+    if (help) {
+	fprintf(stderr, "Usage:\n\t%s [options]\n\nwhere [options] are:\n\n", argv[0]);
+	fprintf(stderr, "\t-h - print this text\n");
+	fprintf(stderr, "\t-M - enable Matrox mode\n");
+	fprintf(stderr, "\t-g - sets a gray colormap. Works only on 8 bits per pixel modes\n");
+	fprintf(stderr, "\t-v - increase debug level\n");
+	fprintf(stderr, "\t-q - quiet mode: display just the camera\n");
+	fprintf(stderr, "\t-k - keep DMA on\n");
+
+	fprintf(stderr, "\t-d <device> - use <device> as the framebuffer device. If not specified, it will seek for one\n");
+	fprintf(stderr, "\t-o <prefix> - prefix for snapshot file names. Default: snap\n");
+	fprintf(stderr, "\t-s <resolution> - V4L2 capture resolution. The <resolution> is at <width>x<height> format, e. g. 800x600\n");
+	fprintf(stderr, "\t-c <device> - use <device> as video4linux device\n");
+	fprintf(stderr, "\t-f <filename> - use <filename> as the font console file. Default: lat1-16\n");
+	fprintf(stderr, "\t-m <mode> - framebuffer mode, as defined at /etc/fb.modes\n");
+	fprintf(stderr, "\t-z <gamma> - Sets the Gamma value. It should be between 0.1 and 10.0\n");
+	fprintf(stderr, "\t-t [<vt>] - virtual tty to open\n");
+	fprintf(stderr, "\t-j <device> - use <device> as a joystick to control the capture\n");
+	fprintf(stderr, "\t-D <name> - use <name> as video4linux driver\n");
+	exit(1);
     }
 
     do_overlay = 1;
