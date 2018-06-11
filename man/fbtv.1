@@ -15,6 +15,9 @@ application.  Check the xawtv(1) manpage for details about the config
 file format.
 .SH OPTIONS
 .TP
+.B -h
+Display a command line options summary.
+.TP
 .B -o base
 set basestring for the snapshot output files.  The filename will be
 "base-timestamp-nr.ext".
@@ -23,32 +26,34 @@ set basestring for the snapshot output files.  The filename will be
 Be verbose.
 .TP
 .B -c device
-video4linux device (default is /dev/video0).
+video4linux device (default is \fB/dev/video0\fR).
 .TP
 .B -D driver
-video4linux driver (default is "libv4l").
+video4linux driver (default is \fBlibv4l\fR).
 .TP
 .B -d device
-framebuffer device (default is $FRAMEBUFFER; /dev/fb0 if unset)
+framebuffer device (default is \fB$FRAMEBUFFER\fR; \fB/dev/fb0\fR if unset)
 .TP
 .B -g
 grayscaled display (works for 256 color mode only)
 .TP
-.B -s widthxheight
-display the TV picture in
-.B width
-x
-.B height
-size in the upper right corner.
+.B -s \fIwidth\fRx\fIheight\fR
+sets the V4L2 capture in \fIwidth\fR x \fIheight\fR resolution if possible.
 .TP
 .B -f font
-font for text.  Default is to look for lat1-16.psf in
-/usr/lib/kbd/consolefonts and /usr/share/consolefonts.  If you have a
-local X11 font server running (or the FONTSERVER environment variable
-set to some working server), you can also give X11 font specs here.
+font for text.  Default is to look for \fBlat1-16\fR console font. It no
+path is specified, it will seek for the font at the following directories:
+.nf
+    /usr/share/consolefonts/
+    /usr/share/kbd/consolefonts/
+    /usr/lib/kbd/consolefonts/
+    /lib/kbd/consolefonts/
+.fi
+If you have a local X11 font server running (or the \fBFONTSERVER\fR
+environment variable set to some working server), you can also give X11 font specs here.
 .TP
 .B -m mode
-video mode for TV.  fbtv will look up the mode in /etc/fb.modes.
+video mode for TV.  fbtv will look up the mode in \fB/etc/fb.modes\fR.
 .TP
 .B -j joydev
 joystick device to use for controlling fbtv.
@@ -63,8 +68,11 @@ is useful too.
 .TP
 .B -q
 quiet mode.  Doesn't reserve space for the status line at the top,
-doesn't display the status messages and clock.  You can toggle this
-at runtime too ('F').
+doesn't display the status messages and clock.
+When fbtv is started on this mode, it won't try to load the font file
+at start.
+
+You can toggle this at runtime too (using the \fB'F'\fR key).
 .TP
 .B -M
 EXPERIMENTAL: Turn on backend scaler mode (write yuv to offscreen

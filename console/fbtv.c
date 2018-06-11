@@ -674,13 +674,13 @@ main(int argc, char *argv[])
 	fprintf(stderr, "Usage:\n\t%s [options]\n\nwhere [options] are:\n\n", argv[0]);
 	fprintf(stderr, "\t-h - print this text\n");
 	fprintf(stderr, "\t-M - enable Matrox mode\n");
-	fprintf(stderr, "\t-g - sets a gray colormap. Works only on 8 bits per pixel modes\n");
+	fprintf(stderr, "\t-g - sets a gray colormap. Works only on 8 bits per pixel modes (256 color mode)\n");
 	fprintf(stderr, "\t-v - increase debug level\n");
 	fprintf(stderr, "\t-q - quiet mode: don't output any text at the framebuffer. Show just the camera stream\n");
-	fprintf(stderr, "\t-k - keep DMA on\n");
+	fprintf(stderr, "\t-k - keep capture enabled when switching consoles\n");
 
-	fprintf(stderr, "\t-d <device> - use <device> as the framebuffer device. If not specified, it will seek for one\n");
-	fprintf(stderr, "\t-o <prefix> - prefix for snapshot file names. Default: snap\n");
+	fprintf(stderr, "\t-d <device> - use <device> as the framebuffer devicen");
+	fprintf(stderr, "\t-o <base> - base string prefix for snapshot file names. Default: snap\n");
 	fprintf(stderr, "\t-s <resolution> - V4L2 capture resolution. The <resolution> is at <width>x<height> format, e. g. 800x600\n");
 	fprintf(stderr, "\t-c <device> - use <device> as video4linux device\n");
 	fprintf(stderr, "\t-f <filename> - use <filename> as the font console file. Not used on quiet mode. Default: lat1-16\n");
@@ -688,7 +688,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "\t-z <gamma> - Sets the Gamma value. It should be between 0.1 and 10.0\n");
 	fprintf(stderr, "\t-t [<vt>] - virtual tty to open\n");
 	fprintf(stderr, "\t-j <device> - use <device> as a joystick to control the capture\n");
-	fprintf(stderr, "\t-D <name> - use <name> as video4linux driver\n");
+	fprintf(stderr, "\t-D <name> - use <name> as video4linux driver. Default: libv4l\n");
 	exit(1);
     }
 
