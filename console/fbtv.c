@@ -377,6 +377,14 @@ static void do_capture(int from, int to, int tmp_switch)
 	break;
     }
 
+    /* Sanity check: don't accept resolution higher than framebuffer */
+    if (ww && hh) {
+	    if (ww > fb_var.xres)
+		    ww = fb_var.xres;
+	    if (hh > fb_var.yres)
+		    hh = fb_var.yres;
+    }
+
     /* on */
     memset(&buf,0,sizeof(buf));
     switch (to) {
@@ -411,8 +419,9 @@ static void do_capture(int from, int to, int tmp_switch)
 	    ch = ng_convert_alloc(conv,&gfmt,&fmt);
 	    ng_convert_init(ch);
 	}
-	dx += (fb_var.xres-24-fmt.width)/2;
-	dy += (fb_var.yres-16-fmt.height)/2;
+
+	dx += (fb_var.xres - 24 - fmt.width)/2;
+	dy += (fb_var.yres - 16 - fmt.height)/2;
 
 	if (f_drv & CAN_CAPTURE)
 	    drv->startvideo(h_drv,-1,2);
@@ -464,6 +473,12 @@ static void do_capture(int from, int to, int tmp_switch)
 	}
 	break;
     }
+
+    /* Sanity checks: some of the formula above could overflow */
+    if (dx < 0 || dx > fb_var.xres)
+	dx = 0;
+    if (dy < 0 || dy > fb_var.yres)
+	dy = 0;
 }
 
 static void
@@ -848,7 +863,13 @@ main(int argc, char *argv[])
 
 		linesize = buf->fmt.width * (ng_vfmt_to_depth[fmt.fmtid] / 8);
 
+		/* Prevent writing at the next line */
+		if (linesize > fb_fix.line_length)
+			linesize = fb_fix.line_length;
 		for (ui = 0; ui < buf->fmt.height; ui++) {
+		    if ((char *)dst + linesize > (char *)fb_mem + fb_mem_offset + fb_fix.smem_len)
+			    break;
+
 		    memcpy(dst, src, linesize);
 		    src += buf->fmt.bytesperline;
 		    dst += fb_fix.line_length;
