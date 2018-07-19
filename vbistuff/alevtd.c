@@ -375,10 +375,15 @@ mainloop(void)
 	if (FD_ISSET(vbi->fd,&rd)) {
 #if 0 /* def __linux__ */
 	    if (cachereset) {
-		ioctl(vbi->fd, VIDIOCGFREQ, &freq);
-		if (lastfreq != freq) {
-		    lastfreq = freq;
-		    vbi->cache->op->reset( vbi->cache) ;
+		struct v4l2_frequency freq = { };
+		__u32 lastfreq;
+
+		freq.tuner = 0;
+		if (!ioctl(vbi->fd, VIDIOC_G_FREQUENCY, &freq)) {
+		    if (lastfreq != freq.frequency) {
+		        lastfreq = freq.frequency;
+		        vbi->cache->op->reset( vbi->cache) ;
+		    }
 		    if (debug)
 			fprintf(stderr, "frequency change: cache cleared.\n");
 		}
