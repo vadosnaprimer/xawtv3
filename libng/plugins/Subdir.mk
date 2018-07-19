@@ -103,11 +103,6 @@ libng/plugins/struct-dump.o: structs/struct-dump.c
 	@$(compile_c)
 	@$(fixup_deps)
 
-libng/plugins/struct-v4l.o: structs/struct-v4l.c
-	@$(echo_compile_c)
-	@$(compile_c)
-	@$(fixup_deps)
-
 libng/plugins/struct-v4l2.o: structs/struct-v4l2.c
 	@$(echo_compile_c)
 	@$(compile_c)

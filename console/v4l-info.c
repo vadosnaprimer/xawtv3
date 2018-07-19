@@ -14,7 +14,6 @@
 #include "videodev2.h"
 
 #include "struct-dump.h"
-#include "struct-v4l.h"
 #include "struct-v4l2.h"
 
 /* --------------------------------------------------------------------- */
