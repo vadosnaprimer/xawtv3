@@ -6,6 +6,7 @@ arch-i686-linux/
 arch-x86_64-linux/
 autom4te.cache/
 config.h
+config.h.in
 config.log
 config.status
 configure
@@ -39,6 +40,8 @@ x11/motv
 x11/MoTV.ad
 x11/MoTV.de.ad
 x11/MoTV.de_DE.UTF-8.ad
+x11/MoTV.fr_FR.UTF-8.ad
+x11/MoTV.it_IT.UTF-8.ad
 x11/MoTV.fr.ad
 x11/MoTV.h
 x11/MoTV.it.ad
