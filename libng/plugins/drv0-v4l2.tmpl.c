@@ -91,7 +91,6 @@ struct v4l2_handle {
     int                         ninputs, nstds, nfmts, read_done;
     unsigned int                min_width, min_height;
     struct v4l2_capability	cap;
-    struct v4l2_streamparm	streamparm;
     struct v4l2_input		inp[MAX_INPUT];
     struct v4l2_standard      	std[MAX_NORM];
     struct v4l2_fmtdesc		fmt[MAX_FORMAT];
@@ -244,13 +243,6 @@ get_device_capabilities(struct v4l2_handle *h)
 	if (-1 == xioctl(h->fd, VIDIOC_ENUM_FMT, &h->fmt[h->nfmts], 1))
 	    break;
     }
-
-    h->streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-#ifndef USE_LIBV4L
-    ioctl(h->fd,VIDIOC_G_PARM,&h->streamparm);
-#else /* USE_LIBV4L */
-    v4l2_ioctl(h->fd,VIDIOC_G_PARM,&h->streamparm);
-#endif /* USE_LIBV4L */
 
     /* controls */
     for (i = 0; i < MAX_CTRL; i++) {
