@@ -176,80 +176,80 @@ static struct ng_video_conv conv_list[] = {
 	/* ----------------------------------- write GRAY -- */
 #if BYTE_ORDER == BIG_ENDIAN
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_BE,
-	fmtid_out:	VIDEO_GRAY,
-	priv:		rgb15_native_gray,
+	.fmtid_in =	VIDEO_RGB15_BE,
+	.fmtid_out =	VIDEO_GRAY,
+	.priv =		rgb15_native_gray,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_LE,
-	fmtid_out:	VIDEO_GRAY,
-	priv:		rgb15_le_gray,
+	.fmtid_in =	VIDEO_RGB15_LE,
+	.fmtid_out =	VIDEO_GRAY,
+	.priv =		rgb15_le_gray,
     }, {
 #else
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_BE,
-	fmtid_out:	VIDEO_GRAY,
-	priv:		rgb15_be_gray,
+	.fmtid_in =	VIDEO_RGB15_BE,
+	.fmtid_out =	VIDEO_GRAY,
+	.priv =		rgb15_be_gray,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_LE,
-	fmtid_out:	VIDEO_GRAY,
-	priv:		rgb15_native_gray,
+	.fmtid_in =	VIDEO_RGB15_LE,
+	.fmtid_out =	VIDEO_GRAY,
+	.priv =		rgb15_native_gray,
     }, {
 #endif
 	/* ----------------------------------- write RGB15 -- */
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_LE,
-	fmtid_out:	VIDEO_RGB15_BE,
-	priv:		byteswap_short,
+	.fmtid_in =	VIDEO_RGB15_LE,
+	.fmtid_out =	VIDEO_RGB15_BE,
+	.priv =		byteswap_short,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB15_BE,
-	fmtid_out:	VIDEO_RGB15_LE,
-	priv:		byteswap_short,
+	.fmtid_in =	VIDEO_RGB15_BE,
+	.fmtid_out =	VIDEO_RGB15_LE,
+	.priv =		byteswap_short,
     }, {
 	/* ----------------------------------- write RGB16 -- */
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB16_LE,
-	fmtid_out:	VIDEO_RGB16_BE,
-	priv:		byteswap_short,
+	.fmtid_in =	VIDEO_RGB16_LE,
+	.fmtid_out =	VIDEO_RGB16_BE,
+	.priv =		byteswap_short,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB16_BE,
-	fmtid_out:	VIDEO_RGB16_LE,
-	priv:		byteswap_short,
+	.fmtid_in =	VIDEO_RGB16_BE,
+	.fmtid_out =	VIDEO_RGB16_LE,
+	.priv =		byteswap_short,
     }, {
 	/* ----------------------------------- write RGB24 -- */
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR24,
-	fmtid_out:	VIDEO_RGB24,
-	priv:		redblue_swap,
+	.fmtid_in =	VIDEO_BGR24,
+	.fmtid_out =	VIDEO_RGB24,
+	.priv =		redblue_swap,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB24,
-	fmtid_out:	VIDEO_BGR24,
-	priv:		redblue_swap,
+	.fmtid_in =	VIDEO_RGB24,
+	.fmtid_out =	VIDEO_BGR24,
+	.priv =		redblue_swap,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB32,
-	fmtid_out:	VIDEO_RGB24,
-	priv:		rgb32_to_rgb24,
+	.fmtid_in =	VIDEO_RGB32,
+	.fmtid_out =	VIDEO_RGB24,
+	.priv =		rgb32_to_rgb24,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB32,
-	fmtid_out:	VIDEO_BGR24,
-	priv:		rgb32_to_bgr24,
+	.fmtid_in =	VIDEO_RGB32,
+	.fmtid_out =	VIDEO_BGR24,
+	.priv =		rgb32_to_bgr24,
     }, {
 	/* ----------------------------------- write RGB32 -- */
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR24,
-	fmtid_out:	VIDEO_BGR32,
-	priv:		bgr24_to_bgr32,
+	.fmtid_in =	VIDEO_BGR24,
+	.fmtid_out =	VIDEO_BGR32,
+	.priv =		bgr24_to_bgr32,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR24,
-	fmtid_out:	VIDEO_RGB32,
-	priv:		bgr24_to_rgb32,
+	.fmtid_in =	VIDEO_BGR24,
+	.fmtid_out =	VIDEO_RGB32,
+	.priv =		bgr24_to_rgb32,
     }
 };
 static const int nconv = sizeof(conv_list)/sizeof(struct ng_video_conv);

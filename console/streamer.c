@@ -46,11 +46,11 @@ static const struct ng_writer     *writer;
 static const void                 *video_priv;
 static const void                 *audio_priv;
 static struct ng_video_fmt        video = {
-    width: 320,
-    height: 240,
+    .width = 320,
+    .height = 240,
 };
 static struct ng_audio_fmt        audio = {
-    rate: 44100,
+    .rate = 44100,
 };
 static void *movie_state;
 

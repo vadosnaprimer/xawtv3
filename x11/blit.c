@@ -507,19 +507,19 @@ struct {
     char *ext;
 } gl_formats[VIDEO_FMT_COUNT] = {
     [ VIDEO_RGB24 ] = {
-	fmt:  GL_RGB,
-	type: GL_UNSIGNED_BYTE,
+	.fmt =  GL_RGB,
+	.type = GL_UNSIGNED_BYTE,
     },
 #ifdef GL_EXT_bgra
     [ VIDEO_BGR24 ] = {
-	fmt:  GL_BGR_EXT,
-	type: GL_UNSIGNED_BYTE,
-	ext:  "GL_EXT_bgra",
+	.fmt =  GL_BGR_EXT,
+	.type = GL_UNSIGNED_BYTE,
+	.ext =  "GL_EXT_bgra",
     },
     [ VIDEO_BGR32 ] = {
-	fmt:  GL_BGRA_EXT,
-	type: GL_UNSIGNED_BYTE,
-	ext:  "GL_EXT_bgra",
+	.fmt =  GL_BGRA_EXT,
+	.type = GL_UNSIGNED_BYTE,
+	.ext =  "GL_EXT_bgra",
     },
 #endif
 };

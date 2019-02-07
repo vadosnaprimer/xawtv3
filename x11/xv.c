@@ -550,17 +550,17 @@ init_icon_window(Widget shell,WidgetClass class)
 /* ********************************************************************* */
 
 const struct ng_vid_driver xv_driver = {
-    name:          "Xvideo",
-    close:         xv_close,
+    .name =          "Xvideo",
+    .close =         xv_close,
 
-    capabilities:  xv_flags,
-    list_attrs:    xv_attrs,
+    .capabilities =  xv_flags,
+    .list_attrs =    xv_attrs,
 
-    overlay:       xv_overlay,
+    .overlay =       xv_overlay,
 
-    getfreq:       xv_getfreq,
-    setfreq:       xv_setfreq,
-    is_tuned:      xv_tuned,
+    .getfreq =       xv_getfreq,
+    .setfreq =       xv_setfreq,
+    .is_tuned =      xv_tuned,
 };
 
 #else /* HAVE_LIBXV */

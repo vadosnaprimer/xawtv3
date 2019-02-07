@@ -161,76 +161,76 @@ gray_to_lut4(unsigned char* restrict dest, unsigned char* restrict src,
 static struct ng_video_conv lut2_list[] = {
     {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB24,
-	priv:		ng_rgb24_to_lut2,
+	.fmtid_in =	VIDEO_RGB24,
+	.priv =		ng_rgb24_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR24,
-	priv:		bgr24_to_lut2,
+	.fmtid_in =	VIDEO_BGR24,
+	.priv =		bgr24_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB32,
-	priv:		rgb32_to_lut2,
+	.fmtid_in =	VIDEO_RGB32,
+	.priv =		rgb32_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR32,
-	priv:		bgr32_to_lut2,
+	.fmtid_in =	VIDEO_BGR32,
+	.priv =		bgr32_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_GRAY,
-	priv:		gray_to_lut2,
+	.fmtid_in =	VIDEO_GRAY,
+	.priv =		gray_to_lut2,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUYV,
-	priv:		ng_yuv422_to_lut2,
+	.fmtid_in =	VIDEO_YUYV,
+	.priv =		ng_yuv422_to_lut2,
     },{
-	init:           ng_conv_nop_init,
-	fini:           ng_conv_nop_fini,
-	frame:          ng_yuv422p_to_lut2,
-	fmtid_in:	VIDEO_YUV422P,
+	.init =		ng_conv_nop_init,
+	.fini =		ng_conv_nop_fini,
+	.frame =	ng_yuv422p_to_lut2,
+	.fmtid_in =	VIDEO_YUV422P,
     },{
-	init:           ng_conv_nop_init,
-	fini:           ng_conv_nop_fini,
-	frame:          ng_yuv420p_to_lut2,
-	fmtid_in:	VIDEO_YUV420P,
+	.init =		ng_conv_nop_init,
+	.fini =		ng_conv_nop_fini,
+	.frame =	ng_yuv420p_to_lut2,
+	.fmtid_in =	VIDEO_YUV420P,
     }
 };
 
 static struct ng_video_conv lut4_list[] = {
     {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB24,
-	priv:		ng_rgb24_to_lut4,
+	.fmtid_in =	VIDEO_RGB24,
+	.priv =		ng_rgb24_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR24,
-	priv:		bgr24_to_lut4,
+	.fmtid_in =	VIDEO_BGR24,
+	.priv =		bgr24_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_RGB32,
-	priv:		rgb32_to_lut4,
+	.fmtid_in =	VIDEO_RGB32,
+	.priv =		rgb32_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_BGR32,
-	priv:		bgr32_to_lut4,
+	.fmtid_in =	VIDEO_BGR32,
+	.priv =		bgr32_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_GRAY,
-	priv:		gray_to_lut4,
+	.fmtid_in =	VIDEO_GRAY,
+	.priv =		gray_to_lut4,
     }, {
 	NG_GENERIC_PACKED,
-	fmtid_in:	VIDEO_YUYV,
-	priv:		ng_yuv422_to_lut4,
+	.fmtid_in =	VIDEO_YUYV,
+	.priv =		ng_yuv422_to_lut4,
     },{
-	init:           ng_conv_nop_init,
-	fini:           ng_conv_nop_fini,
-	frame:          ng_yuv422p_to_lut4,
-	fmtid_in:	VIDEO_YUV422P,
+	.init =		ng_conv_nop_init,
+	.fini =		ng_conv_nop_fini,
+	.frame =	ng_yuv422p_to_lut4,
+	.fmtid_in =	VIDEO_YUV422P,
     },{
-	init:           ng_conv_nop_init,
-	fini:           ng_conv_nop_fini,
-	frame:          ng_yuv420p_to_lut4,
-	fmtid_in:	VIDEO_YUV420P,
+	.init =		ng_conv_nop_init,
+	.fini =		ng_conv_nop_fini,
+	.frame =	ng_yuv420p_to_lut4,
+	.fmtid_in =	VIDEO_YUV420P,
     }
 };
 

@@ -60,14 +60,14 @@ struct DEVS {
 };
 
 struct DEVS devs_default = {
-    fb0:   "/dev/fb0",
-    fbnr:  "/dev/fb%d",
-    ttynr: "/dev/tty%d",
+    .fb0 =   "/dev/fb0",
+    .fbnr =  "/dev/fb%d",
+    .ttynr = "/dev/tty%d",
 };
 struct DEVS devs_devfs = {
-    fb0:   "/dev/fb/0",
-    fbnr:  "/dev/fb/%d",
-    ttynr: "/dev/vc/%d",
+    .fb0 =   "/dev/fb/0",
+    .fbnr =  "/dev/fb/%d",
+    .ttynr = "/dev/vc/%d",
 };
 struct DEVS *devices;
 

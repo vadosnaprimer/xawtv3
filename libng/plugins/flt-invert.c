@@ -111,8 +111,8 @@ static void fini(void *handle)
 /* ------------------------------------------------------------------- */
 
 static struct ng_filter filter = {
-    name:    "invert",
-    fmts:
+    .name =    "invert",
+    .fmts =
     (1 << VIDEO_GRAY)         |
     (1 << VIDEO_RGB15_NATIVE) |
     (1 << VIDEO_RGB16_NATIVE) |
@@ -122,9 +122,9 @@ static struct ng_filter filter = {
     (1 << VIDEO_RGB32)        |
     (1 << VIDEO_YUYV)         |
     (1 << VIDEO_UYVY),
-    init:    init,
-    frame:   frame,
-    fini:    fini,
+    .init =    init,
+    .frame =   frame,
+    .fini =    fini,
 };
 
 extern void ng_plugin_init(void);

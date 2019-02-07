@@ -502,10 +502,10 @@ void  ng_packed_frame(void *handle, struct ng_video_buf *out,
 void* ng_conv_nop_init(struct ng_video_fmt *out, void *priv);
 void  ng_conv_nop_fini(void *handle);
 
-#define NG_GENERIC_PACKED			\
-	init:           ng_packed_init,		\
-	frame:          ng_packed_frame,       	\
-	fini:           ng_conv_nop_fini
+#define NG_GENERIC_PACKED				\
+	.init =           ng_packed_init,		\
+	.frame =          ng_packed_frame,       	\
+	.fini =           ng_conv_nop_fini
 
 #endif /* NG_PRIVATE */
 

@@ -126,27 +126,27 @@ struct v4l2_handle {
 /* ---------------------------------------------------------------------- */
 
 struct ng_vid_driver v4l2_driver = {
-    name:          PLUGIN_NAME,
-    open:          v4l2_open_handle,
-    close:         v4l2_close_handle,
+    .name =          PLUGIN_NAME,
+    .open =          v4l2_open_handle,
+    .close =         v4l2_close_handle,
 
-    get_devname:   v4l2_devname,
-    capabilities:  v4l2_flags,
-    list_attrs:    v4l2_attrs,
-    get_min_size:  v4l2_get_min_size,
+    .get_devname =   v4l2_devname,
+    .capabilities =  v4l2_flags,
+    .list_attrs =    v4l2_attrs,
+    .get_min_size =  v4l2_get_min_size,
 
-    setupfb:       v4l2_setupfb,
-    overlay:       v4l2_overlay,
+    .setupfb =       v4l2_setupfb,
+    .overlay =       v4l2_overlay,
 
-    setformat:     v4l2_setformat,
-    startvideo:    v4l2_startvideo,
-    stopvideo:     v4l2_stopvideo,
-    nextframe:     v4l2_nextframe,
-    getimage:      v4l2_getimage,
+    .setformat =     v4l2_setformat,
+    .startvideo =    v4l2_startvideo,
+    .stopvideo =     v4l2_stopvideo,
+    .nextframe =     v4l2_nextframe,
+    .getimage =      v4l2_getimage,
 
-    getfreq:       v4l2_getfreq,
-    setfreq:       v4l2_setfreq,
-    is_tuned:      v4l2_tuned,
+    .getfreq =       v4l2_getfreq,
+    .setfreq =       v4l2_setfreq,
+    .is_tuned =      v4l2_tuned,
 };
 
 static __u32 xawtv_pixelformat[VIDEO_FMT_COUNT] = {

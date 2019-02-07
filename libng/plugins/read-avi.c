@@ -398,20 +398,20 @@ static int avi_close(void *handle)
 /* ----------------------------------------------------------------------- */
 
 struct ng_reader avi_reader = {
-    name:       "avi",
-    desc:       "Microsoft AVI (RIFF) format",
+    .name =       "avi",
+    .desc =       "Microsoft AVI (RIFF) format",
 
-    magic:	{ "RIFF" },
-    moff:       {  0     },
-    mlen:       {  4     },
+    .magic =	  { "RIFF" },
+    .moff =       {  0     },
+    .mlen =       {  4     },
 
-    rd_open:    avi_open,
-    rd_vfmt:    avi_vfmt,
-    rd_afmt:    avi_afmt,
-    rd_vdata:   avi_vdata,
-    rd_adata:   avi_adata,
-    frame_time: avi_frame_time,
-    rd_close:   avi_close,
+    .rd_open =    avi_open,
+    .rd_vfmt =    avi_vfmt,
+    .rd_afmt =    avi_afmt,
+    .rd_vdata =   avi_vdata,
+    .rd_adata =   avi_adata,
+    .frame_time = avi_frame_time,
+    .rd_close =   avi_close,
 };
 
 extern void ng_plugin_init(void);

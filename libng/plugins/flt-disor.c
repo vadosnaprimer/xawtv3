@@ -158,59 +158,59 @@ static void write_attr(struct ng_attribute *attr, int value)
 
 static struct ng_attribute attrs[] = {
     {
-	id:       1000,
-	name:     "k",
-	type:     ATTR_TYPE_INTEGER,
-	defval:   700,
-	min:      1,
-	max:      2000,
-	read:     read_attr,
-	write:    write_attr,
+	.id =       1000,
+	.name =     "k",
+	.type =     ATTR_TYPE_INTEGER,
+	.defval =   700,
+	.min =      1,
+	.max =      2000,
+	.read =     read_attr,
+	.write =    write_attr,
     },{
-	id:       1001,
-	name:     "zoom",
-	type:     ATTR_TYPE_INTEGER,
-	defval:   50,
-	min:      10,
-	max:      100,
-	read:     read_attr,
-	write:    write_attr,
+	.id =       1001,
+	.name =     "zoom",
+	.type =     ATTR_TYPE_INTEGER,
+	.defval =   50,
+	.min =      10,
+	.max =      100,
+	.read =     read_attr,
+	.write =    write_attr,
     },{
-	id:       1002,
-	name:     "center x",
-	type:     ATTR_TYPE_INTEGER,
-	defval:   50,
-	min:      0,
-	max:      100,
-	read:     read_attr,
-	write:    write_attr,
+	.id =       1002,
+	.name =     "center x",
+	.type =     ATTR_TYPE_INTEGER,
+	.defval =   50,
+	.min =      0,
+	.max =      100,
+	.read =     read_attr,
+	.write =    write_attr,
     },{
-	id:       1003,
-	name:     "center y",
-	type:     ATTR_TYPE_INTEGER,
-	defval:   50,
-	min:      0,
-	max:      100,
-	read:     read_attr,
-	write:    write_attr,
+	.id =       1003,
+	.name =     "center y",
+	.type =     ATTR_TYPE_INTEGER,
+	.defval =   50,
+	.min =      0,
+	.max =      100,
+	.read =     read_attr,
+	.write =    write_attr,
     },{
 	/* end of list */
     }
 };
 
 static struct ng_filter filter = {
-    name:    "disortion correction",
-    attrs:   attrs,
-    fmts:
+    .name =    "disortion correction",
+    .attrs =   attrs,
+    .fmts =
     (1 << VIDEO_RGB15_BE)     |
     (1 << VIDEO_RGB16_BE)     |
     (1 << VIDEO_RGB15_LE)     |
     (1 << VIDEO_RGB16_LE)     |
     (1 << VIDEO_BGR24)        |
     (1 << VIDEO_RGB24),
-    init:    init,
-    frame:   frame,
-    fini:    fini,
+    .init =    init,
+    .frame =   frame,
+    .fini =    fini,
 };
 
 extern void ng_plugin_init(void);

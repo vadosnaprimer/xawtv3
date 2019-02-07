@@ -188,10 +188,10 @@ dv_close(void *handle)
 
 static const struct ng_format_list dv_vformats[] = {
     {
-	name:  "dv",
-	ext:   "dv",
-	desc:  "digital video",
-	fmtid: VIDEO_YUYV,
+	.name =  "dv",
+	.ext =   "dv",
+	.desc =  "digital video",
+	.fmtid = VIDEO_YUYV,
     },{
 	/* EOF */
     }
@@ -200,9 +200,9 @@ static const struct ng_format_list dv_vformats[] = {
 #if 0
 static const struct ng_format_list dv_aformats[] = {
     {
-	name:  "stereo16",
-	ext:   "dv",
-	fmtid: AUDIO_S16_NATIVE_STEREO,
+	.name =  "stereo16",
+	.ext =   "dv",
+	.fmtid = AUDIO_S16_NATIVE_STEREO,
     },{
 	/* EOF */
     }
@@ -210,15 +210,15 @@ static const struct ng_format_list dv_aformats[] = {
 #endif
 
 struct ng_writer dv_writer = {
-    name:      "dv",
-    desc:      "Digital Video",
-    //combined:  1,
-    video:     dv_vformats,
-    //audio:     dv_aformats,
-    wr_open:   dv_open,
-    wr_video:  dv_video,
-    wr_audio:  dv_audio,
-    wr_close:  dv_close,
+    .name =      "dv",
+    .desc =      "Digital Video",
+    //.combined =  1,
+    .video =     dv_vformats,
+    //.audio =     dv_aformats,
+    .wr_open =   dv_open,
+    .wr_video =  dv_video,
+    .wr_audio =  dv_audio,
+    .wr_close =  dv_close,
 };
 
 extern void ng_plugin_init(void);

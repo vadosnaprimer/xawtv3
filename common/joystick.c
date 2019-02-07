@@ -42,23 +42,23 @@ static struct JOYTAB joytab[] = {
 
 static struct event_entry joy_events[] = {
     {
-	event:  "joy-button-0",
-	action: "quit",
+	.event =  "joy-button-0",
+	.action = "quit",
     },{
-	event:  "joy-button-1",
-	action: "fullscreen",
+	.event =  "joy-button-1",
+	.action = "fullscreen",
     },{
-	event:  "joy-axis-up",
-	action: "volume inc",
+	.event =  "joy-axis-up",
+	.action = "volume inc",
     },{
-	event:  "joy-axis-down",
-	action: "volume dec",
+	.event =  "joy-axis-down",
+	.action = "volume dec",
     },{
-	event:  "joy-axis-left",
-	action: "setchannel prev",
+	.event =  "joy-axis-left",
+	.action = "setchannel prev",
     },{
-	event:  "joy-axis-right",
-	action: "setchannel next",
+	.event =  "joy-axis-right",
+	.action = "setchannel next",
     },{
 	/* end of list */
     }

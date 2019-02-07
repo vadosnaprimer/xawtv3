@@ -545,59 +545,59 @@ raw_close(void *handle)
 
 static const struct ng_format_list files_vformats[] = {
     {
-	name:  "ppm",
-	ext:   "ppm",
-	fmtid: VIDEO_RGB24,
+	.name =  "ppm",
+	.ext =   "ppm",
+	.fmtid = VIDEO_RGB24,
     },{
-	name:  "pgm",
-	ext:   "pgm",
-	fmtid: VIDEO_GRAY,
+	.name =  "pgm",
+	.ext =   "pgm",
+	.fmtid = VIDEO_GRAY,
     },{
-	name:  "jpeg",
-	ext:   "jpeg",
-	fmtid: VIDEO_JPEG,
+	.name =  "jpeg",
+	.ext =   "jpeg",
+	.fmtid = VIDEO_JPEG,
     },{
 	/* EOF */
     }
 };
 
 static struct raw_priv yuv4mpeg = {
-    yuv4mpeg: 1
+    .yuv4mpeg = 1
 };
 
 static struct raw_priv yuv4mpeg2 = {
-    yuv4mpeg: 2
+    .yuv4mpeg = 2
 };
 
 static const struct ng_format_list raw_vformats[] = {
     {
-	name:  "rgb",
-	ext:   "raw",
-	fmtid: VIDEO_RGB24,
+	.name =  "rgb",
+	.ext =   "raw",
+	.fmtid = VIDEO_RGB24,
     },{
-	name:  "gray",
-	ext:   "raw",
-	fmtid: VIDEO_GRAY,
+	.name =  "gray",
+	.ext =   "raw",
+	.fmtid = VIDEO_GRAY,
     },{
-	name:  "422",
-	ext:   "raw",
-	fmtid: VIDEO_YUYV,
+	.name =  "422",
+	.ext =   "raw",
+	.fmtid = VIDEO_YUYV,
     },{
-	name:  "422p",
-	ext:   "raw",
-	fmtid: VIDEO_YUV422P,
+	.name =  "422p",
+	.ext =   "raw",
+	.fmtid = VIDEO_YUV422P,
     },{
-	name:  "4mpeg",
-	desc:  "yuv4mpeg (mpeg2enc >= 1.6)",
-	ext:   "yuv",
-	fmtid: VIDEO_YUV420P,
-	priv:  &yuv4mpeg2,
+	.name =  "4mpeg",
+	.desc=   "yuv4mpeg (mpeg2enc >= 1.6)",
+	.ext =   "yuv",
+	.fmtid = VIDEO_YUV420P,
+	.priv =  &yuv4mpeg2,
     },{
-	name:  "4mpeg-o",
-	desc:  "yuv4mpeg (old mpeg2enc)",
-	ext:   "yuv",
-	fmtid: VIDEO_YUV420P,
-	priv:  &yuv4mpeg,
+	.name =  "4mpeg-o",
+	.desc =  "yuv4mpeg (old mpeg2enc)",
+	.ext =   "yuv",
+	.fmtid = VIDEO_YUV420P,
+	.priv =  &yuv4mpeg,
     },{
 	/* EOF */
     }
@@ -605,42 +605,42 @@ static const struct ng_format_list raw_vformats[] = {
 
 static const struct ng_format_list wav_aformats[] = {
     {
-	name:  "mono8",
-	ext:   "wav",
-	fmtid: AUDIO_U8_MONO,
+	.name =  "mono8",
+	.ext =   "wav",
+	.fmtid = AUDIO_U8_MONO,
     },{
-	name:  "mono16",
-	ext:   "wav",
-	fmtid: AUDIO_S16_LE_MONO,
+	.name =  "mono16",
+	.ext =   "wav",
+	.fmtid = AUDIO_S16_LE_MONO,
     },{
-	name:  "stereo",
-	ext:   "wav",
-	fmtid: AUDIO_S16_LE_STEREO,
+	.name =  "stereo",
+	.ext =   "wav",
+	.fmtid = AUDIO_S16_LE_STEREO,
     },{
 	/* EOF */
     }
 };
 
 struct ng_writer files_writer = {
-    name:      "files",
-    desc:      "multiple image files",
-    video:     files_vformats,
-    audio:     wav_aformats,
-    wr_open:   files_open,
-    wr_video:  files_video,
-    wr_audio:  files_audio,
-    wr_close:  files_close,
+    .name =      "files",
+    .desc =      "multiple image files",
+    .video =     files_vformats,
+    .audio =     wav_aformats,
+    .wr_open =   files_open,
+    .wr_video =  files_video,
+    .wr_audio =  files_audio,
+    .wr_close =  files_close,
 };
 
 struct ng_writer raw_writer = {
-    name:      "raw",
-    desc:      "single file, raw video data",
-    video:     raw_vformats,
-    audio:     wav_aformats,
-    wr_open:   raw_open,
-    wr_video:  raw_video,
-    wr_audio:  raw_audio,
-    wr_close:  raw_close,
+    .name =      "raw",
+    .desc =      "single file, raw video data",
+    .video =     raw_vformats,
+    .audio =     wav_aformats,
+    .wr_open =   raw_open,
+    .wr_video =  raw_video,
+    .wr_audio =  raw_audio,
+    .wr_close =  raw_close,
 };
 
 /* ------------------------------------------------------------------- */

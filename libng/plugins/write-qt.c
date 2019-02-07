@@ -195,92 +195,92 @@ static int cmodels[] = {
 };
 
 static struct qt_video_priv qt_raw = {
-    fcc:       QUICKTIME_RAW,
-    libencode: 0,
+    .fcc =       QUICKTIME_RAW,
+    .libencode = 0,
 };
 static struct qt_video_priv qt_yuv2 = {
-    fcc:       QUICKTIME_YUV2,
-    yuvsign:   1,
-    libencode: 0,
+    .fcc =       QUICKTIME_YUV2,
+    .yuvsign =   1,
+    .libencode = 0,
 };
 static struct qt_video_priv qt_yv12 = {
-    fcc:       QUICKTIME_YUV420,
-    libencode: 0,
+    .fcc =       QUICKTIME_YUV420,
+    .libencode = 0,
 };
 static struct qt_video_priv qt_jpeg = {
-    fcc:       QUICKTIME_JPEG,
-    libencode: 0,
+    .fcc =       QUICKTIME_JPEG,
+    .libencode = 0,
 };
 
 static const struct ng_format_list qt_vformats[] = {
     {
-	name:  "raw",
-	ext:   "mov",
-	fmtid: VIDEO_RGB24,
-	priv:  &qt_raw,
+	.name =  "raw",
+	.ext =   "mov",
+	.fmtid = VIDEO_RGB24,
+	.priv =  &qt_raw,
     },{
-	name:  "yuv2",
-	ext:   "mov",
-	fmtid: VIDEO_YUYV,
-	priv:  &qt_yuv2,
+	.name =  "yuv2",
+	.ext =   "mov",
+	.fmtid = VIDEO_YUYV,
+	.priv =  &qt_yuv2,
     },{
-	name:  "yv12",
-	ext:   "mov",
-	fmtid: VIDEO_YUV420P,
-	priv:  &qt_yv12,
+	.name =  "yv12",
+	.ext =   "mov",
+	.fmtid = VIDEO_YUV420P,
+	.priv =  &qt_yv12,
     },{
-	name:  "jpeg",
-	ext:   "mov",
-	fmtid: VIDEO_JPEG,
-	priv:  &qt_jpeg,
+	.name =  "jpeg",
+	.ext =   "mov",
+	.fmtid = VIDEO_JPEG,
+	.priv =  &qt_jpeg,
     },{
 	/* EOF */
     }
 };
 
 static struct qt_audio_priv qt_mono8 = {
-    fcc:        QUICKTIME_RAW,
-    libencode:  0,
+    .fcc =        QUICKTIME_RAW,
+    .libencode =  0,
 };
 static struct qt_audio_priv qt_mono16 = {
-    fcc:	QUICKTIME_TWOS,
-    libencode:	0,
+    .fcc =	QUICKTIME_TWOS,
+    .libencode =	0,
 };
 static struct qt_audio_priv qt_stereo = {
-    fcc:	QUICKTIME_TWOS,
-    libencode:	0,
+    .fcc =	QUICKTIME_TWOS,
+    .libencode =	0,
 };
 static const struct ng_format_list qt_aformats[] = {
     {
-	name:  "mono8",
-	ext:   "mov",
-	fmtid: AUDIO_U8_MONO,
-	priv:  &qt_mono8,
+	.name =  "mono8",
+	.ext =   "mov",
+	.fmtid = AUDIO_U8_MONO,
+	.priv =  &qt_mono8,
     },{
-	name:  "mono16",
-	ext:   "mov",
-	fmtid: AUDIO_S16_BE_MONO,
-	priv:  &qt_mono16,
+	.name =  "mono16",
+	.ext =   "mov",
+	.fmtid = AUDIO_S16_BE_MONO,
+	.priv =  &qt_mono16,
     },{
-	name:  "stereo",
-	ext:   "mov",
-	fmtid: AUDIO_S16_BE_STEREO,
-	priv:  &qt_stereo,
+	.name =  "stereo",
+	.ext =   "mov",
+	.fmtid = AUDIO_S16_BE_STEREO,
+	.priv =  &qt_stereo,
     },{
 	/* EOF */
     }
 };
 
 struct ng_writer qt_writer = {
-    name:      "qt",
-    desc:      "Apple QuickTime format",
-    combined:  1,
-    video:     qt_vformats,
-    audio:     qt_aformats,
-    wr_open:   qt_open,
-    wr_video:  qt_video,
-    wr_audio:  qt_audio,
-    wr_close:  qt_close,
+    .name =      "qt",
+    .desc =      "Apple QuickTime format",
+    .combined =  1,
+    .video =     qt_vformats,
+    .audio =     qt_aformats,
+    .wr_open =   qt_open,
+    .wr_video =  qt_video,
+    .wr_audio =  qt_audio,
+    .wr_close =  qt_close,
 };
 
 /* ----------------------------------------------------------------------- */

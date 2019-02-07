@@ -34,19 +34,19 @@ struct mixer_handle {
 
 static struct ng_attribute mixer_attrs[] = {
     {
-	id:       ATTR_ID_MUTE,
-	name:     "mute",
-	type:     ATTR_TYPE_BOOL,
-	read:     mixer_read_attr,
-	write:    mixer_write_attr,
+	.id =       ATTR_ID_MUTE,
+	.name =     "mute",
+	.type =     ATTR_TYPE_BOOL,
+	.read =     mixer_read_attr,
+	.write =    mixer_write_attr,
     },{
-	id:       ATTR_ID_VOLUME,
-	name:     "volume",
-	type:     ATTR_TYPE_INTEGER,
-	min:      0,
-	max:      100,
-	read:     mixer_read_attr,
-	write:    mixer_write_attr,
+	.id =       ATTR_ID_VOLUME,
+	.name =     "volume",
+	.type =     ATTR_TYPE_INTEGER,
+	.min =      0,
+	.max =      100,
+	.read =     mixer_read_attr,
+	.write =    mixer_write_attr,
     },{
 	/* end of list */
     }
@@ -227,12 +227,12 @@ mixer_channels(char *device)
 }
 
 struct ng_mix_driver oss_mixer = {
-    name:      "oss",
-    probe:     mixer_probe,
-    channels:  mixer_channels,
-    open:      mixer_open,
-    volctl:    mixer_volctl,
-    close:     mixer_close,
+    .name =      "oss",
+    .probe =     mixer_probe,
+    .channels =  mixer_channels,
+    .open =      mixer_open,
+    .volctl =    mixer_volctl,
+    .close =     mixer_close,
 };
 
 /* ------------------------------------------------------------------- */
@@ -559,14 +559,14 @@ oss_close(void *handle)
 /* ------------------------------------------------------------------- */
 
 static struct ng_dsp_driver oss_dsp = {
-    name:      "oss",
-    open:      oss_open,
-    close:     oss_close,
-    fd:        oss_fd,
-    startrec:  oss_startrec,
-    read:      oss_read,
-    write:     oss_write,
-    latency:   oss_latency,
+    .name =      "oss",
+    .open =      oss_open,
+    .close =     oss_close,
+    .fd =        oss_fd,
+    .startrec =  oss_startrec,
+    .read =      oss_read,
+    .write =     oss_write,
+    .latency =   oss_latency,
 };
 
 extern void ng_plugin_init(void);

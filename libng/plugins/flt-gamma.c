@@ -139,24 +139,24 @@ static void write_attr(struct ng_attribute *attr, int value)
 
 static struct ng_attribute attrs[] = {
     {
-	id:       0,
-	name:     "gamma value",
-	type:     ATTR_TYPE_INTEGER,
-	defval:   100,
-	min:      1,
-	max:      500,
-	points:   2,
-	read:     read_attr,
-	write:    write_attr,
+	.id =       0,
+	.name =     "gamma value",
+	.type =     ATTR_TYPE_INTEGER,
+	.defval =   100,
+	.min =      1,
+	.max =      500,
+	.points =   2,
+	.read =     read_attr,
+	.write =    write_attr,
     },{
 	/* end of list */
     }
 };
 
 static struct ng_filter filter = {
-    name:    "gamma",
-    attrs:   attrs,
-    fmts:
+    .name =    "gamma",
+    .attrs =   attrs,
+    .fmts =
     (1 << VIDEO_GRAY)         |
     (1 << VIDEO_RGB15_NATIVE) |
     (1 << VIDEO_RGB16_NATIVE) |
@@ -164,9 +164,9 @@ static struct ng_filter filter = {
     (1 << VIDEO_RGB24)        |
     (1 << VIDEO_BGR32)        |
     (1 << VIDEO_RGB32),
-    init:    init,
-    frame:   frame,
-    fini:    fini,
+    .init =    init,
+    .frame =   frame,
+    .fini =    fini,
 };
 
 extern void ng_plugin_init(void);

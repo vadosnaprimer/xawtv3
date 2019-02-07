@@ -155,7 +155,10 @@ static void
 vbi_render_head(struct vbi_tty *tty, int pgno, int subno)
 {
     static struct vbi_rect head = {
-	x1:  0,  y1:  0,  x2: 41,  y2:  1,
+	.x1 =  0,
+	.y1 =  0,
+	.x2 = 41,
+	.y2 =  1,
     };
     struct vbi_page pg;
     char *data;

@@ -22,7 +22,10 @@
 char *vbi_colors[8] = { "black", "red", "green", "yellow",
 			"blue", "magenta", "cyan", "white" };
 struct vbi_rect vbi_fullrect = {
-	x1:  0,  y1:  0,  x2: 41,  y2: 25,
+	.x1 =  0,
+	.y1 =  0,
+	.x2 = 41,
+	.y2 = 25,
 };
 
 /*---------------------------------------------------------------------*/

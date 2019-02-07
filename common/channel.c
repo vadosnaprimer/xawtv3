@@ -50,15 +50,15 @@
 /* misc common stuff, not only channel related                             */
 
 struct CHANNEL defaults = {
-    name:     "defaults",
-    group:    "main",
-    capture:  CAPTURE_ON,
-    channel:  -1,
-    audio:    -1,
-    color:    -1,
-    bright:   -1,
-    hue:      -1,
-    contrast: -1,
+    .name =     "defaults",
+    .group =    "main",
+    .capture =  CAPTURE_ON,
+    .channel =  -1,
+    .audio =    -1,
+    .color =    -1,
+    .bright =   -1,
+    .hue =      -1,
+    .contrast = -1,
 };
 
 struct CHANNEL  **channels  = NULL;

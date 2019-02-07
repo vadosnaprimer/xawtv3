@@ -307,20 +307,20 @@ static int dv_close(void *handle)
 /* ----------------------------------------------------------------------- */
 
 struct ng_reader dv_reader = {
-    name:       "dv",
-    desc:       "Digital Video",
+    .name =       "dv",
+    .desc =       "Digital Video",
 
-    magic:	{ "\x1f\x07\x00",  "\x3f\x07\x00" },
-    moff:       {  0,              0x50           },
-    mlen:       {  3,              3              },
+    .magic =      { "\x1f\x07\x00",  "\x3f\x07\x00" },
+    .moff =       {  0,              0x50           },
+    .mlen =       {  3,              3              },
 
-    rd_open:    dv_open,
-    rd_vfmt:    dv_vfmt,
-    rd_afmt:    dv_afmt,
-    rd_vdata:   dv_vdata,
-    rd_adata:   dv_adata,
-    frame_time: dv_frame_time,
-    rd_close:   dv_close,
+    .rd_open =    dv_open,
+    .rd_vfmt =    dv_vfmt,
+    .rd_afmt =    dv_afmt,
+    .rd_vdata =   dv_vdata,
+    .rd_adata =   dv_adata,
+    .frame_time = dv_frame_time,
+    .rd_close =   dv_close,
 };
 
 extern void ng_plugin_init(void);

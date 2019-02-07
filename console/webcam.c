@@ -162,10 +162,10 @@ static void ftp_close(struct xfer_state *s)
 }
 
 static struct xfer_ops ftp_ops = {
-    open:  ftp_open,
-    info:  ftp_info,
-    xfer:  ftp_xfer,
-    close: ftp_close,
+    .open =  ftp_open,
+    .info =  ftp_info,
+    .xfer =  ftp_xfer,
+    .close = ftp_close,
 };
 
 static int ssh_open(struct xfer_state *s)
@@ -226,10 +226,10 @@ static void ssh_close(struct xfer_state *s)
 }
 
 static struct xfer_ops ssh_ops = {
-    open:  ssh_open,
-    info:  ssh_info,
-    xfer:  ssh_xfer,
-    close: ssh_close,
+    .open =  ssh_open,
+    .info =  ssh_info,
+    .xfer =  ssh_xfer,
+    .close = ssh_close,
 };
 
 static int local_open(struct xfer_state *s)
@@ -276,10 +276,10 @@ static void local_close(struct xfer_state *s)
 }
 
 static struct xfer_ops local_ops = {
-    open:  local_open,
-    info:  local_info,
-    xfer:  local_xfer,
-    close: local_close,
+    .open =  local_open,
+    .info =  local_info,
+    .xfer =  local_xfer,
+    .close = local_close,
 };
 
 /* ---------------------------------------------------------------------- */

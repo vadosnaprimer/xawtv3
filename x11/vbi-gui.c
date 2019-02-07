@@ -540,10 +540,10 @@ static void
 export_do_save_cb(Widget widget, XtPointer clientdata, XtPointer call_data)
 {
     static struct vbi_rect rect = {
-	x1:  0,
-	x2: 41,
-	y1:  0,
-	y2: 25,
+	.x1 =  0,
+	.x2 = 41,
+	.y1 =  0,
+	.y2 = 25,
     };
     XmFileSelectionBoxCallbackStruct *cb = call_data;
     struct vbi_window *vw = clientdata;

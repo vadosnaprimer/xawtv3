@@ -270,20 +270,20 @@ static int qt_close(void *handle)
 /* ----------------------------------------------------------------------- */
 
 struct ng_reader qt_reader = {
-    name:       "qt",
-    desc:       "Apple QuickTime format",
+    .name =       "qt",
+    .desc =       "Apple QuickTime format",
 
-    magic:	{ "moov", "mdat" },
-    moff:       {  4,      4     },
-    mlen:       {  4,      4     },
+    .magic =      { "moov", "mdat" },
+    .moff =       {  4,      4     },
+    .mlen =       {  4,      4     },
 
-    rd_open:    qt_open,
-    rd_vfmt:    qt_vfmt,
-    rd_afmt:    qt_afmt,
-    rd_vdata:   qt_vdata,
-    rd_adata:   qt_adata,
-    frame_time: qt_frame_time,
-    rd_close:   qt_close,
+    .rd_open =    qt_open,
+    .rd_vfmt =    qt_vfmt,
+    .rd_afmt =    qt_afmt,
+    .rd_vdata =   qt_vdata,
+    .rd_adata =   qt_adata,
+    .frame_time = qt_frame_time,
+    .rd_close =   qt_close,
 };
 
 extern void ng_plugin_init(void);

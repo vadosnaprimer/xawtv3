@@ -465,37 +465,37 @@ avi_close(void *handle)
 /* data structures describing our capabilities                             */
 
 static struct avi_video_priv avi_rgb15 = {
-    bytesperpixel:  2,
+    .bytesperpixel =  2,
 };
 static struct avi_video_priv avi_rgb24 = {
-    bytesperpixel:  3,
+    .bytesperpixel =  3,
 };
 static struct avi_video_priv avi_mjpeg = {
-    handler:        {'M','J','P','G'},
-    compress:       {'M','J','P','G'},
-    bytesperpixel:  3,
+    .handler =        {'M','J','P','G'},
+    .compress =       {'M','J','P','G'},
+    .bytesperpixel =  3,
 };
 static const struct ng_format_list avi_vformats[] = {
     {
-	name:  "rgb15",
-	ext:   "avi",
-	fmtid: VIDEO_RGB15_LE,
-	priv:  &avi_rgb15,
+	.name =  "rgb15",
+	.ext =   "avi",
+	.fmtid = VIDEO_RGB15_LE,
+	.priv =  &avi_rgb15,
     },{
-	name:  "rgb24",
-	ext:   "avi",
-	fmtid: VIDEO_BGR24,
-	priv:  &avi_rgb24,
+	.name =  "rgb24",
+	.ext =   "avi",
+	.fmtid = VIDEO_BGR24,
+	.priv =  &avi_rgb24,
     },{
-	name:  "mjpeg",
-	ext:   "avi",
-	fmtid: VIDEO_MJPEG,
-	priv:  &avi_mjpeg,
+	.name =  "mjpeg",
+	.ext =   "avi",
+	.fmtid = VIDEO_MJPEG,
+	.priv =  &avi_mjpeg,
     },{
-	name:  "jpeg",
-	ext:   "avi",
-	fmtid: VIDEO_JPEG,
-	priv:  &avi_mjpeg,
+	.name =  "jpeg",
+	.ext =   "avi",
+	.fmtid = VIDEO_JPEG,
+	.priv =  &avi_mjpeg,
     },{
 	/* EOF */
     }
@@ -503,32 +503,32 @@ static const struct ng_format_list avi_vformats[] = {
 
 static const struct ng_format_list avi_aformats[] = {
     {
-	name:  "mono8",
-	ext:   "avi",
-	fmtid: AUDIO_U8_MONO,
+	.name =  "mono8",
+	.ext =   "avi",
+	.fmtid = AUDIO_U8_MONO,
     },{
-	name:  "mono16",
-	ext:   "avi",
-	fmtid: AUDIO_S16_LE_MONO,
+	.name =  "mono16",
+	.ext =   "avi",
+	.fmtid = AUDIO_S16_LE_MONO,
     },{
-	name:  "stereo",
-	ext:   "avi",
-	fmtid: AUDIO_S16_LE_STEREO,
+	.name =  "stereo",
+	.ext =   "avi",
+	.fmtid = AUDIO_S16_LE_STEREO,
     },{
 	/* EOF */
     }
 };
 
 struct ng_writer avi_writer = {
-    name:      "avi",
-    desc:      "Microsoft AVI (RIFF) format",
-    combined:  1,
-    video:     avi_vformats,
-    audio:     avi_aformats,
-    wr_open:   avi_open,
-    wr_video:  avi_video,
-    wr_audio:  avi_audio,
-    wr_close:  avi_close,
+    .name =      "avi",
+    .desc =      "Microsoft AVI (RIFF) format",
+    .combined =  1,
+    .video =     avi_vformats,
+    .audio =     avi_aformats,
+    .wr_open =   avi_open,
+    .wr_video =  avi_video,
+    .wr_audio =  avi_audio,
+    .wr_close =  avi_close,
 };
 
 extern void ng_plugin_init(void);

@@ -11,20 +11,20 @@
  */
 #if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
 struct ng_device_config ng_dev = {
-    video:  "/dev/bktr0",
-    driver: "bktr",
-    radio:  NULL,
-    vbi:    "/dev/vbi0",
-    dsp:    "/dev/dsp",
-    mixer:  "/dev/mixer",
-    video_scan: {
+    .video =  "/dev/bktr0",
+    .driver = "bktr",
+    .radio =  NULL,
+    .vbi =    "/dev/vbi0",
+    .dsp =    "/dev/dsp",
+    .mixer =  "/dev/mixer",
+    .video_scan = {
 	"/dev/bktr0",
 	"/dev/bktr1",
 	"/dev/cxm0",
 	"/dev/cxm1",
 	NULL
     },
-    mixer_scan: {
+    .mixer_scan = {
 	"/dev/mixer",
 	"/dev/mixer1",
 	"/dev/mixer2",
@@ -35,20 +35,20 @@ struct ng_device_config ng_dev = {
 #endif
 #if defined(__linux__)
 struct ng_device_config ng_dev = {
-    video:  "/dev/video0",
-    driver: "libv4l",
-    radio:  "/dev/radio0",
-    vbi:    "/dev/vbi0",
-    dsp:    "/dev/dsp",
-    mixer:  "/dev/mixer",
-    video_scan:   {
+    .video =  "/dev/video0",
+    .driver = "libv4l",
+    .radio =  "/dev/radio0",
+    .vbi =    "/dev/vbi0",
+    .dsp =    "/dev/dsp",
+    .mixer =  "/dev/mixer",
+    .video_scan = {
 	"/dev/video0",
 	"/dev/video1",
 	"/dev/video2",
 	"/dev/video3",
 	NULL
     },
-    mixer_scan: {
+    .mixer_scan = {
 	"/dev/mixer",
 	"/dev/mixer1",
 	"/dev/mixer2",
@@ -58,20 +58,20 @@ struct ng_device_config ng_dev = {
 };
 
 struct ng_device_config ng_dev_devfs = {
-    video:  "/dev/v4l/video0",
-    driver: "libv4l",
-    radio:  "/dev/v4l/radio0",
-    vbi:    "/dev/v4l/vbi0",
-    dsp:    "/dev/sound/dsp",
-    mixer:  "/dev/sound/mixer",
-    video_scan:   {
+    .video =  "/dev/v4l/video0",
+    .driver = "libv4l",
+    .radio =  "/dev/v4l/radio0",
+    .vbi =    "/dev/v4l/vbi0",
+    .dsp =    "/dev/sound/dsp",
+    .mixer =  "/dev/sound/mixer",
+    .video_scan =   {
 	"/dev/v4l/video0",
 	"/dev/v4l/video1",
 	"/dev/v4l/video2",
 	"/dev/v4l/video3",
 	NULL
     },
-    mixer_scan: {
+    .mixer_scan = {
 	"/dev/sound/mixer",
 	"/dev/sound/mixer1",
 	"/dev/sound/mixer2",
