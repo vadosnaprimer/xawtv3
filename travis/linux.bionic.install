@@ -1,0 +1,34 @@
+#!/bin/sh
+sudo apt-get install -y \
+	autoconf \
+	automake \
+	libv4l-dev \
+	debhelper \
+	libaa1-dev \
+	libasound2-dev \
+	libdv-dev \
+	libfs-dev \
+	libgl1-mesa-dev \
+	libglib2.0-dev \
+	libjpeg-dev \
+	liblircclient-dev \
+	libmotif-dev \
+	libncurses5-dev \
+	libpng-dev \
+	libquicktime-dev \
+	libx11-dev \
+	libxaw7-dev \
+	libxext-dev \
+	libxft-dev \
+	libxinerama-dev \
+	libxmu-dev \
+	libxpm-dev \
+	libxrandr-dev \
+	libxt-dev \
+	libxv-dev \
+	libxxf86dga-dev \
+	libxxf86vm-dev \
+	libzvbi-dev \
+	po-debconf \
+	x11-xserver-utils \
+	x11proto-core-dev

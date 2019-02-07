@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+autoreconf -vfi
+
+./configure
+
+make
+sudo make install
