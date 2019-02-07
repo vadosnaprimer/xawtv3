@@ -42,14 +42,6 @@ static int smoothTime = 1;
 static int smoothHorizontal = 1;
 
 
-static void inline
-invert_bytes(unsigned char *dst, unsigned char *src, int bytes)
-{
-    while (bytes--)
-	*(dst++) = 0xff - *(src++);
-}
-
-
 #if 1
 
 /*
