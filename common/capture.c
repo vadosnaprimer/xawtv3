@@ -592,12 +592,12 @@ movie_print_timestamps(struct movie_handle *h)
 	    (int)(h->rts / 1000000000 % 60),
 	    (int)((h->rts % 1000000000) / 10000000),
 	    (h->rdrift > 0) ? '+' : '-',
-	    (int)((abs(h->rdrift) / 1000000000)),
-	    (int)((abs(h->rdrift) % 1000000000) / 10000000),
+	    (int)((h->rdrift / 1000000000)),
+	    (int)((h->rdrift % 1000000000) / 10000000),
 	    (int)(h->rdrift * h->fps / (uint64_t)1000000000000ULL),
 	    (h->vdrift > 0) ? '+' : '-',
-	    (int)((abs(h->vdrift) / 1000000000)),
-	    (int)((abs(h->vdrift) % 1000000000) / 10000000),
+	    (int)((h->vdrift / 1000000000)),
+	    (int)((h->vdrift % 1000000000) / 10000000),
 	    (int)(h->vdrift * h->fps / (uint64_t)1000000000000ULL));
     rec_status(line);
 }
