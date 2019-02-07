@@ -69,6 +69,7 @@ FOUND_OS="unknown"
 FOUND_X11="no"
 FOUND_GL="no"
 FOUND_ZVBI="no"
+FOUND_LIRC="no"
 LIBV4L="no"
 FOUND_EXPLAIN="no"
 
@@ -207,7 +208,7 @@ AC_SUBST(LIRC)
 LIRC=""
 if test "$enable_lirc" != "no"; then
     AC_CHECK_LIB(lirc_client, lirc_init,
-	AC_DEFINE(HAVE_LIBLIRC_CLIENT,1,"have lirc") LIRC="-llirc_client",,)
+	AC_DEFINE(HAVE_LIBLIRC_CLIENT,1,"have lirc") FOUND_LIRC="yes"; LIRC="-llirc_client",,)
 else
     echo "*** lirc disabled"
 fi
@@ -385,5 +386,6 @@ compile time options summary
     zvbi         : $FOUND_ZVBI
     libv4l       : $LIBV4L
     libexplain   : $FOUND_EXPLAIN
+    lirc         : $FOUND_LIRC
 
 EOF
