@@ -25,59 +25,59 @@ static struct lirc_config *config = NULL;
 
 static struct event_entry lirc_events[] = {
     {
-	event:  "lirc-key-ch+",
-	action: "setstation next",
+	.event =  "lirc-key-ch+",
+	.action = "setstation next",
     },{
-	event:  "lirc-key-ch-",
-	action: "setstation prev",
+	.event =  "lirc-key-ch-",
+	.action = "setstation prev",
     },{
-	event:  "lirc-key-vol+",
-	action: "volume inc",
+	.event =  "lirc-key-vol+",
+	.action = "volume inc",
     },{
-	event:  "lirc-key-vol-",
-	action: "volume dec",
+	.event =  "lirc-key-vol-",
+	.action = "volume dec",
     },{
-	event:  "lirc-key-mute",
-	action: "volume mute",
+	.event =  "lirc-key-mute",
+	.action = "volume mute",
     },{
-	event:  "lirc-key-full_screen",
-	action: "fullscreen toggle",
+	.event =  "lirc-key-full_screen",
+	.action = "fullscreen toggle",
     },{
-	event:  "lirc-key-source",
-	action: "setinput next",
+	.event =  "lirc-key-source",
+	.action = "setinput next",
     },{
-	event:  "lirc-key-reserved",
-	action: "quit",
+	.event =  "lirc-key-reserved",
+	.action = "quit",
     },{
-	event:  "lirc-key-0",
-	action: "keypad 0",
+	.event =  "lirc-key-0",
+	.action = "keypad 0",
     },{
-	event:  "lirc-key-1",
-	action: "keypad 1",
+	.event =  "lirc-key-1",
+	.action = "keypad 1",
     },{
-	event:  "lirc-key-2",
-	action: "keypad 2",
+	.event =  "lirc-key-2",
+	.action = "keypad 2",
     },{
-	event:  "lirc-key-3",
-	action: "keypad 3",
+	.event =  "lirc-key-3",
+	.action = "keypad 3",
     },{
-	event:  "lirc-key-4",
-	action: "keypad 4",
+	.event =  "lirc-key-4",
+	.action = "keypad 4",
     },{
-	event:  "lirc-key-5",
-	action: "keypad 5",
+	.event =  "lirc-key-5",
+	.action = "keypad 5",
     },{
-	event:  "lirc-key-6",
-	action: "keypad 6",
+	.event =  "lirc-key-6",
+	.action = "keypad 6",
     },{
-	event:  "lirc-key-7",
-	action: "keypad 7",
+	.event =  "lirc-key-7",
+	.action = "keypad 7",
     },{
-	event:  "lirc-key-8",
-	action: "keypad 8",
+	.event =  "lirc-key-8",
+	.action = "keypad 8",
     },{
-	event:  "lirc-key-9",
-	action: "keypad 9",
+	.event =  "lirc-key-9",
+	.action = "keypad 9",
     },{
 	/* end of list */
     }
