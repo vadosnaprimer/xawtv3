@@ -60,7 +60,7 @@ char	infochecksum;
 //ccdecode
 char    *ratings[] = {"(NOT RATED)","TV-Y","TV-Y7","TV-G","TV-PG","TV-14","TV-MA","(NOT RATED)"};
 int     rowdata[] = {11,-1,1,2,3,4,12,13,14,15,5,6,7,8,9,10};
-char	*specialchar[] = {"®","°","½","¿","(TM)","¢","£","o/~ ","à"," ","è","â","ê","î","ô","û"};
+char	*specialchar[] = {"\xae","\xb0","\xbd","\xbf","(TM)","\xa2","\xa3","o/~ ","\xe0"," ","\xe8","\xe2","\xea","\xee","\xf4","\xfb"};
 char	*modes[]={"current","future","channel","miscellaneous","public service","reserved","invalid","invalid","invalid","invalid"};
 int	lastcode;
 int	ccmode=1;		//cc1 or cc2
