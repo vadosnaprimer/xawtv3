@@ -34,7 +34,8 @@ X11_FLAGS	:= @X_CFLAGS@ @XFT_FLAGS@ -I/usr/include/X11/fonts
 LIB_FLAGS	:= -I. -I./vbistuff -I./x11 \
 		   -I$(srcdir)/jwz -I$(srcdir)/common -I$(srcdir)/console \
 		   -I$(srcdir)/x11 -I$(srcdir)/structs \
-		   -I$(srcdir)/libng -Llibng
+		   -I$(srcdir)/libng
+LD_FLAGS	:= -Llibng
 
 # various libraries
 ATHENA_LIBS	:= @X_LIBS@ @XFT_LIBS@ @LIBS@ @ATHENA@
