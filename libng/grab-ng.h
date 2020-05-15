@@ -481,9 +481,9 @@ void ng_color_yuv2rgb_init(void);
 void ng_writefile_init(void);
 
 /* for yuv2rgb using lookup tables (color_lut.c, color_yuv2rgb.c) */
-unsigned long   ng_lut_red[256];
-unsigned long   ng_lut_green[256];
-unsigned long   ng_lut_blue[256];
+extern unsigned long   ng_lut_red[256];
+extern unsigned long   ng_lut_green[256];
+extern unsigned long   ng_lut_blue[256];
 void ng_yuv422_to_lut2(unsigned char *dest, unsigned char *s, int p);
 void ng_yuv422_to_lut4(unsigned char *dest, unsigned char *s, int p);
 void ng_yuv420p_to_lut2(void *h, struct ng_video_buf *out,

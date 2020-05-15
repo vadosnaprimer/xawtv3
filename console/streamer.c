@@ -59,7 +59,7 @@ static int  quiet = 0, fps = 10000;
 
 static int  signaled = 0, wait_seconds = 0;
 
-int debug = 0, have_dga = 0;
+int have_dga = 0;
 
 /* ---------------------------------------------------------------------- */
 

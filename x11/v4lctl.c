@@ -26,7 +26,6 @@
 #include "frequencies.h"
 #include "commands.h"
 
-int debug = 0;
 int have_dga = 0;
 #ifdef HAVE_LIBXV
 Display *dpy;

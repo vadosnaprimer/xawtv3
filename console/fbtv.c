@@ -72,8 +72,7 @@ static struct ng_video_conv  *conv;
 static struct ng_convert_handle *ch;
 static int dx,dy;
 
-int have_config;
-int x11_native_format,have_dga=1,debug;
+int x11_native_format,have_dga=1;
 
 /*--- channels ------------------------------------------------------------*/
 

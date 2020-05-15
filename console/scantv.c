@@ -23,7 +23,6 @@
 
 #include "vbi-data.h"
 
-int debug = 0;
 int have_dga = 0;
 
 int timeout = 3;

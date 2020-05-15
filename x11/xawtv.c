@@ -82,11 +82,9 @@ Widget            chan_viewport, chan_box;
 Pixmap            tv_pix;
 struct vbi_window *vtx;
 
-int               have_config = 0;
 XtIntervalId      audio_timer;
 XtIntervalId      unmute_timer;
 int               unmute_pending = 0;
-int               debug = 0;
 int               window_configured = 0;
 
 char              modename[64];
