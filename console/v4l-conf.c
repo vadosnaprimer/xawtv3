@@ -141,20 +141,23 @@ dev_open(const char *device, int major)
 	exit(1);
     }
 
-    /* open & check v4l device */
+    /* First check if the device is really a devnode of the right type */
+    if (-1 == stat(device, &stb)) {
+	fprintf(stderr, "stat(%s): %s\n", device, strerror(errno));
+	exit(1);
+    }
+
+    if (!S_ISCHR(stb.st_mode) || (major(stb.st_rdev) != major)) {
+	fprintf(stderr, "%s: wrong device\n", device);
+	exit(1);
+    }
+
+    /* Then open it */
     if (-1 == (fd = open(device,O_RDWR))) {
 	fprintf(stderr, "can't open %s: %s\n", device, strerror(errno));
 	exit(1);
     }
 
-    if (-1 == fstat(fd,&stb)) {
-	fprintf(stderr, "fstat(%s): %s\n", device, strerror(errno));
-	exit(1);
-    }
-    if (!S_ISCHR(stb.st_mode) || (major(stb.st_rdev) != major)) {
-	fprintf(stderr, "%s: wrong device\n", device);
-	exit(1);
-    }
     return fd;
 }
 
