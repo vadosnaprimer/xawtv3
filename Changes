@@ -1,3 +1,9 @@
+3.107
+=====
+
+* Solve build issues with gcc 10.1
+* Check if file exists before opening it
+
 3.106
 =====
 
