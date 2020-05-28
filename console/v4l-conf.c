@@ -143,7 +143,7 @@ dev_open(const char *device, int major)
 
     /* First check if the device is really a devnode of the right type */
     if (-1 == stat(device, &stb)) {
-	fprintf(stderr, "stat(%s): %s\n", device, strerror(errno));
+	fprintf(stderr, "stat failed on %s\n", device);
 	exit(1);
     }
 
