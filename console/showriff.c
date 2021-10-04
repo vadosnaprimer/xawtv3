@@ -11,17 +11,25 @@
  *   - bytesex fixes
  */
 
-#include "config.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#ifdef __GNUC__
+#include <unistd.h>
+#include "config.h"
+#else
+#include <getopt.h>
+#endif
+
+#ifndef LITTLE_ENDIAN
+#define LITTLE_ENDIAN 1
+#define BYTE_ORDER LITTLE_ENDIAN
+#endif
 
 #if BYTE_ORDER == BIG_ENDIAN
 # define SWAP2(x) (((x>>8) & 0x00ff) |\
@@ -54,12 +62,14 @@ typedef uint8_t boolean;
 /* Macro to convert expressions of form 'F','O','U','R' to
    numbers of type FOURCC: */
 
+#ifndef MAKEFOURCC
 #if BYTE_ORDER == BIG_ENDIAN
 # define MAKEFOURCC(a,b,c,d) ((((DWORD)a)<<24) | (((DWORD)b)<<16) | \
 			      (((DWORD)c)<< 8) | ( (DWORD)d)      )
 #else
 # define MAKEFOURCC(a,b,c,d) ( ((DWORD)a)      | (((DWORD)b)<< 8) | \
 			      (((DWORD)c)<<16) | (((DWORD)d)<<24)  )
+#endif
 #endif
 
 /* The only FOURCCs interpreted by this program: */
